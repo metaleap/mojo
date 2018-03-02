@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"os"
-	"strings"
 
 	"github.com/go-leap/str"
 )
@@ -18,29 +17,33 @@ var (
 )
 
 func mainRepl() {
+	writeLn("mojo repl:")
+	writeLn("— directives are prefixed with `:`")
+	writeLn("— a line ending in `…` either begins\n  or ends a multi-line input")
+	writeLn("— enter any mojo definition or expression")
 	multiln, repl := "", bufio.NewScanner(os.Stdin)
 	for repl.Scan() {
-		if readln := strings.TrimSpace(repl.Text()); readln != "" {
-			if readln == "…" && multiln != "" {
-				readln, multiln = strings.TrimSpace(multiln), ""
+		if readln := ustr.Trim(repl.Text()); readln != "" {
+			if ustr.Suff(readln, "…") {
+				if multiln == "" {
+					multiln = readln[:len(readln)-len("…")] + "\n  "
+					continue
+				} else {
+					readln, multiln = ustr.Trim(multiln+readln[:len(readln)-len("…")]), ""
+				}
 			}
 			switch {
-			case strings.HasSuffix(readln, "…"):
-				multiln = readln[:len(readln)-len("…")] + "\n  "
 			case multiln != "":
 				multiln += readln + "\n  "
 			case readln[0] == ':':
-				directive, arg := ustr.BreakOnFirstOrSuff(readln[1:], " ")
-				if directive == "" {
-					directive, arg = arg, ""
-				}
+				directive, arg := ustr.BreakOnFirstOrPref(readln[1:], " ")
 				if do := replCommands[directive]; do != nil {
 					do(arg)
 				} else if directive == "q" {
 					writeLn("…and we're done.")
-					break
+					return
 				} else {
-					writeLn("unrecognized: `:" + directive + "` — try those: ")
+					writeLn("unknown directive: `:" + directive + "` — try: ")
 					writeLn("\t:q — quit")
 					writeLn("\t:m — go to given module")
 					writeLn("\t:i — info about given name")
@@ -58,18 +61,18 @@ func mainRepl() {
 	}
 }
 
-func onGotoMod(string) {
-	writeLn("mod-goto: to-do")
+func onGotoMod(arg string) {
+	writeLn("goes to module: " + arg)
 }
 
-func onKindInfo(string) {
-	writeLn("kind of to-do")
+func onKindInfo(arg string) {
+	writeLn("kind of: " + arg)
 }
 
-func onNameInfo(string) {
-	writeLn("info: to-do")
+func onNameInfo(arg string) {
+	writeLn("info for: " + arg)
 }
 
-func onTypeInfo(string) {
-	writeLn("typical: to-do")
+func onTypeInfo(arg string) {
+	writeLn("type of: " + arg)
 }

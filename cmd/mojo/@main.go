@@ -33,7 +33,7 @@ func main() {
 		writeLn("\tmojo run")
 		writeLn("\tmojo help")
 		writeLn("\tmojo version")
-		writeLn("\nDefaulting to `repl` while this project is WIP:")
+		writeLn("\ndefaulting to `repl`:\n\n")
 		mainRepl()
 	}
 }
