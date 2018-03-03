@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	replCommands = map[string]func(string){
+	replDirectives = map[string]func(string){
 		"i": onNameInfo,
 		"t": onTypeInfo,
 		"k": onKindInfo,
@@ -37,7 +37,7 @@ func mainRepl() {
 				multiln += readln + "\n  "
 			case readln[0] == ':':
 				directive, arg := ustr.BreakOnFirstOrPref(readln[1:], " ")
-				if do := replCommands[directive]; do != nil {
+				if do := replDirectives[directive]; do != nil {
 					do(arg)
 				} else if directive == "q" {
 					writeLn("…and we're done.")
