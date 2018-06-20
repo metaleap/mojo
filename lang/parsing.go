@@ -22,7 +22,7 @@ func errTok(tok *lex.Token, msg string) *Error {
 	return errPos(&tok.Meta.Position, msg, len(tok.String()))
 }
 
-func (me *Error) Error() string { return me.msg }
+func (this *Error) Error() string { return this.msg }
 
 type Keyword func(lex.Tokens) (IExpr, lex.Tokens, *Error)
 
