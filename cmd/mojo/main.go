@@ -6,7 +6,7 @@ import (
 	"github.com/metaleap/mojo"
 )
 
-var ctx mo.ICtx
+var ctx *mo.Ctx
 
 func writeLn(s string) { _, _ = os.Stdout.WriteString(s + "\n") }
 
@@ -15,11 +15,11 @@ func main() {
 		os.Args = append(os.Args, "")
 	}
 
-	moctx, err := mo.New(".")
+	var err error
+	ctx, err = mo.New(".", true)
 	if err != nil {
 		panic(err)
 	}
-	ctx = moctx
 
 	mocmd := os.Args[1]
 	switch mocmd {

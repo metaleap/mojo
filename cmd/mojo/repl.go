@@ -19,17 +19,17 @@ var (
 func mainRepl() {
 	writeLn("mojo repl:")
 	writeLn("— directives are prefixed with `:`")
-	writeLn("— a line ending in `…` either begins\n  or ends a multi-line input")
+	writeLn("— a line ending in `...` either begins\n  or ends a multi-line input")
 	writeLn("— enter any mojo definition or expression")
 	multiln, repl := "", bufio.NewScanner(os.Stdin)
 	for repl.Scan() {
 		if readln := ustr.Trim(repl.Text()); readln != "" {
-			if ustr.Suff(readln, "…") {
+			if ustr.Suff(readln, "...") {
 				if multiln == "" {
-					multiln = readln[:len(readln)-len("…")] + "\n  "
+					multiln = readln[:len(readln)-len("...")] + "\n  "
 					continue
 				} else {
-					readln, multiln = ustr.Trim(multiln+readln[:len(readln)-len("…")]), ""
+					readln, multiln = ustr.Trim(multiln+readln[:len(readln)-len("...")]), ""
 				}
 			}
 			switch {
@@ -40,7 +40,7 @@ func mainRepl() {
 				if do := replDirectives[directive]; do != nil {
 					do(arg)
 				} else if directive == "q" {
-					writeLn("…and we're done.")
+					writeLn("...and we're done.")
 					return
 				} else {
 					writeLn("unknown directive: `:" + directive + "` — try: ")

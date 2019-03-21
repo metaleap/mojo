@@ -1,18 +1,21 @@
 package mo
 
 import (
-	"fmt"
 	"path/filepath"
+
+	"github.com/go-leap/fs"
+	"github.com/go-leap/sys"
 )
 
-type ICtx interface {
-	DirPath() string
-	ReadEvalPrint(string) (fmt.Stringer, error)
-}
+func New(dirPath string, workDir bool) (ctx *Ctx, err error) {
+	if dirPath != "" {
+		if dirPath[0] == '~' && dirPath[1] == filepath.Separator {
+			dirPath = filepath.Join(usys.UserHomeDirPath(), dirPath[2:])
+		}
+		dirPath, err = filepath.Abs(dirPath)
+	}
+	if ctx = (&Ctx{Dir: dirPath}); err == nil && dirPath != "" && ufs.IsDir(dirPath) {
 
-func New(dirPath string) (mojoCtx ICtx, err error) {
-	if dirPath, err = filepath.Abs(dirPath); err == nil {
-		mojoCtx = &ctx{Dir: dirPath}
 	}
 	return
 }
