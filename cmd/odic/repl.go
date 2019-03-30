@@ -17,10 +17,10 @@ var (
 )
 
 func mainRepl() {
-	writeLn("mojo repl:")
+	writeLn("odic repl:")
 	writeLn("— directives are prefixed with `:`")
 	writeLn("— a line ending in `...` either begins\n  or ends a multi-line input")
-	writeLn("— enter any mojo definition or expression")
+	writeLn("— enter any odic definition or expression")
 	multiln, repl := "", bufio.NewScanner(os.Stdin)
 	for repl.Scan() {
 		if readln := ustr.Trim(repl.Text()); readln != "" {

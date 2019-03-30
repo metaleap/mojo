@@ -1,4 +1,4 @@
-package molang
+package odlang
 
 import (
 	lex "github.com/go-leap/dev/lex"

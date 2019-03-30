@@ -1,7 +1,6 @@
-package molang
+package odlang
 
 import (
-	"strings"
 	"text/scanner"
 
 	lex "github.com/go-leap/dev/lex"
@@ -9,36 +8,21 @@ import (
 )
 
 type Error struct {
-	msg      string
+	Msg      string
 	Pos      scanner.Position
 	RangeLen int
 }
 
 func errPos(pos *scanner.Position, msg string, rangeLen int) *Error {
-	return &Error{Pos: *pos, msg: msg, RangeLen: rangeLen}
+	return &Error{Pos: *pos, Msg: msg, RangeLen: rangeLen}
 }
 
 func errTok(tok *lex.Token, msg string) *Error {
 	return errPos(&tok.Meta.Position, msg, len(tok.String()))
 }
 
-func (this *Error) Error() string { return this.msg }
-
-type Keyword func(lex.Tokens) (IExpr, lex.Tokens, *Error)
-
-var keywords = map[string]Keyword{}
-
-func init() {
-	RegisterKeyword("LET", parseKeywordLet)
-	RegisterKeyword("CASE", parseKeywordCase)
-}
-
-func RegisterKeyword(triggerWord string, keyword Keyword) string {
-	if triggerWord = strings.ToUpper(strings.TrimSpace(triggerWord)); triggerWord != "" && keyword != nil && keywords[triggerWord] == nil {
-		keywords[triggerWord] = keyword
-		return triggerWord
-	}
-	return ""
+func (this *Error) Error() string {
+	return this.Pos.String() + ": " + this.Msg
 }
 
 func Lex(srcFilePath string, src string) (lex.Tokens, []*lex.Error) {
@@ -60,13 +44,6 @@ func LexAndParseDefs(srcFilePath string, src string) ([]*SynDef, []*Error) {
 
 func ParseDefs(srcFilePath string, tokens lex.Tokens) (defs []*SynDef, errs []*Error) {
 	defs, errs = parseDefs(tokens, true)
-	// for _, def := range defs {
-	// 	freevars := map[string]bool{}
-	// 	def.FreeVars(freevars, NewLookupEnv(defs, nil, nil, nil))
-	// 	for name := range freevars {
-	// 		errs = append(errs, errTok(&def.Toks()[0], "undefined: "+name))
-	// 	}
-	// }
 	for _, e := range errs {
 		e.Pos.Filename = srcFilePath
 	}
@@ -89,7 +66,7 @@ func parseDef(tokens lex.Tokens) (*SynDef, lex.Tokens, *Error) {
 	if tokens[0].Kind() != lex.TOKEN_IDENT {
 		return nil, nil, errTok(&tokens[0], "expected identifier instead of `"+tokens[0].String()+"`")
 	} else if len(tokens) == 1 {
-		return nil, nil, errTok(&tokens[0], tokens[0].Str+": expected argument name(s) or `=` next")
+		return nil, nil, errTok(&tokens[0], tokens[0].Str+": expected argument name(s) or `:=` next")
 	} else if len(tokens) == 2 {
 		return nil, nil, errTok(&tokens[1], tokens[0].Str+": expected definition body next")
 	}
@@ -102,25 +79,25 @@ func parseDef(tokens lex.Tokens) (*SynDef, lex.Tokens, *Error) {
 	i, def := 0, &SynDef{Name: tokens[0].Str}
 	def.init(toks)
 
-	// args up until `=`
+	// args up until `:=`
 	for inargs := true; inargs && i < len(toks); i++ {
-		if tkind := toks[i].Kind(); tkind == lex.TOKEN_OTHER && toks[i].Str == "=" {
+		if tkind := toks[i].Kind(); tkind == lex.TOKEN_OTHER && toks[i].Str == ":=" {
 			inargs = false
 		} else if tkind == lex.TOKEN_IDENT {
 			def.Args = append(def.Args, toks[i].Str)
 		} else {
-			return nil, tail, errTok(&toks[i], def.Name+": expected argument name or `=` instead of `"+toks[i].String()+"`")
+			return nil, tail, errTok(&toks[i], def.Name+": expected argument name or `:=` instead of `"+toks[i].String()+"`")
 		}
 	}
 
-	// body of definition after `=`
+	// body of definition after `:=`
 	bodytoks := toks[i:]
 	if len(bodytoks) == 0 {
 		return nil, tail, errTok(&toks[len(toks)-1], def.Name+": missing body of definition")
 	}
 	expr, exprerr := parseExpr(toks[i:])
 	if def.Body = expr; exprerr != nil {
-		exprerr.msg = def.Name + ": " + exprerr.msg
+		exprerr.Msg = def.Name + ": " + exprerr.Msg
 	}
 	return def, tail, exprerr
 }
@@ -158,7 +135,7 @@ func parseExpr(toks lex.Tokens) (IExpr, *Error) {
 			thistoks, toks, thisexpr = toks, nil, lam
 		}
 
-		if thisexpr == nil { // single-token cases: LIT or OP or IDENT/KEYWORD?
+		if thisexpr == nil { // single-token cases: LIT or OP or IDENT
 			switch toks[0].Kind() {
 			case lex.TOKEN_FLOAT:
 				thistoks, toks, thisexpr = toks[:1], toks[1:], Lf(toks[0].Float)
@@ -171,13 +148,7 @@ func parseExpr(toks lex.Tokens) (IExpr, *Error) {
 			case lex.TOKEN_OTHER: // any operator/separator/punctuation sequence other than "(" and ")"
 				thistoks, toks, thisexpr = toks[:1], toks[1:], Op(toks[0].Str, len(toks) == 1)
 			case lex.TOKEN_IDENT:
-				if keyword := keywords[toks[0].Str]; keyword == nil || len(toks) == 1 {
-					thistoks, toks, thisexpr = toks[:1], toks[1:], Id(toks[0].Str)
-				} else if kx, kt, ke := keyword(toks); ke != nil {
-					return nil, ke
-				} else {
-					thistoks, toks, thisexpr = toks[:len(toks)-len(kt)], kt, kx
-				}
+				thistoks, toks, thisexpr = toks[:1], toks[1:], Id(toks[0].Str)
 			}
 		}
 

@@ -1,4 +1,4 @@
-package mo
+package od
 
 type Proj struct {
 }
