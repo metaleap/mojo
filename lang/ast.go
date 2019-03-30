@@ -5,19 +5,14 @@ import (
 )
 
 type IAstNode interface {
-	Toks() udevlex.Tokens
+	Src() udevlex.Tokens
 }
 
 type astNode struct {
 	toks udevlex.Tokens
 }
 
-func (me *astNode) Toks() udevlex.Tokens { return me.toks }
-
-type AstFile struct {
-	astNode
-	Nodes []IAstNode
-}
+func (me *astNode) Src() udevlex.Tokens { return me.toks }
 
 type AstComments struct {
 	astNode

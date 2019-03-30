@@ -1,56 +1,84 @@
 package odlang
 
 import (
+	"bytes"
+	"io"
+	"io/ioutil"
+	"os"
 	"text/scanner"
 
-	lex "github.com/go-leap/dev/lex"
+	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
 )
 
 type Error struct {
-	Msg      string
-	Pos      scanner.Position
-	RangeLen int
+	Msg string
+	Pos scanner.Position
 }
 
-func errPos(pos *scanner.Position, msg string, rangeLen int) *Error {
-	return &Error{Pos: *pos, Msg: msg, RangeLen: rangeLen}
+func errPos(pos *scanner.Position, msg string) *Error {
+	return &Error{Pos: *pos, Msg: msg}
 }
 
-func errTok(tok *lex.Token, msg string) *Error {
-	return errPos(&tok.Meta.Position, msg, len(tok.String()))
+func errTok(tok *udevlex.Token, msg string) *Error {
+	return errPos(&tok.Meta.Position, msg)
 }
 
 func (this *Error) Error() string {
 	return this.Pos.String() + ": " + this.Msg
 }
 
-func Lex(srcFilePath string, src string) (lex.Tokens, []*lex.Error) {
-	return lex.Lex(srcFilePath, src, true, "(", ")")
+func (me *AstFile) LexAndParseFile(stdinFileNameIfNoSrcFilePathSet string) bool {
+	var src *os.File
+	me.errsReset()
+	if me.SrcFilePath != "" {
+		if src, me.Errors.Loading = os.Open(me.SrcFilePath); me.Errors.Loading == nil {
+			defer src.Close()
+		}
+	} else if stdinFileNameIfNoSrcFilePathSet != "" {
+		src = os.Stdin
+	}
+	return me.Errors.Loading == nil && src != nil && me.LexAndParseSrc(src)
 }
 
-func LexAndParseDefs(srcFilePath string, src string) ([]*SynDef, []*Error) {
-	toks, lexerrs := Lex(srcFilePath, src)
-	if len(lexerrs) == 0 {
-		return ParseDefs(srcFilePath, toks.SansComments())
-	}
+func (me *AstFile) LexAndParseSrc(r io.Reader) bool {
+	me.errsReset()
 
-	errs := make([]*Error, len(lexerrs))
-	for i, lexerr := range lexerrs {
-		errs[i] = errPos(&lexerr.Pos, lexerr.Error(), 0)
+	var src []byte
+	if src, me.Errors.Loading = ioutil.ReadAll(r); me.Errors.Loading == nil {
+		me.populateChunksFrom(src)
+		for i := range me.topLevelChunks {
+			if me.topLevelChunks[i].dirty {
+				me.topLevelChunks[i].toks, me.topLevelChunks[i].errs.lexing = udevlex.Lex(me.SrcFilePath, bytes.NewReader(me.topLevelChunks[i].src), true, me.topLevelChunks[i].offset.line, me.topLevelChunks[i].offset.pos, "(", ")")
+			}
+		}
+
 	}
-	return nil, errs
+	return me.Err() == nil
 }
 
-func ParseDefs(srcFilePath string, tokens lex.Tokens) (defs []*SynDef, errs []*Error) {
-	defs, errs = parseDefs(tokens, true)
-	for _, e := range errs {
-		e.Pos.Filename = srcFilePath
+func (me *AstFile) parse() {
+	// if len(me.Errors.Lexing) > 0 {
+	// 	return
+	// }
+	// me.Errors.Parsing, me.Nodes = me.Errors.Parsing[0:0], me.Nodes[0:0]
+	toplevelchunks := me.toks.IndentBasedChunks(0)
+	for _, tlc := range toplevelchunks {
+		println(len(tlc))
+		println("\n" + tlc.String() + "\n")
 	}
+	// for i := range me.Errors.Parsing {
+	// 	me.Errors.Parsing[i].Pos.Filename = me.SrcFilePath
+	// }
+}
+
+// OLD
+
+func parseNodes(tokens udevlex.Tokens, topLevel bool) (nodes []IAstNode, errs []*Error) {
 	return
 }
 
-func parseDefs(tokens lex.Tokens, topLevel bool) (defs []*SynDef, errs []*Error) {
+func parseDefs(tokens udevlex.Tokens, topLevel bool) (defs []*SynDef, errs []*Error) {
 	for len(tokens) > 0 {
 		def, tail, deferr := parseDef(tokens)
 		if tokens = tail; deferr != nil {
@@ -62,8 +90,8 @@ func parseDefs(tokens lex.Tokens, topLevel bool) (defs []*SynDef, errs []*Error)
 	return
 }
 
-func parseDef(tokens lex.Tokens) (*SynDef, lex.Tokens, *Error) {
-	if tokens[0].Kind() != lex.TOKEN_IDENT {
+func parseDef(tokens udevlex.Tokens) (*SynDef, udevlex.Tokens, *Error) {
+	if tokens[0].Kind() != udevlex.TOKEN_IDENT {
 		return nil, nil, errTok(&tokens[0], "expected identifier instead of `"+tokens[0].String()+"`")
 	} else if len(tokens) == 1 {
 		return nil, nil, errTok(&tokens[0], tokens[0].Str+": expected argument name(s) or `:=` next")
@@ -81,9 +109,9 @@ func parseDef(tokens lex.Tokens) (*SynDef, lex.Tokens, *Error) {
 
 	// args up until `:=`
 	for inargs := true; inargs && i < len(toks); i++ {
-		if tkind := toks[i].Kind(); tkind == lex.TOKEN_OTHER && toks[i].Str == ":=" {
+		if tkind := toks[i].Kind(); tkind == udevlex.TOKEN_OTHER && toks[i].Str == ":=" {
 			inargs = false
-		} else if tkind == lex.TOKEN_IDENT {
+		} else if tkind == udevlex.TOKEN_IDENT {
 			def.Args = append(def.Args, toks[i].Str)
 		} else {
 			return nil, tail, errTok(&toks[i], def.Name+": expected argument name or `:=` instead of `"+toks[i].String()+"`")
@@ -102,15 +130,15 @@ func parseDef(tokens lex.Tokens) (*SynDef, lex.Tokens, *Error) {
 	return def, tail, exprerr
 }
 
-func parseExpr(toks lex.Tokens) (IExpr, *Error) {
+func parseExpr(toks udevlex.Tokens) (IExpr, *Error) {
 	var prevexpr IExpr
 
 	for len(toks) > 0 {
 		var thisexpr IExpr
-		var thistoks lex.Tokens // always set together with thisexpr
+		var thistoks udevlex.Tokens // always set together with thisexpr
 
 		// LAMBDA?
-		if toks[0].Kind() == lex.TOKEN_OTHER && toks[0].Str == "\\" {
+		if toks[0].Kind() == udevlex.TOKEN_OTHER && toks[0].Str == "\\" {
 			if toks = toks[1:]; len(toks) == 0 {
 				return nil, errTok(&toks[0], "expected complete lambda abstraction")
 			}
@@ -122,7 +150,7 @@ func parseExpr(toks lex.Tokens) (IExpr, *Error) {
 			}
 			lam := Ab(nil, nil)
 			for i := 0; i < len(lamargs); i++ {
-				if lamargs[i].Kind() == lex.TOKEN_IDENT {
+				if lamargs[i].Kind() == udevlex.TOKEN_IDENT {
 					lam.Args = append(lam.Args, lamargs[i].Str)
 				} else {
 					return nil, errTok(&lamargs[i], "expected `->` or identifier for lambda argument instead of `"+lamargs[i].String()+"`")
@@ -137,23 +165,23 @@ func parseExpr(toks lex.Tokens) (IExpr, *Error) {
 
 		if thisexpr == nil { // single-token cases: LIT or OP or IDENT
 			switch toks[0].Kind() {
-			case lex.TOKEN_FLOAT:
+			case udevlex.TOKEN_FLOAT:
 				thistoks, toks, thisexpr = toks[:1], toks[1:], Lf(toks[0].Float)
-			case lex.TOKEN_UINT:
+			case udevlex.TOKEN_UINT:
 				thistoks, toks, thisexpr = toks[:1], toks[1:], Lu(toks[0].Uint, toks[0].UintBase())
-			case lex.TOKEN_RUNE:
+			case udevlex.TOKEN_RUNE:
 				thistoks, toks, thisexpr = toks[:1], toks[1:], Lr(toks[0].Rune())
-			case lex.TOKEN_STR:
+			case udevlex.TOKEN_STR:
 				thistoks, toks, thisexpr = toks[:1], toks[1:], Lt(toks[0].Str)
-			case lex.TOKEN_OTHER: // any operator/separator/punctuation sequence other than "(" and ")"
+			case udevlex.TOKEN_OTHER: // any operator/separator/punctuation sequence other than "(" and ")"
 				thistoks, toks, thisexpr = toks[:1], toks[1:], Op(toks[0].Str, len(toks) == 1)
-			case lex.TOKEN_IDENT:
+			case udevlex.TOKEN_IDENT:
 				thistoks, toks, thisexpr = toks[:1], toks[1:], Id(toks[0].Str)
 			}
 		}
 
 		if thisexpr == nil { // PARENSED SUB-EXPR?
-			if toks[0].Kind() == lex.TOKEN_SEP && toks[0].Str == "(" {
+			if toks[0].Kind() == udevlex.TOKEN_SEP && toks[0].Str == "(" {
 				sub, subtail, numunclosed := toks.Sub("(", ")")
 				if numunclosed != 0 {
 					return nil, errTok(&toks[0], "unclosed parentheses in current indent level")
@@ -199,10 +227,10 @@ func parseExpr(toks lex.Tokens) (IExpr, *Error) {
 	return prevexpr, nil
 }
 
-func parseKeywordLet(tokens lex.Tokens) (IExpr, lex.Tokens, *Error) {
+func parseKeywordLet(tokens udevlex.Tokens) (IExpr, udevlex.Tokens, *Error) {
 	isrec, toks := false, tokens[1:] // tokens[0] is `LET` keyword itself
 
-	if toks[0].Kind() == lex.TOKEN_IDENT && toks[0].Str == "REC" {
+	if toks[0].Kind() == udevlex.TOKEN_IDENT && toks[0].Str == "REC" {
 		isrec, toks = true, toks[1:]
 	}
 
@@ -235,7 +263,7 @@ func parseKeywordLet(tokens lex.Tokens) (IExpr, lex.Tokens, *Error) {
 	return letin, nil, nil
 }
 
-func parseKeywordCase(tokens lex.Tokens) (IExpr, lex.Tokens, *Error) {
+func parseKeywordCase(tokens udevlex.Tokens) (IExpr, udevlex.Tokens, *Error) {
 	toks := tokens[1:] // tokens[0] is `CASE` keyword itself
 
 	scruttoks, altstoks, numunclosed := toks.BreakOnIdent("OF", "CASE")
@@ -266,7 +294,7 @@ func parseKeywordCase(tokens lex.Tokens) (IExpr, lex.Tokens, *Error) {
 	return caseof, nil, nil
 }
 
-func parseKeywordCaseAlts(tokens lex.Tokens) (alts []*SynCaseAlt, errs []*Error) {
+func parseKeywordCaseAlts(tokens udevlex.Tokens) (alts []*SynCaseAlt, errs []*Error) {
 	for len(tokens) > 0 {
 		alt, tail, alterr := parseKeywordCaseAlt(tokens)
 		if tokens = tail; alterr != nil {
@@ -278,8 +306,8 @@ func parseKeywordCaseAlts(tokens lex.Tokens) (alts []*SynCaseAlt, errs []*Error)
 	return
 }
 
-func parseKeywordCaseAlt(tokens lex.Tokens) (*SynCaseAlt, lex.Tokens, *Error) {
-	if tokens[0].Kind() != lex.TOKEN_IDENT {
+func parseKeywordCaseAlt(tokens udevlex.Tokens) (*SynCaseAlt, udevlex.Tokens, *Error) {
+	if tokens[0].Kind() != udevlex.TOKEN_IDENT {
 		return nil, nil, errTok(&tokens[0], "expected constructor tag instead of `"+tokens[0].String()+"`")
 	} else if len(tokens) == 1 {
 		return nil, nil, errTok(&tokens[0], "expected name(s) or `->` next")
@@ -297,9 +325,9 @@ func parseKeywordCaseAlt(tokens lex.Tokens) (*SynCaseAlt, lex.Tokens, *Error) {
 
 	// binds up until `->`
 	for inbinds := true; inbinds && i < len(toks); i++ {
-		if tkind := toks[i].Kind(); tkind == lex.TOKEN_OTHER && toks[i].Str == "->" {
+		if tkind := toks[i].Kind(); tkind == udevlex.TOKEN_OTHER && toks[i].Str == "->" {
 			inbinds = false
-		} else if tkind == lex.TOKEN_IDENT {
+		} else if tkind == udevlex.TOKEN_IDENT {
 			alt.Binds = append(alt.Binds, toks[i].Str)
 		} else {
 			return nil, nil, errTok(&toks[i], "expected identifier or `->` instead of `"+toks[i].String()+"`")
