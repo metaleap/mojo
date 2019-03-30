@@ -52,7 +52,7 @@ list rest :=
 
 
 list first, list must != Empty :=
-    list    ? Link first rest : first
+    list ? Link first rest : first
 
 
 x pow y :=

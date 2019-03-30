@@ -3,17 +3,27 @@ package main
 import (
 	"os"
 
+	"github.com/go-leap/dev/lex"
 	"github.com/metaleap/odic/lang"
 )
 
 func mainFmt() {
 	var err error
 	var astfile odlang.AstFile
+
 	if len(os.Args) > 2 {
 		astfile.SrcFilePath = os.Args[2]
 	}
+	udevlex.RestrictedWhitespaceRewriter = func(char rune) int {
+		if char == '\t' || char == '\v' {
+			return 4
+		}
+		return 1
+	}
 	if !astfile.LexAndParseFile("<stdin>") {
-		err = astfile.Err()
+		for _, e := range astfile.Errs() {
+			println(e.Error())
+		}
 	} else {
 		writeLn("\n\n" + astfile.Src().String() + "\n\n")
 	}

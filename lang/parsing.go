@@ -11,6 +11,10 @@ import (
 	"github.com/go-leap/str"
 )
 
+func init() {
+	udevlex.RestrictedWhitespace, udevlex.StandaloneSeps = true, []string{"(", ")"}
+}
+
 type Error struct {
 	Msg string
 	Pos scanner.Position
@@ -30,43 +34,43 @@ func (this *Error) Error() string {
 
 func (me *AstFile) LexAndParseFile(stdinFileNameIfNoSrcFilePathSet string) bool {
 	var src *os.File
-	me.errsReset()
-	if me.SrcFilePath != "" {
-		if src, me.Errors.Loading = os.Open(me.SrcFilePath); me.Errors.Loading == nil {
+	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
+		if src, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
 			defer src.Close()
 		}
 	} else if stdinFileNameIfNoSrcFilePathSet != "" {
 		src = os.Stdin
 	}
-	return me.Errors.Loading == nil && src != nil && me.LexAndParseSrc(src)
+	return me.errs.loading == nil && src != nil && me.LexAndParseSrc(src)
 }
 
 func (me *AstFile) LexAndParseSrc(r io.Reader) bool {
-	me.errsReset()
-
 	var src []byte
-	if src, me.Errors.Loading = ioutil.ReadAll(r); me.Errors.Loading == nil {
+	if src, me.errs.loading = ioutil.ReadAll(r); me.errs.loading == nil {
 		me.populateChunksFrom(src)
 		for i := range me.topLevelChunks {
-			if me.topLevelChunks[i].dirty {
-				me.topLevelChunks[i].toks, me.topLevelChunks[i].errs.lexing = udevlex.Lex(me.SrcFilePath, bytes.NewReader(me.topLevelChunks[i].src), true, me.topLevelChunks[i].offset.line, me.topLevelChunks[i].offset.pos, "(", ")")
+			if tlc := &me.topLevelChunks[i]; tlc.dirty {
+				tlc.toks, tlc.errs.lexing =
+					udevlex.Lex(me.SrcFilePath, bytes.NewReader(tlc.src), tlc.offset.line, tlc.offset.pos, len(tlc.src)/6)
+				if len(tlc.errs.lexing) == 0 {
+					me.parse(i)
+				}
 			}
 		}
-
 	}
 	return me.Err() == nil
 }
 
-func (me *AstFile) parse() {
+func (me *AstFile) parse(tlcIdx int) {
 	// if len(me.Errors.Lexing) > 0 {
 	// 	return
 	// }
 	// me.Errors.Parsing, me.Nodes = me.Errors.Parsing[0:0], me.Nodes[0:0]
-	toplevelchunks := me.toks.IndentBasedChunks(0)
-	for _, tlc := range toplevelchunks {
-		println(len(tlc))
-		println("\n" + tlc.String() + "\n")
-	}
+	// toplevelchunks := me.toks.IndentBasedChunks(0)
+	// for _, tlc := range toplevelchunks {
+	// 	println(len(tlc))
+	// 	println("\n" + tlc.String() + "\n")
+	// }
 	// for i := range me.Errors.Parsing {
 	// 	me.Errors.Parsing[i].Pos.Filename = me.SrcFilePath
 	// }
