@@ -17,11 +17,22 @@ func (me *astNode) self() *astNode      { return me }
 func (me *astNode) Src() udevlex.Tokens { return me.toks }
 
 type AstTopLevel struct {
-	nodes []IAstNode
+	astNode
+	comments []*AstComment
+	defType  *AstDefType
+	defFunc  *AstDefFunc
 }
 
 type AstComment struct {
 	astNode
 	Text           string
 	SelfTerminates bool
+}
+
+type AstDefType struct {
+	astNode
+}
+
+type AstDefFunc struct {
+	astNode
 }

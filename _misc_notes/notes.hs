@@ -4,9 +4,7 @@ any Maybe   := No | Ok: any
 // -- equivalent to Haskell's Either
 // -- second comment line just to have one
 dis Or dat  :=  This: dis
-// -- not so nice but must be legal
             |   That: dat
-// -- hrm
 
 any OrErr   :=  Ret any
             |   Err: msg: Text
@@ -39,6 +37,8 @@ User        :=  name: Txt
 
 
 
+/* -- freestanding comment */
+
 
 
 check must cmp arg val :=
@@ -46,8 +46,6 @@ check must cmp arg val :=
                         | False : Err msg="must on $T$val not satisfied: $check $cmp $arg"
     // -- (val check) cmp arg && val
     // --                     || Err msg="must on $T$val not satisfied: $check $cmp $arg"
-
-
 
 
 

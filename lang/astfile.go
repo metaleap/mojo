@@ -20,7 +20,7 @@ type astFileTokenChunk struct {
 	dirty bool
 	errs  struct {
 		lexing  []*udevlex.Error
-		parsing []*Error
+		parsing *Error
 	}
 	topLevel AstTopLevel
 }
@@ -46,18 +46,28 @@ func (me *AstFile) populateChunksFrom(src []byte) {
 	}
 	tlchunks := make([]tlc, 0, 16)
 
-	var newline bool
+	var newline, iscomment, wascomment bool
 	var curline int
 	var lastpos, lastln int
 	for i := range src {
 		if src[i] == '\n' {
-			newline, curline = true, curline+1
+			wascomment, iscomment, newline, curline = iscomment, false, true, curline+1
 		} else if i > 0 {
-			if newline && i > 1 && src[i] != ' ' && src[i-2] == '\n' {
-				tlchunks = append(tlchunks, tlc{src: src[lastpos:i], pos: lastpos, line: lastln})
-				lastpos, lastln = i, curline
+			if newline {
+				if src[i] != ' ' {
+					iscomment = src[i] == '/' && i < (len(src)-1) && src[i+1] == '/'
+					if (!(iscomment && wascomment)) &&
+						!(src[i] != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n')) {
+						tlchunks = append(tlchunks, tlc{src: src[lastpos:i], pos: lastpos, line: lastln})
+						lastpos, lastln = i, curline
+					}
+					// if src[i] != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n') {
+					// } else if iscomment && wascomment {
+					// } else {
+					// }
+				}
+				newline = false
 			}
-			newline = false
 		}
 	}
 	if lastpos < (len(src) - 1) {
@@ -105,7 +115,8 @@ func (me *AstFile) Err() error {
 		for _, e := range me.topLevelChunks[i].errs.lexing {
 			return e
 		}
-		for _, e := range me.topLevelChunks[i].errs.parsing {
+		if e := me.topLevelChunks[i].errs.parsing; e != nil {
+			// for _, e := range me.topLevelChunks[i].errs.parsing {
 			return e
 		}
 	}
@@ -121,7 +132,8 @@ func (me *AstFile) Errs() []error {
 			for _, e := range me.topLevelChunks[i].errs.lexing {
 				me._errs = append(me._errs, e)
 			}
-			for _, e := range me.topLevelChunks[i].errs.parsing {
+			if e := me.topLevelChunks[i].errs.parsing; e != nil {
+				// for _, e := range me.topLevelChunks[i].errs.parsing {
 				me._errs = append(me._errs, e)
 			}
 		}
