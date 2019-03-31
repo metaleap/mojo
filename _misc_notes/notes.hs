@@ -12,7 +12,7 @@ any OrErr   :=  Ret any
 t List      :=  Empty
             |   Link: t & t List
 
-t MinList   := t List, self must != Empty
+t MinList   := t List, val must != Empty
 
 Txt         := Text, trim, len must > 3
 
@@ -48,6 +48,12 @@ check must cmp arg val :=
     // --                     || Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
+
+// -- id
+any val := any
+
+// -- const
+any use drop := any
 
 list rest :=
     list    ? Link first rest :   rest

@@ -4,7 +4,20 @@ import (
 	"text/scanner"
 
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 )
+
+type ApplStyle int
+
+const (
+	APPLSTYLE_SVO ApplStyle = iota
+	APPLSTYLE_VSO
+	APPLSTYLE_SOV
+)
+
+var Config struct {
+	ApplStyle ApplStyle
+}
 
 func init() {
 	udevlex.RestrictedWhitespace, udevlex.StandaloneSeps = true, []string{"(", ")"}
@@ -13,14 +26,11 @@ func init() {
 type Error struct {
 	Msg string
 	Pos scanner.Position
+	Len int
 }
 
-func errPos(pos *scanner.Position, msg string) *Error {
-	return &Error{Pos: *pos, Msg: msg}
-}
-
-func errTok(tok *udevlex.Token, msg string) *Error {
-	return errPos(&tok.Meta.Position, msg)
+func errAt(tok *udevlex.Token, msg string) *Error {
+	return &Error{Msg: msg, Pos: tok.Meta.Position, Len: len(tok.Meta.Orig)}
 }
 
 func (this *Error) Error() string {
@@ -47,7 +57,7 @@ func (me *AstFile) parse(tlcIdx int) {
 
 func parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstComment, rest udevlex.Tokens) {
 	for len(toks) > 0 && toks[0].Kind() == udevlex.TOKEN_COMMENT {
-		comment := AstComment{Text: toks[0].Str, SelfTerminates: toks[0].IsCommentSelfTerminating()}
+		comment := AstComment{ContentText: toks[0].Str, SelfTerminates: toks[0].IsCommentSelfTerminating()}
 		comment.toks = toks[0:1]
 		toks, ret = toks[1:], append(ret, &comment)
 	}
@@ -55,12 +65,38 @@ func parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstComment, rest 
 	return
 }
 
-func parseTopLevelDefinition(toks udevlex.Tokens) (def IAstNode, err *Error) {
+func parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstNode, err *Error) {
+	var comments map[*udevlex.Token][]int
+	toks := tokens
+	if toks.HasKind(udevlex.TOKEN_COMMENT) {
+		comments = make(map[*udevlex.Token][]int)
+		toks = toks.SansComments(comments)
+	}
 	head, body := toks.BreakOnOther(":=")
 	if len(body) == 0 {
-		err = errTok(&toks[0], "missing: definition body following `:=`")
+		err = errAt(&tokens[0], "missing: definition body following `:=`")
 	} else if len(head) == 0 {
-		err = errTok(&toks[0], "missing: definition name preceding `:=`")
+		err = errAt(&tokens[0], "missing: definition name preceding `:=`")
+	} else if headmain, _ := head.BreakOnOther(","); len(headmain) == 0 {
+		err = errAt(&tokens[0], "missing: definition name preceding `,`")
+	} else {
+		var namepos int
+		if len(headmain) > 1 {
+			if Config.ApplStyle == APPLSTYLE_SVO {
+				namepos = 1
+			} else if Config.ApplStyle == APPLSTYLE_SOV {
+				namepos = len(headmain) - 1
+			}
+		}
+		defbase := astDefBase{Name: headmain[namepos].Str}
+		for i := range headmain {
+			if k, isarg := headmain[i].Kind(), i != namepos; k != udevlex.TOKEN_IDENT && (k != udevlex.TOKEN_OTHER || isarg) {
+				err = errAt(&headmain[i], "not a valid "+ustr.If(isarg, "argument", "definition")+" name")
+				return
+			} else if isarg {
+				defbase.Args = append(defbase.Args, headmain[i].Str)
+			}
+		}
 	}
 	return
 }

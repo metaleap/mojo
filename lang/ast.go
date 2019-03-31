@@ -19,20 +19,29 @@ func (me *astNode) Src() udevlex.Tokens { return me.toks }
 type AstTopLevel struct {
 	astNode
 	comments []*AstComment
-	defType  *AstDefType
-	defFunc  *AstDefFunc
+
+	// either one or both nil:
+	defType *AstDefType
+	defFunc *AstDefFunc
 }
 
 type AstComment struct {
 	astNode
-	Text           string
-	SelfTerminates bool
+	ContentText    string
+	SelfTerminates bool // if comment is of /**/ form
+}
+
+type astDefBase struct {
+	Name string
+	Args []string
 }
 
 type AstDefType struct {
 	astNode
+	astDefBase
 }
 
 type AstDefFunc struct {
 	astNode
+	astDefBase
 }
