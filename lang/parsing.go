@@ -97,6 +97,11 @@ func parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstNode, err *Error) {
 				defbase.Args = append(defbase.Args, headmain[i].Str)
 			}
 		}
+		if ustr.BeginsUpper(defbase.Name) {
+			def = &AstDefType{astDefBase: defbase, astNode: astNode{toks: tokens}}
+		} else {
+			def = &AstDefFunc{astDefBase: defbase, astNode: astNode{toks: tokens}}
+		}
 	}
 	return
 }
