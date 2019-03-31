@@ -5,6 +5,7 @@ import (
 )
 
 type IAstNode interface {
+	self() *astNode
 	Src() udevlex.Tokens
 }
 
@@ -12,8 +13,15 @@ type astNode struct {
 	toks udevlex.Tokens
 }
 
+func (me *astNode) self() *astNode      { return me }
 func (me *astNode) Src() udevlex.Tokens { return me.toks }
 
-type AstComments struct {
+type AstTopLevel struct {
+	nodes []IAstNode
+}
+
+type AstComment struct {
 	astNode
+	Text           string
+	SelfTerminates bool
 }

@@ -2,6 +2,10 @@ package odlang
 
 import (
 	"bytes"
+	"io"
+	"io/ioutil"
+	"os"
+	"time"
 
 	"github.com/go-leap/dev/lex"
 )
@@ -9,16 +13,16 @@ import (
 type astFileTokenChunk struct {
 	src    []byte
 	toks   udevlex.Tokens
-	node   IAstNode
-	dirty  bool
 	offset struct {
 		line int
 		pos  int
 	}
-	errs struct {
+	dirty bool
+	errs  struct {
 		lexing  []*udevlex.Error
 		parsing []*Error
 	}
+	topLevel AstTopLevel
 }
 
 type AstFile struct {
@@ -26,9 +30,9 @@ type AstFile struct {
 	errs           struct {
 		loading error
 	}
+	lastLoadTime int64
 
 	SrcFilePath string
-	Nodes       []IAstNode
 
 	_src  udevlex.Tokens
 	_errs []error
@@ -130,7 +134,45 @@ func (me *AstFile) Src() udevlex.Tokens {
 		me._src = make(udevlex.Tokens, 0, len(me.topLevelChunks)*16)
 		for i := range me.topLevelChunks {
 			me._src = append(me._src, me.topLevelChunks[i].toks...)
+			me._src = append(me._src, udevlex.Token{Meta: udevlex.TokenMeta{Orig: "...\n|\n|\n|\n|\n"}})
 		}
 	}
 	return me._src
+}
+
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinFileNameIfNoSrcFilePathSet string) {
+	if me.SrcFilePath != "" && onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
+		if file, e := os.Stat(me.SrcFilePath); e == nil && me.lastLoadTime > file.ModTime().UnixNano() {
+			return
+		}
+	}
+
+	var src *os.File
+	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
+		if src, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
+			defer src.Close()
+		}
+	} else if stdinFileNameIfNoSrcFilePathSet != "" {
+		src = os.Stdin
+	}
+	if me.errs.loading == nil && src != nil {
+		me.LexAndParseSrc(src)
+	}
+}
+
+func (me *AstFile) LexAndParseSrc(r io.Reader) {
+	var src []byte
+	if src, me.errs.loading = ioutil.ReadAll(r); me.errs.loading == nil {
+		me.lastLoadTime = time.Now().UnixNano()
+		me.populateChunksFrom(src)
+		for i := range me.topLevelChunks {
+			if tlc := &me.topLevelChunks[i]; tlc.dirty {
+				tlc.toks, tlc.errs.lexing =
+					udevlex.Lex(me.SrcFilePath, bytes.NewReader(tlc.src), tlc.offset.line, tlc.offset.pos, len(tlc.src)/6)
+				if len(tlc.errs.lexing) == 0 {
+					me.parse(i)
+				}
+			}
+		}
+	}
 }

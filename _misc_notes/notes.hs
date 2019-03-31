@@ -1,11 +1,14 @@
 // -- option type
 any Maybe   := No | Ok: any
 
-// -- Either
+// -- equivalent to Haskell's Either
+// -- second comment line just to have one
 dis Or dat  :=  This: dis
+// -- not so nice but must be legal
             |   That: dat
+// -- hrm
 
-any OrFail  :=  Ret any
+any OrErr   :=  Ret any
             |   Err: msg: Text
 
 t List      :=  Empty
@@ -18,7 +21,9 @@ Txt         := Text, trim, len must > 3
 Name        := FirstLast: Txt & Txt
 
 Address     := Addr:    street_HouseNo  : (Txt & Text, trim, len must > 0)
-                    &   zip_City        : (Txt & Txt)
+                    &   zip_City        : (Txt & Txt)   /*
+                    &   foo             : bar
+                    &   moo             : baz           */
                     &   country         : Txt
 
 PhoneNo     := Txt

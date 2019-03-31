@@ -20,8 +20,10 @@ func mainFmt() {
 		}
 		return 1
 	}
-	if !astfile.LexAndParseFile("<stdin>") {
-		for _, e := range astfile.Errs() {
+
+	astfile.LexAndParseFile(false, "<stdin>")
+	if errs := astfile.Errs(); len(errs) > 0 {
+		for _, e := range errs {
 			println(e.Error())
 		}
 	} else {
