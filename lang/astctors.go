@@ -10,14 +10,26 @@ func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
 	return &this
 }
 
-func (me *AstDefBase) newIdent(torig udevlex.Tokens, ttmp udevlex.Tokens, at int, mtc mapTokCmnts, mti mapTokOldIdxs) {
+func (me *AstDefBase) ensureArgsLen(l int) {
+	if ol := len(me.Args); ol > l {
+		me.Args = me.Args[:l]
+	} else if ol < l {
+		me.Args = make([]AstIdent, l)
+	}
+}
+
+func (me *AstDefBase) newIdent(arg int, torig udevlex.Tokens, ttmp udevlex.Tokens, at int, mtc mapTokCmnts, mti mapTokOldIdxs) {
+	this := &me.Name
+	if arg > -1 {
+		this = &me.Args[arg]
+	}
 	if mti != nil {
 		at = mti[&ttmp[at]]
 	}
-	me.Name.AstBaseTokens.Tokens = torig[at : at+1]
+	this.AstBaseTokens.Tokens = torig[at : at+1]
 	if mtc != nil {
 		for _, ci := range mtc[&torig[at]] {
-			me.Name.Comments = append(me.Name.Comments, newAstComment(torig, ci))
+			this.Comments = append(this.Comments, newAstComment(torig, ci))
 		}
 	}
 }

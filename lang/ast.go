@@ -45,7 +45,7 @@ type AstDefBase struct {
 	AstBaseTokens
 
 	Name AstIdent
-	Args []string
+	Args []AstIdent
 }
 
 type AstDefType struct {

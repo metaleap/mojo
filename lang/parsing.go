@@ -100,14 +100,15 @@ func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def interface
 			def, defbase = &deffunc, &deffunc.AstDefBase
 		}
 		defbase.Tokens = tokens
-		defbase.newIdent(tokens, headmain, namepos, mtokcmnts, mtokoldidxs)
+		defbase.newIdent(-1, tokens, headmain, namepos, mtokcmnts, mtokoldidxs)
+		defbase.ensureArgsLen(len(headmain) - 1)
 
-		for i := range headmain {
+		for i, a := 0, 0; i < len(headmain); i, a = i+1, a+1 {
 			if k, isarg := headmain[i].Kind(), i != namepos; k != udevlex.TOKEN_IDENT && (k != udevlex.TOKEN_OTHER || isarg) {
-				def, err = nil, errAt(&headmain[i], "not a valid "+ustr.If(isarg, "argument", "definition")+" name")
+				a, def, err = a-1, nil, errAt(&headmain[i], "not a valid "+ustr.If(isarg, "argument", "definition")+" name")
 				return
 			} else if isarg {
-				defbase.Args = append(defbase.Args, headmain[i].Str)
+				defbase.newIdent(a, tokens, headmain, i, mtokcmnts, mtokoldidxs)
 			}
 		}
 	}
