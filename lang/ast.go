@@ -2,46 +2,56 @@ package odlang
 
 import (
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 )
 
-type IAstNode interface {
-	self() *astNode
-	Src() udevlex.Tokens
+type AstBaseComments struct {
+	Comments []*AstComment
 }
 
-type astNode struct {
-	toks udevlex.Tokens
+type AstBaseTokens struct {
+	Tokens udevlex.Tokens
 }
 
-func (me *astNode) self() *astNode      { return me }
-func (me *astNode) Src() udevlex.Tokens { return me.toks }
+func (me *AstBaseTokens) self() *AstBaseTokens { return me }
 
 type AstTopLevel struct {
-	astNode
-	comments []*AstComment
+	AstBaseTokens
+	AstBaseComments
 
 	// either one or both nil:
-	defType *AstDefType
-	defFunc *AstDefFunc
+	DefType *AstDefType
+	DefFunc *AstDefFunc
 }
 
 type AstComment struct {
-	astNode
-	ContentText    string
-	SelfTerminates bool // if comment is of /**/ form
+	AstBaseTokens
 }
 
-type astDefBase struct {
-	Name string
+func (me *AstComment) ContentText() string     { return me.Tokens[0].Str }
+func (me *AstComment) IsSelfTerminating() bool { return me.Tokens[0].IsCommentSelfTerminating() }
+
+type AstIdent struct {
+	AstBaseTokens
+	AstBaseComments
+}
+
+func (me *AstIdent) BeginsLower() bool { return ustr.BeginsLower(me.Tokens[0].Str) }
+func (me *AstIdent) BeginsUpper() bool { return ustr.BeginsUpper(me.Tokens[0].Str) }
+func (me *AstIdent) String() string    { return me.Tokens[0].Str }
+func (me *AstIdent) IsOpish() bool     { return me.Tokens[0].Kind() == udevlex.TOKEN_OTHER }
+
+type AstDefBase struct {
+	AstBaseTokens
+
+	Name AstIdent
 	Args []string
 }
 
 type AstDefType struct {
-	astNode
-	astDefBase
+	AstDefBase
 }
 
 type AstDefFunc struct {
-	astNode
-	astDefBase
+	AstDefBase
 }

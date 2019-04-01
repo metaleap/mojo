@@ -15,9 +15,10 @@ const (
 	APPLSTYLE_SOV
 )
 
-var Config struct {
-	ApplStyle ApplStyle
-}
+type (
+	mapTokCmnts   = map[*udevlex.Token][]int
+	mapTokOldIdxs = map[*udevlex.Token]int
+)
 
 func init() {
 	udevlex.RestrictedWhitespace, udevlex.StandaloneSeps = true, []string{"(", ")"}
@@ -37,40 +38,41 @@ func (this *Error) Error() string {
 	return this.Pos.String() + ": " + this.Msg
 }
 
-func (me *AstFile) parse(tlcIdx int) {
-	this := &me.topLevelChunks[tlcIdx]
+func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	toks := this.toks
-	this.topLevel.toks = toks
-	if this.topLevel.comments, toks = parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		if def, err := parseTopLevelDefinition(toks); err != nil {
+	this.AstTopLevel.Tokens = toks
+	if this.AstTopLevel.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
+		if def, err := me.parseTopLevelDefinition(toks); err != nil {
 			this.errs.parsing = err
 		} else if def != nil {
 			switch d := def.(type) {
+			case nil:
 			case *AstDefFunc:
-				this.topLevel.defFunc = d
+				this.AstTopLevel.DefFunc = d
 			case *AstDefType:
-				this.topLevel.defType = d
+				this.AstTopLevel.DefType = d
+			default:
+				panic("new bug introduced into parseTopLevelDefinition")
 			}
 		}
 	}
 }
 
-func parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstComment, rest udevlex.Tokens) {
+func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstComment, rest udevlex.Tokens) {
 	for len(toks) > 0 && toks[0].Kind() == udevlex.TOKEN_COMMENT {
-		comment := AstComment{ContentText: toks[0].Str, SelfTerminates: toks[0].IsCommentSelfTerminating()}
-		comment.toks = toks[0:1]
-		toks, ret = toks[1:], append(ret, &comment)
+		toks, ret = toks[1:], append(ret, newAstComment(toks, 0))
 	}
 	rest = toks
 	return
 }
 
-func parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstNode, err *Error) {
-	var comments map[*udevlex.Token][]int
-	toks := tokens
-	if toks.HasKind(udevlex.TOKEN_COMMENT) {
-		comments = make(map[*udevlex.Token][]int)
-		toks = toks.SansComments(comments)
+func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def interface{}, err *Error) {
+	var mtokcmnts mapTokCmnts
+	var mtokoldidxs mapTokOldIdxs
+	toks, mtoks := tokens, tokens.HasKind(udevlex.TOKEN_COMMENT)
+	if mtoks {
+		mtokcmnts, mtokoldidxs = make(mapTokCmnts), make(mapTokOldIdxs)
+		toks = toks.SansComments(mtokcmnts, mtokoldidxs)
 	}
 	head, body := toks.BreakOnOther(":=")
 	if len(body) == 0 {
@@ -82,25 +84,31 @@ func parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstNode, err *Error) {
 	} else {
 		var namepos int
 		if len(headmain) > 1 {
-			if Config.ApplStyle == APPLSTYLE_SVO {
+			if me.Options.ApplStyle == APPLSTYLE_SVO {
 				namepos = 1
-			} else if Config.ApplStyle == APPLSTYLE_SOV {
+			} else if me.Options.ApplStyle == APPLSTYLE_SOV {
 				namepos = len(headmain) - 1
 			}
 		}
-		defbase := astDefBase{Name: headmain[namepos].Str}
+
+		var defbase *AstDefBase
+		if ustr.BeginsUpper(headmain[namepos].Str) {
+			var deftype AstDefType
+			def, defbase = &deftype, &deftype.AstDefBase
+		} else {
+			var deffunc AstDefFunc
+			def, defbase = &deffunc, &deffunc.AstDefBase
+		}
+		defbase.Tokens = tokens
+		defbase.newIdent(tokens, headmain, namepos, mtokcmnts, mtokoldidxs)
+
 		for i := range headmain {
 			if k, isarg := headmain[i].Kind(), i != namepos; k != udevlex.TOKEN_IDENT && (k != udevlex.TOKEN_OTHER || isarg) {
-				err = errAt(&headmain[i], "not a valid "+ustr.If(isarg, "argument", "definition")+" name")
+				def, err = nil, errAt(&headmain[i], "not a valid "+ustr.If(isarg, "argument", "definition")+" name")
 				return
 			} else if isarg {
 				defbase.Args = append(defbase.Args, headmain[i].Str)
 			}
-		}
-		if ustr.BeginsUpper(defbase.Name) {
-			def = &AstDefType{astDefBase: defbase, astNode: astNode{toks: tokens}}
-		} else {
-			def = &AstDefFunc{astDefBase: defbase, astNode: astNode{toks: tokens}}
 		}
 	}
 	return

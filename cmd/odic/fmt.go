@@ -21,7 +21,7 @@ func mainFmt() {
 		return 1
 	}
 
-	astfile.LexAndParseFile(false, "<stdin>")
+	astfile.LexAndParseFile(false, true)
 	if errs := astfile.Errs(); len(errs) > 0 {
 		for _, e := range errs {
 			println(e.Error())
