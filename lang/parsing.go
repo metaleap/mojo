@@ -133,28 +133,25 @@ func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Err
 	if len(toks) == 0 {
 		panic("bug in parseExpr")
 	}
-	var expr IAstExpr
 
-	chunks := toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1)
-	if 0 > 1 && len(chunks) > 1 {
+	if chunks := toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1); len(chunks) > 1 {
 		var let AstExprLet
 		var def IAstDef
 		me.setTokensFor(&let.AstBase, toks)
 		for i := range chunks {
 			if i == 0 {
-				if let.Body, err = me.parseExpr(chunks[i]); err != nil {
-					return
-				}
-			} else if def, err = me.parseDef(chunks[i], false); err != nil {
-				return
-			} else {
+				let.Body, err = me.parseExpr(chunks[i])
+			} else if def, err = me.parseDef(chunks[i], false); err == nil {
 				let.Defs = append(let.Defs, def)
 			}
+			if err != nil {
+				return
+			}
 		}
+		ret = &let
 
-		expr = &let
 	} else {
-
+		var list []IAstExpr
 		for len(toks) > 0 {
 			var exprcur IAstExpr
 			switch k := toks[0].Kind(); k {
@@ -171,6 +168,11 @@ func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Err
 				exprcur = me.newExprLitStr(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OTHER:
+				switch toks[0].Str {
+				case ",":
+				case "?":
+				}
+
 				exprcur = me.newExprIdent(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_SEP:
@@ -191,15 +193,11 @@ func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Err
 			if err != nil {
 				return
 			}
-			if expr == nil {
-				expr = exprcur
-			} else if xpc, _ := expr.(*AstExprCall); xpc != nil {
-
-			} else {
-
-			}
+			list = append(list, exprcur)
+		}
+		if len(list) == 1 {
+			ret = list[0]
 		}
 	}
-	ret = expr
 	return
 }
