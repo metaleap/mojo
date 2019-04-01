@@ -12,7 +12,6 @@ import (
 
 type AstFileTopLevelChunk struct {
 	src    []byte
-	toks   udevlex.Tokens
 	offset struct {
 		line int
 		pos  int
@@ -142,7 +141,7 @@ func (me *AstFile) Src() udevlex.Tokens {
 	if me._src == nil {
 		me._src = make(udevlex.Tokens, 0, len(me.TopLevel)*16)
 		for i := range me.TopLevel {
-			me._src = append(me._src, me.TopLevel[i].toks...)
+			me._src = append(me._src, me.TopLevel[i].Tokens...)
 			me._src = append(me._src, udevlex.Token{Meta: udevlex.TokenMeta{Orig: "...\n|\n|\n|\n|\n"}})
 		}
 	}
@@ -176,7 +175,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 		me.populateChunksFrom(src)
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.dirty {
-				this.toks, this.errs.lexing =
+				this.Tokens, this.errs.lexing =
 					udevlex.Lex(me.SrcFilePath, bytes.NewReader(this.src), this.offset.line, this.offset.pos, len(this.src)/6)
 				if len(this.errs.lexing) == 0 {
 					me.parse(this)

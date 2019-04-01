@@ -39,22 +39,9 @@ func (this *Error) Error() string {
 }
 
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
-	toks := this.toks
-	this.AstTopLevel.Tokens = toks
+	toks := this.Tokens
 	if this.AstTopLevel.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		if def, err := me.parseTopLevelDefinition(toks); err != nil {
-			this.errs.parsing = err
-		} else if def != nil {
-			switch d := def.(type) {
-			case nil:
-			case *AstDefFunc:
-				this.AstTopLevel.DefFunc = d
-			case *AstDefType:
-				this.AstTopLevel.DefType = d
-			default:
-				panic("new bug introduced into parseTopLevelDefinition")
-			}
-		}
+		this.AstTopLevel.Def, this.errs.parsing = me.parseTopLevelDefinition(toks)
 	}
 }
 
@@ -66,7 +53,7 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstCom
 	return
 }
 
-func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def interface{}, err *Error) {
+func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, err *Error) {
 	var mtokcmnts mapTokCmnts
 	var mtokoldidxs mapTokOldIdxs
 	toks, mtoks := tokens, tokens.HasKind(udevlex.TOKEN_COMMENT)
@@ -92,23 +79,26 @@ func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def interface
 		}
 
 		var defbase *AstDefBase
-		if ustr.BeginsUpper(headmain[namepos].Str) {
+		if isdeftype := ustr.BeginsUpper(headmain[namepos].Str); isdeftype {
 			var deftype AstDefType
-			def, defbase = &deftype, &deftype.AstDefBase
+			def, defbase, deftype.AstDefBase.IsDefType = &deftype, &deftype.AstDefBase, true
 		} else {
 			var deffunc AstDefFunc
 			def, defbase = &deffunc, &deffunc.AstDefBase
 		}
 		defbase.Tokens = tokens
-		defbase.newIdent(-1, tokens, headmain, namepos, mtokcmnts, mtokoldidxs)
-		defbase.ensureArgsLen(len(headmain) - 1)
-
-		for i, a := 0, 0; i < len(headmain); i, a = i+1, a+1 {
-			if k, isarg := headmain[i].Kind(), i != namepos; k != udevlex.TOKEN_IDENT && (k != udevlex.TOKEN_OTHER || isarg) {
-				a, def, err = a-1, nil, errAt(&headmain[i], "not a valid "+ustr.If(isarg, "argument", "definition")+" name")
-				return
-			} else if isarg {
-				defbase.newIdent(a, tokens, headmain, i, mtokcmnts, mtokoldidxs)
+		if err = defbase.newIdent(-1, headmain, namepos, mtokcmnts, mtokoldidxs); err != nil {
+			def = nil
+		} else {
+			defbase.ensureArgsLen(len(headmain) - 1)
+			for i, a := 0, 0; i < len(headmain); i++ {
+				if i != namepos {
+					if err = defbase.newIdent(a, headmain, i, mtokcmnts, mtokoldidxs); err != nil {
+						def = nil
+						return
+					}
+					a++
+				}
 			}
 		}
 	}

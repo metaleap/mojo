@@ -2,6 +2,7 @@ package odlang
 
 import (
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 )
 
 func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
@@ -10,26 +11,25 @@ func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
 	return &this
 }
 
-func (me *AstDefBase) ensureArgsLen(l int) {
-	if ol := len(me.Args); ol > l {
-		me.Args = me.Args[:l]
-	} else if ol < l {
-		me.Args = make([]AstIdent, l)
-	}
-}
-
-func (me *AstDefBase) newIdent(arg int, torig udevlex.Tokens, ttmp udevlex.Tokens, at int, mtc mapTokCmnts, mti mapTokOldIdxs) {
-	this := &me.Name
-	if arg > -1 {
+func (me *AstDefBase) newIdent(arg int, ttmp udevlex.Tokens, at int, mtc mapTokCmnts, mti mapTokOldIdxs) *Error {
+	this, isarg := &me.Name, arg > -1
+	if isarg {
 		this = &me.Args[arg]
 	}
+
+	if k := ttmp[at].Kind(); (isarg && !ustr.BeginsLower(ttmp[at].Str)) ||
+		(k != udevlex.TOKEN_IDENT && (k != udevlex.TOKEN_OTHER || isarg)) {
+		return errAt(&ttmp[at], "not a valid "+ustr.If(isarg, ustr.If(me.IsDefType, "type-var", "argument"), "definition")+" name")
+	}
+
 	if mti != nil {
 		at = mti[&ttmp[at]]
 	}
-	this.AstBaseTokens.Tokens = torig[at : at+1]
+	this.AstBaseTokens.Tokens = me.Tokens[at : at+1]
 	if mtc != nil {
-		for _, ci := range mtc[&torig[at]] {
-			this.Comments = append(this.Comments, newAstComment(torig, ci))
+		for _, ci := range mtc[&me.Tokens[at]] {
+			this.Comments = append(this.Comments, newAstComment(me.Tokens, ci))
 		}
 	}
+	return nil
 }

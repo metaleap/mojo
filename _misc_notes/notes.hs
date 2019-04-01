@@ -60,7 +60,7 @@ list rest :=
             | Empty           :   Err msg="rest: list must not be Empty"
 
 
-list first, list must != Empty :=
+list first , list must != Empty :=
     list ? Link first rest : first
 
 
