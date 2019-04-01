@@ -60,7 +60,7 @@ type AstDefType struct {
 
 type AstDefFunc struct {
 	AstDefBase
-	Body interface{}
+	Body IAstExpr
 }
 
 type IAstExpr interface {

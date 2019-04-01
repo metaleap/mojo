@@ -70,16 +70,17 @@ x pow y :=
 
 
 f accum initial n, n must >= 0 :=
-    y := n - 1
     True    ? n==0  : f accum x y, x := initial f
             |       : initial
+    y := n - 1
 
 
-a × b c, a must >= 0 :=
+a × b, a must >= 0 :=
     // -- a==0 && Empty || ret
     a == 0  ? True  : Empty
-            | False : ret
-    ret := Link b ab, ab := (a-1 × b)
+            | False : b ret
+    foo ret := Link foo ab
+    ab := a-1 × b
 
 
 f accumR initial list :=
@@ -89,4 +90,4 @@ f accumR initial list :=
 
 f accumL initial list :=
     list    ? Empty           : initial
-            | Link first rest : f accumL (initial f first) rest
+            | Link first rest : f accumL (initial /* foo */ f first) 123.456 /* c1*/ /* c2 */ // c3

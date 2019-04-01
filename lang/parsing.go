@@ -59,30 +59,26 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstCom
 
 func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, err *Error) {
 	var ctx ctxParseDef
-	toks, mtoks := tokens, tokens.HasKind(udevlex.TOKEN_COMMENT)
-	if mtoks {
-		ctx.mapTokCmnts, ctx.mapTokOldIdxs = make(mapTokCmnts), make(mapTokOldIdxs)
-		toks = toks.SansComments(ctx.mapTokCmnts, ctx.mapTokOldIdxs)
-	}
-	head, body := toks.BreakOnOther(":=")
-	if len(body) == 0 {
+	ctx.mapTokCmnts, ctx.mapTokOldIdxs = make(mapTokCmnts), make(mapTokOldIdxs)
+	tokshead, toksbody := tokens.SansComments(ctx.mapTokCmnts, ctx.mapTokOldIdxs).BreakOnOther(":=")
+	if len(toksbody) == 0 {
 		err = errAt(&tokens[0], "missing: definition body following `:=`")
-	} else if len(head) == 0 {
+	} else if len(tokshead) == 0 {
 		err = errAt(&tokens[0], "missing: definition name preceding `:=`")
-	} else if headmain, _ := head.BreakOnOther(","); len(headmain) == 0 {
+	} else if toksheadsig, _ := tokshead.BreakOnOther(","); len(toksheadsig) == 0 {
 		err = errAt(&tokens[0], "missing: definition name preceding `,`")
 	} else {
 		var namepos int
-		if len(headmain) > 1 {
+		if len(toksheadsig) > 1 {
 			if me.Options.ApplStyle == APPLSTYLE_SVO {
 				namepos = 1
 			} else if me.Options.ApplStyle == APPLSTYLE_SOV {
-				namepos = len(headmain) - 1
+				namepos = len(toksheadsig) - 1
 			}
 		}
 
 		var defbase *AstDefBase
-		if isdeftype := ustr.BeginsUpper(headmain[namepos].Str); isdeftype {
+		if isdeftype := ustr.BeginsUpper(toksheadsig[namepos].Str); isdeftype {
 			var deftype AstDefType
 			def, defbase, deftype.AstDefBase.IsDefType = &deftype, &deftype.AstDefBase, true
 		} else {
@@ -90,20 +86,20 @@ func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, 
 			def, defbase = &deffunc, &deffunc.AstDefBase
 		}
 		defbase.Tokens = tokens
-		if err = defbase.newIdent(-1, headmain, namepos, &ctx); err != nil {
+		if err = defbase.newIdent(-1, toksheadsig, namepos, &ctx); err != nil {
 			def = nil
 		} else {
-			defbase.ensureArgsLen(len(headmain) - 1)
-			for i, a := 0, 0; i < len(headmain); i++ {
+			defbase.ensureArgsLen(len(toksheadsig) - 1)
+			for i, a := 0, 0; i < len(toksheadsig); i++ {
 				if i != namepos {
-					if err = defbase.newIdent(a, headmain, i, &ctx); err != nil {
+					if err = defbase.newIdent(a, toksheadsig, i, &ctx); err != nil {
 						def = nil
 						return
 					}
 					a++
 				}
 			}
-			if err = def.parseDefBody(body, &ctx); err != nil {
+			if err = def.parseDefBody(toksbody, &ctx); err != nil {
 				def = nil
 			}
 		}
@@ -111,22 +107,62 @@ func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, 
 	return
 }
 
-func (me *AstDefFunc) parseDefBody(toks udevlex.Tokens, ctx *ctxParseDef) *Error {
+func (me *AstDefFunc) parseDefBody(toks udevlex.Tokens, ctx *ctxParseDef) (err *Error) {
+	// println(defbase.Name.Val(), len(toksbody.IndentBasedChunks(toksbody[0].Meta.LineIndent)))
 
-	return nil
+	me.Body, err = me.parseExpr(toks, ctx)
+	return
 }
 
 func (me *AstDefType) parseDefBody(toks udevlex.Tokens, ctx *ctxParseDef) *Error {
 	return nil
 }
 
-func parseExpr(toks udevlex.Tokens, ctx *ctxParseDef) (r IAstExpr, err *Error) {
+func (me *AstDefBase) parseExpr(toks udevlex.Tokens, ctx *ctxParseDef) (r IAstExpr, err *Error) {
 	if len(toks) == 0 {
 		panic("bug in parseExpr")
 	}
 	for len(toks) > 0 {
-		var expr IAstExpr
-		if expr == nil {
+		var this IAstExpr
+		switch k := toks[0].Kind(); k {
+		case udevlex.TOKEN_FLOAT:
+			this = me.newExprLitFloat(toks, ctx)
+			toks = toks[1:]
+		case udevlex.TOKEN_UINT:
+			this = me.newExprLitUint(toks, ctx)
+			toks = toks[1:]
+		case udevlex.TOKEN_RUNE:
+			this = me.newExprLitRune(toks, ctx)
+			toks = toks[1:]
+		case udevlex.TOKEN_STR:
+			this = me.newExprLitStr(toks, ctx)
+			toks = toks[1:]
+		case udevlex.TOKEN_IDENT, udevlex.TOKEN_OTHER:
+			this = me.newExprIdent(toks, ctx)
+			toks = toks[1:]
+		case udevlex.TOKEN_SEP:
+			if toks[0].Str == ")" {
+				err = errAt(&toks[0], "closing parenthesis without matching opening")
+			} else if sub, tail, numunclosed := toks.Sub("(", ")"); len(sub) == 0 {
+				if numunclosed == 0 {
+					err = errAt(&toks[0], "empty parentheses")
+				} else {
+					err = errAt(&toks[0], "unclosed parenthesis")
+				}
+			} else if this, err = me.parseExpr(sub, ctx); err == nil {
+				toks = tail
+			}
+		default:
+			panic(k)
+		}
+		if err != nil {
+			return
+		}
+		if r == nil {
+			r = this
+		} else if rf, _ := r.(*AstExprCall); rf != nil {
+
+		} else {
 
 		}
 	}
