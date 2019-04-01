@@ -18,6 +18,10 @@ const (
 type (
 	mapTokCmnts   = map[*udevlex.Token][]int
 	mapTokOldIdxs = map[*udevlex.Token]int
+	ctxParseDef   struct {
+		mapTokCmnts
+		mapTokOldIdxs
+	}
 )
 
 func init() {
@@ -54,12 +58,11 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstCom
 }
 
 func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, err *Error) {
-	var mtokcmnts mapTokCmnts
-	var mtokoldidxs mapTokOldIdxs
+	var ctx ctxParseDef
 	toks, mtoks := tokens, tokens.HasKind(udevlex.TOKEN_COMMENT)
 	if mtoks {
-		mtokcmnts, mtokoldidxs = make(mapTokCmnts), make(mapTokOldIdxs)
-		toks = toks.SansComments(mtokcmnts, mtokoldidxs)
+		ctx.mapTokCmnts, ctx.mapTokOldIdxs = make(mapTokCmnts), make(mapTokOldIdxs)
+		toks = toks.SansComments(ctx.mapTokCmnts, ctx.mapTokOldIdxs)
 	}
 	head, body := toks.BreakOnOther(":=")
 	if len(body) == 0 {
@@ -87,19 +90,44 @@ func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, 
 			def, defbase = &deffunc, &deffunc.AstDefBase
 		}
 		defbase.Tokens = tokens
-		if err = defbase.newIdent(-1, headmain, namepos, mtokcmnts, mtokoldidxs); err != nil {
+		if err = defbase.newIdent(-1, headmain, namepos, &ctx); err != nil {
 			def = nil
 		} else {
 			defbase.ensureArgsLen(len(headmain) - 1)
 			for i, a := 0, 0; i < len(headmain); i++ {
 				if i != namepos {
-					if err = defbase.newIdent(a, headmain, i, mtokcmnts, mtokoldidxs); err != nil {
+					if err = defbase.newIdent(a, headmain, i, &ctx); err != nil {
 						def = nil
 						return
 					}
 					a++
 				}
 			}
+			if err = def.parseDefBody(body, &ctx); err != nil {
+				def = nil
+			}
+		}
+	}
+	return
+}
+
+func (me *AstDefFunc) parseDefBody(toks udevlex.Tokens, ctx *ctxParseDef) *Error {
+
+	return nil
+}
+
+func (me *AstDefType) parseDefBody(toks udevlex.Tokens, ctx *ctxParseDef) *Error {
+	return nil
+}
+
+func parseExpr(toks udevlex.Tokens, ctx *ctxParseDef) (r IAstExpr, err *Error) {
+	if len(toks) == 0 {
+		panic("bug in parseExpr")
+	}
+	for len(toks) > 0 {
+		var expr IAstExpr
+		if expr == nil {
+
 		}
 	}
 	return

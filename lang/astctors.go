@@ -11,7 +11,7 @@ func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
 	return &this
 }
 
-func (me *AstDefBase) newIdent(arg int, ttmp udevlex.Tokens, at int, mtc mapTokCmnts, mti mapTokOldIdxs) *Error {
+func (me *AstDefBase) newIdent(arg int, ttmp udevlex.Tokens, at int, ctx *ctxParseDef) *Error {
 	this, isarg := &me.Name, arg > -1
 	if isarg {
 		this = &me.Args[arg]
@@ -22,12 +22,12 @@ func (me *AstDefBase) newIdent(arg int, ttmp udevlex.Tokens, at int, mtc mapTokC
 		return errAt(&ttmp[at], "not a valid "+ustr.If(isarg, ustr.If(me.IsDefType, "type-var", "argument"), "definition")+" name")
 	}
 
-	if mti != nil {
-		at = mti[&ttmp[at]]
+	if ctx.mapTokOldIdxs != nil {
+		at = ctx.mapTokOldIdxs[&ttmp[at]]
 	}
 	this.AstBaseTokens.Tokens = me.Tokens[at : at+1]
-	if mtc != nil {
-		for _, ci := range mtc[&me.Tokens[at]] {
+	if ctx.mapTokCmnts != nil {
+		for _, ci := range ctx.mapTokCmnts[&me.Tokens[at]] {
 			this.Comments = append(this.Comments, newAstComment(me.Tokens, ci))
 		}
 	}
