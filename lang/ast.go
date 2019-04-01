@@ -33,7 +33,7 @@ type AstBase struct {
 
 type IAstDef interface {
 	Base() *AstDefBase
-	parseDefBody(udevlex.Tokens, *ctxParseDef) *Error
+	parseDefBody(*ctxTopLevelDef, udevlex.Tokens) *Error
 }
 
 type AstDefBase struct {
@@ -108,7 +108,8 @@ func (me *AstExprIdent) BeginsLower() bool { return ustr.BeginsLower(me.Tokens[0
 
 type AstExprLet struct {
 	AstExprBase
-	Defs []interface{}
+	Defs []IAstDef
+	Body IAstExpr
 }
 
 type AstExprCall struct {

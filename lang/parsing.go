@@ -16,11 +16,13 @@ const (
 )
 
 type (
-	mapTokCmnts   = map[*udevlex.Token][]int
-	mapTokOldIdxs = map[*udevlex.Token]int
-	ctxParseDef   struct {
-		mapTokCmnts
-		mapTokOldIdxs
+	mapTokCmnts    = map[*udevlex.Token][]int
+	mapTokOldIdxs  = map[*udevlex.Token]int
+	ctxTopLevelDef struct {
+		file *AstFile
+		def  IAstDef
+		mtc  mapTokCmnts
+		mto  mapTokOldIdxs
 	}
 )
 
@@ -45,7 +47,7 @@ func (this *Error) Error() string {
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	toks := this.Tokens
 	if this.AstTopLevel.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		this.AstTopLevel.Def, this.errs.parsing = me.parseTopLevelDefinition(toks)
+		this.AstTopLevel.Def, this.errs.parsing = me.parseTopLevelDef(toks)
 	}
 }
 
@@ -57,10 +59,17 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstCom
 	return
 }
 
-func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, err *Error) {
-	var ctx ctxParseDef
-	ctx.mapTokCmnts, ctx.mapTokOldIdxs = make(mapTokCmnts), make(mapTokOldIdxs)
-	tokshead, toksbody := tokens.SansComments(ctx.mapTokCmnts, ctx.mapTokOldIdxs).BreakOnOther(":=")
+func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def IAstDef, err *Error) {
+	ctx := ctxTopLevelDef{file: me, mtc: make(mapTokCmnts), mto: make(mapTokOldIdxs)}
+	return ctx.parseDef(tokens, true)
+}
+
+func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IAstDef, err *Error) {
+	toks := tokens
+	if topLevel {
+		toks = tokens.SansComments(me.mtc, me.mto)
+	}
+	tokshead, toksbody := toks.BreakOnOther(":=")
 	if len(toksbody) == 0 {
 		err = errAt(&tokens[0], "missing: definition body following `:=`")
 	} else if len(tokshead) == 0 {
@@ -70,9 +79,9 @@ func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, 
 	} else {
 		var namepos int
 		if len(toksheadsig) > 1 {
-			if me.Options.ApplStyle == APPLSTYLE_SVO {
+			if me.file.Options.ApplStyle == APPLSTYLE_SVO {
 				namepos = 1
-			} else if me.Options.ApplStyle == APPLSTYLE_SOV {
+			} else if me.file.Options.ApplStyle == APPLSTYLE_SOV {
 				namepos = len(toksheadsig) - 1
 			}
 		}
@@ -85,21 +94,24 @@ func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, 
 			var deffunc AstDefFunc
 			def, defbase = &deffunc, &deffunc.AstDefBase
 		}
+		if topLevel {
+			me.def = def
+		}
 		defbase.Tokens = tokens
-		if err = defbase.newIdent(-1, toksheadsig, namepos, &ctx); err != nil {
+		if err = defbase.newIdent(me, -1, toksheadsig, namepos); err != nil {
 			def = nil
 		} else {
 			defbase.ensureArgsLen(len(toksheadsig) - 1)
 			for i, a := 0, 0; i < len(toksheadsig); i++ {
 				if i != namepos {
-					if err = defbase.newIdent(a, toksheadsig, i, &ctx); err != nil {
+					if err = defbase.newIdent(me, a, toksheadsig, i); err != nil {
 						def = nil
 						return
 					}
 					a++
 				}
 			}
-			if err = def.parseDefBody(toksbody, &ctx); err != nil {
+			if err = def.parseDefBody(me, toksbody); err != nil {
 				def = nil
 			}
 		}
@@ -107,64 +119,87 @@ func (me *AstFile) parseTopLevelDefinition(tokens udevlex.Tokens) (def IAstDef, 
 	return
 }
 
-func (me *AstDefFunc) parseDefBody(toks udevlex.Tokens, ctx *ctxParseDef) (err *Error) {
+func (me *AstDefFunc) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (err *Error) {
 	// println(defbase.Name.Val(), len(toksbody.IndentBasedChunks(toksbody[0].Meta.LineIndent)))
-
-	me.Body, err = me.parseExpr(toks, ctx)
+	me.Body, err = ctx.parseExpr(toks)
 	return
 }
 
-func (me *AstDefType) parseDefBody(toks udevlex.Tokens, ctx *ctxParseDef) *Error {
+func (me *AstDefType) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) *Error {
 	return nil
 }
 
-func (me *AstDefBase) parseExpr(toks udevlex.Tokens, ctx *ctxParseDef) (r IAstExpr, err *Error) {
+func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
 	if len(toks) == 0 {
 		panic("bug in parseExpr")
 	}
-	for len(toks) > 0 {
-		var this IAstExpr
-		switch k := toks[0].Kind(); k {
-		case udevlex.TOKEN_FLOAT:
-			this = me.newExprLitFloat(toks, ctx)
-			toks = toks[1:]
-		case udevlex.TOKEN_UINT:
-			this = me.newExprLitUint(toks, ctx)
-			toks = toks[1:]
-		case udevlex.TOKEN_RUNE:
-			this = me.newExprLitRune(toks, ctx)
-			toks = toks[1:]
-		case udevlex.TOKEN_STR:
-			this = me.newExprLitStr(toks, ctx)
-			toks = toks[1:]
-		case udevlex.TOKEN_IDENT, udevlex.TOKEN_OTHER:
-			this = me.newExprIdent(toks, ctx)
-			toks = toks[1:]
-		case udevlex.TOKEN_SEP:
-			if toks[0].Str == ")" {
-				err = errAt(&toks[0], "closing parenthesis without matching opening")
-			} else if sub, tail, numunclosed := toks.Sub("(", ")"); len(sub) == 0 {
-				if numunclosed == 0 {
-					err = errAt(&toks[0], "empty parentheses")
-				} else {
-					err = errAt(&toks[0], "unclosed parenthesis")
+	var expr IAstExpr
+
+	chunks := toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1)
+	if 0 > 1 && len(chunks) > 1 {
+		var let AstExprLet
+		var def IAstDef
+		me.setTokensFor(&let.AstBase, toks)
+		for i := range chunks {
+			if i == 0 {
+				if let.Body, err = me.parseExpr(chunks[i]); err != nil {
+					return
 				}
-			} else if this, err = me.parseExpr(sub, ctx); err == nil {
-				toks = tail
+			} else if def, err = me.parseDef(chunks[i], false); err != nil {
+				return
+			} else {
+				let.Defs = append(let.Defs, def)
 			}
-		default:
-			panic(k)
 		}
-		if err != nil {
-			return
-		}
-		if r == nil {
-			r = this
-		} else if rf, _ := r.(*AstExprCall); rf != nil {
 
-		} else {
+		expr = &let
+	} else {
 
+		for len(toks) > 0 {
+			var exprcur IAstExpr
+			switch k := toks[0].Kind(); k {
+			case udevlex.TOKEN_FLOAT:
+				exprcur = me.newExprLitFloat(toks)
+				toks = toks[1:]
+			case udevlex.TOKEN_UINT:
+				exprcur = me.newExprLitUint(toks)
+				toks = toks[1:]
+			case udevlex.TOKEN_RUNE:
+				exprcur = me.newExprLitRune(toks)
+				toks = toks[1:]
+			case udevlex.TOKEN_STR:
+				exprcur = me.newExprLitStr(toks)
+				toks = toks[1:]
+			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OTHER:
+				exprcur = me.newExprIdent(toks)
+				toks = toks[1:]
+			case udevlex.TOKEN_SEP:
+				if toks[0].Str == ")" {
+					err = errAt(&toks[0], "closing parenthesis without matching opening")
+				} else if sub, tail, numunclosed := toks.Sub("(", ")"); len(sub) == 0 {
+					if numunclosed == 0 {
+						err = errAt(&toks[0], "empty parentheses")
+					} else {
+						err = errAt(&toks[0], "unclosed parenthesis")
+					}
+				} else if exprcur, err = me.parseExpr(sub); err == nil {
+					toks = tail
+				}
+			default:
+				panic(k)
+			}
+			if err != nil {
+				return
+			}
+			if expr == nil {
+				expr = exprcur
+			} else if xpc, _ := expr.(*AstExprCall); xpc != nil {
+
+			} else {
+
+			}
 		}
 	}
+	ret = expr
 	return
 }

@@ -79,6 +79,7 @@ a × b, a must >= 0 :=
     // -- a==0 && Empty || ret
     a == 0  ? True  : Empty
             | False : b ret
+
     foo ret := Link foo ab
     ab := a-1 × b
 

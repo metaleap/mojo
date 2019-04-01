@@ -11,7 +11,7 @@ func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
 	return &this
 }
 
-func (me *AstDefBase) newIdent(arg int, ttmp udevlex.Tokens, at int, ctx *ctxParseDef) *Error {
+func (me *AstDefBase) newIdent(ctx *ctxTopLevelDef, arg int, ttmp udevlex.Tokens, at int) *Error {
 	this, isarg := &me.Name, arg > -1
 	if isarg {
 		this = &me.Args[arg]
@@ -21,44 +21,51 @@ func (me *AstDefBase) newIdent(arg int, ttmp udevlex.Tokens, at int, ctx *ctxPar
 		(k != udevlex.TOKEN_IDENT && (k != udevlex.TOKEN_OTHER || isarg)) {
 		return errAt(&ttmp[at], "not a valid "+ustr.If(isarg, ustr.If(me.IsDefType, "type-var", "argument"), "definition")+" name")
 	}
-	me.setTokenAndCommentsFor(&this.AstBase, ttmp, at, ctx)
+	ctx.setTokenAndCommentsFor(&this.AstBase, ttmp, at)
 	return nil
 }
 
-func (me *AstBaseTokens) newExprLitFloat(toks udevlex.Tokens, ctx *ctxParseDef) *AstExprLitFloat {
+func (me *ctxTopLevelDef) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
 	var this AstExprLitFloat
-	me.setTokenAndCommentsFor(&this.AstBase, toks, 0, ctx)
+	me.setTokenAndCommentsFor(&this.AstBase, toks, 0)
 	return &this
 }
 
-func (me *AstBaseTokens) newExprLitUint(toks udevlex.Tokens, ctx *ctxParseDef) *AstExprLitUint {
+func (me *ctxTopLevelDef) newExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
 	var this AstExprLitUint
-	me.setTokenAndCommentsFor(&this.AstBase, toks, 0, ctx)
+	me.setTokenAndCommentsFor(&this.AstBase, toks, 0)
 	return &this
 }
 
-func (me *AstBaseTokens) newExprLitRune(toks udevlex.Tokens, ctx *ctxParseDef) *AstExprLitRune {
+func (me *ctxTopLevelDef) newExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
 	var this AstExprLitRune
-	me.setTokenAndCommentsFor(&this.AstBase, toks, 0, ctx)
+	me.setTokenAndCommentsFor(&this.AstBase, toks, 0)
 	return &this
 }
 
-func (me *AstBaseTokens) newExprLitStr(toks udevlex.Tokens, ctx *ctxParseDef) *AstExprLitStr {
+func (me *ctxTopLevelDef) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	var this AstExprLitStr
-	me.setTokenAndCommentsFor(&this.AstBase, toks, 0, ctx)
+	me.setTokenAndCommentsFor(&this.AstBase, toks, 0)
 	return &this
 }
 
-func (me *AstBaseTokens) newExprIdent(toks udevlex.Tokens, ctx *ctxParseDef) *AstExprIdent {
+func (me *ctxTopLevelDef) newExprIdent(toks udevlex.Tokens) *AstExprIdent {
 	var this AstExprIdent
-	me.setTokenAndCommentsFor(&this.AstBase, toks, 0, ctx)
+	me.setTokenAndCommentsFor(&this.AstBase, toks, 0)
 	return &this
 }
 
-func (me *AstBaseTokens) setTokenAndCommentsFor(this *AstBase, ttmp udevlex.Tokens, at int, ctx *ctxParseDef) {
-	at = ctx.mapTokOldIdxs[&ttmp[at]]
-	this.Tokens = me.Tokens[at : at+1]
-	for _, ci := range ctx.mapTokCmnts[&me.Tokens[at]] {
-		this.Comments = append(this.Comments, newAstComment(me.Tokens, ci))
+func (me *ctxTopLevelDef) setTokenAndCommentsFor(this *AstBase, toks udevlex.Tokens, at int) {
+	at = me.mto[&toks[at]]
+	tld := &me.def.Base().AstBaseTokens
+	this.Tokens = tld.Tokens[at : at+1]
+	for _, ci := range me.mtc[&tld.Tokens[at]] {
+		this.Comments = append(this.Comments, newAstComment(tld.Tokens, ci))
 	}
+}
+
+func (me *ctxTopLevelDef) setTokensFor(this *AstBase, toks udevlex.Tokens) {
+	ifirst, ilast := me.mto[&toks[0]], me.mto[&toks[len(toks)-1]]
+	tld := &me.def.Base().AstBaseTokens
+	this.Tokens = tld.Tokens[ifirst : ilast+1]
 }
