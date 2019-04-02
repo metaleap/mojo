@@ -72,11 +72,9 @@ func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IA
 		err = errAt(&tokens[0], "missing: definition body following `:=`")
 	} else if len(tokshead) == 0 {
 		err = errAt(&tokens[0], "missing: definition name preceding `:=`")
-	} else if tokshead[0].Str == "," {
+	} else if toksheads := tokshead.Chunked(",", "(", ")"); len(toksheads[0]) == 0 {
 		err = errAt(&tokens[0], "missing: definition name preceding `,`")
 	} else {
-		toksheads := tokshead.Chunked(",", "(", ")")
-
 		toksheadsig := toksheads[0]
 		var namepos int
 		if len(toksheadsig) > 1 {
@@ -144,8 +142,10 @@ func (me *AstDefFunc) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (er
 
 func (me *AstDefType) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (err *Error) {
 	opts := toks.Chunked("|", "(", ")")
-	if len(opts) == 1 {
-
+	if len(opts[0]) == 0 {
+		err = errAt(&toks[0], "unexpected `|`")
+	} else if len(opts) == 1 {
+		me.Expr, err = ctx.parseTypeExpr(toks)
 	} else {
 
 	}
@@ -153,10 +153,6 @@ func (me *AstDefType) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (er
 }
 
 func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
-	if len(toks) == 0 {
-		panic("bug in parseExpr")
-	}
-
 	if chunks := toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1); len(chunks) > 1 {
 		ret, err = me.parseExprLetOuter(toks, chunks)
 
@@ -248,14 +244,17 @@ func (me *ctxTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, a
 		me.setTokensFor(&caseof.AstBaseTokens, allToks, nil)
 		toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 		alts := toks.Chunked("|", "(", ")")
-		caseof.Alts = make([]AstCaseAlt, len(alts))
+		if caseof.Alts = make([]AstCaseAlt, len(alts)); len(alts[0]) == 0 {
+			err = errAt(&toks[0], "unexpected: `|`")
+			return
+		}
 		for i := range alts {
 			if len(alts[i]) == 0 {
 				err = errAt(&toks[0], "malformed `?` branching: empty case")
-			} else if ifthen := alts[i].Chunked(":", "(", ")"); len(ifthen) > 2 || len(ifthen) < 1 || (len(ifthen) == 1 && alts[i][0].Str != ":") {
+			} else if ifthen := alts[i].Chunked(":", "(", ")"); len(ifthen) != 2 {
 				err = errAt(&alts[i][0], "malformed `?` branching: each case needs exactly one corresponding `:` with subsequent expression")
-			} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen) == 1 {
-				if caseof.Alts[i].Body, err = me.parseExpr(ifthen[0]); caseof.defaultIndex >= 0 {
+			} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen[0]) == 0 {
+				if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); caseof.defaultIndex >= 0 {
 					err = errAt(&ifthen[0][0], "malformed `?` branching: encountered a second default case, only at most one is permissible")
 				} else {
 					caseof.defaultIndex = i
@@ -275,7 +274,7 @@ func (me *ctxTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, a
 func (me *ctxTopLevelDef) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var body IAstExpr
 	if body, err = me.parseExprFinalize(accum, allToks, &toks[0]); err == nil {
-		toks, rest = toks.BreakOnIndent(allToks[0].Meta.LineIndent)
+		toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 		if chunks := toks.Chunked(",", "(", ")"); len(chunks) > 0 {
 			var let AstExprLet
 			let.Body, let.Defs = body, make([]IAstDef, 0, len(chunks))
@@ -309,5 +308,68 @@ func (me *ctxTopLevelDef) parseExprLetOuter(toks udevlex.Tokens, toksChunked []u
 		}
 	}
 	ret = &let
+	return
+}
+
+func (me *ctxTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeExpr, err *Error) {
+	alltoks, accum := toks, make([]IAstTypeExpr, 0, len(toks))
+	// var tmetas []IAstExpr
+	for len(toks) > 0 {
+		var exprcur IAstTypeExpr
+		switch k := toks[0].Kind(); k {
+		case udevlex.TOKEN_FLOAT:
+			err = errAt(&toks[0], "unexpected float literal")
+		case udevlex.TOKEN_UINT:
+			err = errAt(&toks[0], "unexpected integer literal")
+		case udevlex.TOKEN_RUNE:
+			err = errAt(&toks[0], "unexpected character literal")
+		case udevlex.TOKEN_STR:
+			err = errAt(&toks[0], "unexpected text literal")
+		case udevlex.TOKEN_IDENT, udevlex.TOKEN_OTHER:
+			switch toks[0].Str {
+			case ":":
+				return
+			case "&":
+				return
+			case ",":
+				return
+				// metas := toks[1:].Chunked(",", "(", ")")
+				// tmetas = make([]IAstExpr)
+				// exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
+				accum = accum[0:0]
+				return
+			default:
+				exprcur = me.newTypeExprIdent(toks)
+				toks = toks[1:]
+			}
+		case udevlex.TOKEN_SEP:
+			if toks[0].Str == ")" {
+				err = errAt(&toks[0], "closing parenthesis without matching opening")
+			} else if sub, rest, numunclosed := toks.Sub("(", ")"); len(sub) == 0 {
+				if numunclosed == 0 {
+					err = errAt(&toks[0], "empty parentheses")
+				} else {
+					err = errAt(&toks[0], "unclosed parenthesis")
+				}
+			} else if exprcur, err = me.parseTypeExpr(sub); err == nil {
+				toks = rest
+			}
+		default:
+			panic(k)
+		}
+		if err != nil {
+			goto end
+		}
+		accum = append(accum, exprcur)
+	}
+	if alltoks == nil {
+	}
+	ret, err = nil, nil //,me.parseExprFinalize(accum, alltoks, nil)
+
+	goto end
+end:
+	if err != nil {
+		ret = nil
+	}
 	return
 }

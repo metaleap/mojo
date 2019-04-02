@@ -5,7 +5,7 @@ any Maybe   := No | Ok: any
 dis Or dat  :=  This: dis
             |   That: dat
 
-foo Bar := 123
+foo Bar :=  x ,y
 
 any OrErr   :=  Ret: any
             |   Err: msg: TEXT
@@ -15,7 +15,7 @@ t List      :=  Empty
 
 t MinList   := t List, val must != Empty
 
-Txt         := TEXT, trim, len must > 3
+Txt         := TEXT , trim , len must > 3
 
 TxtBadIdea  := Txt, len must < 3 // -- let's see if we can be smart here later on
 

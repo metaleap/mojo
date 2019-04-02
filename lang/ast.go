@@ -170,7 +170,7 @@ type AstTypeExprAppl struct {
 	Args   []AstIdent
 }
 
-type AstTypeExprTup struct {
+type AstTypeExprRec struct {
 	AstTypeExprBase
 	Names []AstIdent
 	Exprs []IAstTypeExpr
