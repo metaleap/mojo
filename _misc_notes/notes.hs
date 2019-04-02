@@ -66,11 +66,11 @@ list first , list must != Empty :=
 
 x pow y :=
     y < 0   ? True    : 1 / (x pow y.neg)
-            | False   : tmp accum 1 y, v tmp := x * val // -- x*_   // -- * accumL 1 (y × x)
+            | False   : tmp accum 1 y , tmp := x * val // -- x*_   // -- * accumL 1 (y × x)
 
 
 f accum initial n, n must >= 0 :=
-    True    ? n==0  : f accum x y, x := initial f
+    True    ? n==0  : f accum x y // , x := initial f // , some unused := 123
             |       : initial
     y := n - 1
 

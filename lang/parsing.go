@@ -16,13 +16,11 @@ const (
 )
 
 type (
-	mapTokCmnts    = map[*udevlex.Token][]int
-	mapTokOldIdxs  = map[*udevlex.Token]int
 	ctxTopLevelDef struct {
 		file *AstFile
 		def  IAstDef
-		mtc  mapTokCmnts
-		mto  mapTokOldIdxs
+		mtc  map[*udevlex.Token][]int
+		mto  map[*udevlex.Token]int
 	}
 )
 
@@ -60,7 +58,7 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstCom
 }
 
 func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def IAstDef, err *Error) {
-	ctx := ctxTopLevelDef{file: me, mtc: make(mapTokCmnts), mto: make(mapTokOldIdxs)}
+	ctx := ctxTopLevelDef{file: me, mtc: make(map[*udevlex.Token][]int), mto: make(map[*udevlex.Token]int)}
 	return ctx.parseDef(tokens, true)
 }
 
@@ -120,7 +118,6 @@ func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IA
 }
 
 func (me *AstDefFunc) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (err *Error) {
-	// println(defbase.Name.Val(), len(toksbody.IndentBasedChunks(toksbody[0].Meta.LineIndent)))
 	me.Body, err = ctx.parseExpr(toks)
 	return
 }
@@ -135,23 +132,10 @@ func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Err
 	}
 
 	if chunks := toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1); len(chunks) > 1 {
-		var let AstExprLet
-		var def IAstDef
-		me.setTokensFor(&let.AstBase, toks)
-		for i := range chunks {
-			if i == 0 {
-				let.Body, err = me.parseExpr(chunks[i])
-			} else if def, err = me.parseDef(chunks[i], false); err == nil {
-				let.Defs = append(let.Defs, def)
-			}
-			if err != nil {
-				return
-			}
-		}
-		ret = &let
+		ret, err = me.parseExprLetOuter(toks, chunks)
 
 	} else {
-		var list []IAstExpr
+		alltoks, accum := toks, make([]IAstExpr, 0, len(toks))
 		for len(toks) > 0 {
 			var exprcur IAstExpr
 			switch k := toks[0].Kind(); k {
@@ -170,11 +154,13 @@ func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Err
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OTHER:
 				switch toks[0].Str {
 				case ",":
-				case "?":
+					exprcur, err = me.parseExprLetInner(toks, accum, alltoks)
+					accum, toks = accum[0:0], nil
+				// case "?":
+				default:
+					exprcur = me.newExprIdent(toks)
+					toks = toks[1:]
 				}
-
-				exprcur = me.newExprIdent(toks)
-				toks = toks[1:]
 			case udevlex.TOKEN_SEP:
 				if toks[0].Str == ")" {
 					err = errAt(&toks[0], "closing parenthesis without matching opening")
@@ -193,11 +179,70 @@ func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Err
 			if err != nil {
 				return
 			}
-			list = append(list, exprcur)
+			accum = append(accum, exprcur)
 		}
-		if len(list) == 1 {
-			ret = list[0]
+		ret, err = me.parseExprFinalize(accum, alltoks)
+	}
+	return
+}
+
+func (me *ctxTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, err *Error) {
+	if len(accum) == 1 {
+		ret = accum[0]
+	} else {
+		var call AstExprCall
+		me.setTokensFor(&call.AstBase, allToks)
+		l := len(accum) - 1
+		switch me.file.Options.ApplStyle {
+		case APPLSTYLE_SVO:
+			call.Callee = accum[1]
+			call.Args = append(accum[0:1], accum[2:]...)
+		case APPLSTYLE_VSO:
+			call.Callee = accum[0]
+			call.Args = accum[1:]
+		case APPLSTYLE_SOV:
+			call.Callee = accum[l]
+			call.Args = accum[:l]
+		}
+		ret = &call
+	}
+	return
+}
+
+func (me *ctxTopLevelDef) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, err *Error) {
+	if ret, err = me.parseExprFinalize(accum, allToks); err == nil {
+		if chunks := toks.Chunked(",", "(", ")"); len(chunks) > 0 {
+			var let AstExprLet
+			let.Body, let.Defs, ret = ret, make([]IAstDef, 0, len(chunks)), nil
+			me.setTokensFor(&let.AstBase, allToks)
+			var def IAstDef
+			for i := range chunks {
+				if def, err = me.parseDef(chunks[i], false); err != nil {
+					return
+				} else {
+					let.Defs = append(let.Defs, def)
+				}
+			}
+			ret = &let
 		}
 	}
+	return
+}
+
+func (me *ctxTopLevelDef) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex.Tokens) (ret *AstExprLet, err *Error) {
+	var let AstExprLet
+	var def IAstDef
+	me.setTokensFor(&let.AstBase, toks)
+	for i := range toksChunked {
+		if i == 0 {
+			let.Body, err = me.parseExpr(toksChunked[i])
+		} else if def, err = me.parseDef(toksChunked[i], false); err == nil {
+			let.Defs = append(let.Defs, def)
+		}
+		if err != nil {
+			return
+		}
+	}
+	ret = &let
 	return
 }
