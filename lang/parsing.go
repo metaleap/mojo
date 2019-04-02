@@ -72,9 +72,12 @@ func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IA
 		err = errAt(&tokens[0], "missing: definition body following `:=`")
 	} else if len(tokshead) == 0 {
 		err = errAt(&tokens[0], "missing: definition name preceding `:=`")
-	} else if toksheadsig, _ := tokshead.BreakOnOther(","); len(toksheadsig) == 0 {
+	} else if tokshead[0].Str == "," {
 		err = errAt(&tokens[0], "missing: definition name preceding `,`")
 	} else {
+		toksheads := tokshead.Chunked(",", "(", ")")
+
+		toksheadsig := toksheads[0]
 		var namepos int
 		if len(toksheadsig) > 1 {
 			if me.file.Options.ApplStyle == APPLSTYLE_SVO {
@@ -83,7 +86,6 @@ func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IA
 				namepos = len(toksheadsig) - 1
 			}
 		}
-
 		var defbase *AstDefBase
 		if isdeftype := ustr.BeginsUpper(toksheadsig[namepos].Str); isdeftype {
 			var deftype AstDefType
@@ -100,22 +102,32 @@ func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IA
 		} else {
 			me.setTokensFor(&defbase.AstBaseTokens, toks, nil)
 		}
-		if err = defbase.newIdent(me, -1, toksheadsig, namepos); err != nil {
-			def = nil
-		} else {
+		if err = defbase.newIdent(me, -1, toksheadsig, namepos); err == nil {
 			defbase.ensureArgsLen(len(toksheadsig) - 1)
 			for i, a := 0, 0; i < len(toksheadsig); i++ {
 				if i != namepos {
 					if err = defbase.newIdent(me, a, toksheadsig, i); err != nil {
-						def = nil
-						return
+						goto end
 					}
 					a++
 				}
 			}
-			if err = def.parseDefBody(me, toksbody); err != nil {
-				def = nil
+			if err = def.parseDefBody(me, toksbody); err == nil && len(toksheads) > 1 {
+				defbase.Meta = make([]IAstExpr, len(toksheads)-1)
+				for i := range toksheads {
+					if i > 0 {
+						if defbase.Meta[i-1], err = me.parseExpr(toksheads[i]); err != nil {
+							goto end
+						}
+					}
+				}
 			}
+		}
+	}
+end:
+	if err != nil {
+		if def = nil; topLevel {
+			me.def = nil
 		}
 	}
 	return

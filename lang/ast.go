@@ -40,6 +40,7 @@ type AstDefBase struct {
 	AstBaseTokens
 	Name AstExprIdent
 	Args []AstExprIdent
+	Meta []IAstExpr
 
 	IsDefType bool
 }

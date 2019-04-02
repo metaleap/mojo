@@ -43,7 +43,7 @@ User        :=  name: Txt
 
 check must cmp arg val :=
     val check cmp arg   ? True  : val
-                        | False : Err msg="must on $T$val not satisfied: $check $cmp $arg"
+                        | False : msg="must on $T$val not satisfied: $check $cmp $arg" Err
     // -- val check cmp arg && val
     // --                     || Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
@@ -56,12 +56,12 @@ any val := any
 any use drop := any
 
 list rest :=
-    list    ? Link first rest :   rest
-            | Empty           :   Err msg="rest: list must not be Empty"
+    list    ? f Link r  : rest
+            | Empty     : msg="rest: list must not be Empty" Err
 
 
 list first , list must != Empty :=
-    list ? Link first rest : first
+    list ? f Link r : f
 
 
 x pow y :=
@@ -80,15 +80,15 @@ a × b, a must >= 0 :=
     a == 0  ? True  : Empty
             | False : b ret
 
-    foo ret := Link foo ab
+    foo ret := foo Link ab
     ab := a-1 × b
 
 
 f accumR initial list :=
     list    ? Empty           : initial
-            | Link first rest : first f (f accumR initial rest)
+            | first Link rest : first f (f accumR initial rest)
 
 
 f accumL initial list :=
     list    ? Empty           : initial
-            | Link first rest : f accumL (initial /* foo */ f first) 123.456 /* c1*/ /* c2 */ // c3
+            | first Link rest : f accumL (initial /* foo */ f first) 123.456 /* c1*/ /* c2 */ // c3
