@@ -1,24 +1,27 @@
 // -- option type
 any Maybe   := No | Ok: any
 
-// -- equivalent to Haskell's Either
-// -- second comment line just to have one
+// -- equivalent to Haskell's data Either = Left dis | Right dat
 dis Or dat  :=  This: dis
             |   That: dat
 
-any OrErr   :=  Ret any
-            |   Err: msg: Text
+foo Bar := 123
+
+any OrErr   :=  Ret: any
+            |   Err: msg: TEXT
 
 t List      :=  Empty
             |   Link: t & t List
 
 t MinList   := t List, val must != Empty
 
-Txt         := Text, trim, len must > 3
+Txt         := TEXT, trim, len must > 3
+
+TxtBadIdea  := Txt, len must < 3 // -- let's see if we can be smart here later on
 
 Name        := FirstLast: Txt & Txt
 
-Address     := Addr:    street_HouseNo  : (Txt & Text, trim, len must > 0)
+Address     := Addr:    street_HouseNo  : (Txt & TEXT, trim, len must > 0)
                     &   zip_City        : (Txt & Txt)   /*
                     &   foo             : bar
                     &   moo             : baz           */
@@ -42,18 +45,24 @@ User        :=  name: Txt
 
 
 check must cmp arg val :=
-    val check cmp arg   ? True  : val
-                        | False : msg="must on $T$val not satisfied: $check $cmp $arg" Err
-    // -- val check cmp arg && val
-    // --                     || Err msg="must on $T$val not satisfied: $check $cmp $arg"
+    // -- val check cmp arg   ? True  : val
+    // --                     | False : msg="must on $T$val not satisfied: $check $cmp $arg" Err
+    val check cmp arg   && val
+                        || Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
 
-// -- id
-any val := any
+// compose rtl
+f2 <. f1 v := v f1 f2
+
+// compose ltr
+f1 .> f2 := _ f1 f2
+
+// -- id , the well-known: func id(foo) {return foo}
+val := _
 
 // -- const
-any use drop := any
+v only _ := v
 
 list rest :=
     list    ? f Link r  : rest
@@ -66,12 +75,12 @@ list first , list must != Empty :=
 
 x pow y :=
     y < 0   ? True    : 1 / (x pow y.neg)
-            | False   : tmp accum 1 y , tmp := x * val // -- x*_   // -- * accumL 1 (y × x)
+            | False   : x* accum 1 y , tmp := x * _   // -- * accumL 1 (y × x)
 
 
 f accum initial n, n must >= 0 :=
-    True    ? n==0  : f accum x y , x := initial f // , some unused := 123
-            |    : initial
+    True    ? n==0  : f accum x y , x := initial f , _ unused := 123
+            |       : initial
     y := n - 1
 
 

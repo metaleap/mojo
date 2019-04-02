@@ -90,6 +90,10 @@ func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IA
 		if isdeftype := ustr.BeginsUpper(toksheadsig[namepos].Str); isdeftype {
 			var deftype AstDefType
 			def, defbase, deftype.AstDefBase.IsDefType = &deftype, &deftype.AstDefBase, true
+			if len(toksheads) > 1 {
+				err = errAt(&tokens[len(toksheadsig)], "unexpected comma")
+				goto end
+			}
 		} else {
 			var deffunc AstDefFunc
 			def, defbase = &deffunc, &deffunc.AstDefBase
@@ -138,8 +142,14 @@ func (me *AstDefFunc) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (er
 	return
 }
 
-func (me *AstDefType) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) *Error {
-	return nil
+func (me *AstDefType) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (err *Error) {
+	opts := toks.Chunked("|", "(", ")")
+	if len(opts) == 1 {
+
+	} else {
+
+	}
+	return
 }
 
 func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
@@ -208,21 +218,21 @@ func (me *ctxTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevlex.To
 	if len(accum) == 1 {
 		ret = accum[0]
 	} else {
-		var call AstExprCall
-		me.setTokensFor(&call.AstBaseTokens, allToks, untilTok)
+		var appl AstExprAppl
+		me.setTokensFor(&appl.AstBaseTokens, allToks, untilTok)
 		l := len(accum) - 1
 		switch me.file.Options.ApplStyle {
 		case APPLSTYLE_SVO:
-			call.Callee = accum[1]
-			call.Args = append(accum[0:1], accum[2:]...)
+			appl.Callee = accum[1]
+			appl.Args = append(accum[0:1], accum[2:]...)
 		case APPLSTYLE_VSO:
-			call.Callee = accum[0]
-			call.Args = accum[1:]
+			appl.Callee = accum[0]
+			appl.Args = accum[1:]
 		case APPLSTYLE_SOV:
-			call.Callee = accum[l]
-			call.Args = accum[:l]
+			appl.Callee = accum[l]
+			appl.Args = accum[:l]
 		}
-		ret = &call
+		ret = &appl
 	}
 	return
 }
@@ -241,12 +251,12 @@ func (me *ctxTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, a
 		caseof.Alts = make([]AstCaseAlt, len(alts))
 		for i := range alts {
 			if len(alts[i]) == 0 {
-				err = errAt(&toks[0], "malformed `?` branching: empty `|` case")
+				err = errAt(&toks[0], "malformed `?` branching: empty case")
 			} else if ifthen := alts[i].Chunked(":", "(", ")"); len(ifthen) > 2 || len(ifthen) < 1 || (len(ifthen) == 1 && alts[i][0].Str != ":") {
-				err = errAt(&alts[i][0], "malformed `?` branching: a `|` case needs exactly one corresponding `:` with subsequent expression")
+				err = errAt(&alts[i][0], "malformed `?` branching: each case needs exactly one corresponding `:` with subsequent expression")
 			} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen) == 1 {
 				if caseof.Alts[i].Body, err = me.parseExpr(ifthen[0]); caseof.defaultIndex >= 0 {
-					err = errAt(&ifthen[0][0], "malformed `?` branching: encountered a second default `|` case, only at most one is permissible")
+					err = errAt(&ifthen[0][0], "malformed `?` branching: encountered a second default case, only at most one is permissible")
 				} else {
 					caseof.defaultIndex = i
 				}

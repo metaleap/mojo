@@ -17,7 +17,7 @@ func (me *AstDefBase) newIdent(ctx *ctxTopLevelDef, arg int, ttmp udevlex.Tokens
 		this = &me.Args[arg]
 	}
 
-	if k := ttmp[at].Kind(); (isarg && !ustr.BeginsLower(ttmp[at].Str)) ||
+	if k, s := ttmp[at].Kind(), ttmp[at].Str; (isarg && s != "_" && !ustr.BeginsLower(s)) ||
 		(k != udevlex.TOKEN_IDENT && (k != udevlex.TOKEN_OTHER || isarg)) {
 		return errAt(&ttmp[at], "not a valid "+ustr.If(isarg, ustr.If(me.IsDefType, "type-var", "argument"), "definition")+" name")
 	}
@@ -49,8 +49,8 @@ func (me *ctxTopLevelDef) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	return &this
 }
 
-func (me *ctxTopLevelDef) newExprIdent(toks udevlex.Tokens) *AstExprIdent {
-	var this AstExprIdent
+func (me *ctxTopLevelDef) newExprIdent(toks udevlex.Tokens) *AstIdent {
+	var this AstIdent
 	me.setTokenAndCommentsFor(&this.AstBase, toks, 0)
 	return &this
 }

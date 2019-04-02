@@ -38,8 +38,8 @@ type IAstDef interface {
 
 type AstDefBase struct {
 	AstBaseTokens
-	Name AstExprIdent
-	Args []AstExprIdent
+	Name AstIdent
+	Args []AstIdent
 	Meta []IAstExpr
 
 	IsDefType bool
@@ -51,12 +51,19 @@ func (me *AstDefBase) ensureArgsLen(l int) {
 	if ol := len(me.Args); ol > l {
 		me.Args = me.Args[:l]
 	} else if ol < l {
-		me.Args = make([]AstExprIdent, l)
+		me.Args = make([]AstIdent, l)
 	}
 }
 
 type AstDefType struct {
 	AstDefBase
+	Expr IAstTypeExpr
+	Opts []AstDefTypeOpt
+}
+
+type AstDefTypeOpt struct {
+	Name AstIdent
+	Expr IAstTypeExpr
 }
 
 type AstDefFunc struct {
@@ -98,14 +105,14 @@ type AstExprLitStr struct {
 
 func (me *AstExprLitStr) Val() string { return me.Tokens[0].Str }
 
-type AstExprIdent struct {
+type AstIdent struct {
 	AstExprBase
 }
 
-func (me *AstExprIdent) Val() string       { return me.Tokens[0].Str }
-func (me *AstExprIdent) IsOpish() bool     { return me.Tokens[0].Kind() == udevlex.TOKEN_OTHER }
-func (me *AstExprIdent) BeginsUpper() bool { return ustr.BeginsUpper(me.Tokens[0].Str) }
-func (me *AstExprIdent) BeginsLower() bool { return ustr.BeginsLower(me.Tokens[0].Str) }
+func (me *AstIdent) Val() string       { return me.Tokens[0].Str }
+func (me *AstIdent) IsOpish() bool     { return me.Tokens[0].Kind() == udevlex.TOKEN_OTHER }
+func (me *AstIdent) BeginsUpper() bool { return ustr.BeginsUpper(me.Tokens[0].Str) }
+func (me *AstIdent) BeginsLower() bool { return ustr.BeginsLower(me.Tokens[0].Str) }
 
 type AstExprLet struct {
 	AstExprBase
@@ -113,7 +120,7 @@ type AstExprLet struct {
 	Body IAstExpr
 }
 
-type AstExprCall struct {
+type AstExprAppl struct {
 	AstExprBase
 	Callee IAstExpr
 	Args   []IAstExpr
@@ -139,8 +146,32 @@ type AstCaseAlt struct {
 	Body IAstExpr
 }
 
-type AstExprCtor struct {
-	AstExprBase
-	Name AstExprIdent
-	Args []IAstExpr
+type IAstTypeExpr interface {
+	Base() *AstTypeExprBase
+}
+
+type AstTypeExprBase struct {
+	AstBaseTokens
+	Meta []IAstExpr
+}
+
+func (me *AstTypeExprBase) Base() *AstTypeExprBase { return me }
+
+type AstTypeExprIdent struct {
+	AstTypeExprBase
+	AstBaseComments
+}
+
+func (me *AstTypeExprIdent) Val() string { return me.Tokens[0].Str }
+
+type AstTypeExprAppl struct {
+	AstTypeExprBase
+	Callee AstIdent
+	Args   []AstIdent
+}
+
+type AstTypeExprTup struct {
+	AstTypeExprBase
+	Names []AstIdent
+	Exprs []IAstTypeExpr
 }
