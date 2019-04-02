@@ -42,9 +42,9 @@ User        :=  name: Txt
 
 
 check must cmp arg val :=
-    val.check cmp arg   ? True  : val
+    val check cmp arg   ? True  : val
                         | False : Err msg="must on $T$val not satisfied: $check $cmp $arg"
-    // -- (val check) cmp arg && val
+    // -- val check cmp arg && val
     // --                     || Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
@@ -70,8 +70,8 @@ x pow y :=
 
 
 f accum initial n, n must >= 0 :=
-    True    ? n==0  : f accum x y // , x := initial f // , some unused := 123
-            |       : initial
+    True    ? n==0  : f accum x y , x := initial f // , some unused := 123
+            |    : initial
     y := n - 1
 
 

@@ -98,7 +98,7 @@ func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IA
 		if topLevel {
 			defbase.Tokens = tokens
 		} else {
-			me.setTokensFor(&defbase.AstBaseTokens, toks)
+			me.setTokensFor(&defbase.AstBaseTokens, toks, nil)
 		}
 		if err = defbase.newIdent(me, -1, toksheadsig, namepos); err != nil {
 			def = nil
@@ -187,17 +187,17 @@ func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Err
 			}
 			accum = append(accum, exprcur)
 		}
-		ret, err = me.parseExprFinalize(accum, alltoks)
+		ret, err = me.parseExprFinalize(accum, alltoks, nil)
 	}
 	return
 }
 
-func (me *ctxTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, err *Error) {
+func (me *ctxTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token) (ret IAstExpr, err *Error) {
 	if len(accum) == 1 {
 		ret = accum[0]
 	} else {
 		var call AstExprCall
-		me.setTokensFor(&call.AstBaseTokens, allToks)
+		me.setTokensFor(&call.AstBaseTokens, allToks, untilTok)
 		l := len(accum) - 1
 		switch me.file.Options.ApplStyle {
 		case APPLSTYLE_SVO:
@@ -218,21 +218,28 @@ func (me *ctxTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevlex.To
 func (me *ctxTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var scrutinee IAstExpr
 	if len(accum) > 0 {
-		scrutinee, err = me.parseExprFinalize(accum, allToks)
+		scrutinee, err = me.parseExprFinalize(accum, allToks, &toks[0])
 	}
 	if err == nil {
 		var caseof AstExprCase
 		caseof.Scrutinee, caseof.defaultIndex = scrutinee, -1
-		toks, rest = toks[1:].BreakOnIndent(toks[0].Meta.LineIndent)
-		me.setTokensFor(&caseof.AstBaseTokens, allToks)
-		chunks := toks.Chunked("|", "(", ")")
-		for i := range chunks {
-			if ifthen := chunks[i].Chunked(":", "(", ")"); len(ifthen) > 2 || len(ifthen) < 1 || (len(ifthen) == 1 && chunks[i][0].Str != ":") {
-				err = errAt(&chunks[i][0], "malformed `?` branching: a `|` case needs exactly one corresponding `:` with subsequent expression")
-			} else {
-				var alt AstCaseAlt
-				me.setTokensFor(&alt.AstBaseTokens, chunks[i])
-
+		me.setTokensFor(&caseof.AstBaseTokens, allToks, nil)
+		toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
+		alts := toks.Chunked("|", "(", ")")
+		caseof.Alts = make([]AstCaseAlt, len(alts))
+		for i := range alts {
+			if len(alts[i]) == 0 {
+				err = errAt(&toks[0], "malformed `?` branching: empty `|` case")
+			} else if ifthen := alts[i].Chunked(":", "(", ")"); len(ifthen) > 2 || len(ifthen) < 1 || (len(ifthen) == 1 && alts[i][0].Str != ":") {
+				err = errAt(&alts[i][0], "malformed `?` branching: a `|` case needs exactly one corresponding `:` with subsequent expression")
+			} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen) == 1 {
+				if caseof.Alts[i].Body, err = me.parseExpr(ifthen[0]); caseof.defaultIndex >= 0 {
+					err = errAt(&ifthen[0][0], "malformed `?` branching: encountered a second default `|` case, only at most one is permissible")
+				} else {
+					caseof.defaultIndex = i
+				}
+			} else if caseof.Alts[i].Cond, err = me.parseExpr(ifthen[0]); err == nil {
+				caseof.Alts[i].Body, err = me.parseExpr(ifthen[1])
 			}
 			if err != nil {
 				return
@@ -245,12 +252,12 @@ func (me *ctxTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, a
 
 func (me *ctxTopLevelDef) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var body IAstExpr
-	if body, err = me.parseExprFinalize(accum, allToks); err == nil {
-		toks, rest = toks.BreakOnIndent(toks[0].Meta.LineIndent)
+	if body, err = me.parseExprFinalize(accum, allToks, &toks[0]); err == nil {
+		toks, rest = toks.BreakOnIndent(allToks[0].Meta.LineIndent)
 		if chunks := toks.Chunked(",", "(", ")"); len(chunks) > 0 {
 			var let AstExprLet
 			let.Body, let.Defs = body, make([]IAstDef, 0, len(chunks))
-			me.setTokensFor(&let.AstBaseTokens, allToks)
+			me.setTokensFor(&let.AstBaseTokens, allToks, nil)
 			var def IAstDef
 			for i := range chunks {
 				if def, err = me.parseDef(chunks[i], false); err != nil {
@@ -268,7 +275,7 @@ func (me *ctxTopLevelDef) parseExprLetInner(toks udevlex.Tokens, accum []IAstExp
 func (me *ctxTopLevelDef) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex.Tokens) (ret *AstExprLet, err *Error) {
 	var let AstExprLet
 	var def IAstDef
-	me.setTokensFor(&let.AstBaseTokens, toks)
+	me.setTokensFor(&let.AstBaseTokens, toks, nil)
 	for i := range toksChunked {
 		if i == 0 {
 			let.Body, err = me.parseExpr(toksChunked[i])

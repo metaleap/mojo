@@ -64,7 +64,15 @@ func (me *ctxTopLevelDef) setTokenAndCommentsFor(this *AstBase, toks udevlex.Tok
 	}
 }
 
-func (me *ctxTopLevelDef) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens) {
+func (me *ctxTopLevelDef) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens, untilTok *udevlex.Token) {
+	if untilTok != nil {
+		for i := range toks {
+			if &toks[i] == untilTok {
+				toks = toks[:i]
+				break
+			}
+		}
+	}
 	ifirst, ilast := me.mto[&toks[0]], me.mto[&toks[len(toks)-1]]
 	tld := &me.def.Base().AstBaseTokens
 	this.Tokens = tld.Tokens[ifirst : ilast+1]
