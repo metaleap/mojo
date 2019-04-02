@@ -120,7 +120,7 @@ type AstExprCall struct {
 
 type AstExprCase struct {
 	AstExprBase
-	Scrut        IAstExpr
+	Scrutinee    IAstExpr
 	Alts         []AstCaseAlt
 	defaultIndex int
 }
