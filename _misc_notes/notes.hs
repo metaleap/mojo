@@ -1,11 +1,13 @@
+
+Bool := Nay | Yay
+
 // -- option type
-any Maybe   := No | Ok: any
+Maybe   := No | Yo: _
 
 // -- equivalent to Haskell's data Either = Left dis | Right dat
-dis Or dat  :=  This: dis
-            |   That: dat
+Or  :=  Neat: _ | Well: __
 
-foo Bar :=  x ,y
+foo Bar :=  x , y
 
 any OrErr   :=  Ret: any
             |   Err: msg: TEXT
@@ -52,6 +54,20 @@ check must cmp arg val :=
 
 
 
+check && ifSo || otherwise :=
+    check   ? True  : ifSo
+            |       : otherwise
+
+
+maybe || other :=
+    maybe   ? some Yo   : some
+            |           : other
+
+
+_[_]	 :=	  Nil
+
+
+
 // compose rtl
 f2 <. f1 v := v f1 f2
 
@@ -67,6 +83,7 @@ v only _ := v
 list rest :=
     list    ? f Link r  : rest
             | Empty     : msg="rest: list must not be Empty" Err
+    x foo := (x trim len == 0) && "(none)" || x
 
 
 list first , list must != Empty :=

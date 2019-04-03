@@ -16,11 +16,11 @@ const (
 )
 
 type (
-	ctxTopLevelDef struct {
+	ctxParseTopLevelDef struct {
 		file *AstFile
 		def  IAstDef
-		mtc  map[*udevlex.Token][]int
-		mto  map[*udevlex.Token]int
+		mto  map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
+		mtc  map[*udevlex.Token][]int // maps comments-stripped Tokens to comment Tokens in orig
 	}
 )
 
@@ -58,11 +58,11 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstCom
 }
 
 func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def IAstDef, err *Error) {
-	ctx := ctxTopLevelDef{file: me, mtc: make(map[*udevlex.Token][]int), mto: make(map[*udevlex.Token]int)}
+	ctx := ctxParseTopLevelDef{file: me, mtc: make(map[*udevlex.Token][]int), mto: make(map[*udevlex.Token]int)}
 	return ctx.parseDef(tokens, true)
 }
 
-func (me *ctxTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IAstDef, err *Error) {
+func (me *ctxParseTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (def IAstDef, err *Error) {
 	toks := tokens
 	if topLevel {
 		toks = tokens.SansComments(me.mtc, me.mto)
@@ -135,12 +135,12 @@ end:
 	return
 }
 
-func (me *AstDefFunc) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (err *Error) {
+func (me *AstDefFunc) parseDefBody(ctx *ctxParseTopLevelDef, toks udevlex.Tokens) (err *Error) {
 	me.Body, err = ctx.parseExpr(toks)
 	return
 }
 
-func (me *AstDefType) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (err *Error) {
+func (me *AstDefType) parseDefBody(ctx *ctxParseTopLevelDef, toks udevlex.Tokens) (err *Error) {
 	opts := toks.Chunked("|", "(", ")")
 	if len(opts[0]) == 0 {
 		err = errAt(&toks[0], "unexpected `|`")
@@ -152,7 +152,7 @@ func (me *AstDefType) parseDefBody(ctx *ctxTopLevelDef, toks udevlex.Tokens) (er
 	return
 }
 
-func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
+func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
 	if chunks := toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1); len(chunks) > 1 {
 		ret, err = me.parseExprLetOuter(toks, chunks)
 
@@ -210,7 +210,7 @@ func (me *ctxTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Err
 	return
 }
 
-func (me *ctxTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token) (ret IAstExpr, err *Error) {
+func (me *ctxParseTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token) (ret IAstExpr, err *Error) {
 	if len(accum) == 1 {
 		ret = accum[0]
 	} else {
@@ -233,7 +233,7 @@ func (me *ctxTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevlex.To
 	return
 }
 
-func (me *ctxTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
+func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var scrutinee IAstExpr
 	if len(accum) > 0 {
 		scrutinee, err = me.parseExprFinalize(accum, allToks, &toks[0])
@@ -271,7 +271,7 @@ func (me *ctxTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, a
 	return
 }
 
-func (me *ctxTopLevelDef) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
+func (me *ctxParseTopLevelDef) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var body IAstExpr
 	if body, err = me.parseExprFinalize(accum, allToks, &toks[0]); err == nil {
 		toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
@@ -293,7 +293,7 @@ func (me *ctxTopLevelDef) parseExprLetInner(toks udevlex.Tokens, accum []IAstExp
 	return
 }
 
-func (me *ctxTopLevelDef) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex.Tokens) (ret *AstExprLet, err *Error) {
+func (me *ctxParseTopLevelDef) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex.Tokens) (ret *AstExprLet, err *Error) {
 	var let AstExprLet
 	var def IAstDef
 	me.setTokensFor(&let.AstBaseTokens, toks, nil)
@@ -311,7 +311,7 @@ func (me *ctxTopLevelDef) parseExprLetOuter(toks udevlex.Tokens, toksChunked []u
 	return
 }
 
-func (me *ctxTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeExpr, err *Error) {
+func (me *ctxParseTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeExpr, err *Error) {
 	alltoks, accum := toks, make([]IAstTypeExpr, 0, len(toks))
 	// var tmetas []IAstExpr
 	for len(toks) > 0 {

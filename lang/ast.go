@@ -26,14 +26,9 @@ type AstComment struct {
 func (me *AstComment) ContentText() string     { return me.Tokens[0].Str }
 func (me *AstComment) IsSelfTerminating() bool { return me.Tokens[0].IsCommentSelfTerminating() }
 
-type AstBase struct {
-	AstBaseTokens
-	AstBaseComments
-}
-
 type IAstDef interface {
 	Base() *AstDefBase
-	parseDefBody(*ctxTopLevelDef, udevlex.Tokens) *Error
+	parseDefBody(*ctxParseTopLevelDef, udevlex.Tokens) *Error
 }
 
 type AstDefBase struct {
@@ -76,37 +71,46 @@ type IAstExpr interface {
 }
 
 type AstExprBase struct {
-	AstBase
+	AstBaseTokens
 }
 
 func (me *AstExprBase) Base() *AstExprBase { return me }
 
-type AstExprLitUint struct {
+type AstExprAtomBase struct {
 	AstExprBase
+	AstBaseComments
+}
+
+type AstExprLitBase struct {
+	AstExprAtomBase
+}
+
+type AstExprLitUint struct {
+	AstExprLitBase
 }
 
 func (me *AstExprLitUint) Val() uint64 { return me.Tokens[0].Uint }
 
 type AstExprLitFloat struct {
-	AstExprBase
+	AstExprLitBase
 }
 
 func (me *AstExprLitFloat) Val() float64 { return me.Tokens[0].Float }
 
 type AstExprLitRune struct {
-	AstExprBase
+	AstExprLitBase
 }
 
 func (me *AstExprLitRune) Val() rune { return me.Tokens[0].Rune() }
 
 type AstExprLitStr struct {
-	AstExprBase
+	AstExprLitBase
 }
 
 func (me *AstExprLitStr) Val() string { return me.Tokens[0].Str }
 
 type AstIdent struct {
-	AstExprBase
+	AstExprAtomBase
 }
 
 func (me *AstIdent) Val() string       { return me.Tokens[0].Str }
@@ -141,7 +145,7 @@ func (me *AstExprCase) Default() *AstCaseAlt {
 }
 
 type AstCaseAlt struct {
-	AstBase
+	AstBaseTokens
 	Cond IAstExpr
 	Body IAstExpr
 }
@@ -151,7 +155,7 @@ type IAstTypeExpr interface {
 }
 
 type AstTypeExprBase struct {
-	AstBaseTokens
+	AstExprBase
 	Meta []IAstExpr
 }
 
