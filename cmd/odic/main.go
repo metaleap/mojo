@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"runtime"
+	"runtime/debug"
 
 	"github.com/metaleap/odic"
 )
@@ -11,6 +13,9 @@ var ctx *od.Ctx
 func writeLn(s string) { _, _ = os.Stdout.WriteString(s + "\n") }
 
 func main() {
+	debug.SetGCPercent(-1) // GC off
+	runtime.GOMAXPROCS(1)  // no thread scheduling
+
 	if len(os.Args) == 1 {
 		os.Args = append(os.Args, "")
 	}

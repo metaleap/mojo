@@ -1,8 +1,6 @@
 package odlang
 
 import (
-	"text/scanner"
-
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
 )
@@ -26,20 +24,6 @@ type (
 
 func init() {
 	udevlex.RestrictedWhitespace, udevlex.StandaloneSeps = true, []string{"(", ")"}
-}
-
-type Error struct {
-	Msg string
-	Pos scanner.Position
-	Len int
-}
-
-func errAt(tok *udevlex.Token, msg string) *Error {
-	return &Error{Msg: msg, Pos: tok.Meta.Position, Len: len(tok.Meta.Orig)}
-}
-
-func (this *Error) Error() string {
-	return this.Pos.String() + ": " + this.Msg
 }
 
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {

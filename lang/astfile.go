@@ -3,11 +3,11 @@ package odlang
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/std"
 )
 
 type AstFileTopLevelChunk struct {
@@ -29,7 +29,11 @@ type AstFile struct {
 	errs     struct {
 		loading error
 	}
-	lastLoadTime int64
+	lastLoad struct {
+		time                 int64
+		size                 int64
+		tokCountInitialGuess int
+	}
 
 	Options struct {
 		ApplStyle ApplStyle
@@ -46,33 +50,38 @@ func (me *AstFile) populateChunksFrom(src []byte) {
 		pos  int
 		line int
 	}
-	tlchunks := make([]tlc, 0, 16)
+	il, tlchunks, chlast := len(src)-1, make([]tlc, 0, 32), src[0]
 
 	var newline, iscomment, wascomment bool
 	var curline int
 	var lastpos, lastln int
-	for i := range src {
-		if src[i] == '\n' {
-			wascomment, iscomment, newline, curline = iscomment, false, true, curline+1
-		} else if i > 0 {
-			if newline {
-				if src[i] != ' ' {
-					iscomment = src[i] == '/' && i < (len(src)-1) && src[i+1] == '/'
-					if (!(iscomment && wascomment)) &&
-						!(src[i] != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n')) {
-						tlchunks = append(tlchunks, tlc{src: src[lastpos:i], pos: lastpos, line: lastln})
-						lastpos, lastln = i, curline
-					}
-				}
-				newline = false
-			}
-		}
+
+	if me.lastLoad.tokCountInitialGuess = 0; chlast == '\n' {
+		curline = 1
 	}
-	if lastpos < (len(src) - 1) {
+	for i, l := 1, len(src); i < l; i++ {
+		ch := src[i]
+		if ch == '\n' {
+			wascomment, iscomment, newline, curline, me.lastLoad.tokCountInitialGuess = iscomment, false, true, curline+1, me.lastLoad.tokCountInitialGuess+1
+		} else if newline {
+			if newline = false; ch != ' ' {
+				iscomment = ch == '/' && i < il && src[i+1] == '/'
+				if (!(iscomment && wascomment)) &&
+					!(ch != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n')) {
+					tlchunks = append(tlchunks, tlc{src: src[lastpos:i], pos: lastpos, line: lastln})
+					lastpos, lastln = i, curline
+				}
+			}
+		} else if (!iscomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
+			me.lastLoad.tokCountInitialGuess++
+		}
+		chlast = ch
+	}
+	if lastpos < il {
 		tlchunks = append(tlchunks, tlc{src: src[lastpos:], pos: lastpos, line: lastln})
 	}
 
-	unchanged := make(map[int]int, 8)
+	unchanged := make(map[int]int, len(tlchunks))
 	for o := range me.TopLevel {
 		for n := range tlchunks {
 			if bytes.Equal(me.TopLevel[o].src, tlchunks[n].src) {
@@ -81,17 +90,17 @@ func (me *AstFile) populateChunksFrom(src []byte) {
 			}
 		}
 	}
-	sameasbefore := len(unchanged) == len(me.TopLevel) && len(unchanged) == len(tlchunks)
+	sameasbefore := len(unchanged) == len(me.TopLevel) && len(me.TopLevel) == len(tlchunks)
 	if sameasbefore {
-		for k, v := range unchanged {
-			if k != v {
+		for n, o := range unchanged {
+			if n != o {
 				sameasbefore = false
 				break
 			}
 		}
 	}
 	if !sameasbefore {
-		tlcold := me.TopLevel[:]
+		tlcold := me.TopLevel
 		me._src, me.TopLevel = nil, make([]AstFileTopLevelChunk, len(tlchunks))
 		for i := range tlchunks {
 			if o, ok := unchanged[i]; ok {
@@ -149,34 +158,38 @@ func (me *AstFile) Src() udevlex.Tokens {
 }
 
 func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
-	if me.SrcFilePath != "" && onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
-		if file, e := os.Stat(me.SrcFilePath); e == nil && me.lastLoadTime > file.ModTime().UnixNano() {
-			return
+	if me.SrcFilePath != "" {
+		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
+			if me.lastLoad.size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad &&
+				me.errs.loading == nil && me.lastLoad.time > srcfileinfo.ModTime().UnixNano() {
+				return
+			}
 		}
 	}
 
-	var src *os.File
+	var srcfile *os.File
 	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
-		if src, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
-			defer src.Close()
+		if srcfile, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
+			defer srcfile.Close()
 		}
 	} else if stdinIfNoSrcFilePathSet {
-		src = os.Stdin
+		srcfile = os.Stdin
 	}
-	if me.errs.loading == nil && src != nil {
-		me.LexAndParseSrc(src)
+	if me.errs.loading == nil && srcfile != nil {
+		me.LexAndParseSrc(srcfile)
 	}
 }
 
 func (me *AstFile) LexAndParseSrc(r io.Reader) {
 	var src []byte
-	if src, me.errs.loading = ioutil.ReadAll(r); me.errs.loading == nil {
-		me.lastLoadTime = time.Now().UnixNano()
-		me.populateChunksFrom(src)
+	if src, me.errs.loading = ustd.ReadAll(r, me.lastLoad.size); me.errs.loading == nil {
+		if me.lastLoad.time = time.Now().UnixNano(); len(src) > 0 {
+			me.populateChunksFrom(src)
+		}
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.dirty {
-				this.Tokens, this.errs.lexing =
-					udevlex.Lex(me.SrcFilePath, bytes.NewReader(this.src), this.offset.line, this.offset.pos, len(this.src)/6)
+				this.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.src},
+					me.SrcFilePath, this.offset.line, this.offset.pos, me.lastLoad.tokCountInitialGuess)
 				if len(this.errs.lexing) == 0 {
 					me.parse(this)
 				}

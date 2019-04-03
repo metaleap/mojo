@@ -1,11 +1,12 @@
 
+
 Bool := Nay | Yay
 
 // -- option type
 Maybe   := No | Yo: _
 
 // -- equivalent to Haskell's data Either = Left dis | Right dat
-Or  :=  Neat: _ | Well: __
+Or  :=  Neat: _ | Weak: __
 
 foo Bar :=  x , y
 
@@ -47,15 +48,13 @@ User        :=  name: Txt
 
 
 check must cmp arg val :=
-    // -- val check cmp arg   ? True  : val
-    // --                     | False : msg="must on $T$val not satisfied: $check $cmp $arg" Err
     val check cmp arg   && val
                         || Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
 
 check && ifSo || otherwise :=
-    check   ? True  : ifSo
+    check   ? Yay   : ifSo
             |       : otherwise
 
 
@@ -91,26 +90,26 @@ list first , list must != Empty :=
 
 
 x pow y :=
-    y < 0   ? True    : 1 / (x pow y.neg)
-            | False   : x* accum 1 y , tmp := x * _   // -- * accumL 1 (y × x)
+    y < 0   ? Yay   : 1 / (x pow y.neg)
+            | Nay   : x* accum 1 y , tmp := x * _   // -- * accumL 1 (y × x)
 
 
 f accum initial n, n must >= 0 :=
-    True    ? n==0  : f accum x y , x := initial f , _ unused := 123
-            |       : initial
+    Yay ? n==0  : f accum x y , x := initial f , _ unused := 123
+        |       : initial
     y := n - 1
 
 
 a × b, a must >= 0 :=
     // -- a==0 && Empty || ret
-    a == 0  ? True  : Empty
-            | False : b ret
+    a == 0  ? Yay   : Empty
+            | Nay   : b ret
 
     foo ret := foo Link ab
     ab := a-1 × b
 
 
-f accumR initial list :=
+f accumR initial Yo list :=
     list    ? Empty           : initial
             | first Link rest : first f (f accumR initial rest)
 
