@@ -146,8 +146,9 @@ func (me *AstExprCase) Default() *AstCaseAlt {
 
 type AstCaseAlt struct {
 	AstBaseTokens
-	Cond IAstExpr
-	Body IAstExpr
+	Conds       []IAstExpr
+	Body        IAstExpr
+	IsShortForm bool
 }
 
 type IAstTypeExpr interface {

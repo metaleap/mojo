@@ -18,7 +18,7 @@ t List      :=  Empty
 
 t MinList   := t List, val must != Empty
 
-Txt         := TEXT , trim , len must > 3
+Txt         := Text , trim , len must > 3
 
 TxtBadIdea  := Txt, len must < 3 // -- let's see if we can be smart here later on
 
@@ -40,20 +40,30 @@ Person      :=  name: Name
 
 User        :=  name: Txt
             &   details: Person
+            &   numLogins: Int Num
+            &   avatarPic: Byte List
 
+Point2D     :=  x: Real Num
+            &   y: Real Num
 
+Point3D     :=  Point2D
+            &   z: Real Num
+
+Circle      :=  radius: Real Num
+            &   Point2D
 
 /* -- freestanding comment */
 
 
 
 check must cmp arg val :=
-    val check cmp arg   && val
-                        || Err msg="must on $T$val not satisfied: $check $cmp $arg"
+    val check cmp arg   ?| val
+                        |? Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
+// -- && := _ ? False : __ ? False: False : True
 
-check && ifSo || otherwise :=
+check && ifSo || otherwise Ok :=
     check   ? Yay   : ifSo
             |       : otherwise
 
@@ -61,6 +71,11 @@ check && ifSo || otherwise :=
 maybe || other :=
     maybe   ? some Yo   : some
             |           : other
+
+x not := x ? False | True
+
+either || other :=
+    either  ? other | some Neat : some
 
 
 _[_]	 :=	  Nil
@@ -97,13 +112,15 @@ x pow y :=
 f accum initial n, n must >= 0 :=
     Yay ? n==0  : f accum x y , x := initial f , _ unused := 123
         |       : initial
+
     y := n - 1
 
 
 a × b, a must >= 0 :=
     // -- a==0 && Empty || ret
-    a == 0  ? Yay   : Empty
-            | Nay   : b ret
+    a == 0  ? Yay       : Empty
+            | Nay
+            | Yay : b ret  // -- should catch such
 
     foo ret := foo Link ab
     ab := a-1 × b

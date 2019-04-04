@@ -15,10 +15,11 @@ const (
 
 type (
 	ctxParseTopLevelDef struct {
-		file *AstFile
-		def  IAstDef
-		mto  map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
-		mtc  map[*udevlex.Token][]int // maps comments-stripped Tokens to comment Tokens in orig
+		file        *AstFile
+		def         IAstDef
+		mto         map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
+		mtc         map[*udevlex.Token][]int // maps comments-stripped Tokens to comment Tokens in orig
+		parensLevel int
 	}
 )
 
@@ -178,7 +179,7 @@ func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err
 					} else {
 						err = errAt(&toks[0], "unclosed parenthesis")
 					}
-				} else if exprcur, err = me.parseExpr(sub); err == nil {
+				} else if exprcur, err = me.parseExprInParens(sub); err == nil {
 					toks = rest
 				}
 			default:
@@ -217,6 +218,13 @@ func (me *ctxParseTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevl
 	return
 }
 
+func (me *ctxParseTopLevelDef) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
+	me.parensLevel++
+	ret, err = me.parseExpr(toks)
+	me.parensLevel--
+	return
+}
+
 func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var scrutinee IAstExpr
 	if len(accum) > 0 {
@@ -232,22 +240,47 @@ func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstEx
 			err = errAt(&toks[0], "unexpected: `|`")
 			return
 		}
+		var cond IAstExpr
+		var hasmulticonds bool
 		for i := range alts {
 			if len(alts[i]) == 0 {
 				err = errAt(&toks[0], "malformed `?` branching: empty case")
-			} else if ifthen := alts[i].Chunked(":", "(", ")"); len(ifthen) != 2 {
-				err = errAt(&alts[i][0], "malformed `?` branching: each case needs exactly one corresponding `:` with subsequent expression")
+			} else if ifthen := alts[i].Chunked(":", "(", ")"); len(ifthen) > 2 {
+				err = errAt(&alts[i][0], "malformed `?` branching: each case needs exactly one corresponding `:` with subsequent result expression")
 			} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen[0]) == 0 {
-				if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); caseof.defaultIndex >= 0 {
-					err = errAt(&ifthen[0][0], "malformed `?` branching: encountered a second default case, only at most one is permissible")
+				if len(ifthen[1]) == 0 {
+					err = errAt(&alts[i][0], "malformed `?` branching: default case has no result expression")
+				} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); caseof.defaultIndex >= 0 {
+					err = errAt(&alts[i][0], "malformed `?` branching: encountered a second default case, only at most one is permissible")
 				} else {
 					caseof.defaultIndex = i
 				}
-			} else if caseof.Alts[i].Cond, err = me.parseExpr(ifthen[0]); err == nil {
-				caseof.Alts[i].Body, err = me.parseExpr(ifthen[1])
+			} else if cond, err = me.parseExpr(ifthen[0]); err == nil {
+				if caseof.Alts[i].Conds = append(caseof.Alts[i].Conds, cond); len(ifthen) > 1 {
+					caseof.Alts[i].Body, err = me.parseExpr(ifthen[1])
+				} else {
+					hasmulticonds = true
+				}
 			}
 			if err != nil {
 				return
+			}
+		}
+		if hasmulticonds {
+			for i := 0; i < len(caseof.Alts); i++ {
+				if ca := &caseof.Alts[i]; ca.Body == nil {
+					if i < len(caseof.Alts)-1 {
+						canext := &caseof.Alts[i+1]
+						canext.Conds = append(canext.Conds, ca.Conds...)
+						caseof.Alts = append(caseof.Alts[:i], caseof.Alts[i+1:]...)
+						i--
+					} else if caseof.defaultIndex < 0 && len(ca.Conds) == 1 {
+						caseof.defaultIndex, ca.Body, ca.Conds = i, ca.Conds[0], nil
+					} else {
+						err = errAt(&ca.Tokens[0], "malformed `?` branching: case has no result expression")
+						return
+					}
+				}
 			}
 		}
 		ret = &caseof
@@ -335,7 +368,7 @@ func (me *ctxParseTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeE
 				} else {
 					err = errAt(&toks[0], "unclosed parenthesis")
 				}
-			} else if exprcur, err = me.parseTypeExpr(sub); err == nil {
+			} else if exprcur, err = me.parseTypeExprInParens(sub); err == nil {
 				toks = rest
 			}
 		default:
@@ -355,5 +388,12 @@ end:
 	if err != nil {
 		ret = nil
 	}
+	return
+}
+
+func (me *ctxParseTopLevelDef) parseTypeExprInParens(toks udevlex.Tokens) (ret IAstTypeExpr, err *Error) {
+	me.parensLevel++
+	ret, err = me.parseTypeExpr(toks)
+	me.parensLevel--
 	return
 }
