@@ -100,11 +100,14 @@ func (me *ctxParseTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (d
 				}
 			}
 			if err = def.parseDefBody(me, toksbody); err == nil && len(toksheads) > 1 {
-				defbase.Meta = make([]IAstExpr, len(toksheads)-1)
+				defbase.Meta = make([]IAstExpr, 0, len(toksheads)-1)
+				var meta IAstExpr
 				for i := range toksheads {
-					if i > 0 {
-						if defbase.Meta[i-1], err = me.parseExpr(toksheads[i]); err != nil {
+					if i > 0 && len(toksheads[i]) > 0 {
+						if meta, err = me.parseExpr(toksheads[i]); err != nil {
 							goto end
+						} else {
+							defbase.Meta = append(defbase.Meta, meta)
 						}
 					}
 				}
@@ -236,10 +239,7 @@ func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstEx
 		me.setTokensFor(&caseof.AstBaseTokens, allToks, nil)
 		toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 		alts := toks.Chunked("|", "(", ")")
-		if caseof.Alts = make([]AstCaseAlt, len(alts)); len(alts[0]) == 0 {
-			err = errAt(&toks[0], "unexpected: `|`")
-			return
-		}
+		caseof.Alts = make([]AstCaseAlt, len(alts))
 		var cond IAstExpr
 		var hasmulticonds bool
 		for i := range alts {
@@ -256,7 +256,7 @@ func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstEx
 					caseof.defaultIndex = i
 				}
 			} else if cond, err = me.parseExpr(ifthen[0]); err == nil {
-				if caseof.Alts[i].Conds = append(caseof.Alts[i].Conds, cond); len(ifthen) > 1 {
+				if caseof.Alts[i].Conds = []IAstExpr{cond}; len(ifthen) > 1 {
 					caseof.Alts[i].Body, err = me.parseExpr(ifthen[1])
 				} else {
 					hasmulticonds = true
@@ -267,18 +267,23 @@ func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstEx
 			}
 		}
 		if hasmulticonds {
-			for i := 0; i < len(caseof.Alts); i++ {
-				if ca := &caseof.Alts[i]; ca.Body == nil {
-					if i < len(caseof.Alts)-1 {
-						canext := &caseof.Alts[i+1]
-						canext.Conds = append(canext.Conds, ca.Conds...)
-						caseof.Alts = append(caseof.Alts[:i], caseof.Alts[i+1:]...)
-						i--
-					} else if caseof.defaultIndex < 0 && len(ca.Conds) == 1 {
-						caseof.defaultIndex, ca.Body, ca.Conds = i, ca.Conds[0], nil
-					} else {
-						err = errAt(&ca.Tokens[0], "malformed `?` branching: case has no result expression")
-						return
+			if len(caseof.Alts) == 2 && caseof.Alts[0].Body == nil && caseof.Alts[1].Body == nil {
+				caseof.Alts[0].IsShortForm, caseof.Alts[0].Body, caseof.Alts[0].Conds = true, caseof.Alts[0].Conds[0], nil
+				caseof.Alts[1].IsShortForm, caseof.Alts[1].Body, caseof.Alts[1].Conds = true, caseof.Alts[1].Conds[0], nil
+			} else {
+				for i := 0; i < len(caseof.Alts); i++ {
+					if ca := &caseof.Alts[i]; ca.Body == nil {
+						if i < len(caseof.Alts)-1 {
+							canext := &caseof.Alts[i+1]
+							canext.Conds = append(canext.Conds, ca.Conds...)
+							caseof.Alts = append(caseof.Alts[:i], caseof.Alts[i+1:]...)
+							i--
+						} else if caseof.defaultIndex < 0 && len(ca.Conds) == 1 {
+							caseof.defaultIndex, ca.Body, ca.Conds, ca.IsShortForm = i, ca.Conds[0], nil, true
+						} else {
+							err = errAt(&ca.Tokens[0], "malformed `?` branching: case has no result expression")
+							return
+						}
 					}
 				}
 			}
@@ -298,10 +303,12 @@ func (me *ctxParseTopLevelDef) parseExprLetInner(toks udevlex.Tokens, accum []IA
 			me.setTokensFor(&let.AstBaseTokens, allToks, nil)
 			var def IAstDef
 			for i := range chunks {
-				if def, err = me.parseDef(chunks[i], false); err != nil {
-					return
-				} else {
-					let.Defs = append(let.Defs, def)
+				if len(chunks[i]) > 0 {
+					if def, err = me.parseDef(chunks[i], false); err != nil {
+						return
+					} else {
+						let.Defs = append(let.Defs, def)
+					}
 				}
 			}
 			ret = &let
