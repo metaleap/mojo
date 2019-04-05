@@ -17,9 +17,9 @@ func (me *AstDefBase) newIdent(ctx *ctxParseTopLevelDef, arg int, ttmp udevlex.T
 		this = &me.Args[arg]
 	}
 
-	if s, k := ttmp[at].Str, ttmp[at].Kind(); (k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OTHER) ||
-		(me.IsDefType && isarg && (k == udevlex.TOKEN_OTHER || !ustr.BeginsLower(s))) {
-		return errAt(&ttmp[at], "not a valid "+
+	if s, k := ttmp[at].Str, ttmp[at].Kind(); (k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH) ||
+		(me.IsDefType && isarg && (k == udevlex.TOKEN_OPISH || !ustr.BeginsLower(s))) {
+		return errAt(&ttmp[at], ErrCatSyntax, "not a valid "+
 			ustr.If(!isarg, "definition", ustr.If(me.IsDefType, "type-var", "argument"))+" name")
 	}
 	ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)

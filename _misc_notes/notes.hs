@@ -3,7 +3,7 @@
 Bool                := False | True
 
 // -- option type
-Maybe               := No | Ok: _
+Maybe               := No | Ok: _ | No:
 
 // -- equivalent to Haskell's data Either = Left dis | Right dat
 Or                  :=  Yay: _ | Nay: __
@@ -11,7 +11,7 @@ Or                  :=  Yay: _ | Nay: __
 foo Bar             :=  x
 
 any OrErr           :=  Ret: any
-                    |   Err: msg: TEXT
+                    |   Err: msg: Text
 
 t List              :=  Empty
                     |   Link: t & t List
@@ -23,7 +23,7 @@ t ListNonEmpty      := t List, val must != Empty
 t Vector n, n > 0   := t List, len must == n
 
 t Tree              :=  Leaf
-                    |   Node: & t Tree t & t Tree
+                    |   Node: & t Tree t & t Tree &
 
 Txt                 := Text , trimmed , len must > 3
 

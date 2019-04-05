@@ -53,10 +53,10 @@ func (me *AstDefBase) ensureArgsLen(l int) {
 type AstDefType struct {
 	AstDefBase
 	Expr IAstTypeExpr
-	Opts []AstDefTypeOpt
+	Tags []AstDefTypeTag
 }
 
-type AstDefTypeOpt struct {
+type AstDefTypeTag struct {
 	Name AstIdent
 	Expr IAstTypeExpr
 }
@@ -114,7 +114,7 @@ type AstIdent struct {
 }
 
 func (me *AstIdent) Val() string       { return me.Tokens[0].Str }
-func (me *AstIdent) IsOpish() bool     { return me.Tokens[0].Kind() == udevlex.TOKEN_OTHER }
+func (me *AstIdent) IsOpish() bool     { return me.Tokens[0].Kind() == udevlex.TOKEN_OPISH }
 func (me *AstIdent) BeginsUpper() bool { return ustr.BeginsUpper(me.Tokens[0].Str) }
 func (me *AstIdent) BeginsLower() bool { return ustr.BeginsLower(me.Tokens[0].Str) }
 

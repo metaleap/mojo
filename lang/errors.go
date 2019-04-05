@@ -6,16 +6,32 @@ import (
 	"github.com/go-leap/dev/lex"
 )
 
+type ErrorCategory int
+
+const (
+	_ ErrorCategory = iota
+	ErrCatSyntax
+)
+
 type Error struct {
 	Msg string
 	Pos scanner.Position
 	Len int
+	Cat ErrorCategory
 }
 
-func errAt(tok *udevlex.Token, msg string) *Error {
-	return &Error{Msg: msg, Pos: tok.Meta.Position, Len: len(tok.Meta.Orig)}
+func errAt(tok *udevlex.Token, cat ErrorCategory, msg string) *Error {
+	return &Error{Msg: msg, Pos: tok.Meta.Position, Len: len(tok.Meta.Orig), Cat: cat}
 }
 
-func (this *Error) Error() string {
-	return this.Pos.String() + ": " + this.Msg
+func (me *Error) Error() (msg string) {
+	msg = me.Pos.String() + ": "
+	switch me.Cat {
+	case ErrCatSyntax:
+		msg += "[syntax] "
+	default:
+		msg += "[other] "
+	}
+	msg += me.Msg
+	return
 }

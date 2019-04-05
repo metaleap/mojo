@@ -52,13 +52,13 @@ func (me *ctxParseTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (d
 	if topLevel {
 		toks = tokens.SansComments(me.mtc, me.mto)
 	}
-	tokshead, toksbody := toks.BreakOnOther(":=")
+	tokshead, toksbody := toks.BreakOnOpish(":=")
 	if len(toksbody) == 0 {
-		err = errAt(&tokens[0], "missing: definition body following `:=`")
+		err = errAt(&tokens[0], ErrCatSyntax, "missing: definition body following `:=`")
 	} else if len(tokshead) == 0 {
-		err = errAt(&tokens[0], "missing: definition name preceding `:=`")
+		err = errAt(&tokens[0], ErrCatSyntax, "missing: definition name preceding `:=`")
 	} else if toksheads := tokshead.Chunked(",", "(", ")"); len(toksheads[0]) == 0 {
-		err = errAt(&tokens[0], "missing: definition name preceding `,`")
+		err = errAt(&tokens[0], ErrCatSyntax, "missing: definition name preceding `,`")
 	} else {
 		toksheadsig := toksheads[0]
 		var namepos int
@@ -127,14 +127,29 @@ func (me *AstDefFunc) parseDefBody(ctx *ctxParseTopLevelDef, toks udevlex.Tokens
 func (me *AstDefType) parseDefBody(ctx *ctxParseTopLevelDef, toks udevlex.Tokens) (err *Error) {
 	tags := toks.Chunked("|", "(", ")")
 	if len(tags[0]) == 0 {
-		err = errAt(&toks[0], "unexpected `|`")
-	} else {
-		istagged := len(tags) > 1 || (len(tags[0]) > 0 && len(tags[0]) > 2 &&
-			tags[0][1].Kind() == udevlex.TOKEN_OTHER && tags[0][1].Str == ":" &&
-			tags[0][0].Kind() == udevlex.TOKEN_IDENT && ustr.BeginsUpper(tags[0][0].Str))
-		if istagged {
-			println(tags[0][0].Str)
+		err = errAt(&toks[0], ErrCatSyntax, "unexpected `|`")
+
+	} else if istagged := len(tags) > 1 || (len(tags[0]) > 2 &&
+		tags[0][1].Kind() == udevlex.TOKEN_OPISH && tags[0][0].Kind() == udevlex.TOKEN_IDENT &&
+		tags[0][1].Str == ":" && ustr.BeginsUpper(tags[0][0].Str)); istagged {
+		me.Tags = make([]AstDefTypeTag, len(tags))
+		for i := range tags {
+			if t := tags[i]; len(t) == 0 {
+				err = errAt(&toks[0], ErrCatSyntax, "type definition `"+me.Name.Val()+"` is missing tag details in between two `|` operators")
+			} else if t[0].Kind() != udevlex.TOKEN_IDENT || !ustr.BeginsUpper(t[0].Str) {
+				err = errAt(&t[0], ErrCatSyntax, "malformed tag name `"+t[0].Meta.Orig+"`, should be upper-case")
+			} else if len(t) > 1 && (t[1].Kind() != udevlex.TOKEN_OPISH || t[1].Str != ":") {
+				err = errAt(&t[1], ErrCatSyntax, "expected `:` following tag name `"+t[0].Str+"`")
+			} else if ctx.setTokenAndCommentsFor(&me.Tags[i].Name.AstBaseTokens, &me.Tags[i].Name.AstBaseComments, t, 0); len(t) > 2 {
+				me.Tags[i].Expr, err = ctx.parseTypeExpr(t[2:])
+			}
+			if err != nil {
+				return
+			}
 		}
+
+	} else {
+		me.Expr, err = ctx.parseTypeExpr(toks)
 	}
 	return
 }
@@ -160,7 +175,7 @@ func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err
 			case udevlex.TOKEN_STR:
 				exprcur = me.newExprLitStr(toks)
 				toks = toks[1:]
-			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OTHER:
+			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
 				switch toks[0].Str {
 				case ",":
 					exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
@@ -172,14 +187,14 @@ func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err
 					exprcur = me.newExprIdent(toks)
 					toks = toks[1:]
 				}
-			case udevlex.TOKEN_SEP:
+			case udevlex.TOKEN_SEPISH:
 				if toks[0].Str == ")" {
-					err = errAt(&toks[0], "closing parenthesis without matching opening")
+					err = errAt(&toks[0], ErrCatSyntax, "closing parenthesis without matching opening")
 				} else if sub, rest, numunclosed := toks.Sub("(", ")"); len(sub) == 0 {
 					if numunclosed == 0 {
-						err = errAt(&toks[0], "empty parentheses")
+						err = errAt(&toks[0], ErrCatSyntax, "empty parentheses")
 					} else {
-						err = errAt(&toks[0], "unclosed parenthesis")
+						err = errAt(&toks[0], ErrCatSyntax, "unclosed parenthesis")
 					}
 				} else if exprcur, err = me.parseExprInParens(sub); err == nil {
 					toks = rest
@@ -243,14 +258,14 @@ func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstEx
 		var hasmulticonds bool
 		for i := range alts {
 			if len(alts[i]) == 0 {
-				err = errAt(&toks[0], "malformed `?` branching: empty case")
+				err = errAt(&toks[0], ErrCatSyntax, "malformed `?` branching: empty case")
 			} else if ifthen := alts[i].Chunked(":", "(", ")"); len(ifthen) > 2 {
-				err = errAt(&alts[i][0], "malformed `?` branching: each case needs exactly one corresponding `:` with subsequent result expression")
+				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `?` branching: each case needs exactly one corresponding `:` with subsequent result expression")
 			} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen[0]) == 0 {
 				if len(ifthen[1]) == 0 {
-					err = errAt(&alts[i][0], "malformed `?` branching: default case has no result expression")
+					err = errAt(&alts[i][0], ErrCatSyntax, "malformed `?` branching: default case has no result expression")
 				} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); caseof.defaultIndex >= 0 {
-					err = errAt(&alts[i][0], "malformed `?` branching: encountered a second default case, only at most one is permissible")
+					err = errAt(&alts[i][0], ErrCatSyntax, "malformed `?` branching: encountered a second default case, only at most one is permissible")
 				} else {
 					caseof.defaultIndex = i
 				}
@@ -280,7 +295,7 @@ func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstEx
 						} else if caseof.defaultIndex < 0 && len(ca.Conds) == 1 {
 							caseof.defaultIndex, ca.Body, ca.Conds, ca.IsShortForm = i, ca.Conds[0], nil, true
 						} else {
-							err = errAt(&ca.Tokens[0], "malformed `?` branching: case has no result expression")
+							err = errAt(&ca.Tokens[0], ErrCatSyntax, "malformed `?` branching: case has no result expression")
 							return
 						}
 					}
@@ -341,14 +356,14 @@ func (me *ctxParseTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeE
 		var exprcur IAstTypeExpr
 		switch k := toks[0].Kind(); k {
 		case udevlex.TOKEN_FLOAT:
-			err = errAt(&toks[0], "unexpected float literal")
+			err = errAt(&toks[0], ErrCatSyntax, "unexpected float literal")
 		case udevlex.TOKEN_UINT:
-			err = errAt(&toks[0], "unexpected integer literal")
+			err = errAt(&toks[0], ErrCatSyntax, "unexpected integer literal")
 		case udevlex.TOKEN_RUNE:
-			err = errAt(&toks[0], "unexpected character literal")
+			err = errAt(&toks[0], ErrCatSyntax, "unexpected character literal")
 		case udevlex.TOKEN_STR:
-			err = errAt(&toks[0], "unexpected text literal")
-		case udevlex.TOKEN_IDENT, udevlex.TOKEN_OTHER:
+			err = errAt(&toks[0], ErrCatSyntax, "unexpected text literal")
+		case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
 			switch toks[0].Str {
 			case ":":
 				return
@@ -365,14 +380,14 @@ func (me *ctxParseTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeE
 				exprcur = me.newTypeExprIdent(toks)
 				toks = toks[1:]
 			}
-		case udevlex.TOKEN_SEP:
+		case udevlex.TOKEN_SEPISH:
 			if toks[0].Str == ")" {
-				err = errAt(&toks[0], "closing parenthesis without matching opening")
+				err = errAt(&toks[0], ErrCatSyntax, "closing parenthesis without matching opening")
 			} else if sub, rest, numunclosed := toks.Sub("(", ")"); len(sub) == 0 {
 				if numunclosed == 0 {
-					err = errAt(&toks[0], "empty parentheses")
+					err = errAt(&toks[0], ErrCatSyntax, "empty parentheses")
 				} else {
-					err = errAt(&toks[0], "unclosed parenthesis")
+					err = errAt(&toks[0], ErrCatSyntax, "unclosed parenthesis")
 				}
 			} else if exprcur, err = me.parseTypeExprInParens(sub); err == nil {
 				toks = rest
