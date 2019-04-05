@@ -125,13 +125,16 @@ func (me *AstDefFunc) parseDefBody(ctx *ctxParseTopLevelDef, toks udevlex.Tokens
 }
 
 func (me *AstDefType) parseDefBody(ctx *ctxParseTopLevelDef, toks udevlex.Tokens) (err *Error) {
-	opts := toks.Chunked("|", "(", ")")
-	if len(opts[0]) == 0 {
+	tags := toks.Chunked("|", "(", ")")
+	if len(tags[0]) == 0 {
 		err = errAt(&toks[0], "unexpected `|`")
-	} else if len(opts) == 1 {
-		me.Expr, err = ctx.parseTypeExpr(toks)
 	} else {
-
+		istagged := len(tags) > 1 || (len(tags[0]) > 0 && len(tags[0]) > 2 &&
+			tags[0][1].Kind() == udevlex.TOKEN_OTHER && tags[0][1].Str == ":" &&
+			tags[0][0].Kind() == udevlex.TOKEN_IDENT && ustr.BeginsUpper(tags[0][0].Str))
+		if istagged {
+			println(tags[0][0].Str)
+		}
 	}
 	return
 }
