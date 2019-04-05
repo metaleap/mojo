@@ -1,56 +1,60 @@
 
 
-Bool := Nay | Yay
+Bool            := False | True
 
 // -- option type
-Maybe   := No | Yo: _
+Maybe           := No | Ok: _
 
 // -- equivalent to Haskell's data Either = Left dis | Right dat
-Or  :=  Neat: _ | Weak: __
+Or              :=  Yay: _ | Nay: __
 
-foo Bar :=  x , y
+foo Bar         :=  x
 
-any OrErr   :=  Ret: any
-            |   Err: msg: TEXT
+any OrErr       :=  Ret: any
+                |   Err: msg: TEXT
 
-t List      :=  Empty
-            |   Link: t & t List
+t List          :=  Empty
+                |   Link: t & t List
 
-t MinList   := t List, val must != Empty
+t ListInfinite  := Link: t & t List
 
-Txt         := Text , trim , len must > 3
+t ListNonEmpty  := t List, val must != Empty
 
-TxtBadIdea  := Txt, len must < 3 // -- let's see if we can be smart here later on
+t Vector n      := t List, len must == n
 
-Name        := FirstLast: Txt & Txt
+t Tree          :=  Leaf
+                |   Node: & t Tree t & t Tree
 
-Address     := Addr:    street_HouseNo  : (Txt & TEXT, trim, len must > 0)
-                    &   zip_City        : (Txt & Txt)   /*
-                    &   foo             : bar
-                    &   moo             : baz           */
-                    &   country         : Txt
+Txt             := Text , trimmed , len must > 3
 
-PhoneNo     := Txt
+TxtBadIdea      := Txt, len must < 3 // -- let's see if we can be smart here later on
 
-Customer    := Cust: Name & Address & PhoneNo
+Name            := FirstLast: Txt & Txt
 
-Person      :=  name: Name
-            &   bday: Date
-            &   addr: Address
+Address         := Addr:    street_HouseNo  : (Txt & Text, trimmed, len must > 0)
+                        &   zip_City        : (Txt & Txt)   /*
+                        &   foo             : bar
+                        &   moo             : baz           */
+                        &   country         : Txt
 
-User        :=  name: Txt
-            &   details: Person
-            &   numLogins: Int Num
-            &   avatarPic: Byte List
+PhoneNo         := Txt
 
-Point2D     :=  x: Real Num
-            &   y: Real Num
+Customer        := Cust: Name & Address & PhoneNo
 
-Point3D     :=  Point2D
-            &   z: Real Num
+Person          :=  name: Name
+                &   bday: Date
+                &   addr: Address
 
-Circle      :=  radius: Real Num
-            &   Point2D
+User            :=  name: Txt
+                &   details: Person
+                &   numLogins: Int, val must >= 0
+                &   avatarPic: Byte List
+
+Circle2D        :=  radius: Float, val must > 0
+                &   Float Vector 'x'...'y'
+
+Sphere3D        :=  pos: Float Vector 3
+                &   extent: Float, val must > 0
 
 /* -- freestanding comment */
 
@@ -61,14 +65,14 @@ check must cmp arg val :=
                         | Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
-||  := _ ? Yay | __
-not := _ ? Nay | Yay
-&&  := _ ? (__ ? Yay | Nay) | Nay
+||  := _ ? True | __
+not := _ ? False | True
+&&  := _ ? (__ ? True | False) | False
 
 
 
-||  := _ ? some Yo : some | __
-||  := _ ? some Neat : some | __
+||  := _ ? some Ok : some | __
+||  := _ ? some Yay : some | __
 
 
 _[_]	 :=	  Nil
@@ -87,39 +91,39 @@ val := _
 // -- const
 v only _ := v
 
+
+list first , list must != Empty :=
+    list ? f Link r : f
+
 list rest :=
     list    ? f Link r  : rest
             | Empty     : msg="rest: list must not be Empty" Err
     x foo := (x trim len == 0) && "(none)" || x
 
 
-list first , list must != Empty :=
-    list ? f Link r : f
-
-
 x pow y :=
-    y < 0   ? Yay   : 1 / (x pow y.neg)
-            | Nay   : x* accum 1 y , tmp := x * _   // -- * accumL 1 (y × x)
+    y < 0   ? True  : 1 / (x pow y.neg)
+            | False : x* accum 1 y , tmp := x * _   // -- * accumL 1 (y × x)
 
 
 f accum initial n , n must >= 0 , x  :=
-    Yay ? n==0  : f accum x y , , x := initial f , , _ unused := 123
-        |       : initial
+    True    ? n==0  : f accum x y , , x := initial f , , _ unused := 123
+            |       : initial
 
     y := n - 1
 
 
 a × b, a must >= 0 :=
     // -- a==0 && Empty || ret
-    a == 0  ? Yay       : Empty
-            | Nay
-            | Yay : b ret  // -- should catch such
+    a == 0  ? True  : Empty
+            | False
+            | True  : b ret  // -- should catch such
 
     foo ret := foo Link ab
     ab := a-1 × b
 
 
-f accumR initial Yo list :=
+f accumR initial list :=
     list    ? Empty           : initial
             | first Link rest : first f (f accumR initial rest)
 
