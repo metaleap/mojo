@@ -73,10 +73,6 @@ func (me *ctxParseTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (d
 		if isdeftype := ustr.BeginsUpper(toksheadsig[namepos].Str); isdeftype {
 			var deftype AstDefType
 			def, defbase, deftype.AstDefBase.IsDefType = &deftype, &deftype.AstDefBase, true
-			if len(toksheads) > 1 {
-				err = errAt(&tokens[len(toksheadsig)], "unexpected comma")
-				goto end
-			}
 		} else {
 			var deffunc AstDefFunc
 			def, defbase = &deffunc, &deffunc.AstDefBase

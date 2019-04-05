@@ -1,60 +1,60 @@
 
 
-Bool            := False | True
+Bool                := False | True
 
 // -- option type
-Maybe           := No | Ok: _
+Maybe               := No | Ok: _
 
 // -- equivalent to Haskell's data Either = Left dis | Right dat
-Or              :=  Yay: _ | Nay: __
+Or                  :=  Yay: _ | Nay: __
 
-foo Bar         :=  x
+foo Bar             :=  x
 
-any OrErr       :=  Ret: any
-                |   Err: msg: TEXT
+any OrErr           :=  Ret: any
+                    |   Err: msg: TEXT
 
-t List          :=  Empty
-                |   Link: t & t List
+t List              :=  Empty
+                    |   Link: t & t List
 
-t ListInfinite  := Link: t & t List
+t ListInfinite      := Link: t & t List
 
-t ListNonEmpty  := t List, val must != Empty
+t ListNonEmpty      := t List, val must != Empty
 
-t Vector n      := t List, len must == n
+t Vector n, n > 0   := t List, len must == n
 
-t Tree          :=  Leaf
-                |   Node: & t Tree t & t Tree
+t Tree              :=  Leaf
+                    |   Node: & t Tree t & t Tree
 
-Txt             := Text , trimmed , len must > 3
+Txt                 := Text , trimmed , len must > 3
 
-TxtBadIdea      := Txt, len must < 3 // -- let's see if we can be smart here later on
+TxtBadIdea          := Txt, len must < 3 // -- let's see if we can be smart here later on
 
-Name            := FirstLast: Txt & Txt
+Name                := FirstLast: Txt & Txt
 
-Address         := Addr:    street_HouseNo  : (Txt & Text, trimmed, len must > 0)
-                        &   zip_City        : (Txt & Txt)   /*
-                        &   foo             : bar
-                        &   moo             : baz           */
-                        &   country         : Txt
+Address             := Addr:    street_HouseNo  : (Txt & Text, trimmed, len must > 0)
+                            &   zip_City        : (Txt & Txt)   /*
+                            &   foo             : bar
+                            &   moo             : baz           */
+                            &   country         : Txt
 
-PhoneNo         := Txt
+PhoneNo             := Txt
 
-Customer        := Cust: Name & Address & PhoneNo
+Customer            := Cust: Name & Address & PhoneNo
 
-Person          :=  name: Name
-                &   bday: Date
-                &   addr: Address
+Person              :=  name: Name
+                    &   bday: Date
+                    &   addr: Address
 
-User            :=  name: Txt
-                &   details: Person
-                &   numLogins: Int, val must >= 0
-                &   avatarPic: Byte List
+User                :=  name: Txt
+                    &   details: Person
+                    &   numLogins: Int, val must >= 0
+                    &   avatarPic: Byte List
 
-Circle2D        :=  radius: Float, val must > 0
-                &   Float Vector 'x'...'y'
+Circle2D            :=  radius: Float, val must > 0
+                    &   Float Vector 'x'...'y'
 
-Sphere3D        :=  pos: Float Vector 3
-                &   extent: Float, val must > 0
+Sphere3D            :=  pos: Float Vector 3
+                    &   extent: Float, val must > 0
 
 /* -- freestanding comment */
 
