@@ -160,7 +160,7 @@ type AstTypeExprBase struct {
 	Meta []IAstExpr
 }
 
-func (me *AstTypeExprBase) Base() *AstTypeExprBase { return me }
+func (me *AstTypeExprBase) TypeExprBase() *AstTypeExprBase { return me }
 
 type AstTypeExprIdent struct {
 	AstTypeExprBase

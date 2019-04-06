@@ -96,17 +96,7 @@ func (me *ctxParseTopLevelDef) parseDef(tokens udevlex.Tokens, topLevel bool) (d
 				}
 			}
 			if err = def.parseDefBody(me, toksbody); err == nil && len(toksheads) > 1 {
-				defbase.Meta = make([]IAstExpr, 0, len(toksheads)-1)
-				var meta IAstExpr
-				for i := range toksheads {
-					if i > 0 && len(toksheads[i]) > 0 {
-						if meta, err = me.parseExpr(toksheads[i], false); err != nil {
-							goto end
-						} else {
-							defbase.Meta = append(defbase.Meta, meta)
-						}
-					}
-				}
+				defbase.Meta, err = me.parseMetas(toksheads[1:], false)
 			}
 		}
 	}
@@ -114,6 +104,22 @@ end:
 	if err != nil {
 		if def = nil; topLevel {
 			me.def = nil
+		}
+	}
+	return
+}
+
+func (me *ctxParseTopLevelDef) parseMetas(chunks []udevlex.Tokens, typeExpr bool) (metas []IAstExpr, err *Error) {
+	metas = make([]IAstExpr, 0, len(chunks))
+	var meta IAstExpr
+	for i := range chunks {
+		if len(chunks[i]) > 0 {
+			if meta, err = me.parseExpr(chunks[i], typeExpr); err != nil {
+				metas = nil
+				return
+			} else {
+				metas = append(metas, meta)
+			}
 		}
 	}
 	return
@@ -155,7 +161,12 @@ func (me *AstDefType) parseDefBody(ctx *ctxParseTopLevelDef, toks udevlex.Tokens
 }
 
 func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens, typeExpr bool) (ret IAstExpr, err *Error) {
-	if chunks := toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1); len(chunks) > 1 {
+	var chunks []udevlex.Tokens
+	if !typeExpr {
+		chunks = toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1)
+	}
+
+	if len(chunks) > 1 {
 		ret, err = me.parseExprLetOuter(toks, chunks)
 
 	} else {
@@ -181,12 +192,17 @@ func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens, typeExpr bool) (re
 					if !typeExpr {
 						exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
 					} else {
-						toks = toks[1:]
+						exprcur, toks, err = me.parseTypeExprMeta(toks, accum, alltoks)
 					}
 					accum = accum[0:0]
 				case "?":
-					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
-					accum = accum[0:0]
+					if !typeExpr {
+						exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
+						accum = accum[0:0]
+					} else {
+						println("?\t", toks[0].Meta.Position.String())
+						toks = toks[1:]
+					}
 				default:
 					if !typeExpr {
 						exprcur = me.newExprIdent(toks)
@@ -366,7 +382,30 @@ func (me *ctxParseTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeE
 
 	var expr IAstExpr
 	if expr, err = me.parseExpr(toks, true); err == nil {
-		expr.ExprBase()
+		if expr == nil {
+			println(toks[0].Meta.Position.String())
+		}
+	}
+	return
+}
+
+func (me *ctxParseTopLevelDef) parseTypeExprMeta(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
+	var tmp IAstExpr
+	var texpr IAstTypeExpr
+	if tmp, err = me.parseExprFinalize(accum, allToks, &toks[0], true); err == nil {
+		if texpr, _ = tmp.(IAstTypeExpr); texpr == nil {
+			err = errAt(&tmp.ExprBase().Tokens[0], ErrCatSyntax, "invalid type expression")
+			switch t := tmp.(type) {
+			default:
+				panic(t)
+			}
+		}
+	}
+	if err == nil {
+		toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
+		if chunks := toks.Chunked(",", "(", ")"); len(chunks) > 0 {
+			texpr.TypeExprBase().Meta, err = me.parseMetas(chunks, true)
+		}
 	}
 	return
 }
