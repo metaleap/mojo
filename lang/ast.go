@@ -67,14 +67,14 @@ type AstDefFunc struct {
 }
 
 type IAstExpr interface {
-	Base() *AstExprBase
+	ExprBase() *AstExprBase
 }
 
 type AstExprBase struct {
 	AstBaseTokens
 }
 
-func (me *AstExprBase) Base() *AstExprBase { return me }
+func (me *AstExprBase) ExprBase() *AstExprBase { return me }
 
 type AstExprAtomBase struct {
 	AstExprBase
@@ -152,7 +152,7 @@ type AstCaseAlt struct {
 }
 
 type IAstTypeExpr interface {
-	Base() *AstTypeExprBase
+	TypeExprBase() *AstTypeExprBase
 }
 
 type AstTypeExprBase struct {
@@ -171,8 +171,8 @@ func (me *AstTypeExprIdent) Val() string { return me.Tokens[0].Str }
 
 type AstTypeExprAppl struct {
 	AstTypeExprBase
-	Callee AstIdent
-	Args   []AstIdent
+	Callee IAstExpr
+	Args   []IAstExpr
 }
 
 type AstTypeExprRec struct {
