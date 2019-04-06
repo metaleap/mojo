@@ -218,7 +218,7 @@ func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens, typeExpr bool) (re
 					toks = rest
 				}
 			default:
-				panic(k)
+				err = errAt(&toks[0], ErrCatSyntax, "the impossible: unrecognized token (new bug in parser, parseExpr needs updating)")
 			}
 			if err != nil {
 				return
@@ -382,8 +382,8 @@ func (me *ctxParseTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeE
 
 	var expr IAstExpr
 	if expr, err = me.parseExpr(toks, true); err == nil {
-		if expr == nil {
-			println(toks[0].Meta.Position.String())
+		if ret, _ = expr.(IAstTypeExpr); ret == nil {
+			err = errAt(&toks[0], ErrCatSyntax, "expected: type expression")
 		}
 	}
 	return
@@ -394,17 +394,15 @@ func (me *ctxParseTopLevelDef) parseTypeExprMeta(toks udevlex.Tokens, accum []IA
 	var texpr IAstTypeExpr
 	if tmp, err = me.parseExprFinalize(accum, allToks, &toks[0], true); err == nil {
 		if texpr, _ = tmp.(IAstTypeExpr); texpr == nil {
-			err = errAt(&tmp.ExprBase().Tokens[0], ErrCatSyntax, "invalid type expression")
-			switch t := tmp.(type) {
-			default:
-				panic(t)
-			}
+			err = errAt(&tmp.ExprBase().Tokens[0], ErrCatSyntax, "expected prior to meta expressions: type expression")
 		}
 	}
 	if err == nil {
 		toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 		if chunks := toks.Chunked(",", "(", ")"); len(chunks) > 0 {
-			texpr.TypeExprBase().Meta, err = me.parseMetas(chunks, true)
+			if texpr.TypeExprBase().Meta, err = me.parseMetas(chunks, true); err == nil {
+				ret = texpr
+			}
 		}
 	}
 	return

@@ -152,6 +152,7 @@ type AstCaseAlt struct {
 }
 
 type IAstTypeExpr interface {
+	IAstExpr
 	TypeExprBase() *AstTypeExprBase
 }
 
