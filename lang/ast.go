@@ -68,6 +68,7 @@ type AstDefFunc struct {
 
 type IAstExpr interface {
 	ExprBase() *AstExprBase
+	Description() string
 }
 
 type AstExprBase struct {
@@ -75,6 +76,7 @@ type AstExprBase struct {
 }
 
 func (me *AstExprBase) ExprBase() *AstExprBase { return me }
+func (me *AstExprBase) Description() string    { return "(unknown) expression" }
 
 type AstExprAtomBase struct {
 	AstExprBase
@@ -89,34 +91,39 @@ type AstExprLitUint struct {
 	AstExprLitBase
 }
 
-func (me *AstExprLitUint) Val() uint64 { return me.Tokens[0].Uint }
+func (me *AstExprLitUint) Description() string { return "'unsigned-integer literal' expression" }
+func (me *AstExprLitUint) Val() uint64         { return me.Tokens[0].Uint }
 
 type AstExprLitFloat struct {
 	AstExprLitBase
 }
 
-func (me *AstExprLitFloat) Val() float64 { return me.Tokens[0].Float }
+func (me *AstExprLitFloat) Description() string { return "'float literal' expression" }
+func (me *AstExprLitFloat) Val() float64        { return me.Tokens[0].Float }
 
 type AstExprLitRune struct {
 	AstExprLitBase
 }
 
-func (me *AstExprLitRune) Val() rune { return me.Tokens[0].Rune() }
+func (me *AstExprLitRune) Description() string { return "'rune literal' expression" }
+func (me *AstExprLitRune) Val() rune           { return me.Tokens[0].Rune() }
 
 type AstExprLitStr struct {
 	AstExprLitBase
 }
 
-func (me *AstExprLitStr) Val() string { return me.Tokens[0].Str }
+func (me *AstExprLitStr) Description() string { return "'string literal' expression" }
+func (me *AstExprLitStr) Val() string         { return me.Tokens[0].Str }
 
 type AstIdent struct {
 	AstExprAtomBase
 }
 
-func (me *AstIdent) Val() string       { return me.Tokens[0].Str }
-func (me *AstIdent) IsOpish() bool     { return me.Tokens[0].Kind() == udevlex.TOKEN_OPISH }
-func (me *AstIdent) BeginsUpper() bool { return ustr.BeginsUpper(me.Tokens[0].Str) }
-func (me *AstIdent) BeginsLower() bool { return ustr.BeginsLower(me.Tokens[0].Str) }
+func (me *AstIdent) Description() string { return "'ident' expression" }
+func (me *AstIdent) Val() string         { return me.Tokens[0].Str }
+func (me *AstIdent) IsOpish() bool       { return me.Tokens[0].Kind() == udevlex.TOKEN_OPISH }
+func (me *AstIdent) BeginsUpper() bool   { return ustr.BeginsUpper(me.Tokens[0].Str) }
+func (me *AstIdent) BeginsLower() bool   { return ustr.BeginsLower(me.Tokens[0].Str) }
 
 type AstExprLet struct {
 	AstExprBase
@@ -124,11 +131,15 @@ type AstExprLet struct {
 	Body IAstExpr
 }
 
+func (me *AstExprLet) Description() string { return "'let' expression" }
+
 type AstExprAppl struct {
 	AstExprBase
 	Callee IAstExpr
 	Args   []IAstExpr
 }
+
+func (me *AstExprAppl) Description() string { return "'application' expression" }
 
 type AstExprCase struct {
 	AstExprBase
@@ -136,6 +147,8 @@ type AstExprCase struct {
 	Alts         []AstCaseAlt
 	defaultIndex int
 }
+
+func (me *AstExprCase) Description() string { return "'case' expression" }
 
 func (me *AstExprCase) Default() *AstCaseAlt {
 	if me.defaultIndex < 0 {
@@ -168,6 +181,8 @@ type AstTypeExprIdent struct {
 	AstBaseComments
 }
 
+func (me *AstTypeExprIdent) Description() string { return "'ident' type expression" }
+
 func (me *AstTypeExprIdent) Val() string { return me.Tokens[0].Str }
 
 type AstTypeExprAppl struct {
@@ -176,8 +191,12 @@ type AstTypeExprAppl struct {
 	Args   []IAstExpr
 }
 
+func (me *AstTypeExprAppl) Description() string { return "'composite' expression" }
+
 type AstTypeExprRec struct {
 	AstTypeExprBase
 	Names []AstIdent
 	Exprs []IAstTypeExpr
 }
+
+func (me *AstTypeExprRec) Description() string { return "'record' type expression" }

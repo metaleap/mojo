@@ -12,7 +12,7 @@ Or                  :=  Yay: _ | Nay: __
 foo Bar             :=  x
 
 any OrErr           :=  Ret: any
-                    |   Err: msg: Text
+                    |   Err: msg: String
 
 t List              :=  Empty
                     |   Link: t & t List
@@ -26,19 +26,19 @@ t Vector n, n > 0   := t List, len must == n
 t Tree              :=  Leaf
                     |   Node: & t Tree t & t Tree &
 
-Txt                 := Text , trimmed , len must > 3
+Str                 := String , trimmed , len must > 3
 
-TxtBadIdea          := Txt, len must < 3 // -- let's see if we can be smart here later on
+StrBadIdea          := Str, len must < 3 // -- let's see if we can be smart here later on
 
-Name                := FirstLast: Txt & Txt
+Name                := FirstLast: Str & Str ? Foo
 
-Address             := Addr:    street_HouseNo  : (Txt & Text, trimmed, len must > 0)
-                            &   zip_City        : (Txt & Txt)   /*
+Address             := Addr:    street_HouseNo  : (Str & String, trimmed, len must > 0)
+                            &   zip_City        : (Str & Str)   /*
                             &   foo             : bar
                             &   moo             : baz           */
-                            &   country         : Txt
+                            &   country         : Str
 
-PhoneNo             := Txt
+PhoneNo             := Str
 
 Customer            := Cust: Name & Address & PhoneNo
 
@@ -46,7 +46,7 @@ Person              :=  name: Name
                     &   bday: Date
                     &   addr: Address
 
-User                :=  name: Txt
+User                :=  name: Str
                     &   details: Person
                     &   numLogins: Int, val must >= 0
                     &   avatarPic: Byte List
@@ -55,7 +55,7 @@ Circle2D            :=  radius: Float, val must > 0
                     &   Float Vector 'x'...'y'
 
 Sphere3D            :=  pos: Float Vector 3
-                    &   extent: Float, val must > 0
+                    &   extent: Float, val must (foo bar, foo := Nil, bar := True ? False | True) 0
 
 /* -- freestanding comment */
 

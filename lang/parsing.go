@@ -196,13 +196,8 @@ func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens, typeExpr bool) (re
 					}
 					accum = accum[0:0]
 				case "?":
-					if !typeExpr {
-						exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
-						accum = accum[0:0]
-					} else {
-						println("?\t", toks[0].Meta.Position.String())
-						toks = toks[1:]
-					}
+					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks, typeExpr)
+					accum = accum[0:0]
 				default:
 					if !typeExpr {
 						exprcur = me.newExprIdent(toks)
@@ -267,10 +262,10 @@ func (me *ctxParseTopLevelDef) parseExprInParens(toks udevlex.Tokens, typeExpr b
 	return
 }
 
-func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
+func (me *ctxParseTopLevelDef) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens, typeExpr bool) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var scrutinee IAstExpr
 	if len(accum) > 0 {
-		scrutinee, err = me.parseExprFinalize(accum, allToks, &toks[0], false)
+		scrutinee, err = me.parseExprFinalize(accum, allToks, &toks[0], typeExpr)
 	}
 	if err == nil {
 		var caseof AstExprCase
@@ -383,7 +378,7 @@ func (me *ctxParseTopLevelDef) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeE
 	var expr IAstExpr
 	if expr, err = me.parseExpr(toks, true); err == nil {
 		if ret, _ = expr.(IAstTypeExpr); ret == nil {
-			err = errAt(&toks[0], ErrCatSyntax, "expected: type expression")
+			err = errAt(&toks[0], ErrCatSyntax, "expected: type expression, not "+expr.Description())
 		}
 	}
 	return
