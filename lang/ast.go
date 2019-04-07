@@ -71,12 +71,31 @@ type IAstExpr interface {
 	Description() string
 }
 
+type IAstIdent interface {
+	IAstExpr
+	Val() string
+	IsOpish() bool
+	BeginsUpper() bool
+	BeginsLower() bool
+}
+
 type AstExprBase struct {
 	AstBaseTokens
 }
 
 func (me *AstExprBase) ExprBase() *AstExprBase { return me }
 func (me *AstExprBase) Description() string    { return "(unknown) expression" }
+func (me *AstExprBase) IsOp(anyOf ...string) bool {
+	if len(me.Tokens) == 1 && me.Tokens[0].Kind() == udevlex.TOKEN_OPISH {
+		for i := range anyOf {
+			if me.Tokens[0].Meta.Orig == anyOf[i] {
+				return true
+			}
+		}
+		return len(anyOf) == 0
+	}
+	return false
+}
 
 type AstExprAtomBase struct {
 	AstExprBase
@@ -139,7 +158,7 @@ type AstExprAppl struct {
 	Args   []IAstExpr
 }
 
-func (me *AstExprAppl) Description() string { return "'application' expression" }
+func (me *AstExprAppl) Description() string { return "'composite' expression" }
 
 type AstExprCase struct {
 	AstExprBase
@@ -182,8 +201,10 @@ type AstTypeExprIdent struct {
 }
 
 func (me *AstTypeExprIdent) Description() string { return "'ident' type expression" }
-
-func (me *AstTypeExprIdent) Val() string { return me.Tokens[0].Str }
+func (me *AstTypeExprIdent) Val() string         { return me.Tokens[0].Str }
+func (me *AstTypeExprIdent) IsOpish() bool       { return me.Tokens[0].Kind() == udevlex.TOKEN_OPISH }
+func (me *AstTypeExprIdent) BeginsUpper() bool   { return ustr.BeginsUpper(me.Tokens[0].Str) }
+func (me *AstTypeExprIdent) BeginsLower() bool   { return ustr.BeginsLower(me.Tokens[0].Str) }
 
 type AstTypeExprAppl struct {
 	AstTypeExprBase
@@ -191,7 +212,7 @@ type AstTypeExprAppl struct {
 	Args   []IAstExpr
 }
 
-func (me *AstTypeExprAppl) Description() string { return "'composite' expression" }
+func (me *AstTypeExprAppl) Description() string { return "'composite' type expression" }
 
 type AstTypeExprRec struct {
 	AstTypeExprBase

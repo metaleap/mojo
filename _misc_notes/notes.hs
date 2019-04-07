@@ -12,7 +12,7 @@ Or                  :=  Yay: _ | Nay: __
 foo Bar             :=  x
 
 any OrErr           :=  Ret: any
-                    |   Err: msg: String
+                    |   Err: msg:String
 
 t List              :=  Empty
                     |   Link: t & t List
@@ -30,7 +30,7 @@ Str                 := String , trimmed , len must > 3
 
 StrBadIdea          := Str, len must < 3 // -- let's see if we can be smart here later on
 
-Name                := FirstLast: Str & Str ? Foo
+Name                := FirstLast: Str & Str
 
 Address             := Addr:    street_HouseNo  : (Str & String, trimmed, len must > 0)
                             &   zip_City        : (Str & Str)   /*
