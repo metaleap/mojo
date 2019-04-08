@@ -25,7 +25,7 @@ func (me *AstDefBase) newIdent(ctx *ctxParseTopLevelDef, arg int, ttmp udevlex.T
 	}
 
 	ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)
-	this.Val = this.Tokens[0].Str
+	this.Val, this.IsOpish = this.Tokens[0].Str, me.Tokens[0].Kind() == udevlex.TOKEN_OPISH
 	return nil
 }
 
@@ -60,14 +60,14 @@ func (me *ctxParseTopLevelDef) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr
 func (me *ctxParseTopLevelDef) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	var this AstIdent
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
-	this.Val = this.Tokens[0].Str
+	this.Val, this.IsOpish = this.Tokens[0].Str, this.Tokens[0].Kind() == udevlex.TOKEN_OPISH
 	return &this
 }
 
 func (me *ctxParseTopLevelDef) newTypeExprIdent(toks udevlex.Tokens) *AstTypeExprIdent {
 	var this AstTypeExprIdent
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
-	this.Val = this.Tokens[0].Str
+	this.Val, this.IsOpish = this.Tokens[0].Str, this.Tokens[0].Kind() == udevlex.TOKEN_OPISH
 	return &this
 }
 

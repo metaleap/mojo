@@ -27,7 +27,7 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		astfile.Print(nil, os.Stdout)
+		astfile.Print(&odlang.PrintFormatterMinimal{StringWriter: os.Stdout})
 	}
 
 	if err != nil {

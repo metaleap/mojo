@@ -32,9 +32,9 @@ func init() {
 }
 
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
-	toks := this.Tokens
-	if this.AstTopLevel.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		this.AstTopLevel.Def, this.errs.parsing = me.parseTopLevelDef(toks)
+	toks := this.Ast.Tokens
+	if this.Ast.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
+		this.Ast.Def, this.errs.parsing = me.parseTopLevelDef(toks)
 	}
 }
 

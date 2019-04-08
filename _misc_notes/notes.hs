@@ -1,6 +1,3 @@
-
-
-
 Bool                := False | True
 
 // -- option type

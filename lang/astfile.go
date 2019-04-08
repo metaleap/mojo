@@ -21,7 +21,7 @@ type AstFileTopLevelChunk struct {
 		lexing  []*udevlex.Error
 		parsing *Error
 	}
-	AstTopLevel
+	Ast AstTopLevel
 }
 
 type AstFile struct {
@@ -151,7 +151,7 @@ func (me *AstFile) Tokens() udevlex.Tokens {
 	if me._toks == nil {
 		me._toks = make(udevlex.Tokens, 0, len(me.TopLevel)*16)
 		for i := range me.TopLevel {
-			me._toks = append(me._toks, me.TopLevel[i].Tokens...)
+			me._toks = append(me._toks, me.TopLevel[i].Ast.Tokens...)
 			me._toks = append(me._toks, udevlex.Token{Meta: udevlex.TokenMeta{Orig: "...\n|\n|\n|\n|\n"}})
 		}
 	}
@@ -189,7 +189,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 		}
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.dirty {
-				this.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.src},
+				this.Ast.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.src},
 					me.SrcFilePath, this.offset.line, this.offset.pos, me.LastLoad.tokCountInitialGuess)
 				if len(this.errs.lexing) == 0 {
 					me.parse(this)
@@ -199,9 +199,11 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 	}
 }
 
-func (me *AstFile) Print(pf IPrintFormatter, to io.Writer) (err error) {
+func (me *AstFile) Print(to IPrintFormatter) (err error) {
 	for i := range me.TopLevel {
-		to.Write(me.TopLevel[i].src)
+		if err = me.TopLevel[i].Ast.print(to); err != nil {
+			return
+		}
 	}
 	return
 }

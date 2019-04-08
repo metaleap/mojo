@@ -134,7 +134,6 @@ func (me *AstExprAppl) Description() string
 ```go
 type AstExprAtomBase struct {
 	AstExprBase
-	AstBaseComments
 }
 ```
 
@@ -320,7 +319,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader)
 #### func (*AstFile) Print
 
 ```go
-func (me *AstFile) Print(pf IPrintFormatter, to io.Writer) (err error)
+func (me *AstFile) Print(to IPrintFormatter) (err error)
 ```
 
 #### func (*AstFile) Src
@@ -339,7 +338,7 @@ func (me *AstFile) Tokens() udevlex.Tokens
 
 ```go
 type AstFileTopLevelChunk struct {
-	AstTopLevel
+	Ast AstTopLevel
 }
 ```
 
@@ -349,7 +348,6 @@ type AstFileTopLevelChunk struct {
 ```go
 type AstIdent struct {
 	AstExprAtomBase
-	Val string
 }
 ```
 
@@ -370,12 +368,6 @@ func (me *AstIdent) BeginsUpper() bool
 
 ```go
 func (me *AstIdent) Description() string
-```
-
-#### func (*AstIdent) IsOpish
-
-```go
-func (me *AstIdent) IsOpish() bool
 ```
 
 #### type AstTopLevel
@@ -427,34 +419,14 @@ func (me *AstTypeExprBase) TypeExprBase() *AstTypeExprBase
 ```go
 type AstTypeExprIdent struct {
 	AstTypeExprBase
-	AstBaseComments
-	Val string
 }
 ```
 
-
-#### func (*AstTypeExprIdent) BeginsLower
-
-```go
-func (me *AstTypeExprIdent) BeginsLower() bool
-```
-
-#### func (*AstTypeExprIdent) BeginsUpper
-
-```go
-func (me *AstTypeExprIdent) BeginsUpper() bool
-```
 
 #### func (*AstTypeExprIdent) Description
 
 ```go
 func (me *AstTypeExprIdent) Description() string
-```
-
-#### func (*AstTypeExprIdent) IsOpish
-
-```go
-func (me *AstTypeExprIdent) IsOpish() bool
 ```
 
 #### type AstTypeExprRec
@@ -509,6 +481,7 @@ const (
 
 ```go
 type IAstDef interface {
+	IAstNode
 	DefBase() *AstDefBase
 	// contains filtered or unexported methods
 }
@@ -537,6 +510,15 @@ type IAstIdent interface {
 ```
 
 
+#### type IAstNode
+
+```go
+type IAstNode interface {
+	// contains filtered or unexported methods
+}
+```
+
+
 #### type IAstTypeExpr
 
 ```go
@@ -551,6 +533,15 @@ type IAstTypeExpr interface {
 
 ```go
 type IPrintFormatter interface {
+	io.StringWriter
+}
+```
+
+
+#### type PrintFormatterBase
+
+```go
+type PrintFormatterBase struct {
 }
 ```
 
@@ -559,21 +550,7 @@ type IPrintFormatter interface {
 
 ```go
 type PrintFormatterMinimal struct {
-}
-```
-
-
-#### type PrintFormatterOriginal
-
-```go
-type PrintFormatterOriginal struct {
-}
-```
-
-
-#### type PrintFormatterPretty
-
-```go
-type PrintFormatterPretty struct {
+	PrintFormatterBase
+	io.StringWriter
 }
 ```

@@ -13,6 +13,10 @@ type AstBaseTokens struct {
 	Tokens udevlex.Tokens
 }
 
+type IAstNode interface {
+	print(IPrintFormatter) error
+}
+
 type AstTopLevel struct {
 	AstBaseTokens
 	AstBaseComments
@@ -26,6 +30,7 @@ type AstComment struct {
 }
 
 type IAstDef interface {
+	IAstNode
 	DefBase() *AstDefBase
 	parseDefBody(*ctxParseTopLevelDef, udevlex.Tokens) *Error
 }
@@ -96,7 +101,7 @@ func (me *AstExprBase) IsOp(anyOf ...string) bool {
 
 type AstExprAtomBase struct {
 	AstExprBase
-	AstBaseComments
+	astExprAtomBase
 }
 
 type AstExprLitBase struct {
@@ -131,15 +136,23 @@ type AstExprLitStr struct {
 
 func (me *AstExprLitStr) Description() string { return "'string literal' expression" }
 
+type astExprAtomBase struct {
+	AstBaseComments
+}
+
+type astIdent struct {
+	Val     string
+	IsOpish bool
+}
+
 type AstIdent struct {
 	AstExprAtomBase
-	Val string
+	astIdent
 }
 
 func (me *AstIdent) Description() string { return "'ident' expression" }
-func (me *AstIdent) IsOpish() bool       { return me.Tokens[0].Kind() == udevlex.TOKEN_OPISH }
-func (me *AstIdent) BeginsUpper() bool   { return ustr.BeginsUpper(me.Tokens[0].Str) }
-func (me *AstIdent) BeginsLower() bool   { return ustr.BeginsLower(me.Tokens[0].Str) }
+func (me *AstIdent) BeginsUpper() bool   { return ustr.BeginsUpper(me.Val) }
+func (me *AstIdent) BeginsLower() bool   { return ustr.BeginsLower(me.Val) }
 
 type AstExprLet struct {
 	AstExprBase
@@ -194,14 +207,13 @@ func (me *AstTypeExprBase) TypeExprBase() *AstTypeExprBase { return me }
 
 type AstTypeExprIdent struct {
 	AstTypeExprBase
-	AstBaseComments
-	Val string
+	astExprAtomBase
+	astIdent
 }
 
-func (me *AstTypeExprIdent) Description() string { return "'ident' type expression" }
-func (me *AstTypeExprIdent) IsOpish() bool       { return me.Tokens[0].Kind() == udevlex.TOKEN_OPISH }
-func (me *AstTypeExprIdent) BeginsUpper() bool   { return ustr.BeginsUpper(me.Tokens[0].Str) }
-func (me *AstTypeExprIdent) BeginsLower() bool   { return ustr.BeginsLower(me.Tokens[0].Str) }
+func (me *AstTypeExprIdent) Description() string {
+	return "'ident' type expression"
+}
 
 type AstTypeExprAppl struct {
 	AstTypeExprBase
