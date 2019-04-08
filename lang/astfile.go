@@ -29,9 +29,10 @@ type AstFile struct {
 	errs     struct {
 		loading error
 	}
-	lastLoad struct {
-		time                 int64
-		size                 int64
+	LastLoad struct {
+		Src                  []byte
+		Time                 int64
+		Size                 int64
 		tokCountInitialGuess int
 	}
 
@@ -40,7 +41,7 @@ type AstFile struct {
 	}
 	SrcFilePath string
 
-	_src  udevlex.Tokens
+	_toks udevlex.Tokens
 	_errs []error
 }
 
@@ -56,13 +57,13 @@ func (me *AstFile) populateChunksFrom(src []byte) {
 	var curline int
 	var lastpos, lastln int
 
-	if me.lastLoad.tokCountInitialGuess = 0; chlast == '\n' {
+	if me.LastLoad.tokCountInitialGuess = 0; chlast == '\n' {
 		curline = 1
 	}
 	for i, l := 1, len(src); i < l; i++ {
 		ch := src[i]
 		if ch == '\n' {
-			wascomment, iscomment, newline, curline, me.lastLoad.tokCountInitialGuess = iscomment, false, true, curline+1, me.lastLoad.tokCountInitialGuess+1
+			wascomment, iscomment, newline, curline, me.LastLoad.tokCountInitialGuess = iscomment, false, true, curline+1, me.LastLoad.tokCountInitialGuess+1
 		} else if newline {
 			if newline = false; ch != ' ' {
 				iscomment = ch == '/' && i < il && src[i+1] == '/'
@@ -73,7 +74,7 @@ func (me *AstFile) populateChunksFrom(src []byte) {
 				}
 			}
 		} else if (!iscomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
-			me.lastLoad.tokCountInitialGuess++
+			me.LastLoad.tokCountInitialGuess++
 		}
 		chlast = ch
 	}
@@ -101,7 +102,7 @@ func (me *AstFile) populateChunksFrom(src []byte) {
 	}
 	if !sameasbefore {
 		tlcold := me.TopLevel
-		me._src, me.TopLevel = nil, make([]AstFileTopLevelChunk, len(tlchunks))
+		me._toks, me.TopLevel = nil, make([]AstFileTopLevelChunk, len(tlchunks))
 		for i := range tlchunks {
 			if o, ok := unchanged[i]; ok {
 				me.TopLevel[i] = tlcold[o]
@@ -146,22 +147,22 @@ func (me *AstFile) Errs() []error {
 	return me._errs
 }
 
-func (me *AstFile) Src() udevlex.Tokens {
-	if me._src == nil {
-		me._src = make(udevlex.Tokens, 0, len(me.TopLevel)*16)
+func (me *AstFile) Tokens() udevlex.Tokens {
+	if me._toks == nil {
+		me._toks = make(udevlex.Tokens, 0, len(me.TopLevel)*16)
 		for i := range me.TopLevel {
-			me._src = append(me._src, me.TopLevel[i].Tokens...)
-			me._src = append(me._src, udevlex.Token{Meta: udevlex.TokenMeta{Orig: "...\n|\n|\n|\n|\n"}})
+			me._toks = append(me._toks, me.TopLevel[i].Tokens...)
+			me._toks = append(me._toks, udevlex.Token{Meta: udevlex.TokenMeta{Orig: "...\n|\n|\n|\n|\n"}})
 		}
 	}
-	return me._src
+	return me._toks
 }
 
 func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
 	if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
-			if me.lastLoad.size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad &&
-				me.errs.loading == nil && me.lastLoad.time > srcfileinfo.ModTime().UnixNano() {
+			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad &&
+				me.errs.loading == nil && me.LastLoad.Time > srcfileinfo.ModTime().UnixNano() {
 				return
 			}
 		}
@@ -182,18 +183,29 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 
 func (me *AstFile) LexAndParseSrc(r io.Reader) {
 	var src []byte
-	if src, me.errs.loading = ustd.ReadAll(r, me.lastLoad.size); me.errs.loading == nil {
-		if me.lastLoad.time = time.Now().UnixNano(); len(src) > 0 {
+	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading == nil {
+		if me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src; len(src) > 0 {
 			me.populateChunksFrom(src)
 		}
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.dirty {
 				this.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.src},
-					me.SrcFilePath, this.offset.line, this.offset.pos, me.lastLoad.tokCountInitialGuess)
+					me.SrcFilePath, this.offset.line, this.offset.pos, me.LastLoad.tokCountInitialGuess)
 				if len(this.errs.lexing) == 0 {
 					me.parse(this)
 				}
 			}
 		}
 	}
+}
+
+func (me *AstFile) Print(pf IPrintFormatter, to io.Writer) (err error) {
+	for i := range me.TopLevel {
+		to.Write(me.TopLevel[i].src)
+	}
+	return
+}
+
+func (me *AstFile) Src() []byte {
+	return me.LastLoad.Src
 }

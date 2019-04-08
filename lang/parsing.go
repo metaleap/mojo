@@ -142,7 +142,7 @@ func (me *AstDefType) parseDefBody(ctx *ctxParseTopLevelDef, toks udevlex.Tokens
 		me.Tags = make([]AstDefTypeTag, len(tags))
 		for i := range tags {
 			if t := tags[i]; len(t) == 0 {
-				err = errAt(&toks[0], ErrCatSyntax, "type definition `"+me.Name.Val()+"` is missing tag details in between two `|` operators")
+				err = errAt(&toks[0], ErrCatSyntax, "type definition `"+me.Name.Val+"` is missing tag details in between two `|` operators")
 			} else if t[0].Kind() != udevlex.TOKEN_IDENT || !ustr.BeginsUpper(t[0].Str) {
 				err = errAt(&t[0], ErrCatSyntax, "malformed tag name `"+t[0].Meta.Orig+"`, should be upper-case")
 			} else if len(t) > 1 && (t[1].Kind() != udevlex.TOKEN_OPISH || t[1].Str != ":") {

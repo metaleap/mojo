@@ -27,7 +27,7 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		writeLn("\n\n" + astfile.Src().String() + "\n\n")
+		astfile.Print(nil, os.Stdout)
 	}
 
 	if err != nil {

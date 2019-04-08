@@ -8,6 +8,7 @@ import (
 func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
 	var this AstComment
 	this.Tokens = tokens[at : at+1]
+	this.ContentText, this.IsSelfTerminating = this.Tokens[0].Str, this.Tokens[0].IsCommentSelfTerminating()
 	return &this
 }
 
@@ -22,49 +23,57 @@ func (me *AstDefBase) newIdent(ctx *ctxParseTopLevelDef, arg int, ttmp udevlex.T
 		return errAt(&ttmp[at], ErrCatSyntax, "not a valid "+
 			ustr.If(!isarg, "definition", ustr.If(me.IsDefType, "type-var", "argument"))+" name")
 	}
+
 	ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)
+	this.Val = this.Tokens[0].Str
 	return nil
 }
 
 func (me *ctxParseTopLevelDef) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
 	var this AstExprLitFloat
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	this.Val = this.Tokens[0].Float
 	return &this
 }
 
 func (me *ctxParseTopLevelDef) newExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
 	var this AstExprLitUint
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	this.Val = this.Tokens[0].Uint
 	return &this
 }
 
 func (me *ctxParseTopLevelDef) newExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
 	var this AstExprLitRune
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	this.Val = this.Tokens[0].Rune()
 	return &this
 }
 
 func (me *ctxParseTopLevelDef) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	var this AstExprLitStr
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	this.Val = this.Tokens[0].Str
 	return &this
 }
 
 func (me *ctxParseTopLevelDef) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	var this AstIdent
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	this.Val = this.Tokens[0].Str
 	return &this
 }
 
 func (me *ctxParseTopLevelDef) newTypeExprIdent(toks udevlex.Tokens) *AstTypeExprIdent {
 	var this AstTypeExprIdent
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	this.Val = this.Tokens[0].Str
 	return &this
 }
 
 func (me *ctxParseTopLevelDef) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBaseComments, toks udevlex.Tokens, at int) {
 	at = me.mto[&toks[at]]
-	tld := &me.def.Base().AstBaseTokens
+	tld := &me.def.DefBase().AstBaseTokens
 	tbase.Tokens = tld.Tokens[at : at+1]
 	for _, ci := range me.mtc[&tld.Tokens[at]] {
 		cbase.Comments = append(cbase.Comments, newAstComment(tld.Tokens, ci))
@@ -81,6 +90,6 @@ func (me *ctxParseTopLevelDef) setTokensFor(this *AstBaseTokens, toks udevlex.To
 		}
 	}
 	ifirst, ilast := me.mto[&toks[0]], me.mto[&toks[len(toks)-1]]
-	tld := &me.def.Base().AstBaseTokens
+	tld := &me.def.DefBase().AstBaseTokens
 	this.Tokens = tld.Tokens[ifirst : ilast+1]
 }
