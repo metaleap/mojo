@@ -199,15 +199,6 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 	}
 }
 
-func (me *AstFile) Print(to IPrintFormatter) (err error) {
-	for i := range me.TopLevel {
-		if err = me.TopLevel[i].Ast.print(to); err != nil {
-			return
-		}
-	}
-	return
-}
-
 func (me *AstFile) Src() []byte {
 	return me.LastLoad.Src
 }

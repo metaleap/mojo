@@ -319,7 +319,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader)
 #### func (*AstFile) Print
 
 ```go
-func (me *AstFile) Print(to IPrintFormatter) (err error)
+func (me *AstFile) Print(pf IPrintFormatter) (formattedSrc []byte, err error)
 ```
 
 #### func (*AstFile) Src
@@ -446,6 +446,19 @@ type AstTypeExprRec struct {
 func (me *AstTypeExprRec) Description() string
 ```
 
+#### type CtxPrint
+
+```go
+type CtxPrint struct {
+	IPrintFormatter
+	File        *AstFile
+	CurTopLevel *AstTopLevel
+
+	ustd.BytesWriter
+}
+```
+
+
 #### type Error
 
 ```go
@@ -533,7 +546,6 @@ type IAstTypeExpr interface {
 
 ```go
 type IPrintFormatter interface {
-	io.StringWriter
 }
 ```
 
@@ -551,6 +563,5 @@ type PrintFormatterBase struct {
 ```go
 type PrintFormatterMinimal struct {
 	PrintFormatterBase
-	io.StringWriter
 }
 ```

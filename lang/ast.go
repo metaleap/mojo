@@ -14,7 +14,7 @@ type AstBaseTokens struct {
 }
 
 type IAstNode interface {
-	print(IPrintFormatter) error
+	print(*CtxPrint) error
 }
 
 type AstTopLevel struct {
