@@ -31,6 +31,8 @@ type AstFile struct {
 	}
 	LastLoad struct {
 		Src                  []byte
+		SrcHashSum1          uint64
+		SrcHashSum2          uint64
 		Time                 int64
 		Size                 int64
 		tokCountInitialGuess int
@@ -98,12 +100,16 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 func (me *AstFile) LexAndParseSrc(r io.Reader) {
 	var src []byte
 	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading == nil {
-		if me.LastLoad.Size = int64(len(src)); bytes.Equal(src, me.LastLoad.Src) {
+		me.LastLoad.Size = int64(len(src))
+
+		var sameoldhashes bool
+		if me.LastLoad.SrcHashSum1, me.LastLoad.SrcHashSum2, sameoldhashes, _ =
+			ustd.HashWyPlus(me.LastLoad.SrcHashSum1, me.LastLoad.SrcHashSum2, src); sameoldhashes /* && bytes.Equal(src, me.LastLoad.Src) */ {
 			return
 		}
-		if me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src; len(src) > 0 {
-			me.populateTopLevelChunksFrom(src)
-		}
+
+		me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src
+		me.populateTopLevelChunksFrom(src)
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.dirty {
 				this.Ast.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.src},
@@ -122,11 +128,15 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 		pos  int
 		line int
 	}
-	il, tlchunks, chlast := len(src)-1, make([]tlc, 0, 32), src[0]
 
+	il, tlchunks := len(src)-1, make([]tlc, 0, 32)
 	var newline, iscomment, wascomment bool
 	var curline int
 	var lastpos, lastln int
+	var chlast byte
+	if len(src) > 0 {
+		chlast = src[0]
+	}
 
 	if me.LastLoad.tokCountInitialGuess = 0; chlast == '\n' {
 		curline = 1
