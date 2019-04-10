@@ -34,7 +34,7 @@ type AstFile struct {
 		SrcHashSum1          uint64
 		SrcHashSum2          uint64
 		Time                 int64
-		Size                 int64
+		size                 int64
 		tokCountInitialGuess int
 	}
 
@@ -75,11 +75,14 @@ func (me *AstFile) Tokens() udevlex.Tokens {
 }
 
 func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
+	var t time.Time
+	panic(t.String())
 	if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
-			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad &&
-				me.errs.loading == nil && me.LastLoad.Time > srcfileinfo.ModTime().UnixNano() {
-				return
+			if me.LastLoad.size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
+				if modtime := srcfileinfo.ModTime().UnixNano(); modtime > 0 && me.LastLoad.Time > modtime {
+					return
+				}
 			}
 		}
 	}
@@ -99,8 +102,8 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 
 func (me *AstFile) LexAndParseSrc(r io.Reader) {
 	var src []byte
-	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading == nil {
-		me.LastLoad.Size = int64(len(src))
+	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.size); me.errs.loading == nil {
+		me.LastLoad.size = int64(len(src))
 
 		var sameoldhashes bool
 		if me.LastLoad.SrcHashSum1, me.LastLoad.SrcHashSum2, sameoldhashes, _ =

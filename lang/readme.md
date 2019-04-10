@@ -283,7 +283,6 @@ type AstFile struct {
 		SrcHashSum1 uint64
 		SrcHashSum2 uint64
 		Time        int64
-		Size        int64
 	}
 
 	Options struct {
