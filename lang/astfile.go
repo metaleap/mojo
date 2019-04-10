@@ -75,8 +75,6 @@ func (me *AstFile) Tokens() udevlex.Tokens {
 }
 
 func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
-	var t time.Time
-	panic(t.String())
 	if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
 			if me.LastLoad.size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
