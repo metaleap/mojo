@@ -244,10 +244,10 @@ func (me *ctxParseTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevl
 		}
 		me.setTokensFor(abt, allToks, untilTok)
 		switch me.file.Options.ApplStyle {
-		case APPLSTYLE_SVO:
-			*fcallee, *fargs = accum[1], append(accum[0:1], accum[2:]...)
 		case APPLSTYLE_VSO:
 			*fcallee, *fargs = accum[0], accum[1:]
+		case APPLSTYLE_SVO:
+			*fcallee, *fargs = accum[1], append(accum[0:1], accum[2:]...)
 		case APPLSTYLE_SOV:
 			l := len(accum) - 1
 			*fcallee, *fargs = accum[l], accum[:l]

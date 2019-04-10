@@ -36,27 +36,33 @@ func (me *AstFile) Print(pf IPrintFormatter) (formattedSrc []byte, err error) {
 	return
 }
 
-func (me *AstTopLevel) print(ctx *CtxPrint) (err error) {
-	ctx.WriteString("\n")
+func (me *AstTopLevel) print(p *CtxPrint) (err error) {
+	p.WriteString("\n")
 	for i := range me.Comments {
 		if me.Comments[i].IsSelfTerminating {
-			ctx.WriteString("/*")
-			ctx.WriteString(me.Comments[i].ContentText)
-			ctx.WriteString("*/")
+			p.WriteString("/*")
+			p.WriteString(me.Comments[i].ContentText)
+			p.WriteString("*/")
 		} else {
-			ctx.WriteString("//")
-			ctx.WriteString(me.Comments[i].ContentText)
-			ctx.WriteString("\n")
+			p.WriteString("//")
+			p.WriteString(me.Comments[i].ContentText)
+			p.WriteString("\n")
 		}
 	}
 
 	return
 }
 
-func (me *AstDefType) print(ctx *CtxPrint) (err error) {
+func (me *AstDefType) print(p *CtxPrint) (err error) {
 	return
 }
 
-func (me *AstDefFunc) print(ctx *CtxPrint) (err error) {
+func (me *AstDefFunc) print(p *CtxPrint) (err error) {
+	switch p.File.Options.ApplStyle {
+	case APPLSTYLE_VSO:
+
+	case APPLSTYLE_SVO:
+	case APPLSTYLE_SOV:
+	}
 	return
 }

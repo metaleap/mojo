@@ -45,7 +45,78 @@ type AstFile struct {
 	_errs []error
 }
 
-func (me *AstFile) populateChunksFrom(src []byte) {
+func (me *AstFile) Errs() []error {
+	if me._errs == nil {
+		if me._errs = make([]error, 0); me.errs.loading != nil {
+			me._errs = append(me._errs, me.errs.loading)
+		}
+		for i := range me.TopLevel {
+			for _, e := range me.TopLevel[i].errs.lexing {
+				me._errs = append(me._errs, e)
+			}
+			if e := me.TopLevel[i].errs.parsing; e != nil {
+				me._errs = append(me._errs, e)
+			}
+		}
+	}
+	return me._errs
+}
+
+func (me *AstFile) Tokens() udevlex.Tokens {
+	if me._toks == nil {
+		me._toks = make(udevlex.Tokens, 0, len(me.TopLevel)*16)
+		for i := range me.TopLevel {
+			me._toks = append(me._toks, me.TopLevel[i].Ast.Tokens...)
+		}
+	}
+	return me._toks
+}
+
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
+	if me.SrcFilePath != "" {
+		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
+			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad &&
+				me.errs.loading == nil && me.LastLoad.Time > srcfileinfo.ModTime().UnixNano() {
+				return
+			}
+		}
+	}
+
+	var srcfile *os.File
+	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
+		if srcfile, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
+			defer srcfile.Close()
+		}
+	} else if stdinIfNoSrcFilePathSet {
+		srcfile = os.Stdin
+	}
+	if me.errs.loading == nil && srcfile != nil {
+		me.LexAndParseSrc(srcfile)
+	}
+}
+
+func (me *AstFile) LexAndParseSrc(r io.Reader) {
+	var src []byte
+	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading == nil {
+		if me.LastLoad.Size = int64(len(src)); bytes.Equal(src, me.LastLoad.Src) {
+			return
+		}
+		if me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src; len(src) > 0 {
+			me.populateTopLevelChunksFrom(src)
+		}
+		for i := range me.TopLevel {
+			if this := &me.TopLevel[i]; this.dirty {
+				this.Ast.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.src},
+					me.SrcFilePath, this.offset.line, this.offset.pos, me.LastLoad.tokCountInitialGuess)
+				if len(this.errs.lexing) == 0 {
+					me.parse(this)
+				}
+			}
+		}
+	}
+}
+
+func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 	type tlc struct {
 		src  []byte
 		pos  int
@@ -113,92 +184,4 @@ func (me *AstFile) populateChunksFrom(src []byte) {
 			me.TopLevel[i].offset.line, me.TopLevel[i].offset.pos = tlchunks[i].line, tlchunks[i].pos
 		}
 	}
-}
-
-func (me *AstFile) Err() error {
-	if me.errs.loading != nil {
-		return me.errs.loading
-	}
-	for i := range me.TopLevel {
-		for _, e := range me.TopLevel[i].errs.lexing {
-			return e
-		}
-		if e := me.TopLevel[i].errs.parsing; e != nil {
-			return e
-		}
-	}
-	return nil
-}
-
-func (me *AstFile) Errs() []error {
-	if me._errs == nil {
-		if me._errs = make([]error, 0, 0); me.errs.loading != nil {
-			me._errs = append(me._errs, me.errs.loading)
-		}
-		for i := range me.TopLevel {
-			for _, e := range me.TopLevel[i].errs.lexing {
-				me._errs = append(me._errs, e)
-			}
-			if e := me.TopLevel[i].errs.parsing; e != nil {
-				me._errs = append(me._errs, e)
-			}
-		}
-	}
-	return me._errs
-}
-
-func (me *AstFile) Tokens() udevlex.Tokens {
-	if me._toks == nil {
-		me._toks = make(udevlex.Tokens, 0, len(me.TopLevel)*16)
-		for i := range me.TopLevel {
-			me._toks = append(me._toks, me.TopLevel[i].Ast.Tokens...)
-			me._toks = append(me._toks, udevlex.Token{Meta: udevlex.TokenMeta{Orig: "...\n|\n|\n|\n|\n"}})
-		}
-	}
-	return me._toks
-}
-
-func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
-	if me.SrcFilePath != "" {
-		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
-			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad &&
-				me.errs.loading == nil && me.LastLoad.Time > srcfileinfo.ModTime().UnixNano() {
-				return
-			}
-		}
-	}
-
-	var srcfile *os.File
-	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
-		if srcfile, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
-			defer srcfile.Close()
-		}
-	} else if stdinIfNoSrcFilePathSet {
-		srcfile = os.Stdin
-	}
-	if me.errs.loading == nil && srcfile != nil {
-		me.LexAndParseSrc(srcfile)
-	}
-}
-
-func (me *AstFile) LexAndParseSrc(r io.Reader) {
-	var src []byte
-	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading == nil {
-		if me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src; len(src) > 0 {
-			me.populateChunksFrom(src)
-		}
-		for i := range me.TopLevel {
-			if this := &me.TopLevel[i]; this.dirty {
-				this.Ast.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.src},
-					me.SrcFilePath, this.offset.line, this.offset.pos, me.LastLoad.tokCountInitialGuess)
-				if len(this.errs.lexing) == 0 {
-					me.parse(this)
-				}
-			}
-		}
-	}
-}
-
-func (me *AstFile) Src() []byte {
-	return me.LastLoad.Src
 }

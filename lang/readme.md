@@ -292,12 +292,6 @@ type AstFile struct {
 ```
 
 
-#### func (*AstFile) Err
-
-```go
-func (me *AstFile) Err() error
-```
-
 #### func (*AstFile) Errs
 
 ```go
@@ -320,12 +314,6 @@ func (me *AstFile) LexAndParseSrc(r io.Reader)
 
 ```go
 func (me *AstFile) Print(pf IPrintFormatter) (formattedSrc []byte, err error)
-```
-
-#### func (*AstFile) Src
-
-```go
-func (me *AstFile) Src() []byte
 ```
 
 #### func (*AstFile) Tokens
