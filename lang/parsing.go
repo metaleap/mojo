@@ -243,17 +243,21 @@ func (me *ctxParseTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevl
 			ret = &appl
 		}
 		me.setTokensFor(abt, allToks, untilTok)
+		args := make([]IAstExpr, 1, len(accum)-1)
 		switch me.file.Options.ApplStyle {
 		case APPLSTYLE_VSO:
-			*fcallee, *fargs = accum[0], accum[1:]
+			*fcallee = accum[0]
+			args[0] = accum[1]
+			*fargs = append(args, accum[2:]...)
 		case APPLSTYLE_SVO:
 			*fcallee = accum[1]
-			tmp := make([]IAstExpr, 1, len(accum)-1)
-			tmp[0] = accum[0]
-			*fargs = append(tmp, accum[2:]...)
+			args[0] = accum[0]
+			*fargs = append(args, accum[2:]...)
 		case APPLSTYLE_SOV:
 			l := len(accum) - 1
-			*fcallee, *fargs = accum[l], accum[:l]
+			*fcallee = accum[l]
+			args[0] = accum[0]
+			*fargs = append(args, accum[1:l]...)
 		}
 	}
 	return
