@@ -14,9 +14,9 @@ any OrErr           :=  Ret: any
 t List              :=  Empty
                     |   Link: t & t List
 
-t ListInfinite      := Link: t & t List
+t ListInfinite      := Link: t & t ListInfinite
 
-t ListNonEmpty      := t List, val must != Empty
+t ListNonEmpty      := t List, self must /= Empty
 
 t Vector n, n > 0   := t List, len must == n
 
@@ -45,14 +45,14 @@ Person              :=  name: Name
 
 User                :=  name: Str
                     &   details: Person
-                    &   numLogins: Int, val must >= 0
+                    &   numLogins: Int, self must >= 0
                     &   avatarPic: Byte List
 
-Circle2D            :=  radius: Float, val must > 0
+Circle2D            :=  radius: Float, self must > 0
                     &   Float Vector 'x'...'y'
 
 Sphere3D            :=  pos: Float Vector 3
-                    &   extent: Float, val must (foo bar, foo := Nil, bar := True ? False | True) 0
+                    &   extent: Float, self must (foo bar, foo := Nil, bar := True ? False | True) 0
 
 /* -- freestanding comment */
 
@@ -84,13 +84,13 @@ f2 <. f1 v := v f1 f2
 f1 .> f2 := _ f1 f2
 
 // -- id , the well-known: func id(foo) {return foo}
-val := _
+self := _
 
 // -- const
 v only _ := v
 
 
-list first , list must != Empty :=
+list first , list must /= Empty :=
     list ? f Link r : f
 
 list rest :=

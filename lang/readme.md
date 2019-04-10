@@ -279,10 +279,8 @@ type AstFile struct {
 	TopLevel []AstFileTopLevelChunk
 
 	LastLoad struct {
-		Src         []byte
-		SrcHashSum1 uint64
-		SrcHashSum2 uint64
-		Time        int64
+		Src  []byte
+		Time int64
 	}
 
 	Options struct {
@@ -314,7 +312,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader)
 #### func (*AstFile) Print
 
 ```go
-func (me *AstFile) Print(pf IPrintFormatter) (formattedSrc []byte, err error)
+func (me *AstFile) Print(pf IPrintFormatter) []byte
 ```
 
 #### func (*AstFile) Tokens
@@ -494,6 +492,7 @@ type IAstDef interface {
 
 ```go
 type IAstExpr interface {
+	IAstNode
 	ExprBase() *AstExprBase
 	Description() string
 }

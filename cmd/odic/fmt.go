@@ -26,10 +26,8 @@ func mainFmt() {
 		for _, e := range errs {
 			println(e.Error())
 		}
-	} else if src, e := astfile.Print(&odlang.PrintFormatterMinimal{}); e != nil {
-		err = e
 	} else {
-		_, err = os.Stdout.Write(src)
+		_, err = os.Stdout.Write(astfile.Print(&odlang.PrintFormatterMinimal{}))
 	}
 
 	if err != nil {

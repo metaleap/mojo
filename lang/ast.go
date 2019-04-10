@@ -14,7 +14,7 @@ type AstBaseTokens struct {
 }
 
 type IAstNode interface {
-	print(*CtxPrint) error
+	print(*CtxPrint)
 }
 
 type AstTopLevel struct {
@@ -71,6 +71,7 @@ type AstDefFunc struct {
 }
 
 type IAstExpr interface {
+	IAstNode
 	ExprBase() *AstExprBase
 	Description() string
 }

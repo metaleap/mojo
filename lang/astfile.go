@@ -31,8 +31,6 @@ type AstFile struct {
 	}
 	LastLoad struct {
 		Src                  []byte
-		SrcHashSum1          uint64
-		SrcHashSum2          uint64
 		Time                 int64
 		size                 int64
 		tokCountInitialGuess int
@@ -101,14 +99,9 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 func (me *AstFile) LexAndParseSrc(r io.Reader) {
 	var src []byte
 	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.size); me.errs.loading == nil {
-		me.LastLoad.size = int64(len(src))
-
-		var sameoldhashes bool
-		if me.LastLoad.SrcHashSum1, me.LastLoad.SrcHashSum2, sameoldhashes, _ =
-			ustd.HashWyPlus(me.LastLoad.SrcHashSum1, me.LastLoad.SrcHashSum2, src); sameoldhashes /* && bytes.Equal(src, me.LastLoad.Src) */ {
+		if me.LastLoad.size = int64(len(src)); bytes.Equal(src, me.LastLoad.Src) {
 			return
 		}
-
 		me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src
 		me.populateTopLevelChunksFrom(src)
 		for i := range me.TopLevel {

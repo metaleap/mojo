@@ -24,7 +24,7 @@ type (
 )
 
 var (
-	langReservedOps = []string{"&", "?", ":", "|", ",", ":=", "="}
+	langReservedOps = []string{"&", "?", ":", "|", ",", ":=", "=", "!"}
 )
 
 func init() {
@@ -194,10 +194,10 @@ func (me *ctxParseTopLevelDef) parseExpr(toks udevlex.Tokens, typeExpr bool) (re
 					} else {
 						exprcur, toks, err = me.parseTypeExprMeta(toks, accum, alltoks)
 					}
-					accum = accum[0:0]
+					accum = accum[:0]
 				case "?":
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks, typeExpr)
-					accum = accum[0:0]
+					accum = accum[:0]
 				default:
 					if !typeExpr {
 						exprcur = me.newExprIdent(toks)
@@ -247,7 +247,10 @@ func (me *ctxParseTopLevelDef) parseExprFinalize(accum []IAstExpr, allToks udevl
 		case APPLSTYLE_VSO:
 			*fcallee, *fargs = accum[0], accum[1:]
 		case APPLSTYLE_SVO:
-			*fcallee, *fargs = accum[1], append(accum[0:1], accum[2:]...)
+			*fcallee = accum[1]
+			tmp := make([]IAstExpr, 1, len(accum)-1)
+			tmp[0] = accum[0]
+			*fargs = append(tmp, accum[2:]...)
 		case APPLSTYLE_SOV:
 			l := len(accum) - 1
 			*fcallee, *fargs = accum[l], accum[:l]
