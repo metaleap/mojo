@@ -131,7 +131,6 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 	if len(src) > 0 {
 		chlast = src[0]
 	}
-
 	if me.LastLoad.tokCountInitialGuess = 0; chlast == '\n' {
 		curline = 1
 	}
@@ -144,22 +143,21 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 		} else if (!isfulllinecomment) && chlast == '/' && ch == '*' {
 			inmultilinecomment = true
 		}
-		if !inmultilinecomment {
-			if ch == '\n' {
-				wasfulllinecomment, isfulllinecomment, newline, curline, me.LastLoad.tokCountInitialGuess = isfulllinecomment, false, true, curline+1, me.LastLoad.tokCountInitialGuess+1
-			} else if newline {
-				if newline = false; ch != ' ' {
-					isntlast := i < il
-					isfulllinecomment = ch == '/' && isntlast && src[i+1] == '/'
-					if (!(isfulllinecomment && wasfulllinecomment)) &&
-						!(ch != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n')) {
-						tlchunks = append(tlchunks, tlc{src: src[lastpos:i], pos: lastpos, line: lastln})
-						lastpos, lastln = i, curline
-					}
+
+		if ch == '\n' {
+			wasfulllinecomment, isfulllinecomment, newline, curline, me.LastLoad.tokCountInitialGuess = isfulllinecomment, false, true, curline+1, me.LastLoad.tokCountInitialGuess+1
+		} else if newline {
+			if newline = false; (!inmultilinecomment) && ch != ' ' {
+				isntlast := i < il
+				isfulllinecomment = ch == '/' && isntlast && src[i+1] == '/'
+				if (!(isfulllinecomment && wasfulllinecomment)) &&
+					!(ch != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n')) {
+					tlchunks = append(tlchunks, tlc{src: src[lastpos:i], pos: lastpos, line: lastln})
+					lastpos, lastln = i, curline
 				}
-			} else if (!isfulllinecomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
-				me.LastLoad.tokCountInitialGuess++
 			}
+		} else if (!isfulllinecomment) && (!inmultilinecomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
+			me.LastLoad.tokCountInitialGuess++
 		}
 		chlast = ch
 	}

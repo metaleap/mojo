@@ -18,9 +18,11 @@ func (me *AstDef) newIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at in
 		this = &me.Args[arg]
 	}
 
-	if k := ttmp[at].Kind(); k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH {
+	if s, k := ttmp[at].Meta.Orig, ttmp[at].Kind(); k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH ||
+		((!isarg) && k != udevlex.TOKEN_OPISH && !ustr.BeginsLower(ustr.If(s[0] == '_' && me.IsTopLevel, s[1:], s))) ||
+		(isarg && s[0] == '_' && len(s) > 1) {
 		return errAt(&ttmp[at], ErrCatSyntax, "not a valid "+
-			ustr.If(!isarg, "definition", "argument")+" name")
+			ustr.If(!isarg, "definition", "argument")+" name: "+s)
 	}
 
 	ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)

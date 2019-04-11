@@ -24,7 +24,7 @@ type (
 )
 
 var (
-	langReservedOps = []string{"&", "?", ":", "|", ",", ":=", "=", "!"}
+	langReservedOps = []string{"&", "?", ":", "|", ",", ":="}
 )
 
 func init() {
