@@ -2,6 +2,7 @@ package atemlang
 
 import (
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 )
 
 type ApplStyle int
@@ -15,7 +16,7 @@ const (
 type (
 	ctxParseTld struct {
 		file        *AstFile
-		cur         *AstDef
+		curDef      *AstDef
 		indentHint  int
 		mto         map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
 		mtc         map[*udevlex.Token][]int // maps comments-stripped Tokens to comment Tokens in orig
@@ -24,7 +25,7 @@ type (
 )
 
 var (
-	langReservedOps = []string{"&", "?", ":", "|", ",", ":="}
+	langReservedOps = []string{"&", "|", "&&", "||", "?", ",", ":=", "=", "==", "/=", ">=", "<=", "<", ">", "+", "-", "*", "/"}
 )
 
 func init() {
@@ -34,7 +35,10 @@ func init() {
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	toks := this.Ast.Tokens
 	if this.Ast.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		this.Ast.Def, this.errs.parsing = me.parseTopLevelDef(toks)
+		if this.Ast.Def, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil && this.Ast.Def.Name.Val[0] == '_' {
+			this.Ast.DefIsUnexported = true
+			this.Ast.Def.Name.Val = this.Ast.Def.Name.Val[1:]
+		}
 	}
 }
 
@@ -78,12 +82,16 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 		}
 
 		if isTopLevel {
-			me.cur, def.Tokens, def.IsTopLevel = def, tokens, true
+			me.curDef, def.Tokens, def.IsTopLevel = def, tokens, true
 		} else {
 			me.setTokensFor(&def.AstBaseTokens, toks, nil)
 		}
 		if err = def.newIdent(me, -1, toksheadsig, namepos); err == nil {
-			def.ensureArgsLen(len(toksheadsig) - 1)
+			if l, ol := len(toksheadsig)-1, len(def.Args); ol > l {
+				def.Args = def.Args[:l]
+			} else if ol < l {
+				def.Args = make([]AstIdent, l)
+			}
 			for i, a := 0, 0; i < len(toksheadsig); i++ {
 				if i != namepos {
 					if err = def.newIdent(me, a, toksheadsig, i); err != nil {
@@ -91,6 +99,10 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 					}
 					a++
 				}
+			}
+			if def.Name.IsOpish && len(def.Args) != 2 {
+				err = errAt(&def.Args[len(def.Args)-1].Tokens[0], ErrCatSyntax, "operator definitions must have 2 arguments rather than "+ustr.Int(len(def.Args)))
+				return
 			}
 			if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
 				me.indentHint = tokheadbodysep.Meta.Position.Column - 1
@@ -133,7 +145,7 @@ func (me *ctxParseTld) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error)
 				case ",":
 					exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
 					accum = accum[:0]
-				case "?":
+				case "|":
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
 				default:
@@ -184,34 +196,6 @@ func (me *ctxParseTld) parseExprFinalize(accum []IAstExpr, allToks udevlex.Token
 	return
 }
 
-func (me *ctxParseTld) parseExprClaspOperators(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token) []IAstExpr {
-	iuntil := -1
-	clasp := func(ifrom int) {
-		if xp, _ := me.parseExprFinalize(accum[ifrom:iuntil+1], allToks, untilTok).(*AstExprAppl); xp != nil {
-			println(xp.Callee.ExprBase().Tokens.Pos().String(), xp.Callee.ExprBase().Tokens.String(), len(xp.Args))
-		}
-	}
-
-	for i, curisop := len(accum)-1, accum[len(accum)-1].ExprBase().IsOp(langReservedOps...); i > 0; i-- {
-		cur, prev := accum[i].ExprBase(), accum[i-1].ExprBase()
-		previsop := prev.IsOp(langReservedOps...)
-		nope := curisop || previsop || cur.Tokens.DistanceTo(prev.Tokens) > 0
-		if nope {
-			if iuntil > 0 {
-				clasp(i)
-				iuntil = -1
-			}
-		} else if iuntil < 0 {
-			iuntil = i
-		}
-		curisop = previsop
-	}
-	if iuntil >= 0 && iuntil < len(accum)-1 {
-		clasp(0)
-	}
-	return accum
-}
-
 func (me *ctxParseTld) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
 	me.parensLevel++
 	ret, err = me.parseExpr(toks)
@@ -234,14 +218,14 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	var hasmulticonds bool
 	for i := range alts {
 		if len(alts[i]) == 0 {
-			err = errAt(&toks[0], ErrCatSyntax, "malformed `?` branching: empty case")
-		} else if ifthen := alts[i].Chunked(":", "(", ")"); len(ifthen) > 2 {
-			err = errAt(&alts[i][0], ErrCatSyntax, "malformed `?` branching: each case needs exactly one corresponding `:` with subsequent result expression")
+			err = errAt(&toks[0], ErrCatSyntax, "malformed `|?` branching: empty case")
+		} else if ifthen := alts[i].Chunked("?", "(", ")"); len(ifthen) > 2 {
+			err = errAt(&alts[i][0], ErrCatSyntax, "malformed `|?` branching: `|` case has more than one `?` result expression")
 		} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen[0]) == 0 {
 			if len(ifthen[1]) == 0 {
-				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `?` branching: default case has no result expression")
+				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `|?` branching: default case has no result expression")
 			} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); caseof.defaultIndex >= 0 {
-				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `?` branching: encountered a second default case, only at most one is permissible")
+				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `|?` branching: encountered a second default case, only at most one is permissible")
 			} else {
 				caseof.defaultIndex = i
 			}
@@ -257,23 +241,16 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 		}
 	}
 	if hasmulticonds {
-		if len(caseof.Alts) == 2 && caseof.Alts[0].Body == nil && caseof.Alts[1].Body == nil {
-			caseof.Alts[0].IsShortForm, caseof.Alts[0].Body, caseof.Alts[0].Conds = true, caseof.Alts[0].Conds[0], nil
-			caseof.Alts[1].IsShortForm, caseof.Alts[1].Body, caseof.Alts[1].Conds = true, caseof.Alts[1].Conds[0], nil
-		} else {
-			for i := 0; i < len(caseof.Alts); i++ {
-				if ca := &caseof.Alts[i]; ca.Body == nil {
-					if i < len(caseof.Alts)-1 {
-						canext := &caseof.Alts[i+1]
-						canext.Conds = append(canext.Conds, ca.Conds...)
-						caseof.Alts = append(caseof.Alts[:i], caseof.Alts[i+1:]...)
-						i--
-					} else if caseof.defaultIndex < 0 && len(ca.Conds) == 1 {
-						caseof.defaultIndex, ca.Body, ca.Conds, ca.IsShortForm = i, ca.Conds[0], nil, true
-					} else {
-						err = errAt(&ca.Tokens[0], ErrCatSyntax, "malformed `?` branching: case has no result expression")
-						return
-					}
+		for i := 0; i < len(caseof.Alts); i++ {
+			if ca := &caseof.Alts[i]; ca.Body == nil {
+				if i < len(caseof.Alts)-1 {
+					canext := &caseof.Alts[i+1]
+					canext.Conds = append(ca.Conds, canext.Conds...)
+					caseof.Alts = append(caseof.Alts[:i], caseof.Alts[i+1:]...)
+					i--
+				} else {
+					err = errAt(&ca.Tokens[0], ErrCatSyntax, "malformed `|?` branching: case has no result expression")
+					return
 				}
 			}
 		}

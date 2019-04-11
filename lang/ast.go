@@ -2,7 +2,6 @@ package atemlang
 
 import (
 	"github.com/go-leap/dev/lex"
-	"github.com/go-leap/str"
 )
 
 type AstBaseComments struct {
@@ -20,7 +19,8 @@ type IAstNode interface {
 type AstTopLevel struct {
 	AstBaseTokens
 	AstBaseComments
-	Def *AstDef
+	Def             *AstDef
+	DefIsUnexported bool
 }
 
 type AstComment struct {
@@ -38,14 +38,6 @@ type AstDef struct {
 	Body       IAstExpr
 }
 
-func (me *AstDef) ensureArgsLen(l int) {
-	if ol := len(me.Args); ol > l {
-		me.Args = me.Args[:l]
-	} else if ol < l {
-		me.Args = make([]AstIdent, l)
-	}
-}
-
 type IAstExpr interface {
 	IAstNode
 	ExprBase() *AstExprBase
@@ -57,17 +49,6 @@ type AstExprBase struct {
 }
 
 func (me *AstExprBase) ExprBase() *AstExprBase { return me }
-func (me *AstExprBase) IsOp(anyOf ...string) bool {
-	if len(me.Tokens) == 1 && me.Tokens[0].Kind() == udevlex.TOKEN_OPISH {
-		for i := range anyOf {
-			if me.Tokens[0].Meta.Orig == anyOf[i] {
-				return true
-			}
-		}
-		return len(anyOf) == 0
-	}
-	return false
-}
 
 type AstExprAtomBase struct {
 	AstExprBase
@@ -110,11 +91,10 @@ type AstIdent struct {
 	AstExprAtomBase
 	Val     string
 	IsOpish bool
+	IsTag   bool
 }
 
 func (me *AstIdent) Description() string { return "'ident' expression" }
-func (me *AstIdent) BeginsUpper() bool   { return ustr.BeginsUpper(me.Val) }
-func (me *AstIdent) BeginsLower() bool   { return ustr.BeginsLower(me.Val) }
 
 type AstExprLet struct {
 	AstExprBase
@@ -150,7 +130,6 @@ func (me *AstExprCase) Default() *AstCaseAlt {
 
 type AstCaseAlt struct {
 	AstBaseTokens
-	Conds       []IAstExpr
-	Body        IAstExpr
-	IsShortForm bool
+	Conds []IAstExpr
+	Body  IAstExpr
 }

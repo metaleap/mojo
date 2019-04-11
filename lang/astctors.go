@@ -12,22 +12,34 @@ func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
 	return &this
 }
 
-func (me *AstDef) newIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at int) *Error {
-	this, isarg := &me.Name, arg > -1
+func (me *AstDef) newIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at int) (err *Error) {
+	tok, this, isarg := &ttmp[at], &me.Name, arg > -1
 	if isarg {
 		this = &me.Args[arg]
 	}
 
-	if s, k := ttmp[at].Meta.Orig, ttmp[at].Kind(); k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH ||
-		((!isarg) && k != udevlex.TOKEN_OPISH && !ustr.BeginsLower(ustr.If(s[0] == '_' && me.IsTopLevel, s[1:], s))) ||
-		(isarg && s[0] == '_' && len(s) > 1) {
-		return errAt(&ttmp[at], ErrCatSyntax, "not a valid "+
-			ustr.If(!isarg, "definition", "argument")+" name: "+s)
+	namedesc := ustr.If(isarg, "argument", "definition")
+	if s, k := tok.Meta.Orig, tok.Kind(); k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH {
+		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+s)
+	} else if _s := ustr.If(me.IsTopLevel && s[0] == '_', s[1:], s); (!isarg) && k != udevlex.TOKEN_OPISH && !ustr.BeginsLower(_s) {
+		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+_s+" should begin with lower-case letter")
+	} else if isarg && s[0] == '_' && len(s) > 1 {
+		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+s+" shouldn't begin with underscore")
+	} else if tok.IsOpishAndAnyOneOf(langReservedOps...) {
+		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+s+" is a language-reserved operator")
+	} else {
+		this.Val, this.IsOpish, this.IsTag = s, k == udevlex.TOKEN_OPISH, isarg && ustr.BeginsUpper(s)
+		ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)
 	}
+	return
+}
 
-	ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)
-	this.Val, this.IsOpish = this.Tokens[0].Str, me.Tokens[0].Kind() == udevlex.TOKEN_OPISH
-	return nil
+func (me *ctxParseTld) newExprIdent(toks udevlex.Tokens) *AstIdent {
+	var this AstIdent
+	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	this.Val, this.IsOpish, this.IsTag =
+		this.Tokens[0].Str, this.Tokens[0].Kind() == udevlex.TOKEN_OPISH, ustr.BeginsUpper(this.Tokens[0].Str)
+	return &this
 }
 
 func (me *ctxParseTld) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
@@ -58,16 +70,9 @@ func (me *ctxParseTld) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	return &this
 }
 
-func (me *ctxParseTld) newExprIdent(toks udevlex.Tokens) *AstIdent {
-	var this AstIdent
-	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
-	this.Val, this.IsOpish = this.Tokens[0].Str, this.Tokens[0].Kind() == udevlex.TOKEN_OPISH
-	return &this
-}
-
 func (me *ctxParseTld) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBaseComments, toks udevlex.Tokens, at int) {
 	at = me.mto[&toks[at]]
-	tld := &me.cur.AstBaseTokens
+	tld := &me.curDef.AstBaseTokens
 	tbase.Tokens = tld.Tokens[at : at+1]
 	for _, ci := range me.mtc[&tld.Tokens[at]] {
 		cbase.Comments = append(cbase.Comments, newAstComment(tld.Tokens, ci))
@@ -84,6 +89,6 @@ func (me *ctxParseTld) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens, un
 		}
 	}
 	ifirst, ilast := me.mto[&toks[0]], me.mto[&toks[len(toks)-1]]
-	tld := &me.cur.AstBaseTokens
+	tld := &me.curDef.AstBaseTokens
 	this.Tokens = tld.Tokens[ifirst : ilast+1]
 }

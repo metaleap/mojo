@@ -43,9 +43,8 @@ type AstBaseTokens struct {
 ```go
 type AstCaseAlt struct {
 	AstBaseTokens
-	Conds       []IAstExpr
-	Body        IAstExpr
-	IsShortForm bool
+	Conds []IAstExpr
+	Body  IAstExpr
 }
 ```
 
@@ -115,12 +114,6 @@ type AstExprBase struct {
 
 ```go
 func (me *AstExprBase) ExprBase() *AstExprBase
-```
-
-#### func (*AstExprBase) IsOp
-
-```go
-func (me *AstExprBase) IsOp(anyOf ...string) bool
 ```
 
 #### type AstExprCase
@@ -301,21 +294,10 @@ type AstIdent struct {
 	AstExprAtomBase
 	Val     string
 	IsOpish bool
+	IsTag   bool
 }
 ```
 
-
-#### func (*AstIdent) BeginsLower
-
-```go
-func (me *AstIdent) BeginsLower() bool
-```
-
-#### func (*AstIdent) BeginsUpper
-
-```go
-func (me *AstIdent) BeginsUpper() bool
-```
 
 #### func (*AstIdent) Description
 
@@ -329,7 +311,8 @@ func (me *AstIdent) Description() string
 type AstTopLevel struct {
 	AstBaseTokens
 	AstBaseComments
-	Def *AstDef
+	Def             *AstDef
+	DefIsUnexported bool
 }
 ```
 

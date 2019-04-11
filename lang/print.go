@@ -69,9 +69,17 @@ func (me *AstComment) print(p *CtxPrint) {
 }
 
 func (me *AstDef) print(p *CtxPrint) {
+	printName := me.Name.print
+	if me == p.CurTopLevel.Def && p.CurTopLevel.DefIsUnexported {
+		printName = func(p *CtxPrint) {
+			p.WriteByte('_')
+			me.Name.print(p)
+		}
+	}
+
 	switch p.File.Options.ApplStyle {
 	case APPLSTYLE_VSO:
-		me.Name.print(p)
+		printName(p)
 		for i := range me.Args {
 			p.WriteByte(' ')
 			me.Args[i].print(p)
@@ -81,7 +89,7 @@ func (me *AstDef) print(p *CtxPrint) {
 			me.Args[0].print(p)
 			p.WriteByte(' ')
 		}
-		me.Name.print(p)
+		printName(p)
 		for i := 1; i < len(me.Args); i++ {
 			p.WriteByte(' ')
 			me.Args[i].print(p)
@@ -91,7 +99,7 @@ func (me *AstDef) print(p *CtxPrint) {
 			me.Args[i].print(p)
 			p.WriteByte(' ')
 		}
-		me.Name.print(p)
+		printName(p)
 	}
 	for i := range me.Meta {
 		p.WriteString(", ")
@@ -188,25 +196,19 @@ func (me *AstExprCase) print(p *CtxPrint) {
 	p.WriteByte('(')
 	me.Scrutinee.print(p)
 	for i := range me.Alts {
-		if i == 0 {
-			p.WriteString(" ? ")
-		} else {
-			p.WriteString(" | ")
-		}
+		p.WriteString(" | ")
 		me.Alts[i].print(p)
 	}
 	p.WriteByte(')')
 }
 
 func (me *AstCaseAlt) print(p *CtxPrint) {
-	if !me.IsShortForm {
-		for i := range me.Conds {
-			if i > 0 {
-				p.WriteString(" | ")
-			}
-			me.Conds[i].print(p)
+	for i := range me.Conds {
+		if i > 0 {
+			p.WriteString(" | ")
 		}
-		p.WriteString(" : ")
+		me.Conds[i].print(p)
 	}
+	p.WriteString(" ? ")
 	me.Body.print(p)
 }
