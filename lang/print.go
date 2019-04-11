@@ -8,8 +8,9 @@ import (
 
 type CtxPrint struct {
 	IPrintFormatter
-	File        *AstFile
-	CurTopLevel *AstTopLevel
+	File           *AstFile
+	CurTopLevel    *AstTopLevel
+	CurIndentLevel int
 
 	ustd.BytesWriter
 }
@@ -24,6 +25,15 @@ type PrintFormatterMinimal struct {
 	PrintFormatterBase
 }
 
+func (me *CtxPrint) writeNewLines(times int) {
+	for i := 0; i < times; i++ {
+		me.WriteByte('\n')
+	}
+	for i := 0; i < me.CurIndentLevel; i++ {
+		me.WriteString("    ")
+	}
+}
+
 func (me *AstFile) Print(pf IPrintFormatter) []byte {
 	ctx := CtxPrint{File: me, IPrintFormatter: pf, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 1024)}}
 	for i := range me.TopLevel {
@@ -34,6 +44,7 @@ func (me *AstFile) Print(pf IPrintFormatter) []byte {
 }
 
 func (me *AstTopLevel) print(p *CtxPrint) {
+	p.CurIndentLevel = 0
 	p.WriteByte('\n')
 	for i := range me.Comments {
 		me.Comments[i].print(p)
@@ -52,7 +63,8 @@ func (me *AstComment) print(p *CtxPrint) {
 	} else {
 		p.WriteString("//")
 		p.WriteString(me.ContentText)
-		p.WriteString("\n")
+		p.CurIndentLevel++
+		p.writeNewLines(1)
 	}
 }
 
@@ -88,15 +100,63 @@ func (me *AstDefFunc) print(p *CtxPrint) {
 		p.WriteString(", ")
 		me.Meta[i].print(p)
 	}
-	p.WriteString(" :=\n    ")
+	p.WriteString(" :=")
+	if me.IsTopLevel {
+		p.CurIndentLevel++
+		p.writeNewLines(1)
+	} else {
+		p.WriteByte(' ')
+	}
 	me.Body.print(p)
 }
 
-func (me *astIdent) print(p *CtxPrint)        { p.WriteString(me.Val) }
-func (me *AstExprLitFloat) print(p *CtxPrint) { p.WriteString(strconv.FormatFloat(me.Val, 'g', -1, 64)) }
-func (me *AstExprLitUint) print(p *CtxPrint)  { p.WriteString(strconv.FormatUint(me.Val, 10)) }
-func (me *AstExprLitRune) print(p *CtxPrint)  { p.WriteString(strconv.QuoteRune(me.Val)) }
-func (me *AstExprLitStr) print(p *CtxPrint)   { p.WriteString(strconv.Quote(me.Val)) }
+func (me *AstIdent) print(p *CtxPrint) {
+	p.WriteString(me.Val)
+	for i := range me.Comments {
+		p.WriteByte(' ')
+		me.Comments[i].print(p)
+	}
+}
+
+func (me *AstTypeExprIdent) print(p *CtxPrint) {
+	p.WriteString(me.Val)
+	for i := range me.Comments {
+		p.WriteByte(' ')
+		me.Comments[i].print(p)
+	}
+}
+
+func (me *AstExprLitFloat) print(p *CtxPrint) {
+	p.WriteString(strconv.FormatFloat(me.Val, 'g', -1, 64))
+	for i := range me.Comments {
+		p.WriteByte(' ')
+		me.Comments[i].print(p)
+	}
+}
+
+func (me *AstExprLitUint) print(p *CtxPrint) {
+	p.WriteString(strconv.FormatUint(me.Val, 10))
+	for i := range me.Comments {
+		p.WriteByte(' ')
+		me.Comments[i].print(p)
+	}
+}
+
+func (me *AstExprLitRune) print(p *CtxPrint) {
+	p.WriteString(strconv.QuoteRune(me.Val))
+	for i := range me.Comments {
+		p.WriteByte(' ')
+		me.Comments[i].print(p)
+	}
+}
+
+func (me *AstExprLitStr) print(p *CtxPrint) {
+	p.WriteString(strconv.Quote(me.Val))
+	for i := range me.Comments {
+		p.WriteByte(' ')
+		me.Comments[i].print(p)
+	}
+}
 
 func (me *AstExprAppl) print(p *CtxPrint) {
 	p.WriteByte('(')
@@ -136,6 +196,7 @@ func (me *AstExprLet) print(p *CtxPrint) {
 }
 
 func (me *AstExprCase) print(p *CtxPrint) {
+	p.WriteByte('(')
 	me.Scrutinee.print(p)
 	for i := range me.Alts {
 		if i == 0 {
@@ -145,16 +206,19 @@ func (me *AstExprCase) print(p *CtxPrint) {
 		}
 		me.Alts[i].print(p)
 	}
+	p.WriteByte(')')
 }
 
 func (me *AstCaseAlt) print(p *CtxPrint) {
-	for i := range me.Conds {
-		if i > 0 {
-			p.WriteString(" | ")
+	if !me.IsShortForm {
+		for i := range me.Conds {
+			if i > 0 {
+				p.WriteString(" | ")
+			}
+			me.Conds[i].print(p)
 		}
-		me.Conds[i].print(p)
+		p.WriteString(" : ")
 	}
-	p.WriteString(" : ")
 	me.Body.print(p)
 }
 

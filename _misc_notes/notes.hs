@@ -63,14 +63,14 @@ check must cmp arg val :=
                         | Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
-||  := _ ? True | __
+or  := _ ? True | __
 not := _ ? False | True
-&&  := _ ? (__ ? True | False) | False
+and := _ ? (__ ? True | False) | False
 
 
 
-||  := _ ? some Ok : some | __
-||  := _ ? some Yay : some | __
+||  := _ ? some Ok : some | No : __
+||  := _ ? some Yay : some | Nay : __
 
 
 _[_]	 :=	  Nil

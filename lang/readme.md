@@ -70,7 +70,8 @@ type AstDefBase struct {
 	Args []AstIdent
 	Meta []IAstExpr
 
-	IsDefType bool
+	IsDefType  bool
+	IsTopLevel bool
 }
 ```
 
@@ -438,8 +439,9 @@ func (me *AstTypeExprRec) Description() string
 ```go
 type CtxPrint struct {
 	IPrintFormatter
-	File        *AstFile
-	CurTopLevel *AstTopLevel
+	File           *AstFile
+	CurTopLevel    *AstTopLevel
+	CurIndentLevel int
 
 	ustd.BytesWriter
 }

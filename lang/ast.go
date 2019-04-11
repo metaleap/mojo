@@ -32,7 +32,7 @@ type AstComment struct {
 type IAstDef interface {
 	IAstNode
 	DefBase() *AstDefBase
-	parseDefBody(*ctxParseTopLevelDef, udevlex.Tokens) *Error
+	parseDefBody(*ctxParse, udevlex.Tokens) *Error
 }
 
 type AstDefBase struct {
@@ -41,7 +41,8 @@ type AstDefBase struct {
 	Args []AstIdent
 	Meta []IAstExpr
 
-	IsDefType bool
+	IsDefType  bool
+	IsTopLevel bool
 }
 
 func (me *AstDefBase) DefBase() *AstDefBase { return me }
