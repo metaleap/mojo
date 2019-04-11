@@ -71,6 +71,8 @@ list rest :=
             | Empty             ? msg="rest: list must not be Empty" Err
     x foo   := (x trim len == 0) && "(none)" || x
 
+fn : arg :=
+    arg fn
 
 x pow y :=
     if: y < 0 Then 1 / (x pow y.neg) Else x* accum 1 y
