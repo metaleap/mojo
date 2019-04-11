@@ -1,4 +1,4 @@
-package odlang
+package atemlang
 
 import (
 	"github.com/go-leap/dev/lex"
@@ -12,7 +12,7 @@ func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
 	return &this
 }
 
-func (me *AstDef) newIdent(ctx *ctxParse, arg int, ttmp udevlex.Tokens, at int) *Error {
+func (me *AstDef) newIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at int) *Error {
 	this, isarg := &me.Name, arg > -1
 	if isarg {
 		this = &me.Args[arg]
@@ -28,51 +28,51 @@ func (me *AstDef) newIdent(ctx *ctxParse, arg int, ttmp udevlex.Tokens, at int) 
 	return nil
 }
 
-func (me *ctxParse) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
+func (me *ctxParseTld) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
 	var this AstExprLitFloat
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val = this.Tokens[0].Float
 	return &this
 }
 
-func (me *ctxParse) newExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
+func (me *ctxParseTld) newExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
 	var this AstExprLitUint
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val = this.Tokens[0].Uint
 	return &this
 }
 
-func (me *ctxParse) newExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
+func (me *ctxParseTld) newExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
 	var this AstExprLitRune
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val = this.Tokens[0].Rune()
 	return &this
 }
 
-func (me *ctxParse) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
+func (me *ctxParseTld) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	var this AstExprLitStr
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val = this.Tokens[0].Str
 	return &this
 }
 
-func (me *ctxParse) newExprIdent(toks udevlex.Tokens) *AstIdent {
+func (me *ctxParseTld) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	var this AstIdent
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val, this.IsOpish = this.Tokens[0].Str, this.Tokens[0].Kind() == udevlex.TOKEN_OPISH
 	return &this
 }
 
-func (me *ctxParse) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBaseComments, toks udevlex.Tokens, at int) {
+func (me *ctxParseTld) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBaseComments, toks udevlex.Tokens, at int) {
 	at = me.mto[&toks[at]]
-	tld := &me.def.AstBaseTokens
+	tld := &me.cur.AstBaseTokens
 	tbase.Tokens = tld.Tokens[at : at+1]
 	for _, ci := range me.mtc[&tld.Tokens[at]] {
 		cbase.Comments = append(cbase.Comments, newAstComment(tld.Tokens, ci))
 	}
 }
 
-func (me *ctxParse) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens, untilTok *udevlex.Token) {
+func (me *ctxParseTld) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens, untilTok *udevlex.Token) {
 	if untilTok != nil {
 		for i := range toks {
 			if &toks[i] == untilTok {
@@ -82,6 +82,6 @@ func (me *ctxParse) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens, until
 		}
 	}
 	ifirst, ilast := me.mto[&toks[0]], me.mto[&toks[len(toks)-1]]
-	tld := &me.def.AstBaseTokens
+	tld := &me.cur.AstBaseTokens
 	this.Tokens = tld.Tokens[ifirst : ilast+1]
 }

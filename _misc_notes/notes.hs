@@ -1,60 +1,28 @@
-Bool                := False | True
 
-// -- option type
-Maybe               := No | Ok: _ | No:
+/*  --  atoms: float int tags
+    --  composite:
+        --  tagged foo
+        --  sequence of foo
+            --  n-ary tuple: fixed-length any-typed sequence
+            --  string: tagged list of int32
+        --  sets:
+            --  unary: set of foo
+            --  binary: relations or maybe map or maybe record
+            --  n-ary: set of n-ary-tuple relations
+*/
 
-// -- equivalent to Haskell's data Either = Left dis | Right dat
-Or                  :=  Yay: _ | Nay: __
+/*
+foo any         :=  True
+min num max     :=  _ >= min && _ <= max
+min float max   :=  min+0.0 num max
+min int max     :=  min+0 num max
+uint max        :=  0 num max
+true            :=  True
+false           :=  False
+t list          :=  _   ? Nil               : True
+                        | Link (foo & rest) : foo t && rest (t list)
+*/
 
-foo Bar             :=  x
-
-any OrErr :=  Ret: any
-                    |   Err: msg:String
-
-t List         :=  Empty
-                    |   Link: t & t List
-
-t ListInfinite      := Link: t & t ListInfinite
-
-t ListNonEmpty      := t List, self must /= Empty
-
-t Vector n, n > 0   := t List, len must == n
-
-t Tree              :=  Leaf
-                    |   Node: & t Tree t & t Tree &
-
-Str                 := String , trimmed , len must > 3
-
-StrBadIdea          := Str, len must < 3 // -- let's see if we can be smart here later on
-
-Name                := FirstLast: Str & Str
-
-Address             := Addr:    street_HouseNo  : (Str & String, trimmed, len must > 0)
-                            &   zip_City        : (Str & Str)   /*
-                            &   foo             : bar
-                            &   moo             : baz           */
-                            &   country         : Str
-
-PhoneNo             := Str
-
-Customer            := Cust: Name & Address & PhoneNo
-
-Person              :=  name: Name
-                    &   bday: Date
-                    &   addr: Address
-
-User                :=  name: Str
-                    &   details: Person
-                    &   numLogins: Int, self must >= 0
-                    &   avatarPic: Byte List
-
-Circle2D            :=  radius: Float, self must > 0
-                    &   Float Vector 'x'...'y'
-
-Sphere3D            :=  pos: Float Vector 3
-                    &   extent: Float, self must (foo bar, foo := Nil, bar := True ? False | True) 0
-
-/* -- freestanding comment */
 
 
 
@@ -105,7 +73,7 @@ x pow y :=
 
 
 f accum initial n , n must >= 0 , x  :=
-    True    ? n==0  : f accum x y , x := initial f , , _ unused := 123
+    True    ? n==0  : f accum x y , x := initial f , _ unused := 123
             |       : initial
 
     y := n - 1

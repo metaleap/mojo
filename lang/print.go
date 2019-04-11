@@ -1,4 +1,4 @@
-package odlang
+package atemlang
 
 import (
 	"strconv"

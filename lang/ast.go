@@ -1,4 +1,4 @@
-package odlang
+package atemlang
 
 import (
 	"github.com/go-leap/dev/lex"
@@ -52,13 +52,6 @@ type IAstExpr interface {
 	Description() string
 }
 
-type IAstIdent interface {
-	IAstExpr
-	IsOpish() bool
-	BeginsUpper() bool
-	BeginsLower() bool
-}
-
 type AstExprBase struct {
 	AstBaseTokens
 }
@@ -78,7 +71,7 @@ func (me *AstExprBase) IsOp(anyOf ...string) bool {
 
 type AstExprAtomBase struct {
 	AstExprBase
-	astExprAtomBase
+	AstBaseComments
 }
 
 type AstExprLitBase struct {
@@ -113,18 +106,10 @@ type AstExprLitStr struct {
 
 func (me *AstExprLitStr) Description() string { return "'string literal' expression" }
 
-type astExprAtomBase struct {
-	AstBaseComments
-}
-
-type astIdent struct {
-	Val     string
-	IsOpish bool
-}
-
 type AstIdent struct {
 	AstExprAtomBase
-	astIdent
+	Val     string
+	IsOpish bool
 }
 
 func (me *AstIdent) Description() string { return "'ident' expression" }

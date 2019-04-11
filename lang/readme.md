@@ -1,6 +1,6 @@
-# odlang
+# atemlang
 --
-    import "github.com/metaleap/odic/lang"
+    import "github.com/metaleap/atem/lang"
 
 
 ## Usage
@@ -97,6 +97,7 @@ func (me *AstExprAppl) Description() string
 ```go
 type AstExprAtomBase struct {
 	AstExprBase
+	AstBaseComments
 }
 ```
 
@@ -298,6 +299,8 @@ type AstFileTopLevelChunk struct {
 ```go
 type AstIdent struct {
 	AstExprAtomBase
+	Val     string
+	IsOpish bool
 }
 ```
 
@@ -383,18 +386,6 @@ type IAstExpr interface {
 	IAstNode
 	ExprBase() *AstExprBase
 	Description() string
-}
-```
-
-
-#### type IAstIdent
-
-```go
-type IAstIdent interface {
-	IAstExpr
-	IsOpish() bool
-	BeginsUpper() bool
-	BeginsLower() bool
 }
 ```
 

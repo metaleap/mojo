@@ -4,12 +4,12 @@ import (
 	"os"
 
 	"github.com/go-leap/dev/lex"
-	"github.com/metaleap/odic/lang"
+	"github.com/metaleap/atem/lang"
 )
 
 func mainFmt() {
 	var err error
-	var astfile odlang.AstFile
+	var astfile atemlang.AstFile
 
 	if len(os.Args) > 2 {
 		astfile.SrcFilePath = os.Args[2]
@@ -27,7 +27,7 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		_, err = os.Stdout.Write(astfile.Print(&odlang.PrintFormatterMinimal{}))
+		_, err = os.Stdout.Write(astfile.Print(&atemlang.PrintFormatterMinimal{}))
 	}
 
 	if err != nil {

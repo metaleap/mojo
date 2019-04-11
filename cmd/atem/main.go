@@ -5,10 +5,10 @@ import (
 	"runtime"
 	"runtime/debug"
 
-	"github.com/metaleap/odic"
+	"github.com/metaleap/atem"
 )
 
-var ctx *od.Ctx
+var ctx *atem.Ctx
 
 func writeLn(s string) { _, _ = os.Stdout.WriteString(s + "\n") }
 
@@ -21,25 +21,25 @@ func main() {
 	}
 
 	var err error
-	ctx, err = od.New(".", true)
+	ctx, err = atem.New(".", true)
 	if err != nil {
 		panic(err)
 	}
 
-	odcmd := os.Args[1]
-	switch odcmd {
+	atcmd := os.Args[1]
+	switch atcmd {
 	case "help", "version", "run":
-		writeLn("command " + odcmd + " recognized but not yet implemented")
+		writeLn("command " + atcmd + " recognized but not yet implemented")
 	case "repl":
 		mainRepl()
 	case "fmt":
 		mainFmt()
 	default:
 		writeLn("Usage:")
-		writeLn("\todic repl")
-		writeLn("\todic fmt")
-		writeLn("\todic run")
-		writeLn("\todic help")
-		writeLn("\todic version")
+		writeLn("\tatem repl")
+		writeLn("\tatem fmt")
+		writeLn("\tatem run")
+		writeLn("\tatem help")
+		writeLn("\tatem version")
 	}
 }

@@ -1,4 +1,4 @@
-package odlang
+package atemlang
 
 import (
 	"bytes"
@@ -124,7 +124,7 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 	}
 
 	il, tlchunks := len(src)-1, make([]tlc, 0, 32)
-	var newline, iscomment, wascomment bool
+	var newline, isfulllinecomment, wasfulllinecomment, inmultilinecomment bool
 	var curline int
 	var lastpos, lastln int
 	var chlast byte
@@ -137,19 +137,29 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 	}
 	for i, l := 1, len(src); i < l; i++ {
 		ch := src[i]
-		if ch == '\n' {
-			wascomment, iscomment, newline, curline, me.LastLoad.tokCountInitialGuess = iscomment, false, true, curline+1, me.LastLoad.tokCountInitialGuess+1
-		} else if newline {
-			if newline = false; ch != ' ' {
-				iscomment = ch == '/' && i < il && src[i+1] == '/'
-				if (!(iscomment && wascomment)) &&
-					!(ch != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n')) {
-					tlchunks = append(tlchunks, tlc{src: src[lastpos:i], pos: lastpos, line: lastln})
-					lastpos, lastln = i, curline
-				}
+		if inmultilinecomment {
+			if chlast == '*' && ch == '/' {
+				inmultilinecomment = false
 			}
-		} else if (!iscomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
-			me.LastLoad.tokCountInitialGuess++
+		} else if (!isfulllinecomment) && chlast == '/' && ch == '*' {
+			inmultilinecomment = true
+		}
+		if !inmultilinecomment {
+			if ch == '\n' {
+				wasfulllinecomment, isfulllinecomment, newline, curline, me.LastLoad.tokCountInitialGuess = isfulllinecomment, false, true, curline+1, me.LastLoad.tokCountInitialGuess+1
+			} else if newline {
+				if newline = false; ch != ' ' {
+					isntlast := i < il
+					isfulllinecomment = ch == '/' && isntlast && src[i+1] == '/'
+					if (!(isfulllinecomment && wasfulllinecomment)) &&
+						!(ch != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n')) {
+						tlchunks = append(tlchunks, tlc{src: src[lastpos:i], pos: lastpos, line: lastln})
+						lastpos, lastln = i, curline
+					}
+				}
+			} else if (!isfulllinecomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
+				me.LastLoad.tokCountInitialGuess++
+			}
 		}
 		chlast = ch
 	}
