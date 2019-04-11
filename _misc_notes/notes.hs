@@ -8,10 +8,10 @@ Or                  :=  Yay: _ | Nay: __
 
 foo Bar             :=  x
 
-any OrErr           :=  Ret: any
+any OrErr :=  Ret: any
                     |   Err: msg:String
 
-t List              :=  Empty
+t List         :=  Empty
                     |   Link: t & t List
 
 t ListInfinite      := Link: t & t ListInfinite
@@ -105,7 +105,7 @@ x pow y :=
 
 
 f accum initial n , n must >= 0 , x  :=
-    True    ? n==0  : f accum x y , , x := initial f , , _ unused := 123
+    True    ? n==0  : f accum x y , x := initial f , , _ unused := 123
             |       : initial
 
     y := n - 1

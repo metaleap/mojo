@@ -2,7 +2,6 @@ package odlang
 
 import (
 	"github.com/go-leap/dev/lex"
-	"github.com/go-leap/str"
 )
 
 type ApplStyle int
@@ -16,7 +15,7 @@ const (
 type (
 	ctxParse struct {
 		file        *AstFile
-		def         IAstDef
+		def         *AstDef
 		mto         map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
 		mtc         map[*udevlex.Token][]int // maps comments-stripped Tokens to comment Tokens in orig
 		parensLevel int
@@ -46,18 +45,21 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstCom
 	return
 }
 
-func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def IAstDef, err *Error) {
+func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, err *Error) {
 	ctx := ctxParse{file: me, mtc: make(map[*udevlex.Token][]int), mto: make(map[*udevlex.Token]int)}
-	return ctx.parseDef(tokens, true)
+	var astdef AstDef
+	if err = ctx.parseDef(tokens, true, &astdef); err == nil {
+		def = &astdef
+	}
+	return
 }
 
-func (me *ctxParse) parseDef(tokens udevlex.Tokens, isTopLevel bool) (def IAstDef, err *Error) {
+func (me *ctxParse) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *AstDef) (err *Error) {
 	toks := tokens
 	if isTopLevel {
 		toks = tokens.SansComments(me.mtc, me.mto)
 	}
-	tokshead, toksbody := toks.BreakOnOpish(":=")
-	if len(toksbody) == 0 {
+	if tokshead, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
 		err = errAt(&tokens[0], ErrCatSyntax, "missing: definition body following `:=`")
 	} else if len(tokshead) == 0 {
 		err = errAt(&tokens[0], ErrCatSyntax, "missing: definition name preceding `:=`")
@@ -73,49 +75,36 @@ func (me *ctxParse) parseDef(tokens udevlex.Tokens, isTopLevel bool) (def IAstDe
 				namepos = len(toksheadsig) - 1
 			}
 		}
-		var defbase *AstDefBase
-		if isdeftype := ustr.BeginsUpper(toksheadsig[namepos].Str); isdeftype {
-			var deftype AstDefType
-			def, defbase, deftype.AstDefBase.IsDefType = &deftype, &deftype.AstDefBase, true
-		} else {
-			var deffunc AstDefFunc
-			def, defbase = &deffunc, &deffunc.AstDefBase
-		}
+
 		if isTopLevel {
-			me.def, defbase.Tokens, defbase.IsTopLevel = def, tokens, true
+			me.def, def.Tokens, def.IsTopLevel = def, tokens, true
 		} else {
-			me.setTokensFor(&defbase.AstBaseTokens, toks, nil)
+			me.setTokensFor(&def.AstBaseTokens, toks, nil)
 		}
-		if err = defbase.newIdent(me, -1, toksheadsig, namepos); err == nil {
-			defbase.ensureArgsLen(len(toksheadsig) - 1)
+		if err = def.newIdent(me, -1, toksheadsig, namepos); err == nil {
+			def.ensureArgsLen(len(toksheadsig) - 1)
 			for i, a := 0, 0; i < len(toksheadsig); i++ {
 				if i != namepos {
-					if err = defbase.newIdent(me, a, toksheadsig, i); err != nil {
-						goto end
+					if err = def.newIdent(me, a, toksheadsig, i); err != nil {
+						return
 					}
 					a++
 				}
 			}
 			if err = def.parseDefBody(me, toksbody); err == nil && len(toksheads) > 1 {
-				defbase.Meta, err = me.parseMetas(toksheads[1:], false)
+				def.Meta, err = me.parseMetas(toksheads[1:])
 			}
-		}
-	}
-end:
-	if err != nil {
-		if def = nil; isTopLevel {
-			me.def = nil
 		}
 	}
 	return
 }
 
-func (me *ctxParse) parseMetas(chunks []udevlex.Tokens, typeExpr bool) (metas []IAstExpr, err *Error) {
+func (me *ctxParse) parseMetas(chunks []udevlex.Tokens) (metas []IAstExpr, err *Error) {
 	metas = make([]IAstExpr, 0, len(chunks))
 	var meta IAstExpr
 	for i := range chunks {
 		if len(chunks[i]) > 0 {
-			if meta, err = me.parseExpr(chunks[i], typeExpr); err != nil {
+			if meta, err = me.parseExpr(chunks[i]); err != nil {
 				metas = nil
 				return
 			} else {
@@ -126,47 +115,13 @@ func (me *ctxParse) parseMetas(chunks []udevlex.Tokens, typeExpr bool) (metas []
 	return
 }
 
-func (me *AstDefFunc) parseDefBody(ctx *ctxParse, toks udevlex.Tokens) (err *Error) {
-	me.Body, err = ctx.parseExpr(toks, false)
+func (me *AstDef) parseDefBody(ctx *ctxParse, toks udevlex.Tokens) (err *Error) {
+	me.Body, err = ctx.parseExpr(toks)
 	return
 }
 
-func (me *AstDefType) parseDefBody(ctx *ctxParse, toks udevlex.Tokens) (err *Error) {
-	tags := toks.Chunked("|", "(", ")")
-	if len(tags[0]) == 0 {
-		err = errAt(&toks[0], ErrCatSyntax, "unexpected `|`")
-
-	} else if istagged := len(tags) > 1 || (len(tags[0]) > 2 &&
-		tags[0][1].Kind() == udevlex.TOKEN_OPISH && tags[0][0].Kind() == udevlex.TOKEN_IDENT &&
-		tags[0][1].Str == ":" && ustr.BeginsUpper(tags[0][0].Str)); istagged {
-		me.Tags = make([]AstDefTypeTag, len(tags))
-		for i := range tags {
-			if t := tags[i]; len(t) == 0 {
-				err = errAt(&toks[0], ErrCatSyntax, "type definition `"+me.Name.Val+"` is missing tag details in between two `|` operators")
-			} else if t[0].Kind() != udevlex.TOKEN_IDENT || !ustr.BeginsUpper(t[0].Str) {
-				err = errAt(&t[0], ErrCatSyntax, "malformed tag name `"+t[0].Meta.Orig+"`, should be upper-case")
-			} else if len(t) > 1 && (t[1].Kind() != udevlex.TOKEN_OPISH || t[1].Str != ":") {
-				err = errAt(&t[1], ErrCatSyntax, "expected `:` following tag name `"+t[0].Str+"`")
-			} else if ctx.setTokenAndCommentsFor(&me.Tags[i].Name.AstBaseTokens, &me.Tags[i].Name.AstBaseComments, t, 0); len(t) > 2 {
-				me.Tags[i].Expr, err = ctx.parseTypeExpr(t[2:])
-			}
-			if err != nil {
-				return
-			}
-		}
-
-	} else {
-		me.Expr, err = ctx.parseTypeExpr(toks)
-	}
-	return
-}
-
-func (me *ctxParse) parseExpr(toks udevlex.Tokens, typeExpr bool) (ret IAstExpr, err *Error) {
-	var chunks []udevlex.Tokens
-	if !typeExpr {
-		chunks = toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1)
-	}
-	if len(chunks) > 1 {
+func (me *ctxParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
+	if chunks := toks.IndentBasedChunks(toks[0].Meta.Position.Column - 1); len(chunks) > 1 {
 		ret, err = me.parseExprLetOuter(toks, chunks)
 
 	} else {
@@ -189,27 +144,19 @@ func (me *ctxParse) parseExpr(toks udevlex.Tokens, typeExpr bool) (ret IAstExpr,
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
 				switch toks[0].Str {
 				case ",":
-					if !typeExpr {
-						exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
-					} else {
-						exprcur, toks, err = me.parseTypeExprMeta(toks, accum, alltoks)
-					}
+					exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
 					accum = accum[:0]
 				case "?":
-					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks, typeExpr)
+					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
 				default:
-					if !typeExpr {
-						exprcur = me.newExprIdent(toks)
-					} else {
-						exprcur = me.newTypeExprIdent(toks)
-					}
+					exprcur = me.newExprIdent(toks)
 					toks = toks[1:]
 				}
 			case udevlex.TOKEN_SEPISH:
 				if sub, rest, e := me.parseParens(toks); e != nil {
 					err = e
-				} else if exprcur, err = me.parseExprInParens(sub, typeExpr); err == nil {
+				} else if exprcur, err = me.parseExprInParens(sub); err == nil {
 					toks = rest
 				}
 			default:
@@ -220,50 +167,40 @@ func (me *ctxParse) parseExpr(toks udevlex.Tokens, typeExpr bool) (ret IAstExpr,
 			}
 			accum = append(accum, exprcur)
 		}
-		ret = me.parseExprFinalize(accum, alltoks, nil, typeExpr)
+		ret = me.parseExprFinalize(accum, alltoks, nil)
 	}
 	return
 }
 
-func (me *ctxParse) parseExprFinalize(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token, typeExpr bool) (ret IAstExpr) {
+func (me *ctxParse) parseExprFinalize(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token) (ret IAstExpr) {
 	if len(accum) == 1 {
 		ret = accum[0]
 	} else {
-		// accum = me.parseExprClaspOperators(accum, allToks, untilTok, typeExpr)
-		var abt *AstBaseTokens
-		var fcallee *IAstExpr
-		var fargs *[]IAstExpr
-		if typeExpr {
-			var appl AstTypeExprAppl
-			abt, fcallee, fargs = &appl.AstBaseTokens, &appl.Callee, &appl.Args
-			ret = &appl
-		} else {
-			var appl AstExprAppl
-			abt, fcallee, fargs = &appl.AstBaseTokens, &appl.Callee, &appl.Args
-			ret = &appl
-		}
-		me.setTokensFor(abt, allToks, untilTok)
+		var appl AstExprAppl
+		ret = &appl
+
+		me.setTokensFor(&appl.AstBaseTokens, allToks, untilTok)
 		args := make([]IAstExpr, 1, len(accum)-1)
 		switch me.file.Options.ApplStyle {
 		case APPLSTYLE_VSO:
-			*fcallee, args[0] = accum[0], accum[1]
-			*fargs = append(args, accum[2:]...)
+			appl.Callee, args[0] = accum[0], accum[1]
+			appl.Args = append(args, accum[2:]...)
 		case APPLSTYLE_SVO:
-			*fcallee, args[0] = accum[1], accum[0]
-			*fargs = append(args, accum[2:]...)
+			appl.Callee, args[0] = accum[1], accum[0]
+			appl.Args = append(args, accum[2:]...)
 		case APPLSTYLE_SOV:
 			l := len(accum) - 1
-			*fcallee, args[0] = accum[l], accum[0]
-			*fargs = append(args, accum[1:l]...)
+			appl.Callee, args[0] = accum[l], accum[0]
+			appl.Args = append(args, accum[1:l]...)
 		}
 	}
 	return
 }
 
-func (me *ctxParse) parseExprClaspOperators(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token, typeExpr bool) []IAstExpr {
+func (me *ctxParse) parseExprClaspOperators(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token) []IAstExpr {
 	iuntil := -1
 	clasp := func(ifrom int) {
-		if xp, _ := me.parseExprFinalize(accum[ifrom:iuntil+1], allToks, untilTok, typeExpr).(*AstExprAppl); xp != nil {
+		if xp, _ := me.parseExprFinalize(accum[ifrom:iuntil+1], allToks, untilTok).(*AstExprAppl); xp != nil {
 			println(xp.Callee.ExprBase().Tokens.Pos().String(), xp.Callee.ExprBase().Tokens.String(), len(xp.Args))
 		}
 	}
@@ -288,17 +225,17 @@ func (me *ctxParse) parseExprClaspOperators(accum []IAstExpr, allToks udevlex.To
 	return accum
 }
 
-func (me *ctxParse) parseExprInParens(toks udevlex.Tokens, typeExpr bool) (ret IAstExpr, err *Error) {
+func (me *ctxParse) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
 	me.parensLevel++
-	ret, err = me.parseExpr(toks, typeExpr)
+	ret, err = me.parseExpr(toks)
 	me.parensLevel--
 	return
 }
 
-func (me *ctxParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens, typeExpr bool) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
+func (me *ctxParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var scrutinee IAstExpr
 	if len(accum) > 0 {
-		scrutinee = me.parseExprFinalize(accum, allToks, &toks[0], typeExpr)
+		scrutinee = me.parseExprFinalize(accum, allToks, &toks[0])
 	}
 	var caseof AstExprCase
 	caseof.Scrutinee, caseof.defaultIndex = scrutinee, -1
@@ -316,14 +253,14 @@ func (me *ctxParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 		} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen[0]) == 0 {
 			if len(ifthen[1]) == 0 {
 				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `?` branching: default case has no result expression")
-			} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1], false); caseof.defaultIndex >= 0 {
+			} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); caseof.defaultIndex >= 0 {
 				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `?` branching: encountered a second default case, only at most one is permissible")
 			} else {
 				caseof.defaultIndex = i
 			}
-		} else if cond, err = me.parseExpr(ifthen[0], false); err == nil {
+		} else if cond, err = me.parseExpr(ifthen[0]); err == nil {
 			if caseof.Alts[i].Conds = []IAstExpr{cond}; len(ifthen) > 1 {
-				caseof.Alts[i].Body, err = me.parseExpr(ifthen[1], false)
+				caseof.Alts[i].Body, err = me.parseExpr(ifthen[1])
 			} else {
 				hasmulticonds = true
 			}
@@ -360,20 +297,21 @@ func (me *ctxParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 
 func (me *ctxParse) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
 	var body IAstExpr
-	body = me.parseExprFinalize(accum, allToks, &toks[0], false)
+	body = me.parseExprFinalize(accum, allToks, &toks[0])
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 	if chunks := toks.Chunked(",", "(", ")"); len(chunks) > 0 {
 		var let AstExprLet
-		let.Body, let.Defs = body, make([]IAstDef, 0, len(chunks))
+		let.Body, let.Defs = body, make([]AstDef, len(chunks))
 		me.setTokensFor(&let.AstBaseTokens, allToks, nil)
-		var def IAstDef
+		lasttokforerr := &toks[0]
 		for i := range chunks {
-			if len(chunks[i]) > 0 {
-				if def, err = me.parseDef(chunks[i], false); err != nil {
-					return
-				} else {
-					let.Defs = append(let.Defs, def)
-				}
+			if len(chunks[i]) == 0 {
+				err = errAt(lasttokforerr, ErrCatSyntax, "unexpected empty space between two commas")
+			} else if err = me.parseDef(chunks[i], false, &let.Defs[i]); err == nil {
+				lasttokforerr = chunks[i].Last()
+			}
+			if err != nil {
+				return
 			}
 		}
 		ret = &let
@@ -383,56 +321,19 @@ func (me *ctxParse) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, all
 
 func (me *ctxParse) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex.Tokens) (ret *AstExprLet, err *Error) {
 	var let AstExprLet
-	var def IAstDef
 	me.setTokensFor(&let.AstBaseTokens, toks, nil)
+	let.Defs = make([]AstDef, len(toksChunked)-1)
 	for i := range toksChunked {
 		if i == 0 {
-			let.Body, err = me.parseExpr(toksChunked[i], false)
-		} else if def, err = me.parseDef(toksChunked[i], false); err == nil {
-			let.Defs = append(let.Defs, def)
+			let.Body, err = me.parseExpr(toksChunked[i])
+		} else {
+			err = me.parseDef(toksChunked[i], false, &let.Defs[i-1])
 		}
 		if err != nil {
 			return
 		}
 	}
 	ret = &let
-	return
-}
-
-func (me *ctxParse) parseTypeExpr(toks udevlex.Tokens) (ret IAstTypeExpr, err *Error) {
-	// split by &
-	// split by ,
-	// labelled:
-	// ident or appl form
-
-	var expr IAstExpr
-	if expr, err = me.parseExpr(toks, true); err == nil {
-		if ret, _ = expr.(IAstTypeExpr); ret == nil {
-			err = errAt(&toks[0], ErrCatSyntax, "expected type expression, not "+expr.Description())
-		}
-	}
-	return
-}
-
-func (me *ctxParse) parseTypeExprMeta(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
-	var texpr IAstTypeExpr
-	tmp := me.parseExprFinalize(accum, allToks, &toks[0], true)
-	if texpr, _ = tmp.(IAstTypeExpr); texpr == nil {
-		err = errAt(&tmp.ExprBase().Tokens[0], ErrCatSyntax, "expected (prior to meta expressions) type expression, not "+tmp.Description())
-	}
-	if err == nil {
-		toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
-		if chunks := toks.Chunked(",", "(", ")"); len(chunks) > 0 {
-			if texpr.TypeExprBase().Meta, err = me.parseMetas(chunks, true); err == nil {
-				ret = texpr
-			}
-		}
-	}
-	return
-}
-
-func (me *ctxParse) parseTypeExprConj(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
-	// var conj AstTypeExprRec
 	return
 }
 
@@ -447,12 +348,5 @@ func (me *ctxParse) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, rest u
 			err = errAt(&toks[0], ErrCatSyntax, "unclosed parenthesis")
 		}
 	}
-	return
-}
-
-func (me *ctxParse) parseTypeExprInParens(toks udevlex.Tokens) (ret IAstTypeExpr, err *Error) {
-	me.parensLevel++
-	ret, err = me.parseTypeExpr(toks)
-	me.parensLevel--
 	return
 }

@@ -68,10 +68,7 @@ func (me *AstComment) print(p *CtxPrint) {
 	}
 }
 
-func (me *AstDefType) print(p *CtxPrint) {
-}
-
-func (me *AstDefFunc) print(p *CtxPrint) {
+func (me *AstDef) print(p *CtxPrint) {
 	switch p.File.Options.ApplStyle {
 	case APPLSTYLE_VSO:
 		me.Name.print(p)
@@ -111,14 +108,6 @@ func (me *AstDefFunc) print(p *CtxPrint) {
 }
 
 func (me *AstIdent) print(p *CtxPrint) {
-	p.WriteString(me.Val)
-	for i := range me.Comments {
-		p.WriteByte(' ')
-		me.Comments[i].print(p)
-	}
-}
-
-func (me *AstTypeExprIdent) print(p *CtxPrint) {
 	p.WriteString(me.Val)
 	for i := range me.Comments {
 		p.WriteByte(' ')
@@ -221,5 +210,3 @@ func (me *AstCaseAlt) print(p *CtxPrint) {
 	}
 	me.Body.print(p)
 }
-
-func (me *AstTypeExprAppl) print(p *CtxPrint) {}

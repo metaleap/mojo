@@ -20,7 +20,7 @@ type IAstNode interface {
 type AstTopLevel struct {
 	AstBaseTokens
 	AstBaseComments
-	Def IAstDef
+	Def *AstDef
 }
 
 type AstComment struct {
@@ -29,46 +29,21 @@ type AstComment struct {
 	IsSelfTerminating bool
 }
 
-type IAstDef interface {
-	IAstNode
-	DefBase() *AstDefBase
-	parseDefBody(*ctxParse, udevlex.Tokens) *Error
-}
-
-type AstDefBase struct {
+type AstDef struct {
 	AstBaseTokens
-	Name AstIdent
-	Args []AstIdent
-	Meta []IAstExpr
-
-	IsDefType  bool
+	Name       AstIdent
+	Args       []AstIdent
+	Meta       []IAstExpr
 	IsTopLevel bool
+	Body       IAstExpr
 }
 
-func (me *AstDefBase) DefBase() *AstDefBase { return me }
-
-func (me *AstDefBase) ensureArgsLen(l int) {
+func (me *AstDef) ensureArgsLen(l int) {
 	if ol := len(me.Args); ol > l {
 		me.Args = me.Args[:l]
 	} else if ol < l {
 		me.Args = make([]AstIdent, l)
 	}
-}
-
-type AstDefType struct {
-	AstDefBase
-	Expr IAstTypeExpr
-	Tags []AstDefTypeTag
-}
-
-type AstDefTypeTag struct {
-	Name AstIdent
-	Expr IAstTypeExpr
-}
-
-type AstDefFunc struct {
-	AstDefBase
-	Body IAstExpr
 }
 
 type IAstExpr interface {
@@ -158,7 +133,7 @@ func (me *AstIdent) BeginsLower() bool   { return ustr.BeginsLower(me.Val) }
 
 type AstExprLet struct {
 	AstExprBase
-	Defs []IAstDef
+	Defs []AstDef
 	Body IAstExpr
 }
 
@@ -194,41 +169,3 @@ type AstCaseAlt struct {
 	Body        IAstExpr
 	IsShortForm bool
 }
-
-type IAstTypeExpr interface {
-	IAstExpr
-	TypeExprBase() *AstTypeExprBase
-}
-
-type AstTypeExprBase struct {
-	AstExprBase
-	Meta []IAstExpr
-}
-
-func (me *AstTypeExprBase) TypeExprBase() *AstTypeExprBase { return me }
-
-type AstTypeExprIdent struct {
-	AstTypeExprBase
-	astExprAtomBase
-	astIdent
-}
-
-func (me *AstTypeExprIdent) Description() string {
-	return "'ident' type expression"
-}
-
-type AstTypeExprAppl struct {
-	AstTypeExprBase
-	Callee IAstExpr
-	Args   []IAstExpr
-}
-
-func (me *AstTypeExprAppl) Description() string { return "'composite' type expression" }
-
-type AstTypeExprRec struct {
-	AstTypeExprBase
-	Names []AstIdent
-	Exprs []IAstTypeExpr
-}
-
-func (me *AstTypeExprRec) Description() string { return "'record' type expression" }

@@ -12,16 +12,15 @@ func newAstComment(tokens udevlex.Tokens, at int) *AstComment {
 	return &this
 }
 
-func (me *AstDefBase) newIdent(ctx *ctxParse, arg int, ttmp udevlex.Tokens, at int) *Error {
+func (me *AstDef) newIdent(ctx *ctxParse, arg int, ttmp udevlex.Tokens, at int) *Error {
 	this, isarg := &me.Name, arg > -1
 	if isarg {
 		this = &me.Args[arg]
 	}
 
-	if s, k := ttmp[at].Str, ttmp[at].Kind(); (k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH) ||
-		(me.IsDefType && isarg && (k == udevlex.TOKEN_OPISH || !ustr.BeginsLower(s))) {
+	if k := ttmp[at].Kind(); k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH {
 		return errAt(&ttmp[at], ErrCatSyntax, "not a valid "+
-			ustr.If(!isarg, "definition", ustr.If(me.IsDefType, "type-var", "argument"))+" name")
+			ustr.If(!isarg, "definition", "argument")+" name")
 	}
 
 	ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)
@@ -64,16 +63,9 @@ func (me *ctxParse) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	return &this
 }
 
-func (me *ctxParse) newTypeExprIdent(toks udevlex.Tokens) *AstTypeExprIdent {
-	var this AstTypeExprIdent
-	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
-	this.Val, this.IsOpish = this.Tokens[0].Str, this.Tokens[0].Kind() == udevlex.TOKEN_OPISH
-	return &this
-}
-
 func (me *ctxParse) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBaseComments, toks udevlex.Tokens, at int) {
 	at = me.mto[&toks[at]]
-	tld := &me.def.DefBase().AstBaseTokens
+	tld := &me.def.AstBaseTokens
 	tbase.Tokens = tld.Tokens[at : at+1]
 	for _, ci := range me.mtc[&tld.Tokens[at]] {
 		cbase.Comments = append(cbase.Comments, newAstComment(tld.Tokens, ci))
@@ -90,6 +82,6 @@ func (me *ctxParse) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens, until
 		}
 	}
 	ifirst, ilast := me.mto[&toks[0]], me.mto[&toks[len(toks)-1]]
-	tld := &me.def.DefBase().AstBaseTokens
+	tld := &me.def.AstBaseTokens
 	this.Tokens = tld.Tokens[ifirst : ilast+1]
 }

@@ -61,54 +61,16 @@ type AstComment struct {
 ```
 
 
-#### type AstDefBase
+#### type AstDef
 
 ```go
-type AstDefBase struct {
+type AstDef struct {
 	AstBaseTokens
-	Name AstIdent
-	Args []AstIdent
-	Meta []IAstExpr
-
-	IsDefType  bool
+	Name       AstIdent
+	Args       []AstIdent
+	Meta       []IAstExpr
 	IsTopLevel bool
-}
-```
-
-
-#### func (*AstDefBase) DefBase
-
-```go
-func (me *AstDefBase) DefBase() *AstDefBase
-```
-
-#### type AstDefFunc
-
-```go
-type AstDefFunc struct {
-	AstDefBase
-	Body IAstExpr
-}
-```
-
-
-#### type AstDefType
-
-```go
-type AstDefType struct {
-	AstDefBase
-	Expr IAstTypeExpr
-	Tags []AstDefTypeTag
-}
-```
-
-
-#### type AstDefTypeTag
-
-```go
-type AstDefTypeTag struct {
-	Name AstIdent
-	Expr IAstTypeExpr
+	Body       IAstExpr
 }
 ```
 
@@ -188,7 +150,7 @@ func (me *AstExprCase) Description() string
 ```go
 type AstExprLet struct {
 	AstExprBase
-	Defs []IAstDef
+	Defs []AstDef
 	Body IAstExpr
 }
 ```
@@ -364,75 +326,10 @@ func (me *AstIdent) Description() string
 type AstTopLevel struct {
 	AstBaseTokens
 	AstBaseComments
-	Def IAstDef
+	Def *AstDef
 }
 ```
 
-
-#### type AstTypeExprAppl
-
-```go
-type AstTypeExprAppl struct {
-	AstTypeExprBase
-	Callee IAstExpr
-	Args   []IAstExpr
-}
-```
-
-
-#### func (*AstTypeExprAppl) Description
-
-```go
-func (me *AstTypeExprAppl) Description() string
-```
-
-#### type AstTypeExprBase
-
-```go
-type AstTypeExprBase struct {
-	AstExprBase
-	Meta []IAstExpr
-}
-```
-
-
-#### func (*AstTypeExprBase) TypeExprBase
-
-```go
-func (me *AstTypeExprBase) TypeExprBase() *AstTypeExprBase
-```
-
-#### type AstTypeExprIdent
-
-```go
-type AstTypeExprIdent struct {
-	AstTypeExprBase
-}
-```
-
-
-#### func (*AstTypeExprIdent) Description
-
-```go
-func (me *AstTypeExprIdent) Description() string
-```
-
-#### type AstTypeExprRec
-
-```go
-type AstTypeExprRec struct {
-	AstTypeExprBase
-	Names []AstIdent
-	Exprs []IAstTypeExpr
-}
-```
-
-
-#### func (*AstTypeExprRec) Description
-
-```go
-func (me *AstTypeExprRec) Description() string
-```
 
 #### type CtxPrint
 
@@ -479,17 +376,6 @@ const (
 )
 ```
 
-#### type IAstDef
-
-```go
-type IAstDef interface {
-	IAstNode
-	DefBase() *AstDefBase
-	// contains filtered or unexported methods
-}
-```
-
-
 #### type IAstExpr
 
 ```go
@@ -518,16 +404,6 @@ type IAstIdent interface {
 ```go
 type IAstNode interface {
 	// contains filtered or unexported methods
-}
-```
-
-
-#### type IAstTypeExpr
-
-```go
-type IAstTypeExpr interface {
-	IAstExpr
-	TypeExprBase() *AstTypeExprBase
 }
 ```
 
