@@ -26,7 +26,9 @@ func (me *AstDef) newIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at in
 	} else if isarg && s[0] == '_' && len(s) > 1 {
 		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+s+" shouldn't begin with underscore")
 	} else if tok.IsOpishAndAnyOneOf(langReservedOps...) {
-		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+s+" is a language-reserved operator")
+		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: `"+s+"` is restricted and cannot be overloaded")
+	} else if k == udevlex.TOKEN_OPISH && len(s) == 1 {
+		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: `"+s+"` custom operators must consist of at least 2 characters")
 	} else {
 		this.Val, this.IsOpish, this.IsTag = s, k == udevlex.TOKEN_OPISH, isarg && ustr.BeginsUpper(s)
 		ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)
