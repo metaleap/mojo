@@ -25,7 +25,8 @@ type (
 )
 
 var (
-	langReservedOps = []string{"&", "|", "&&", "||", "?", ",", ":=", "=", "==", "/=", ">=", "<=", "<", ">", "+", "-", "*", "/"}
+	langReservedOps    = []string{"&", "|", "?", ",", ":=", "=", "==", "/=", ">=", "<=", "<", ">", "+", "-", "*", "/"}
+	langReservedOpsStd = []string{"&&", "||"}
 )
 
 func init() {
@@ -100,7 +101,7 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 					a++
 				}
 			}
-			if def.Name.IsOpish && len(def.Args) != 2 {
+			if def.Name.IsOpish && len(def.Args) != 2 && len(def.Args) != 0 {
 				err = errSyntax(&def.Args[len(def.Args)-1].Tokens[0], "operator definitions must have 2 arguments rather than "+ustr.Int(len(def.Args)))
 				return
 			}

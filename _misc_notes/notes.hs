@@ -58,6 +58,8 @@ f2 <. f1 := _ f1 f2
 // -- compose ltr
 f1 .> f2 := _ f1 f2
 
+foo _x *** baz := foo baz
+
 // -- force VSO call style
 callee: arg := arg callee
 
@@ -103,7 +105,7 @@ a × b /* huh1 */, /* huh2 */  a must >= 0   /* huh3 */ :=
 
 
 someRec :=
-    Name: (First:"Phil" & Last:"Shoeman") & Age:37
+    Name: (First: "Phil" & Last: "Shoeman") & Age: 37
     // -- { Name: { First: "Phil", Last: "Schumann" }, Age: 37 }
 
 
