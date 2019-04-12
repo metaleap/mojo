@@ -26,7 +26,7 @@ func (me *AstDef) newIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at in
 	} else if isarg && s[0] == '_' && len(s) > 1 {
 		err = errSyntax(tok, "not a valid "+namedesc+" name: "+s+" shouldn't begin with underscore")
 	} else if k == udevlex.TOKEN_OPISH && len(s) == 1 {
-		err = errSyntax(tok, "not a valid "+namedesc+" name: `"+s+"` non-`std` operators must be named with 2 or more characters")
+		err = errSyntax(tok, "not a valid "+namedesc+" name: `"+s+"` needs to be 2 or more characters")
 	} else if tok.IsOpishAndAnyOneOf(langReservedOps...) {
 		err = errSyntax(tok, "not a valid "+namedesc+" name: `"+s+"` is reserved and cannot be overloaded")
 	} else {
