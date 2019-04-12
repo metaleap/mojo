@@ -116,7 +116,10 @@ func (me *AstDef) print(p *CtxPrint) {
 }
 
 func (me *AstIdent) print(p *CtxPrint) {
-	p.WriteString(me.Val)
+	if p.WriteString(me.Val); len(me.Affix) > 0 {
+		p.WriteByte(':')
+		p.WriteString(me.Affix)
+	}
 	for i := range me.Comments {
 		p.WriteByte(' ')
 		me.Comments[i].print(p)

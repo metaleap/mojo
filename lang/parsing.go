@@ -72,7 +72,7 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 	} else if toksheads := tokshead.Chunked(",", "(", ")"); len(toksheads[0]) == 0 {
 		err = errSyntax(&tokens[0], "missing: definition name preceding `,`")
 	} else {
-		toksheadsig := toksheads[0]
+		toksheadsig, affixindices := toksheads[0].JoinIdentPairings(":")
 		var namepos int
 		if len(toksheadsig) > 1 {
 			if me.file.Options.ApplStyle == APPLSTYLE_SVO {
@@ -87,7 +87,7 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 		} else {
 			me.setTokensFor(&def.AstBaseTokens, toks, nil)
 		}
-		if err = def.newIdent(me, -1, toksheadsig, namepos); err == nil {
+		if err = def.newIdent(me, -1, toksheadsig, namepos, affixindices); err == nil {
 			if l, ol := len(toksheadsig)-1, len(def.Args); ol > l {
 				def.Args = def.Args[:l]
 			} else if ol < l {
@@ -95,7 +95,7 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 			}
 			for i, a := 0, 0; i < len(toksheadsig); i++ {
 				if i != namepos {
-					if err = def.newIdent(me, a, toksheadsig, i); err != nil {
+					if err = def.newIdent(me, a, toksheadsig, i, affixindices); err != nil {
 						return
 					}
 					a++

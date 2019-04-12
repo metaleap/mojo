@@ -90,6 +90,7 @@ func (me *AstExprLitStr) Description() string { return "'string literal' express
 type AstIdent struct {
 	AstExprAtomBase
 	Val     string
+	Affix   string
 	IsOpish bool
 	IsTag   bool
 }

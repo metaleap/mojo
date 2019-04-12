@@ -47,10 +47,16 @@ not := _    | True  ? False
             | True  ? (__   | False ? False
                             | True  ? True)
 
-cond if True ifTrue False ifFalse :=
+cond:bool if True ifTrue False ifFalse :=
     cond    | True  ? ifTrue
             | False ? ifFalse
 
+
+// -- force VSO call style
+callee: arg := arg callee
+
+// -- force SVO call style
+arg.callee := arg callee
 
 // -- compose rtl
 f2 <. f1 := _ f1 f2
@@ -59,12 +65,6 @@ f2 <. f1 := _ f1 f2
 f1 .> f2 := _ f1 f2
 
 foo _x *** baz := foo baz
-
-// -- force VSO call style
-callee: arg := arg callee
-
-// -- force SVO call style
-arg.callee := arg callee
 
 // -- id , the well-known: func id(foo) {return foo}
 self := _

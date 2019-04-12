@@ -293,6 +293,7 @@ type AstFileTopLevelChunk struct {
 type AstIdent struct {
 	AstExprAtomBase
 	Val     string
+	Affix   string
 	IsOpish bool
 	IsTag   bool
 }
