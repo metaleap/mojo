@@ -13,17 +13,6 @@ const (
 	APPLSTYLE_SOV
 )
 
-type (
-	ctxParseTld struct {
-		file        *AstFile
-		curDef      *AstDef
-		indentHint  int
-		mto         map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
-		mtc         map[*udevlex.Token][]int // maps comments-stripped Tokens to comment Tokens in orig
-		parensLevel int
-	}
-)
-
 var (
 	langReservedOps    = []string{"&", "|", "?", ",", ":=", "=", "==", "/=", ">=", "<=", "<", ">", "+", "-", "*", "/"}
 	langReservedOpsStd = []string{"&&", "||"}
@@ -43,11 +32,17 @@ func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	}
 }
 
-func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []*AstComment, rest udevlex.Tokens) {
-	for len(toks) > 0 && toks[0].Kind() == udevlex.TOKEN_COMMENT {
-		toks, ret = toks[1:], append(ret, newAstComment(toks, 0))
-	}
+func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []AstComment, rest udevlex.Tokens) {
 	rest = toks
+	for len(rest) > 0 && rest[0].Kind() == udevlex.TOKEN_COMMENT {
+		rest = rest[1:]
+	}
+	if count := len(toks) - len(rest); count > 0 {
+		ret = make([]AstComment, count)
+		for i := range ret {
+			ret[i].initFrom(toks, i)
+		}
+	}
 	return
 }
 
@@ -87,7 +82,7 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 		} else {
 			me.setTokensFor(&def.AstBaseTokens, toks, nil)
 		}
-		if err = def.newIdent(me, -1, toksheadsig, namepos, affixindices); err == nil {
+		if err = def.initIdent(me, -1, toksheadsig, namepos, affixindices); err == nil {
 			if l, ol := len(toksheadsig)-1, len(def.Args); ol > l {
 				def.Args = def.Args[:l]
 			} else if ol < l {
@@ -95,7 +90,7 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 			}
 			for i, a := 0, 0; i < len(toksheadsig); i++ {
 				if i != namepos {
-					if err = def.newIdent(me, a, toksheadsig, i, affixindices); err != nil {
+					if err = def.initIdent(me, a, toksheadsig, i, affixindices); err != nil {
 						return
 					}
 					a++

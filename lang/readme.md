@@ -24,7 +24,7 @@ const (
 
 ```go
 type AstBaseComments struct {
-	Comments []*AstComment
+	Comments []AstComment
 }
 ```
 
@@ -85,12 +85,6 @@ type AstExprAppl struct {
 ```
 
 
-#### func (*AstExprAppl) Description
-
-```go
-func (me *AstExprAppl) Description() string
-```
-
 #### type AstExprAtomBase
 
 ```go
@@ -110,12 +104,6 @@ type AstExprBase struct {
 ```
 
 
-#### func (*AstExprBase) ExprBase
-
-```go
-func (me *AstExprBase) ExprBase() *AstExprBase
-```
-
 #### type AstExprCase
 
 ```go
@@ -133,12 +121,6 @@ type AstExprCase struct {
 func (me *AstExprCase) Default() *AstCaseAlt
 ```
 
-#### func (*AstExprCase) Description
-
-```go
-func (me *AstExprCase) Description() string
-```
-
 #### type AstExprLet
 
 ```go
@@ -149,12 +131,6 @@ type AstExprLet struct {
 }
 ```
 
-
-#### func (*AstExprLet) Description
-
-```go
-func (me *AstExprLet) Description() string
-```
 
 #### type AstExprLitBase
 
@@ -175,12 +151,6 @@ type AstExprLitFloat struct {
 ```
 
 
-#### func (*AstExprLitFloat) Description
-
-```go
-func (me *AstExprLitFloat) Description() string
-```
-
 #### type AstExprLitRune
 
 ```go
@@ -190,12 +160,6 @@ type AstExprLitRune struct {
 }
 ```
 
-
-#### func (*AstExprLitRune) Description
-
-```go
-func (me *AstExprLitRune) Description() string
-```
 
 #### type AstExprLitStr
 
@@ -207,12 +171,6 @@ type AstExprLitStr struct {
 ```
 
 
-#### func (*AstExprLitStr) Description
-
-```go
-func (me *AstExprLitStr) Description() string
-```
-
 #### type AstExprLitUint
 
 ```go
@@ -222,12 +180,6 @@ type AstExprLitUint struct {
 }
 ```
 
-
-#### func (*AstExprLitUint) Description
-
-```go
-func (me *AstExprLitUint) Description() string
-```
 
 #### type AstFile
 
@@ -300,12 +252,6 @@ type AstIdent struct {
 ```
 
 
-#### func (*AstIdent) Description
-
-```go
-func (me *AstIdent) Description() string
-```
-
 #### type AstTopLevel
 
 ```go
@@ -368,8 +314,6 @@ const (
 ```go
 type IAstExpr interface {
 	IAstNode
-	ExprBase() *AstExprBase
-	Description() string
 }
 ```
 

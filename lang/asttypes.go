@@ -5,7 +5,7 @@ import (
 )
 
 type AstBaseComments struct {
-	Comments []*AstComment
+	Comments []AstComment
 }
 
 type AstBaseTokens struct {
@@ -40,15 +40,11 @@ type AstDef struct {
 
 type IAstExpr interface {
 	IAstNode
-	ExprBase() *AstExprBase
-	Description() string
 }
 
 type AstExprBase struct {
 	AstBaseTokens
 }
-
-func (me *AstExprBase) ExprBase() *AstExprBase { return me }
 
 type AstExprAtomBase struct {
 	AstExprBase
@@ -64,28 +60,20 @@ type AstExprLitUint struct {
 	Val uint64
 }
 
-func (me *AstExprLitUint) Description() string { return "'unsigned-integer literal' expression" }
-
 type AstExprLitFloat struct {
 	AstExprLitBase
 	Val float64
 }
-
-func (me *AstExprLitFloat) Description() string { return "'float literal' expression" }
 
 type AstExprLitRune struct {
 	AstExprLitBase
 	Val rune
 }
 
-func (me *AstExprLitRune) Description() string { return "'rune literal' expression" }
-
 type AstExprLitStr struct {
 	AstExprLitBase
 	Val string
 }
-
-func (me *AstExprLitStr) Description() string { return "'string literal' expression" }
 
 type AstIdent struct {
 	AstExprAtomBase
@@ -95,15 +83,11 @@ type AstIdent struct {
 	IsTag   bool
 }
 
-func (me *AstIdent) Description() string { return "'ident' expression" }
-
 type AstExprLet struct {
 	AstExprBase
 	Defs []AstDef
 	Body IAstExpr
 }
-
-func (me *AstExprLet) Description() string { return "'let' expression" }
 
 type AstExprAppl struct {
 	AstExprBase
@@ -111,22 +95,11 @@ type AstExprAppl struct {
 	Args   []IAstExpr
 }
 
-func (me *AstExprAppl) Description() string { return "'composite' expression" }
-
 type AstExprCase struct {
 	AstExprBase
 	Scrutinee    IAstExpr
 	Alts         []AstCaseAlt
 	defaultIndex int
-}
-
-func (me *AstExprCase) Description() string { return "'case' expression" }
-
-func (me *AstExprCase) Default() *AstCaseAlt {
-	if me.defaultIndex < 0 {
-		return nil
-	}
-	return &me.Alts[me.defaultIndex]
 }
 
 type AstCaseAlt struct {
