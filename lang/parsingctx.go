@@ -56,9 +56,10 @@ func (me *ctxParseTld) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBa
 	at = me.mto[&toks[at]]
 	tld := &me.curDef.AstBaseTokens
 	tbase.Tokens = tld.Tokens[at : at+1]
-	cbase.Comments = make([]AstComment, len(me.mtc[&tld.Tokens[at]]))
-	for _, ci := range me.mtc[&tld.Tokens[at]] {
-		cbase.Comments[ci].initFrom(tld.Tokens, ci)
+	cidxs := me.mtc[&tld.Tokens[at]]
+	cbase.Comments = make([]AstComment, len(cidxs))
+	for i, cidx := range cidxs {
+		cbase.Comments[i].initFrom(tld.Tokens, cidx)
 	}
 }
 
