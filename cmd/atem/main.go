@@ -1,32 +1,17 @@
 package main
 
 import (
-	"os"
-	"runtime"
-	"runtime/debug"
-
+	"github.com/go-leap/sys"
 	"github.com/metaleap/atem"
 )
 
-var ctx *atem.Ctx
-
-func writeLn(s string) { _, _ = os.Stdout.WriteString(s + "\n") }
+var (
+	ctx     *atem.Ctx
+	writeLn = usys.WriteLn
+)
 
 func main() {
-	debug.SetGCPercent(-1) // GC off
-	runtime.GOMAXPROCS(1)  // no thread scheduling
-
-	if len(os.Args) == 1 {
-		os.Args = append(os.Args, "")
-	}
-
-	var err error
-	ctx, err = atem.New(".", true)
-	if err != nil {
-		panic(err)
-	}
-
-	atcmd := os.Args[1]
+	atcmd := usys.Arg(1)
 	switch atcmd {
 	case "help", "version", "run":
 		writeLn("command " + atcmd + " recognized but not yet implemented")

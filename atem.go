@@ -7,7 +7,7 @@ import (
 	"github.com/go-leap/sys"
 )
 
-func New(dirPath string, workDir bool) (ctx *Ctx, err error) {
+func New(dirPath string) (ctx *Ctx, err error) {
 	if dirPath != "" {
 		if dirPath[0] == '~' && dirPath[1] == filepath.Separator {
 			dirPath = filepath.Join(usys.UserHomeDirPath(), dirPath[2:])
