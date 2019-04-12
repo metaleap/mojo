@@ -20,15 +20,15 @@ func (me *AstDef) newIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at in
 
 	namedesc := ustr.If(isarg, "argument", "definition")
 	if s, k := tok.Meta.Orig, tok.Kind(); k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH {
-		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+s)
+		err = errSyntax(tok, "not a valid "+namedesc+" name: "+s)
 	} else if _s := ustr.If(me.IsTopLevel && s[0] == '_', s[1:], s); (!isarg) && k != udevlex.TOKEN_OPISH && !ustr.BeginsLower(_s) {
-		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+_s+" should begin with lower-case letter")
+		err = errSyntax(tok, "not a valid "+namedesc+" name: "+_s+" should begin with lower-case letter")
 	} else if isarg && s[0] == '_' && len(s) > 1 {
-		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: "+s+" shouldn't begin with underscore")
-	} else if tok.IsOpishAndAnyOneOf(langReservedOps...) {
-		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: `"+s+"` is restricted and cannot be overloaded")
+		err = errSyntax(tok, "not a valid "+namedesc+" name: "+s+" shouldn't begin with underscore")
 	} else if k == udevlex.TOKEN_OPISH && len(s) == 1 {
-		err = errAt(tok, ErrCatSyntax, "not a valid "+namedesc+" name: `"+s+"` custom operators must consist of at least 2 characters")
+		err = errSyntax(tok, "not a valid "+namedesc+" name: `"+s+"` non-`std` operators must be named with 2 or more characters")
+	} else if tok.IsOpishAndAnyOneOf(langReservedOps...) {
+		err = errSyntax(tok, "not a valid "+namedesc+" name: `"+s+"` is reserved and cannot be overloaded")
 	} else {
 		this.Val, this.IsOpish, this.IsTag = s, k == udevlex.TOKEN_OPISH, isarg && ustr.BeginsUpper(s)
 		ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)

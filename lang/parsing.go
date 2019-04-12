@@ -65,11 +65,11 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 		toks = tokens.SansComments(me.mtc, me.mto)
 	}
 	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
-		err = errAt(&tokens[0], ErrCatSyntax, "missing: definition body following `:=`")
+		err = errSyntax(&tokens[0], "missing: definition body following `:=`")
 	} else if len(tokshead) == 0 {
-		err = errAt(&tokens[0], ErrCatSyntax, "missing: definition name preceding `:=`")
+		err = errSyntax(&tokens[0], "missing: definition name preceding `:=`")
 	} else if toksheads := tokshead.Chunked(",", "(", ")"); len(toksheads[0]) == 0 {
-		err = errAt(&tokens[0], ErrCatSyntax, "missing: definition name preceding `,`")
+		err = errSyntax(&tokens[0], "missing: definition name preceding `,`")
 	} else {
 		toksheadsig := toksheads[0]
 		var namepos int
@@ -101,7 +101,7 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 				}
 			}
 			if def.Name.IsOpish && len(def.Args) != 2 {
-				err = errAt(&def.Args[len(def.Args)-1].Tokens[0], ErrCatSyntax, "operator definitions must have 2 arguments rather than "+ustr.Int(len(def.Args)))
+				err = errSyntax(&def.Args[len(def.Args)-1].Tokens[0], "operator definitions must have 2 arguments rather than "+ustr.Int(len(def.Args)))
 				return
 			}
 			if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
@@ -159,7 +159,7 @@ func (me *ctxParseTld) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error)
 					toks = rest
 				}
 			default:
-				err = errAt(&toks[0], ErrCatSyntax, "the impossible: unrecognized token (new bug in parser, parseExpr needs updating)")
+				err = errSyntax(&toks[0], "the impossible: unrecognized token (new bug in parser, parseExpr needs updating)")
 			}
 			if err != nil {
 				return
@@ -218,14 +218,14 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	var hasmulticonds bool
 	for i := range alts {
 		if len(alts[i]) == 0 {
-			err = errAt(&toks[0], ErrCatSyntax, "malformed `|?` branching: empty case")
+			err = errSyntax(&toks[0], "malformed `|?` branching: empty case")
 		} else if ifthen := alts[i].Chunked("?", "(", ")"); len(ifthen) > 2 {
-			err = errAt(&alts[i][0], ErrCatSyntax, "malformed `|?` branching: `|` case has more than one `?` result expression")
+			err = errSyntax(&alts[i][0], "malformed `|?` branching: `|` case has more than one `?` result expression")
 		} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen[0]) == 0 {
 			if len(ifthen[1]) == 0 {
-				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `|?` branching: default case has no result expression")
+				err = errSyntax(&alts[i][0], "malformed `|?` branching: default case has no result expression")
 			} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); caseof.defaultIndex >= 0 {
-				err = errAt(&alts[i][0], ErrCatSyntax, "malformed `|?` branching: encountered a second default case, only at most one is permissible")
+				err = errSyntax(&alts[i][0], "malformed `|?` branching: encountered a second default case, only at most one is permissible")
 			} else {
 				caseof.defaultIndex = i
 			}
@@ -249,7 +249,7 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 					caseof.Alts = append(caseof.Alts[:i], caseof.Alts[i+1:]...)
 					i--
 				} else {
-					err = errAt(&ca.Tokens[0], ErrCatSyntax, "malformed `|?` branching: case has no result expression")
+					err = errSyntax(&ca.Tokens[0], "malformed `|?` branching: case has no result expression")
 					return
 				}
 			}
@@ -270,7 +270,7 @@ func (me *ctxParseTld) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, 
 		lasttokforerr := &toks[0]
 		for i := range chunks {
 			if len(chunks[i]) == 0 {
-				err = errAt(lasttokforerr, ErrCatSyntax, "unexpected empty space between two commas")
+				err = errSyntax(lasttokforerr, "unexpected empty space between two commas")
 			} else if err = me.parseDef(chunks[i], false, &let.Defs[i]); err == nil {
 				lasttokforerr = chunks[i].Last()
 			}
@@ -320,12 +320,12 @@ func (me *ctxParseTld) parseMetas(chunks []udevlex.Tokens) (metas []IAstExpr, er
 func (me *ctxParseTld) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, rest udevlex.Tokens, err *Error) {
 	var numunclosed int
 	if toks[0].Str == ")" {
-		err = errAt(&toks[0], ErrCatSyntax, "closing parenthesis without matching opening")
+		err = errSyntax(&toks[0], "closing parenthesis without matching opening")
 	} else if sub, rest, numunclosed = toks.Sub("(", ")"); len(sub) == 0 {
 		if numunclosed == 0 {
-			err = errAt(&toks[0], ErrCatSyntax, "empty parentheses")
+			err = errSyntax(&toks[0], "empty parentheses")
 		} else {
-			err = errAt(&toks[0], ErrCatSyntax, "unclosed parenthesis")
+			err = errSyntax(&toks[0], "unclosed parenthesis")
 		}
 	}
 	return

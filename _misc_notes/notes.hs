@@ -36,25 +36,33 @@ check must cmp arg val  :=
                         | False ? Err msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
-or  := _    | True  ? True
+||  := _    | True  ? True
             | False ? (__   | True  ? True
                             | False ? False)
 
 not := _    | True  ? False
             | False ? True
 
-and := _    | False ? False
+&&  := _    | False ? False
             | True  ? (__   | False ? False
                             | True  ? True)
 
+cond if True ifTrue False ifFalse :=
+    cond    | True  ? ifTrue
+            | False ? ifFalse
 
 
-
-// compose rtl
+// -- compose rtl
 f2 <. f1 := _ f1 f2
 
-// compose ltr
+// -- compose ltr
 f1 .> f2 := _ f1 f2
+
+// -- force VSO call style
+callee: arg := arg callee
+
+// -- force SVO call style
+arg.callee := arg callee
 
 // -- id , the well-known: func id(foo) {return foo}
 self := _
@@ -69,14 +77,11 @@ list first , list must /= Empty :=
 list rest :=
     list    | Link: (_ & _r)    ? r
             | Empty             ? msg="rest: list must not be Empty" Err
-    x foo   := (x trim len == 0) && "(none)" || x
+    x foo   := (x trim len == 0) if True "(none)" False x
 
-f: foo := foo f
-
-foo.f := foo f
 
 x pow y :=
-    if: y < 0 Then 1 / (x pow y.neg) Else x* accum 1 y
+    y < 0 if True 1 / (x pow y.neg) False x* accum 1 y
     // -- y < 0   | True  ? 1 / (x pow y.neg)
     // --         | False ? x* accum 1 y , tmp := x * _   // -- * accumL 1 (y × x)
 
@@ -89,7 +94,6 @@ f accum initial n , n must >= 0 , x  :=
 
 
 a × b /* huh1 */, /* huh2 */  a must >= 0   /* huh3 */ :=
-    // -- a==0 && Empty || ret
     a == 0  | True  ? Empty
             | False
             | True  ? b ret  // -- should catch such

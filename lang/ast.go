@@ -34,8 +34,8 @@ type AstDef struct {
 	Name       AstIdent
 	Args       []AstIdent
 	Meta       []IAstExpr
-	IsTopLevel bool
 	Body       IAstExpr
+	IsTopLevel bool
 }
 
 type IAstExpr interface {
