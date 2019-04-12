@@ -17,11 +17,13 @@ type Repl struct {
 		Stdout io.Writer
 		Stderr io.Writer
 	}
+	writeLns, printLns func(...string)
 }
 
 func (me *Repl) Run() (err error) {
 	me.IO.Stdin, me.IO.Stderr, me.IO.Stdout =
 		ustd.IfNil(me.IO.Stdin, os.Stdin).(io.Reader), ustd.IfNil(me.IO.Stderr, os.Stderr).(io.Writer), ustd.IfNil(me.IO.Stdout, os.Stdout).(io.Writer)
+	me.writeLns, me.printLns = ustd.WriteLines(me.IO.Stdout), ustd.WriteLines(me.IO.Stderr)
 
 	multiln, repl := "", bufio.NewScanner(os.Stdin)
 	for repl.Scan() {
@@ -40,39 +42,21 @@ func (me *Repl) Run() (err error) {
 			case readln[0] == ':':
 				directive, _ := ustr.BreakOnFirstOrPref(readln[1:], " ")
 				if directive == "q" {
-					me.writeLn("...and we're done.")
+					me.writeLns("...and we're done.")
 					return
 				} else {
-					me.writeLn("unknown directive: `:" + directive + "` — try: ")
-					me.writeLn("\t:q — quit")
+					me.writeLns("unknown directive: `:"+directive+"` — try: ",
+						"\t:q — quit")
 				}
 			default:
 				if out, err := me.Ctx.ReadEvalPrint(readln); err != nil {
-					println(err.Error())
+					me.printLns(err.Error())
 				} else {
-					me.writeLn(out.String())
+					me.writeLns(out.String())
 				}
 			}
 		}
 	}
 
 	return
-}
-
-func (me *Repl) writeErr(s string) {
-	_, _ = me.IO.Stderr.Write([]byte(s))
-}
-
-func (me *Repl) writeErrLn(s string) {
-	b := append(make([]byte, 0, len(s)+1), s...)
-	_, _ = me.IO.Stderr.Write(append(b, '\n'))
-}
-
-func (me *Repl) write(s string) {
-	_, _ = me.IO.Stdout.Write([]byte(s))
-}
-
-func (me *Repl) writeLn(s string) {
-	b := append(make([]byte, 0, len(s)+1), s...)
-	_, _ = me.IO.Stdout.Write(append(b, '\n'))
 }

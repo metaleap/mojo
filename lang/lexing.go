@@ -51,7 +51,7 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 	}
 	tlchunks := make([]_topLevelChunk, 0, 32)
 
-	// stage ONE: iterate all src bytes and gather `tlchunks`
+	// stage ONE: go over all src bytes and gather `tlchunks`
 
 	var newline, isfulllinecomment, wasfulllinecomment, inmultilinecomment bool
 	var curline, lastpos, lastln int
@@ -94,8 +94,8 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 		tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:], pos: lastpos, line: lastln})
 	}
 
-	// stage TWO: compare `tlchunks` to existing `AstFileTopLevelChunk`s in `me.TopLevel`,
-	// dropping those that are gone, adding those that are new, and marking those that have changed
+	// stage TWO: compare gathered `tlchunks` to existing `AstFileTopLevelChunk`s in `me.TopLevel`,
+	// dropping those that are gone, adding those that are new, and repositioning others as needed
 
 	unchanged := make(map[int]int, len(tlchunks))
 	for o := range me.TopLevel {

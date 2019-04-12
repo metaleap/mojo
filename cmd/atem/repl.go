@@ -6,10 +6,10 @@ import (
 )
 
 func mainRepl() {
-	writeLn("atem repl:")
-	writeLn("— directives are prefixed with `:`")
-	writeLn("— a line ending in `...` either begins\n  or ends a multi-line input")
-	writeLn("— enter any atem definition or expression")
+	writeLns("atem repl:",
+		"— directives are prefixed with `:`",
+		"— a line ending in `...` either begins\n  or ends a multi-line input",
+		"— enter any atem definition or expression")
 
 	var err error
 	var repl atemrepl.Repl
