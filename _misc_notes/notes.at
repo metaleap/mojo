@@ -84,7 +84,7 @@ tru rest bar ok :=
     x foo   := (x trim len == uh, uh := 0) if True "(none)" False x
 
 
-x:boo pow ysd:boo :=
+x pow y, y > 0 :=
     if: y < 0 True 1 / (x pow y.neg) False x* accum 1 y, foo := bla,
              bar := baz, yo "wat" 11 true False Ok up := noice
     // y < 0   | True  ? 1 / (x pow y.neg)
