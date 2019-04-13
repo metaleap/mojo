@@ -84,8 +84,8 @@ true rest bar ok yo dat nice one two tri four five six bar ok yo dat nice one tw
     x foo   := (x trim len == uh, uh := 0) if True "(none)" False x
 
 
-x pow y :=
-    y < 0 if True 1 / (x pow y.neg) False x* accum 1 y, foo := bla,
+x:boo pow ysd:boo :=
+    if: y < 0 True 1 / (x pow y.neg) False x* accum 1 y, foo := bla,
              bar := baz, yo "wat" 11 true False Ok up := noice
     // y < 0   | True  ? 1 / (x pow y.neg)
     //         | False ? x* accum 1 y , tmp := x * _   // * accumL 1 (y × x)
@@ -100,13 +100,13 @@ f accum initial n , n must >= 0 , foo , bar :=
     y := n - 1, .foo.x := bar, ;bla.x,_True.moo x := nice
 
 
-a × b /* huh1 */, /* huh2 */  a must >= 0   /* huh3 */ :=
+a × b:foo /* huh1 */, /* huh2 */  a must >= 0   /* huh3 */ :=
     a == 0  | True ? Empty
             | False
             | True  ? b ret  // should catch such
 
-    foo ret := Link: ("foo" & ab)
-    ab      := 'a'-1 × 3*-b
+    foo:bool ret moo:yo bla := Link: ("foo" & ab)
+    ab      := 'a'-1 × 3*-b, xret := foo
 
 
 someRec :=
