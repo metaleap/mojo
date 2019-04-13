@@ -64,7 +64,7 @@ f2 <. f1 := _ f1 f2
 // compose ltr
 f1 .> f2 := _ f1 f2
 
-foo _x *** baz := foo baz
+foo _x *** baz := foo 10 * baz
 
 // id , the well-known: func id(foo) {return foo}
 self := _
@@ -76,23 +76,27 @@ v only _ := v
 list first , list must /= Empty :=
     list | Link: (_f & _) ? f
 
+
 list rest :=
     list    | Link: (_ & _r)    ? r
             | Empty             ? msg="rest: list must not be Empty" Err
-    x foo   := (x trim len == 0) if True "(none)" False x
+    x foo   := (x trim len == uh, uh := 0) if True "(none)" False x
 
 
 x pow y :=
-    y < 0 if True 1 / (x pow y.neg) False x* accum 1 y
+    y < 0 if True 1 / (x pow y.neg) False x* accum 1 y, foo := bla,
+             bar := baz, yo "wat" 11 true False Ok up := noice
     // y < 0   | True  ? 1 / (x pow y.neg)
     //         | False ? x* accum 1 y , tmp := x * _   // * accumL 1 (y × x)
 
 
 f accum initial n , n must >= 0 , x :=
-    True    | n==0  ? f accum x y , x := initial f , _ unused := 123
+    True    | n==0  ? f accum x y , x := initial (f , _ moo := 123) , x := ok
             |       ? initial
 
-    y := n - 1
+    ;fo.o 9 "bar" _maybe := baz
+    dis _x and := dat, in := deed
+    y := n - 1, .foo.x := bar, ;bla.x,_True.moo x := nice
 
 
 a × b /* huh1 */, /* huh2 */  a must >= 0   /* huh3 */ :=
