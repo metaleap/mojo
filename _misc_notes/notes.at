@@ -54,10 +54,10 @@ cond:bool if True ifTrue False ifFalse :=
 
 
 // force VSO call style
-callee: arg := arg callee
+callee : arg := arg callee
 
 // force SVO call style
-arg.callee := arg callee
+arg . callee := arg callee
 
 // compose rtl
 f2 <. f1 := _ f1 f2
@@ -74,11 +74,11 @@ self := _
 v only _ := v
 
 
-list first , list must /= Empty :=
+list first tho , list must /= Empty :=
     list | Link: (_f & _) ? f
 
 
-list rest :=
+true rest bar ok yo dat nice one two tri four five six bar ok yo dat nice one two tri four five six :=
     list    | Link: (_ & _r)    ? r
             | Empty             ? msg="rest: list must not be Empty" Err
     x foo   := (x trim len == uh, uh := 0) if True "(none)" False x
@@ -92,21 +92,21 @@ x pow y :=
 
 
 f accum initial n , n must >= 0 , foo , bar :=
-    True    | n==0  ? f accum x y , x := initial ('f' , _ moo := 123) , x := ok
+    True    | n==0  ? f accum x y , x := initial ('f' , _ moo := 123 , bar := baz) , x := ok
             |       ? initial
 
     ;fo.o 9 "bar" _maybe := baz
-    dis _x and := dat, in := deed
+    dis _x ond := dat, in := deed
     y := n - 1, .foo.x := bar, ;bla.x,_True.moo x := nice
 
 
 a × b /* huh1 */, /* huh2 */  a must >= 0   /* huh3 */ :=
-    a == 0  | True  ? Empty
+    a == 0  | True ? Empty
             | False
             | True  ? b ret  // should catch such
 
-    foo ret := Link: (foo & ab)
-    ab      := a-1 × 3*-b
+    foo ret := Link: ("foo" & ab)
+    ab      := 'a'-1 × 3*-b
 
 
 someRec :=
@@ -119,6 +119,6 @@ f _accumR initial list :=
             | Link: (_first & _rest)    ? first f (f accumR initial rest)
 
 
-f _accumL initial list :=
+f _accumL initial  list :=
     list    | Link                      ? initial
             | Link: (_first & _rest)    ? f accumL (initial f first) rest
