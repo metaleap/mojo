@@ -27,13 +27,14 @@ t list          :=  _   | Link                  ? True
 
 true    := True
 false   := False
+
 bool    := _    | True  ? True
                 | False ? True
 
 
-check must cmp arg val  :=
-    val check cmp arg   | True  ? val
-                        | False ? Err msg="must on $T$val not satisfied: $check $cmp $arg"
+check 10 'r' must "str" cmp /* foo? */ arg 1.23 val :=
+    val check cmp arg   | True  ? val // no comment
+                        | False ? Err: msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
 ||  := _    | True  ? True
@@ -90,8 +91,8 @@ x pow y :=
     //         | False ? x* accum 1 y , tmp := x * _   // * accumL 1 (y × x)
 
 
-f accum initial n , n must >= 0 , x :=
-    True    | n==0  ? f accum x y , x := initial (f , _ moo := 123) , x := ok
+f accum initial n , n must >= 0 , foo , bar :=
+    True    | n==0  ? f accum x y , x := initial ('f' , _ moo := 123) , x := ok
             |       ? initial
 
     ;fo.o 9 "bar" _maybe := baz
