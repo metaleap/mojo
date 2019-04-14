@@ -1,22 +1,23 @@
 package main
 
 import (
-	"github.com/metaleap/atem"
 	"github.com/metaleap/atem/tooling/repl"
 )
 
 func mainRepl() {
-	writeLns("atem repl:",
-		"— directives are prefixed with `:`",
-		"— a line ending in `...` either begins\n  or ends a multi-line input",
-		"— enter any atem definition or expression")
-
 	var err error
 	var repl atemrepl.Repl
-	if repl.Ctx, err = atem.New("."); err == nil {
+	repl.IO.MultiLineSuffix = ",,,"
+
+	if err = repl.Ctx.Init("."); err == nil {
+		writeLns(
+			"", "— repl directives begin with `:`,\n  all other inputs are eval'd",
+			"", "— a line ending in "+repl.IO.MultiLineSuffix+" either begins\n  or ends a multi-line input",
+			"", "— for line-editing, consider using\n  `rlwrap` or some equivalent",
+			"",
+		)
 		err = repl.Run()
 	}
-
 	if err != nil {
 		println(err.Error())
 	}
