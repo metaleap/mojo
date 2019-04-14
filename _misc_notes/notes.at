@@ -22,7 +22,9 @@ val must cmp:[yo] arg :=
                 | False ? Err: msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
-list yo:yo first:ok _rue,list must /= Empty :=
+
+
+list yo:yo first:1"x"[0]; bar:int baz buo:x _rue,list must /= Empty :=
     list | Link: (_f & _) ? f
 
 
@@ -52,10 +54,10 @@ f "from" _initial "or" from 1 To 'n' :=
 
 a × b , a must < 0, foo >= "1.23" :=
     a == 0  | True  ? Link
-            | False ? Link: b & a-1×b
+            | False ? Link: b & a-1×b, boo:y ya oy cool := yo:dd boo
             | True  ? wot is dis
 
-    foo:bool ret moo:yo bla := Link: ("foo" & ab)
+    foo:bol ret moo:yo bla fo := Link: ("foo" & ab)
     ab      := 'a'-1 × 3*-b, xret := foo
 
 x := b
@@ -70,7 +72,7 @@ f _accumR 10 "initial" _list :=
             | Link: (_first & _rest)    ? first 'f' (f accumR initial rest)
 
 
-f:int _accumL initial list :=
+f:[int] _accumL initial list :=
     list    | Link                      ? initial, unused := 123
             | Link: (_first & _rest)    ? f accumL (initial f first) rest
-    f:oo unless := foo if True 0 False 1
+    f unless := foo if True 0 False 1
