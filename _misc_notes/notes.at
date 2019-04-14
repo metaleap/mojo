@@ -22,7 +22,7 @@ val must cmp arg :=
                 | False ? Err: msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
-list first , list must /= Empty :=
+list first, list must /= Empty :=
     list | Link: (_f & _) ? f
 
 
@@ -35,7 +35,7 @@ x pow y :=
     y < 0   | True  ? 1.0 / (x pow y.neg)
             | False ? *x from 1 To y
 
-f from initial To n :=
+'f' "from" _initial or 1 To n :=
     True    | n==0  ? initial
             |       ? f from initial To n-1 f
 
@@ -50,7 +50,7 @@ f from initial To n :=
 
 
 
-a × b , a must < 0 :=
+a × b, a must < 0 :=
     a == 0  | True  ? Link
             | False ? Link: b & a-1×b
             | True  ? wot is dis
@@ -65,7 +65,7 @@ someRec :=
     // { Name: { First: "Phil", Last: "Schumann" }, Age: 37 }
 
 
-f _accumR initial list :=
+f _accumR 10 "initial" list :=
     list    | Empty                     ? initial
             | Link: (_first & _rest)    ? first 'f' (f accumR initial rest)
 
