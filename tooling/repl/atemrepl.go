@@ -27,9 +27,7 @@ type Repl struct {
 }
 
 func (me *Repl) Run(showWelcomeMsg bool) (err error) {
-	me.init()
-
-	if showWelcomeMsg {
+	if me.init(); showWelcomeMsg {
 		me.DWelcome("")
 	}
 
@@ -42,11 +40,13 @@ func (me *Repl) Run(showWelcomeMsg bool) (err error) {
 		} else {
 			if neat := (multiln == "" && ustr.Suff(readln, " :=")); neat || ustr.Suff(readln, me.IO.MultiLineSuffix) {
 				if multiln == "" {
-					if indent, multiln = 2, readln[:len(readln)-len(me.IO.MultiLineSuffix)]+"\n  "; neat {
-						multiln = readln + "\n  "
+					if readln[0] != ':' {
+						if indent, multiln = 2, readln[:len(readln)-len(me.IO.MultiLineSuffix)]+"\n  "; neat {
+							multiln = readln + "\n  "
+						}
+						me.IO.write(" ", indent)
+						continue
 					}
-					me.IO.write(" ", indent)
-					continue
 				} else if multiln, indent, readln = "", 0, ustr.Trim(multiln+readln[:len(readln)-len(me.IO.MultiLineSuffix)]); readln == "" {
 					continue
 				}
