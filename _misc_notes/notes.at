@@ -12,98 +12,48 @@
 */
 
 /*
-foo any         :=  True
-min num max     :=  _ >= min && _ <= max
-min float max   :=  min+0.0 num max
-min int max     :=  min+0 num max
-uint max        :=  0 num max
-true            :=  True
-false           :=  False
 t list          :=  _   | Link                  ? True
                         | Link: (_foo & _rest)  ? foo t && rest (t list)
 */
 
 
-
-true    := True
-false   := False
-
-bool    := _    | True  ? True
-                | False ? True
+val must cmp arg :=
+    val cmp arg | True  ? val // no comment
+                | False ? Err: msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
-check 10 'r' must "str" cmp /* foo? */ arg 1.23 val :=
-    val check cmp arg   | True  ? val // no comment
-                        | False ? Err: msg="must on $T$val not satisfied: $check $cmp $arg"
-
-
-||  := _    | True  ? True
-            | False ? (__  | True  ? True
-                            | False ? False)
-
-not := _    | True  ? False
-            | False ? True
-
-&&  := _    | False ? False
-            | True  ? (__   | False ? False
-                            | True  ? True)
-
-cond:bool if True ifTrue False ifFalse :=
-    cond    | True  ? ifTrue
-            | False ? ifFalse
-
-
-// force VSO call style
-callee : arg := arg callee
-
-// force SVO call style
-arg . callee := arg callee
-
-// compose rtl
-f2 <. f1 := _ f1 f2
-
-// compose ltr
-f1 .> f2 := _ f1 f2
-
-foo _x *** baz := foo 10 * baz
-
-// id , the well-known: func id(foo) {return foo}
-self := _
-
-// const
-v only _ := v
-
-
-list first tho , list must /= Empty :=
+list first , list must /= Empty :=
     list | Link: (_f & _) ? f
 
 
-tru rest bar ok :=
+list rest :=
     list    | Link: (_ & _r)    ? r
             | Empty             ? Err: msg="rest: list must not be Empty"
-    x foo   := (x trim len == uh, uh := 0) if True "(none)" False x
 
 
-x pow y, y > 0 :=
-    if: y < 0 True 1 / (x pow y.neg) False x* accum 1 y, foo := bla,
-             bar := baz, yo "wat" 11 true False Ok up := noice
-    // y < 0   | True  ? 1 / (x pow y.neg)
-    //         | False ? x* accum 1 y , tmp := x * _   // * accumL 1 (y × x)
+x pow y :=
+    y < 0   | True  ? 1.0 / (x pow y.neg)
+            | False ? *x from 1 To y
+
+f from initial To n :=
+    True    | n==0  ? initial
+            |       ? f from initial To n-1 f
+
+/*  eg.     x pow 3 evaluates already statically to:
+        = (*x from 1 To 3)
+        = (*x from 1 To 2) *x
+        = (*x from 1 To 1) *x *x
+        = (*x from 1 To 0) *x *x *x
+        = 1 *x *x *x
+        = x *x *x
+*/
 
 
-f accum initial:int n , n must >= 0 , foo , bar :=
-    True    | n==0  ? f accum x y , x := initial ('f' , _ moo := 123 , bar := baz) , x := ok
-            |       ? initial
 
-    ;fo.o 9 "bar" _maybe := baz
-    dis _x ond := dat, in := deed
-    y := n - 1, .foo.x := bar, ;bla.x,_True.moo x := nice
-
-
-a × b:foo /* huh1 */, /* huh2 */  a must >= 0   /* huh3 */ :=
-    a == 0  | True  ? Empty
-            | False
-            | True  ? b ret  // should catch such
+a × b , a must < 0 :=
+    a == 0  | True  ? Link
+            | False ? Link: b & a-1×b
+            | True  ? wot is dis
 
     foo:bool ret moo:yo bla := Link: ("foo" & ab)
     ab      := 'a'-1 × 3*-b, xret := foo
