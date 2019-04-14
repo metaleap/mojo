@@ -17,17 +17,17 @@ t list          :=  _   | Link                  ? True
 */
 
 
-val must cmp arg :=
+val must cmp:[yo] arg :=
     val cmp arg | True  ? val // no comment
                 | False ? Err: msg="must on $T$val not satisfied: $check $cmp $arg"
 
 
-list first, list must /= Empty :=
+list yo:yo first:ok _rue,list must /= Empty :=
     list | Link: (_f & _) ? f
 
 
 list rest :=
-    list    | Link: (_ & _r)    ? r
+    list    | Link: (_ & r)     ? r
             | Empty             ? Err: msg="rest: list must not be Empty"
 
 
@@ -35,7 +35,7 @@ x pow y :=
     y < 0   | True  ? 1.0 / (x pow y.neg)
             | False ? *x from 1 To y
 
-'f' "from" _initial or 1 To n :=
+f "from" _initial "or" from 1 To 'n' :=
     True    | n==0  ? initial
             |       ? f from initial To n-1 f
 
@@ -50,7 +50,7 @@ x pow y :=
 
 
 
-a × b, a must < 0 :=
+a × b , a must < 0, foo >= "1.23" :=
     a == 0  | True  ? Link
             | False ? Link: b & a-1×b
             | True  ? wot is dis
@@ -65,7 +65,7 @@ someRec :=
     // { Name: { First: "Phil", Last: "Schumann" }, Age: 37 }
 
 
-f _accumR 10 "initial" list :=
+f _accumR 10 "initial" _list :=
     list    | Empty                     ? initial
             | Link: (_first & _rest)    ? first 'f' (f accumR initial rest)
 
@@ -73,4 +73,4 @@ f _accumR 10 "initial" list :=
 f:int _accumL initial list :=
     list    | Link                      ? initial, unused := 123
             | Link: (_first & _rest)    ? f accumL (initial f first) rest
-    foo unless := foo if True 0 False 1
+    f:oo unless := foo if True 0 False 1
