@@ -22,4 +22,5 @@ func (me *Repl) init() {
 		me.KnownDirectives = map[string]func(string){}
 	}
 	me.KnownDirectives["q · quit"] = me.DQuit
+	me.KnownDirectives["h · help"] = me.DWelcome
 }

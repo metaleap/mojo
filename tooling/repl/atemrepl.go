@@ -26,17 +26,25 @@ type Repl struct {
 	quit bool
 }
 
-func (me *Repl) Run() (err error) {
+func (me *Repl) Run(showWelcomeMsg bool) (err error) {
 	me.init()
+
+	if showWelcomeMsg {
+		me.DWelcome("")
+	}
 
 	multiln, indent, repl := "", 0, bufio.NewScanner(os.Stdin)
 	for me.IO.writeLns("▼"); (!me.quit) && repl.Scan(); {
-		if readln := ustr.Trim(repl.Text()); readln == "" {
+		readln := repl.Text()
+		numleadingspaces := ustr.CountPrefixRunes(readln, ' ')
+		if readln = ustr.Trim(readln); readln == "" {
 			me.IO.write(" ", indent)
 		} else {
-			if ustr.Suff(readln, me.IO.MultiLineSuffix) {
+			if neat := (multiln == "" && ustr.Suff(readln, " :=")); neat || ustr.Suff(readln, me.IO.MultiLineSuffix) {
 				if multiln == "" {
-					indent, multiln = 2, readln[:len(readln)-len(me.IO.MultiLineSuffix)]+"\n    "
+					if indent, multiln = 2, readln[:len(readln)-len(me.IO.MultiLineSuffix)]+"\n  "; neat {
+						multiln = readln + "\n  "
+					}
 					me.IO.write(" ", indent)
 					continue
 				} else if multiln, indent, readln = "", 0, ustr.Trim(multiln+readln[:len(readln)-len(me.IO.MultiLineSuffix)]); readln == "" {
@@ -45,7 +53,8 @@ func (me *Repl) Run() (err error) {
 			}
 			switch {
 			case multiln != "":
-				multiln += readln + "\n    "
+				indent += numleadingspaces
+				multiln += ustr.Times(" ", numleadingspaces) + readln + "\n" + ustr.Times(" ", indent)
 				me.IO.write(" ", indent)
 				continue
 			case readln[0] == ':':
