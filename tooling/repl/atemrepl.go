@@ -30,34 +30,59 @@ func (me *Repl) Run(showWelcomeMsg bool) (err error) {
 	if me.init(); showWelcomeMsg {
 		me.DWelcomeMsg("")
 	}
-	multiln, indent, repl := "", 0, bufio.NewScanner(os.Stdin)
-	for me.IO.writeLns("▼"); (!me.quit) && repl.Scan(); {
-		readln := repl.Text()
-		numleadingspaces := ustr.CountPrefixRunes(readln, ' ')
-		if readln = ustr.Trim(readln); readln == "" {
-			me.IO.write(" ", indent)
+	const mlmi = /* multiline minindent */ 2
+	multiln, indent, inputhadleadingtabs, sepline := "", 0, false, ustr.Times("─", 41)
+	decoinputaddline := func() {
+		me.IO.write("│", 1)
+		me.IO.write(" ", indent)
+	}
+	decoinputstart, decoinputdone, decoaddnotice := func() {
+		inputhadleadingtabs = false
+		me.IO.writeLns("┌" + sepline)
+		decoinputaddline()
+	}, func() {
+		me.IO.writeLns("└" + sepline)
+	}, func(notice string) {
+		me.IO.writeLns("", "├── "+notice, "")
+	}
+	decoinputstart()
+	for readln := bufio.NewScanner(os.Stdin); (!me.quit) && readln.Scan(); {
+		inputln, numleadingspaces, numleadingtabs := trimAndCountPrefixRunes(readln.Text())
+		if numleadingtabs > 0 {
+			inputhadleadingtabs = len(multiln) > 0
+		}
+		if inputln == "" {
+			if indent > mlmi {
+				if indent -= mlmi; indent%2 != 0 {
+					indent++
+				}
+			}
+			decoinputaddline()
 		} else {
-			if neat := (multiln == "" && ustr.Suff(readln, " :=")); neat || ustr.Suff(readln, me.IO.MultiLineSuffix) {
+			if neat := (multiln == "" && ustr.Suff(inputln, " :=")); neat || ustr.Suff(inputln, me.IO.MultiLineSuffix) {
 				if multiln == "" {
-					if readln[0] != ':' {
-						if indent, multiln = 2, readln[:len(readln)-len(me.IO.MultiLineSuffix)]+"\n  "; neat {
-							multiln = readln + "\n  "
+					if inputln[0] != ':' {
+						if indent, multiln = mlmi, inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]+"\n  "; neat {
+							multiln = inputln + "\n  "
 						}
-						me.IO.write(" ", indent)
+						decoinputaddline()
 						continue
 					}
-				} else if multiln, indent, readln = "", 0, ustr.Trim(multiln+readln[:len(readln)-len(me.IO.MultiLineSuffix)]); readln == "" {
+				} else if multiln, indent, inputln = "", 0, ustr.Trim(multiln+inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]); inputln == "" {
+					decoinputdone()
+					decoinputstart()
 					continue
 				}
 			}
 			switch {
 			case multiln != "":
 				indent += numleadingspaces
-				multiln += ustr.Times(" ", numleadingspaces) + readln + "\n" + ustr.Times(" ", indent)
-				me.IO.write(" ", indent)
+				multiln += ustr.Times(" ", numleadingspaces) + inputln + "\n" + ustr.Times(" ", indent)
+				decoinputaddline()
 				continue
-			case readln[0] == ':':
-				dletter, dargs := ustr.BreakOnFirstOrPref(readln[1:], " ")
+			case inputln[0] == ':':
+				decoinputdone()
+				dletter, dargs := ustr.BreakOnFirstOrPref(inputln[1:], " ")
 				var found *directive
 				if len(dletter) > 0 {
 					if found = me.KnownDirectives.By(dletter[0]); found != nil {
@@ -70,14 +95,21 @@ func (me *Repl) Run(showWelcomeMsg bool) (err error) {
 						me.IO.writeLns("\t:" + me.KnownDirectives[i].Desc)
 					}
 				}
+				if !me.quit {
+					decoinputstart()
+				}
 			default:
-				if out, err := me.Ctx.ReadEvalPrint(readln); err != nil {
+				decoinputdone()
+				if inputhadleadingtabs {
+					decoaddnotice("input had leading tabs, use spaces for indent")
+				}
+				if out, err := me.Ctx.ReadEvalPrint(inputln); err != nil {
 					me.IO.printLns(err.Error())
 				} else {
 					me.IO.writeLns(out.String())
 				}
+				decoinputstart()
 			}
-			me.IO.writeLns(ustr.If(me.quit, "▲", "▼"))
 		}
 	}
 	return

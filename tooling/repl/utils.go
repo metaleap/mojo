@@ -22,3 +22,20 @@ func (me *Repl) init() {
 	d("q · quit", me.DQuit)
 	d("h · help", me.DWelcomeMsg)
 }
+
+func trimAndCountPrefixRunes(s string) (trimmed string, count int, numtabs int) {
+	for _, r := range s {
+		if r == ' ' {
+			count++
+		} else if r == '\t' {
+			count++
+			numtabs++
+		} else {
+			break
+		}
+	}
+	if trimmed = s; count > 0 {
+		trimmed = s[count:]
+	}
+	return
+}
