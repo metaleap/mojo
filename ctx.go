@@ -23,7 +23,10 @@ type Ctx struct {
 	Libs Libs
 	libs struct {
 		sync.Mutex
-		libPathsLookup map[string]int
+		lookups struct {
+			dirPaths map[string]int
+			libPaths map[string]int
+		}
 	}
 
 	cleanUps []func()
@@ -62,10 +65,10 @@ func (me *Ctx) Init(dirCur string) (err error) {
 			err = ufs.Del(cachedir)
 		}
 		if libsdirs := me.Dirs.Libs; err == nil {
-			libsdirs = ustr.Merge(ustr.Split(os.Getenv(ENV_LIBSDIRS), string(os.PathListSeparator)), libsdirs, true)
+			libsdirs = ustr.Merge(ustr.Split(os.Getenv(EnvVarLibDirs), string(os.PathListSeparator)), libsdirs, true)
 
 			me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
-			me.libs.libPathsLookup = map[string]int{}
+			me.libs.lookups.dirPaths, me.libs.lookups.libPaths = map[string]int{}, map[string]int{}
 			me.initLibs()
 		}
 	}

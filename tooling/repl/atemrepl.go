@@ -30,7 +30,7 @@ type Repl struct {
 	}
 }
 
-func (me *Repl) Run(showWelcomeMsg bool) (err error) {
+func (me *Repl) Run(showWelcomeMsg bool) {
 	if me.init(); showWelcomeMsg {
 		me.DWelcomeMsg("")
 	}
@@ -108,5 +108,4 @@ func (me *Repl) Run(showWelcomeMsg bool) (err error) {
 			me.decoInputStart()
 		}
 	}
-	return
 }

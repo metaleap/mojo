@@ -1,6 +1,7 @@
 package atem
 
 const (
-	ENV_LIBSDIRS = "ATEM_LIBSDIRS"
-	NAME_AUTOLIB = "ever"
+	EnvVarLibDirs = "ATEM_LIBSDIRS"
+	NameAutoLib   = "ever"
+	SrcFileExt    = ".at"
 )

@@ -10,7 +10,8 @@ func mainRepl() {
 	repl.IO.MultiLineSuffix = ",,,"
 
 	if err = repl.Ctx.Init("."); err == nil {
-		err = repl.Run(true)
+		repl.Run(true)
+		repl.Ctx.Dispose()
 	}
 	if err != nil {
 		println(err.Error())
