@@ -18,9 +18,7 @@ func (me *Repl) init() {
 			}
 		}
 
-	if me.KnownDirectives == nil {
-		me.KnownDirectives = map[string]func(string){}
-	}
-	me.KnownDirectives["q · quit"] = me.DQuit
-	me.KnownDirectives["h · help"] = me.DWelcome
+	d := me.KnownDirectives.ensure
+	d("q · quit", me.DQuit)
+	d("h · help", me.DWelcomeMsg)
 }
