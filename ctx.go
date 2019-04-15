@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-leap/fs"
+	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
 )
 
@@ -14,23 +15,22 @@ type Ctx struct {
 
 	ClearCacheDir bool
 	Dirs          struct {
-		Cur     string
-		Cache   string
-		StdLibs string
+		Cur   string
+		Cache string
+		Libs  []string
 	}
+	Libs Libs
 }
 
 func (me *Ctx) maybeInitPanic(initingNow bool) {
-	if me.initCalled && initingNow {
-		panic("atem.Ctx.Init was called more than once: Ctx is not for reuse")
-	} else if (!me.initCalled) && !initingNow {
-		panic("atem.Ctx.Init wasn't called prior to Ctx use")
+	if me.initCalled == initingNow {
+		panic("atem.Ctx.Init must be called exactly once only")
 	}
 }
 
 func (me *Ctx) Init(dirCur string) (err error) {
 	me.maybeInitPanic(true)
-	if me.initCalled = true; dirCur == "" || dirCur == "." {
+	if me.initCalled, me.Libs = true, nil; dirCur == "" || dirCur == "." {
 		dirCur, err = os.Getwd()
 	} else if dirCur[0] == '~' {
 		if len(dirCur) > 1 && dirCur[1] == filepath.Separator {
@@ -54,12 +54,10 @@ func (me *Ctx) Init(dirCur string) (err error) {
 		} else if me.ClearCacheDir {
 			err = ufs.Del(cachedir)
 		}
-		if stdlibsdir := me.Dirs.StdLibs; err == nil {
-			if stdlibsdir == "" {
-				stdlibsdir = os.Getenv("ATEM_PATH_STDLIBS")
-			}
+		if libsdirs := me.Dirs.Libs; err == nil {
+			libsdirs = ustr.Merge(ustr.Split(os.Getenv(ENV_LIBSDIRS), string(os.PathListSeparator)), libsdirs, true)
 
-			me.Dirs.Cur, me.Dirs.Cache, me.Dirs.StdLibs = dirCur, cachedir, stdlibsdir
+			me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
 		}
 	}
 	return

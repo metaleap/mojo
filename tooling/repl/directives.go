@@ -36,3 +36,7 @@ func (me *Repl) DWelcomeMsg(string) {
 		"",
 	)
 }
+
+func (me *Repl) DLoadLib(path string) {
+
+}
