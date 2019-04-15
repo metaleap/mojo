@@ -12,17 +12,24 @@ import (
 type Ctx struct {
 	initCalled bool
 
-	Dirs struct {
+	ClearCacheDir bool
+	Dirs          struct {
 		Cur     string
 		Cache   string
 		StdLibs string
 	}
 }
 
-func (me *Ctx) Init(dirCur string) (err error) {
-	if me.initCalled {
+func (me *Ctx) maybeInitPanic(initingNow bool) {
+	if me.initCalled && initingNow {
 		panic("atem.Ctx.Init was called more than once: Ctx is not for reuse")
+	} else if (!me.initCalled) && !initingNow {
+		panic("atem.Ctx.Init wasn't called prior to Ctx use")
 	}
+}
+
+func (me *Ctx) Init(dirCur string) (err error) {
+	me.maybeInitPanic(true)
 	if me.initCalled = true; dirCur == "" || dirCur == "." {
 		dirCur, err = os.Getwd()
 	} else if dirCur[0] == '~' {
@@ -44,12 +51,12 @@ func (me *Ctx) Init(dirCur string) (err error) {
 		}
 		if !ufs.IsDir(cachedir) {
 			err = ufs.EnsureDir(cachedir)
+		} else if me.ClearCacheDir {
+			err = ufs.Del(cachedir)
 		}
 		if stdlibsdir := me.Dirs.StdLibs; err == nil {
 			if stdlibsdir == "" {
-				if stdlibsdir = os.Getenv("ATEM_PATH_STDLIBS"); stdlibsdir == "" {
-					stdlibsdir = "/home/_/c/atem/stdlibs"
-				}
+				stdlibsdir = os.Getenv("ATEM_PATH_STDLIBS")
 			}
 
 			me.Dirs.Cur, me.Dirs.Cache, me.Dirs.StdLibs = dirCur, cachedir, stdlibsdir
@@ -59,9 +66,7 @@ func (me *Ctx) Init(dirCur string) (err error) {
 }
 
 func (me *Ctx) ReadEvalPrint(in string) (out fmt.Stringer, err error) {
-	if !me.initCalled {
-		panic("atem.Ctx.Init wasn't called")
-	}
+	me.maybeInitPanic(false)
 	err = fmt.Errorf("to-do: evaluation of %q", in)
 	return
 }
