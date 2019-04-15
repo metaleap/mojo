@@ -25,7 +25,7 @@ func (me directives) By(letter byte) *directive {
 }
 
 func (me *Repl) DQuit(string) {
-	me.quit = true
+	me.run.quit = true
 }
 
 func (me *Repl) DWelcomeMsg(string) {

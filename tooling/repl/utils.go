@@ -8,9 +8,19 @@ import (
 	"github.com/go-leap/str"
 )
 
+const (
+	multiLnMinIndent = 2
+)
+
+var (
+	sepLine = ustr.Times("─", 41)
+)
+
 func (me *Repl) init() {
-	me.quit, me.IO.Stdin, me.IO.Stderr, me.IO.Stdout =
-		false, ustd.IfNil(me.IO.Stdin, os.Stdin).(io.Reader), ustd.IfNil(me.IO.Stderr, os.Stderr).(io.Writer), ustd.IfNil(me.IO.Stdout, os.Stdout).(io.Writer)
+	me.run.quit, me.run.indent, me.run.multiLnInputHadLeadingTabs = false, 0, false
+
+	me.IO.Stdin, me.IO.Stderr, me.IO.Stdout =
+		ustd.IfNil(me.IO.Stdin, os.Stdin).(io.Reader), ustd.IfNil(me.IO.Stderr, os.Stderr).(io.Writer), ustd.IfNil(me.IO.Stdout, os.Stdout).(io.Writer)
 	me.IO.writeLns, me.IO.printLns, me.IO.write =
 		ustd.WriteLines(me.IO.Stdout), ustd.WriteLines(me.IO.Stderr), func(s string, n int) {
 			if n > 0 {
@@ -18,9 +28,35 @@ func (me *Repl) init() {
 			}
 		}
 
-	d := me.KnownDirectives.ensure
-	d("q · quit", me.DQuit)
-	d("h · help", me.DWelcomeMsg)
+	kd := me.KnownDirectives.ensure
+	kd("q · quit", me.DQuit)
+	kd("h · help", me.DWelcomeMsg)
+}
+
+func (me *Repl) decoInputStart() {
+	me.run.multiLnInputHadLeadingTabs = false
+	me.IO.writeLns("┌" + sepLine)
+	me.decoInputAddLine()
+}
+
+func (me *Repl) decoInputDone() {
+	me.IO.writeLns("└" + sepLine)
+}
+
+func (me *Repl) decoInputAddLine() {
+	me.IO.write("│", 1)
+	me.IO.write(" ", me.run.indent)
+}
+
+func (me *Repl) decoAddNotice(noticeLines ...string) {
+	for i := range noticeLines {
+		if i == 0 {
+			noticeLines[i] = "├── " + noticeLines[i]
+		} else {
+			noticeLines[i] = "    " + noticeLines[i]
+		}
+	}
+	me.IO.writeLns(append(noticeLines, "", "")...)
 }
 
 func trimAndCountPrefixRunes(s string) (trimmed string, count int, numtabs int) {

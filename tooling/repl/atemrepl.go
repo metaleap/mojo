@@ -10,8 +10,9 @@ import (
 )
 
 type Repl struct {
-	Ctx atem.Ctx
-	IO  struct {
+	Ctx             atem.Ctx
+	KnownDirectives directives
+	IO              struct {
 		Stdin           io.Reader
 		Stdout          io.Writer
 		Stderr          io.Writer
@@ -21,95 +22,90 @@ type Repl struct {
 		writeLns, printLns func(...string)
 	}
 
-	KnownDirectives directives
-
-	quit bool
+	// current mutable state during a `Run` loop
+	run struct {
+		quit                       bool
+		indent                     int
+		multiLnInputHadLeadingTabs bool
+	}
 }
 
 func (me *Repl) Run(showWelcomeMsg bool) (err error) {
 	if me.init(); showWelcomeMsg {
 		me.DWelcomeMsg("")
 	}
-	const mlmi = /* multiline minindent */ 2
-	multiln, indent, inputhadleadingtabs, sepline := "", 0, false, ustr.Times("─", 41)
-	decoinputaddline := func() {
-		me.IO.write("│", 1)
-		me.IO.write(" ", indent)
-	}
-	decoinputstart, decoinputdone, decoaddnotice := func() {
-		inputhadleadingtabs = false
-		me.IO.writeLns("┌" + sepline)
-		decoinputaddline()
-	}, func() {
-		me.IO.writeLns("└" + sepline)
-	}, func(notice string) {
-		me.IO.writeLns("", "├── "+notice, "")
-	}
-	decoinputstart()
-	for readln := bufio.NewScanner(os.Stdin); (!me.quit) && readln.Scan(); {
+	me.decoInputStart()
+	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan(); {
 		inputln, numleadingspaces, numleadingtabs := trimAndCountPrefixRunes(readln.Text())
-		if numleadingtabs > 0 {
-			inputhadleadingtabs = len(multiln) > 0
-		}
+		me.run.multiLnInputHadLeadingTabs = me.run.multiLnInputHadLeadingTabs || (len(multiln) > 0 && numleadingtabs > 0)
+
 		if inputln == "" {
-			if indent > mlmi {
-				if indent -= mlmi; indent%2 != 0 {
-					indent++
+			if me.run.indent > multiLnMinIndent {
+				if me.run.indent -= multiLnMinIndent; me.run.indent%2 != 0 {
+					me.run.indent++
 				}
 			}
-			decoinputaddline()
-		} else {
-			if neat := (multiln == "" && ustr.Suff(inputln, " :=")); neat || ustr.Suff(inputln, me.IO.MultiLineSuffix) {
-				if multiln == "" {
-					if inputln[0] != ':' {
-						if indent, multiln = mlmi, inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]+"\n  "; neat {
-							multiln = inputln + "\n  "
-						}
-						decoinputaddline()
-						continue
+			me.decoInputAddLine()
+			continue
+		}
+
+		if ismultiln, isdefbegin := ustr.Suff(inputln, me.IO.MultiLineSuffix), (multiln == "" && ustr.Suff(inputln, ":=")); isdefbegin || ismultiln {
+			if multiln == "" {
+				if inputln[0] != ':' {
+					if me.run.indent, multiln = multiLnMinIndent, inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]+"\n  "; isdefbegin {
+						multiln = inputln + "\n  "
 					}
-				} else if multiln, indent, inputln = "", 0, ustr.Trim(multiln+inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]); inputln == "" {
-					decoinputdone()
-					decoinputstart()
+					me.decoInputAddLine()
 					continue
 				}
-			}
-			switch {
-			case multiln != "":
-				indent += numleadingspaces
-				multiln += ustr.Times(" ", numleadingspaces) + inputln + "\n" + ustr.Times(" ", indent)
-				decoinputaddline()
+			} else if multiln, me.run.indent, inputln = "", 0, ustr.Trim(multiln+inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]); inputln == "" {
+				me.decoInputDone()
+				me.decoInputStart()
 				continue
-			case inputln[0] == ':':
-				decoinputdone()
-				dletter, dargs := ustr.BreakOnFirstOrPref(inputln[1:], " ")
-				var found *directive
-				if len(dletter) > 0 {
-					if found = me.KnownDirectives.By(dletter[0]); found != nil {
-						found.Run(dargs)
-					}
-				}
-				if found == nil {
-					me.IO.writeLns("unknown directive `:" + dletter + "` — try: ")
-					for i := range me.KnownDirectives {
-						me.IO.writeLns("\t:" + me.KnownDirectives[i].Desc)
-					}
-				}
-				if !me.quit {
-					decoinputstart()
-				}
-			default:
-				decoinputdone()
-				if inputhadleadingtabs {
-					decoaddnotice("input had leading tabs, use spaces for indent")
-				}
-				if out, err := me.Ctx.ReadEvalPrint(inputln); err != nil {
-					me.IO.printLns(err.Error())
-				} else {
-					me.IO.writeLns(out.String())
-				}
-				decoinputstart()
 			}
+		}
+
+		switch {
+
+		// just another line to add to current multi-line input?
+		case multiln != "":
+			me.run.indent += numleadingspaces
+			multiln += ustr.Times(" ", numleadingspaces) + inputln + "\n" + ustr.Times(" ", me.run.indent)
+			me.decoInputAddLine()
+			continue
+
+		// else, a directive?
+		case inputln[0] == ':':
+			me.decoInputDone()
+			dletter, dargs := ustr.BreakOnFirstOrPref(inputln[1:], " ")
+			var found *directive
+			if len(dletter) > 0 {
+				if found = me.KnownDirectives.By(dletter[0]); found != nil {
+					found.Run(dargs)
+				}
+			}
+			if found == nil {
+				me.IO.writeLns("unknown directive `:" + dletter + "` — try: ")
+				for i := range me.KnownDirectives {
+					me.IO.writeLns("\t:" + me.KnownDirectives[i].Desc)
+				}
+			}
+			if !me.run.quit {
+				me.decoInputStart()
+			}
+
+		// else, input to be EVAL'd now
+		default:
+			me.decoInputDone()
+			if me.run.multiLnInputHadLeadingTabs {
+				me.decoAddNotice("multi-line input had leading tabs,note", "that repl auto-indent is based on spaces")
+			}
+			if out, err := me.Ctx.ReadEvalPrint(inputln); err != nil {
+				me.IO.printLns(err.Error())
+			} else {
+				me.IO.writeLns(out.String())
+			}
+			me.decoInputStart()
 		}
 	}
 	return
