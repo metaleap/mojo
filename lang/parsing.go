@@ -14,12 +14,12 @@ const (
 )
 
 var (
-	langReservedOps    = []string{"&", "|", "?", ",", ":=", "=", "==", "/=", ">=", "<=", "<", ">", "+", "-", "*", "/"}
-	langReservedOpsStd = []string{"&&", "||"}
+	langReservedOps = []string{"|", "?", ",", ":=", "==", "/=", ">=", "<=", "<", ">", "+", "-", "*", "/"}
 )
 
 func init() {
-	udevlex.RestrictedWhitespace, udevlex.StandaloneSeps = true, []string{"(", ")"}
+	udevlex.RestrictedWhitespace, udevlex.StandaloneSeps, udevlex.SepsForChunking =
+		true, []string{"(", ")"}, "([{}])"
 }
 
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
@@ -64,7 +64,7 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 		err = errSyntax(&tokens[0], "missing: definition body following `:=`")
 	} else if len(tokshead) == 0 {
 		err = errSyntax(&tokens[0], "missing: definition name preceding `:=`")
-	} else if toksheads := tokshead.Chunked(",", "(", ")"); len(toksheads[0]) == 0 {
+	} else if toksheads := tokshead.Chunked(","); len(toksheads[0]) == 0 {
 		err = errSyntax(&tokens[0], "missing: definition name preceding `,`")
 	} else {
 		toksheadsig, affixindices := toksheads[0].JoinIdentPairings(":")
@@ -208,14 +208,14 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	caseof.Scrutinee, caseof.defaultIndex = scrutinee, -1
 	me.setTokensFor(&caseof.AstBaseTokens, allToks, nil)
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
-	alts := toks.Chunked("|", "(", ")")
+	alts := toks.Chunked("|")
 	caseof.Alts = make([]AstCaseAlt, len(alts))
 	var cond IAstExpr
 	var hasmulticonds bool
 	for i := range alts {
 		if len(alts[i]) == 0 {
 			err = errSyntax(&toks[0], "malformed `|?` branching: empty case")
-		} else if ifthen := alts[i].Chunked("?", "(", ")"); len(ifthen) > 2 {
+		} else if ifthen := alts[i].Chunked("?"); len(ifthen) > 2 {
 			err = errSyntax(&alts[i][0], "malformed `|?` branching: `|` case has more than one `?` result expression")
 		} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen[0]) == 0 {
 			if len(ifthen[1]) == 0 {
@@ -259,7 +259,7 @@ func (me *ctxParseTld) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, 
 	var body IAstExpr
 	body = me.parseExprFinalize(accum, allToks, &toks[0])
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
-	if chunks := toks.Chunked(",", "(", ")"); len(chunks) > 0 {
+	if chunks := toks.Chunked(","); len(chunks) > 0 {
 		var let AstExprLet
 		let.Body, let.Defs = body, make([]AstDef, len(chunks))
 		me.setTokensFor(&let.AstBaseTokens, allToks, nil)
@@ -317,7 +317,7 @@ func (me *ctxParseTld) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, res
 	var numunclosed int
 	if toks[0].Str == ")" {
 		err = errSyntax(&toks[0], "closing parenthesis without matching opening")
-	} else if sub, rest, numunclosed = toks.Sub("(", ")"); len(sub) == 0 {
+	} else if sub, rest, numunclosed = toks.Sub('(', ')'); len(sub) == 0 {
 		if numunclosed == 0 {
 			err = errSyntax(&toks[0], "empty parentheses")
 		} else {

@@ -25,7 +25,7 @@ func (me *AstDef) initIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at i
 		err = errSyntax(tok, "not a valid "+namedesc+" name: `"+s+"` shouldn't begin with underscore")
 	} else if (!isarg) && isopish && len(s) == 1 {
 		err = errSyntax(tok, "not a valid "+namedesc+" name: `"+s+"` (non-`std` operator names need 2 or more characters)")
-	} else if tok.IsAnyOneOf(langReservedOps...) || tok.IsAnyOneOf(langReservedOpsStd...) {
+	} else if tok.IsAnyOneOf(langReservedOps...) {
 		err = errSyntax(tok, "not a valid "+namedesc+" name: `"+s+"` is reserved and cannot be overloaded")
 	} else {
 		this.Val, this.IsOpish, this.IsTag, this.Affix = s, isopish, isarg && ustr.BeginsUpper(s), affix
