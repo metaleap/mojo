@@ -37,6 +37,16 @@ func (me *Repl) DWelcomeMsg(string) {
 	)
 }
 
-func (me *Repl) DLoadLib(path string) {
+func (me *Repl) DList(what string) {
+	switch what {
+	case "libs":
+		for i := range me.Ctx.Libs {
+			me.decoAddNotice(true, me.Ctx.Libs[i].LibPath, me.Ctx.Libs[i].DirPath)
+		}
+	default:
+		println("specify one of: `libs`, `defs`")
+	}
+}
 
+func (me *Repl) DReloadLib(libPath string) {
 }

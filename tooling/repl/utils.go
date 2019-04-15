@@ -16,6 +16,14 @@ var (
 	sepLine = ustr.Times("─", 41)
 )
 
+func (me *Repl) initEnsureDefaultDirectives() {
+	kd := me.KnownDirectives.ensure
+	kd("q · quit", me.DQuit)
+	kd("h · help", me.DWelcomeMsg)
+	// kd("r · (re)load the specified libs\n        (or all if none given)", me.DReloadLib)
+	kd("l · list <libs|defs>", me.DList)
+}
+
 func (me *Repl) init() {
 	me.run.quit, me.run.indent, me.run.multiLnInputHadLeadingTabs = false, 0, false
 
@@ -28,9 +36,7 @@ func (me *Repl) init() {
 			}
 		}
 
-	kd := me.KnownDirectives.ensure
-	kd("q · quit", me.DQuit)
-	kd("h · help", me.DWelcomeMsg)
+	me.initEnsureDefaultDirectives()
 }
 
 func (me *Repl) decoInputStart() {
@@ -48,7 +54,7 @@ func (me *Repl) decoInputAddLine() {
 	me.IO.write(" ", me.run.indent)
 }
 
-func (me *Repl) decoAddNotice(noticeLines ...string) {
+func (me *Repl) decoAddNotice(compact bool, noticeLines ...string) {
 	for i := range noticeLines {
 		if i == 0 {
 			noticeLines[i] = "├── " + noticeLines[i]
@@ -56,7 +62,10 @@ func (me *Repl) decoAddNotice(noticeLines ...string) {
 			noticeLines[i] = "    " + noticeLines[i]
 		}
 	}
-	me.IO.writeLns(append(noticeLines, "", "")...)
+	if !compact {
+		noticeLines = append(noticeLines, "", "")
+	}
+	me.IO.writeLns(noticeLines...)
 }
 
 func trimAndCountPrefixRunes(s string) (trimmed string, count int, numtabs int) {

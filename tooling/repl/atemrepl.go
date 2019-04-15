@@ -87,7 +87,7 @@ func (me *Repl) Run(showWelcomeMsg bool) (err error) {
 			if found == nil {
 				me.IO.writeLns("unknown directive `:" + dletter + "` — try: ")
 				for i := range me.KnownDirectives {
-					me.IO.writeLns("\t:" + me.KnownDirectives[i].Desc)
+					me.IO.writeLns("   :" + me.KnownDirectives[i].Desc)
 				}
 			}
 			if !me.run.quit {
@@ -98,7 +98,7 @@ func (me *Repl) Run(showWelcomeMsg bool) (err error) {
 		default:
 			me.decoInputDone()
 			if me.run.multiLnInputHadLeadingTabs {
-				me.decoAddNotice("multi-line input had leading tabs,note", "that repl auto-indent is based on spaces")
+				me.decoAddNotice(false, "multi-line input had leading tabs,note", "that repl auto-indent is based on spaces")
 			}
 			if out, err := me.Ctx.ReadEvalPrint(inputln); err != nil {
 				me.IO.printLns(err.Error())

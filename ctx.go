@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
@@ -20,6 +21,12 @@ type Ctx struct {
 		Libs  []string
 	}
 	Libs Libs
+	libs struct {
+		sync.Mutex
+		libPathsLookup map[string]int
+	}
+
+	cleanUps []func()
 }
 
 func (me *Ctx) maybeInitPanic(initingNow bool) {
@@ -58,6 +65,8 @@ func (me *Ctx) Init(dirCur string) (err error) {
 			libsdirs = ustr.Merge(ustr.Split(os.Getenv(ENV_LIBSDIRS), string(os.PathListSeparator)), libsdirs, true)
 
 			me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
+			me.libs.libPathsLookup = map[string]int{}
+			me.initLibs()
 		}
 	}
 	return
@@ -67,4 +76,10 @@ func (me *Ctx) ReadEvalPrint(in string) (out fmt.Stringer, err error) {
 	me.maybeInitPanic(false)
 	err = fmt.Errorf("to-do: evaluation of %q", in)
 	return
+}
+
+func (me *Ctx) Dispose() {
+	for _, cleanup := range me.cleanUps {
+		cleanup()
+	}
 }
