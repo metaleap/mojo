@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/go-leap/std"
 	"github.com/go-leap/sys"
@@ -13,7 +14,7 @@ var (
 )
 
 func main() {
-	atmo.LibWatchInterval = ustd.FlagOfDuration("lib_watch_interval", atmo.LibWatchInterval,
+	atmo.LibWatchInterval = ustd.FlagOfDuration("lib-watch-interval", 123*time.Millisecond,
 		"    format: time-duration; sets how often to check all known atmo libs-dirs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
 
 	atcmd, showinfousage, showinfoargs := usys.Arg(1), false, false

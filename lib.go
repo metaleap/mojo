@@ -74,58 +74,14 @@ func (me *Ctx) LibReachable(lib *Lib) (reachable bool) {
 	return
 }
 
+func (me *Ctx) ReloadModifiedLibsUnlessAlreadyWatching() {
+	if me.state.manualReload != nil {
+		me.state.manualReload()
+	}
+}
+
 func (me *Ctx) initLibs() {
 	var handledir func(string, map[string]int)
-
-	me.cleanUps = append(me.cleanUps,
-		ufs.WatchModTimesEvery(LibWatchInterval, LibWatchInterval, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo) {
-			modlibdirs := map[string]int{}
-			for fullpath, fileinfo := range mods {
-				if fileinfo.IsDir() {
-					handledir(fullpath, modlibdirs)
-				} else {
-					dp := filepath.Dir(fullpath)
-					modlibdirs[dp] = modlibdirs[dp] + 1
-				}
-			}
-
-			if len(modlibdirs) > 0 {
-				me.libs.Lock()
-				// remove libs that have vanished from the file-system
-				for i := 0; i < len(me.libs.all); i++ {
-					if me.libs.all[i].DirPath != dirPathAutoLib && !ufs.IsDir(me.libs.all[i].DirPath) {
-						me.libs.all = append(me.libs.all[:i], me.libs.all[i+1:]...)
-						i--
-					}
-				}
-				// add any new ones, reload any potentially-modified ones
-				for libdirpath, numfilesguess := range modlibdirs {
-					if ufs.IsDir(libdirpath) || libdirpath == dirPathAutoLib {
-						idx := me.libs.all.indexDirPath(libdirpath)
-						if idx < 0 {
-							if idx = len(me.libs.all); numfilesguess < 4 {
-								numfilesguess = 4
-							}
-							var libpath string
-							for _, ldp := range me.Dirs.Libs {
-								if ustr.Pref(libdirpath, ldp+string(os.PathSeparator)) {
-									if libpath = filepath.Clean(libdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
-										libpath = ustr.Replace(libpath, string(os.PathSeparator), "/")
-									}
-									break
-								}
-							}
-							me.libs.all = append(me.libs.all, Lib{DirPath: libdirpath, LibPath: libpath,
-								SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
-						}
-						me.libReload(idx)
-					}
-				}
-				sort.Sort(me.libs.all)
-				me.libs.Unlock()
-			}
-		}))
-
 	handledir = func(dirfullpath string, modlibdirs map[string]int) {
 		if idx := me.libs.all.indexDirPath(dirfullpath); idx >= 0 { // dir was previously known as a lib
 			modlibdirs[dirfullpath] = cap(me.libs.all[idx].SrcFiles)
@@ -144,6 +100,58 @@ func (me *Ctx) initLibs() {
 				added, modlibdirs[dirfullpath] = true, modlibdirs[dirfullpath]+1
 			}
 		}
+	}
+
+	doagain, dostop := ufs.WatchModTimesEvery(LibWatchInterval, LibWatchInterval, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo) {
+		modlibdirs := map[string]int{}
+		for fullpath, fileinfo := range mods {
+			if fileinfo.IsDir() {
+				handledir(fullpath, modlibdirs)
+			} else {
+				dp := filepath.Dir(fullpath)
+				modlibdirs[dp] = modlibdirs[dp] + 1
+			}
+		}
+
+		if len(modlibdirs) > 0 {
+			me.libs.Lock()
+			// remove libs that have vanished from the file-system
+			for i := 0; i < len(me.libs.all); i++ {
+				if me.libs.all[i].DirPath != dirPathAutoLib && !ufs.IsDir(me.libs.all[i].DirPath) {
+					me.libs.all = append(me.libs.all[:i], me.libs.all[i+1:]...)
+					i--
+				}
+			}
+			// add any new ones, reload any potentially-modified ones
+			for libdirpath, numfilesguess := range modlibdirs {
+				if ufs.IsDir(libdirpath) || libdirpath == dirPathAutoLib {
+					idx := me.libs.all.indexDirPath(libdirpath)
+					if idx < 0 {
+						if idx = len(me.libs.all); numfilesguess < 4 {
+							numfilesguess = 4
+						}
+						var libpath string
+						for _, ldp := range me.Dirs.Libs {
+							if ustr.Pref(libdirpath, ldp+string(os.PathSeparator)) {
+								if libpath = filepath.Clean(libdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
+									libpath = ustr.Replace(libpath, string(os.PathSeparator), "/")
+								}
+								break
+							}
+						}
+						me.libs.all = append(me.libs.all, Lib{DirPath: libdirpath, LibPath: libpath,
+							SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
+					}
+					me.libReload(idx)
+				}
+			}
+			sort.Sort(me.libs.all)
+			me.libs.Unlock()
+		}
+	})
+	me.cleanUps = append(me.cleanUps, dostop)
+	if me.state.watcherRunning = LibWatchInterval > 0; !me.state.watcherRunning {
+		me.state.manualReload = doagain
 	}
 }
 

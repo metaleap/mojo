@@ -25,6 +25,10 @@ type Ctx struct {
 		sync.Mutex
 		all libs
 	}
+	state struct {
+		manualReload   func()
+		watcherRunning bool
+	}
 
 	cleanUps []func()
 }

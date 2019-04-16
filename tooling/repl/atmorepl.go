@@ -77,25 +77,11 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 		// else, a directive?
 		case inputln[0] == ':':
 			me.decoInputDone()
-			dname, dargs := ustr.BreakOnFirstOrPref(inputln[1:], " ")
-			var found *directive
-			if len(dname) > 0 {
-				if found = me.KnownDirectives.By(dname); found != nil {
-					if dargs = ustr.Trim(dargs); !found.Run(dargs) {
-						me.IO.writeLns("directive `:"+dname+"` does not understand `"+dargs+"`,", "as a reminder:", "   :"+found.Desc)
-					}
-				}
-			}
-			if found == nil {
-				me.IO.writeLns("unknown directive `:" + dname + "` — try: ")
-				for i := range me.KnownDirectives {
-					me.IO.writeLns("   :" + me.KnownDirectives[i].Desc)
-				}
-			}
-			if !me.run.quit {
+			me.IO.writeLns("")
+			if me.runDirective(ustr.BreakOnFirstOrPref(inputln[1:], " ")); !me.run.quit {
+				me.IO.writeLns("", "")
 				me.decoInputStart()
 			}
-
 		// else, input to be EVAL'd now
 		default:
 			me.decoInputDone()
