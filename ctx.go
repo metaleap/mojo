@@ -23,7 +23,7 @@ type Ctx struct {
 	}
 	libs struct {
 		sync.Mutex
-		Known Libs
+		all libs
 	}
 
 	cleanUps []func()
@@ -37,7 +37,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 
 func (me *Ctx) Init(dirCur string) (err error) {
 	me.maybeInitPanic(true)
-	if me.initCalled, me.libs.Known = true, nil; dirCur == "" || dirCur == "." {
+	if me.initCalled, me.libs.all = true, nil; dirCur == "" || dirCur == "." {
 		dirCur, err = os.Getwd()
 	} else if dirCur[0] == '~' {
 		if len(dirCur) > 1 && dirCur[1] == filepath.Separator {
@@ -62,7 +62,14 @@ func (me *Ctx) Init(dirCur string) (err error) {
 			err = ufs.Del(cachedir)
 		}
 		if libsdirs := me.Dirs.Libs; err == nil {
-			libsdirs = ustr.Merge(ustr.Split(os.Getenv(EnvVarLibDirs), string(os.PathListSeparator)), libsdirs, true)
+			libsdirsenv := ustr.Split(os.Getenv(EnvVarLibDirs), string(os.PathListSeparator))
+			for i := range libsdirsenv {
+				libsdirsenv[i] = filepath.Clean(libsdirsenv[i])
+			}
+			for i := range libsdirs {
+				libsdirs[i] = filepath.Clean(libsdirs[i])
+			}
+			libsdirs = ustr.Merge(libsdirsenv, libsdirs, true)
 			for i := range libsdirs {
 				for j := range libsdirs {
 					if i != j && (ustr.Pref(libsdirs[i], libsdirs[j]) || ustr.Pref(libsdirs[j], libsdirs[i])) {
@@ -70,10 +77,18 @@ func (me *Ctx) Init(dirCur string) (err error) {
 						return
 					}
 				}
+				if dirPathAutoLib == "" {
+					if dp := filepath.Join(libsdirs[i], NameAutoLib); ufs.IsDir(dp) {
+						dirPathAutoLib = dp
+					}
+				}
 			}
-
-			me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
-			me.initLibs()
+			if dirPathAutoLib == "" {
+				err = errors.New("`" + NameAutoLib + "` lib not found in any of these paths: " + ustr.Join(libsdirs, "  ──  "))
+			} else {
+				me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
+				me.initLibs()
+			}
 		}
 	}
 	return

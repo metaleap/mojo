@@ -52,13 +52,19 @@ func (me *Ctx) KnownLibPaths() (libPaths []string)
 #### func (*Ctx) KnownLibs
 
 ```go
-func (me *Ctx) KnownLibs() (known Libs)
+func (me *Ctx) KnownLibs() (known []Lib)
 ```
 
 #### func (*Ctx) Lib
 
 ```go
 func (me *Ctx) Lib(libPath string) (lib *Lib)
+```
+
+#### func (*Ctx) LibEver
+
+```go
+func (me *Ctx) LibEver() (lib *Lib)
 ```
 
 #### func (*Ctx) LibReachable
@@ -80,7 +86,7 @@ type Lib struct {
 	LibPath string
 	DirPath string
 	Errors  struct {
-		Refresh error
+		Reload error
 	}
 	SrcFiles atemlang.AstFiles
 }
@@ -109,10 +115,4 @@ func (me *Lib) Errs() (errs []error)
 
 ```go
 func (me *Lib) IsEverLib() bool
-```
-
-#### type Libs
-
-```go
-type Libs []Lib
 ```
