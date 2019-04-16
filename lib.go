@@ -14,8 +14,6 @@ var LibWatchInterval = 1 * time.Second
 
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
-type Libs []Lib
-
 type Lib struct {
 	LibPath string
 	DirPath string
@@ -26,6 +24,7 @@ type Lib struct {
 }
 
 func (me *Ctx) KnownLibs() (known Libs) {
+	me.maybeInitPanic(false)
 	me.libs.Lock()
 	known = me.libs.Known
 	me.libs.Unlock()
@@ -33,61 +32,56 @@ func (me *Ctx) KnownLibs() (known Libs) {
 }
 
 func (me *Ctx) initLibs() {
-	var handledir func(string, map[string]bool)
+	var handledir func(string, map[string]int)
 
 	me.cleanUps = append(me.cleanUps,
 		ufs.WatchModTimesEvery(LibWatchInterval, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo) {
-			modlibdirs := map[string]bool{}
+			modlibdirs := map[string]int{}
 			for fullpath, fileinfo := range mods {
-				if !fileinfo.IsDir() {
-					modlibdirs[filepath.Dir(fullpath)] = true
-				} else {
+				if fileinfo.IsDir() {
 					handledir(fullpath, modlibdirs)
+				} else {
+					dp := filepath.Dir(fullpath)
+					modlibdirs[dp] = modlibdirs[dp] + 1
 				}
 			}
 
-			me.libs.Lock()
 			if len(modlibdirs) > 0 {
-				for libdirpath := range modlibdirs {
-					idx, ok := me.libs.lookups.dirPaths[libdirpath]
-					if !ok {
-						var libpath string
-						for _, ldp := range me.Dirs.Libs {
-							if ustr.Pref(libdirpath, ustr.TrimR(ldp, "/\\")+string(os.PathSeparator)) {
-								libpath = ustr.TrimLR(ustr.ReplB(libdirpath[len(ldp):], '\\', '/'), "/")
-							}
-						}
-						idx = len(me.libs.Known)
-						me.libs.lookups.dirPaths[libdirpath], me.libs.lookups.libPaths[libpath] = idx, idx
-						me.libs.Known = append(me.libs.Known, Lib{DirPath: libdirpath, LibPath: libpath,
-							SrcFiles: make(atemlang.AstFiles, 0, 8)})
+				me.libs.Lock()
+				// remove libs that have vanished from the file-system
+				for i := 0; i < len(me.libs.Known); i++ {
+					if !ufs.IsDir(me.libs.Known[i].DirPath) {
+						me.libs.Known = append(me.libs.Known[:i], me.libs.Known[i+1:]...)
+						i--
 					}
+				}
+				// add any new ones, refresh any potentially-modified ones
+				for libdirpath, numfilesguess := range modlibdirs {
 					if ufs.IsDir(libdirpath) {
+						idx := me.libs.Known.indexOf(libdirpath)
+						if idx < 0 {
+							if idx = len(me.libs.Known); numfilesguess < 4 {
+								numfilesguess = 4
+							}
+							var libpath string
+							for _, ldp := range me.Dirs.Libs {
+								if ustr.Pref(libdirpath, ustr.TrimR(ldp, "/\\")+string(os.PathSeparator)) {
+									libpath = ustr.TrimLR(ustr.ReplB(libdirpath[len(ldp):], '\\', '/'), "/")
+								}
+							}
+							me.libs.Known = append(me.libs.Known, Lib{DirPath: libdirpath, LibPath: libpath,
+								SrcFiles: make(atemlang.AstFiles, 0, numfilesguess)})
+						}
 						me.libRefresh(idx)
 					}
 				}
+				me.libs.Unlock()
 			}
-
-			var gonelibs bool
-			for i := 0; i < len(me.libs.Known); i++ {
-				if lib := &me.libs.Known[i]; !ufs.IsDir(lib.DirPath) {
-					me.libs.Known = append(me.libs.Known[:i], me.libs.Known[i+1:]...)
-					gonelibs, i = true, i-1
-				}
-			}
-			if gonelibs {
-				me.libs.lookups.dirPaths, me.libs.lookups.libPaths = make(map[string]int, len(me.libs.Known)), make(map[string]int, len(me.libs.Known))
-				for i := range me.libs.Known {
-					me.libs.lookups.dirPaths[me.libs.Known[i].DirPath], me.libs.lookups.libPaths[me.libs.Known[i].LibPath] = i, i
-				}
-			}
-			me.libs.Unlock()
 		}))
 
-	handledir = func(dirfullpath string, modlibdirs map[string]bool) {
-		if _, ok := me.libs.lookups.dirPaths[dirfullpath]; ok {
-			// dir was previously known as a lib
-			modlibdirs[dirfullpath] = true
+	handledir = func(dirfullpath string, modlibdirs map[string]int) {
+		if idx := me.libs.Known.indexOf(dirfullpath); idx >= 0 { // dir was previously known as a lib
+			modlibdirs[dirfullpath] = cap(me.libs.Known[idx].SrcFiles)
 		}
 		dircontents, _ := ufs.Dir(dirfullpath)
 		var added bool
@@ -95,7 +89,7 @@ func (me *Ctx) initLibs() {
 			if file.IsDir() {
 				handledir(filepath.Join(dirfullpath, file.Name()), modlibdirs)
 			} else if (!added) && ustr.Suff(file.Name(), SrcFileExt) {
-				added, modlibdirs[dirfullpath] = true, true
+				added, modlibdirs[dirfullpath] = true, modlibdirs[dirfullpath]+1
 			}
 		}
 	}
@@ -103,7 +97,12 @@ func (me *Ctx) initLibs() {
 
 func (me *Ctx) libRefresh(idx int) {
 	lib := &me.libs.Known[idx]
-
+	diritems, e := ufs.Dir(lib.DirPath)
+	if e != nil {
+		lib.SrcFiles = lib.SrcFiles[0:0]
+		lib.Errs.Refresh = e
+		return
+	}
 	// any deleted files get forgotten now
 	for i := 0; i < len(lib.SrcFiles); i++ {
 		if lib.SrcFiles[i].SrcFilePath != "" && !ufs.IsFile(lib.SrcFiles[i].SrcFilePath) {
@@ -113,21 +112,41 @@ func (me *Ctx) libRefresh(idx int) {
 	}
 
 	// any new files get added
-	var files []os.FileInfo
-	if files, lib.Errs.Refresh = ufs.Files(lib.DirPath, SrcFileExt); lib.Errs.Refresh == nil {
-		for _, file := range files {
-			if file != nil {
-				if fp := filepath.Join(lib.DirPath, file.Name()); !lib.SrcFiles.Contains(fp) {
-					lib.SrcFiles = append(lib.SrcFiles, atemlang.AstFile{SrcFilePath: fp})
-				}
+	for _, file := range diritems {
+		if (!file.IsDir()) && ustr.Suff(file.Name(), SrcFileExt) {
+			if fp := filepath.Join(lib.DirPath, file.Name()); !lib.SrcFiles.Contains(fp) {
+				lib.SrcFiles = append(lib.SrcFiles, atemlang.AstFile{SrcFilePath: fp})
 			}
 		}
 	}
 }
 
-func (me *Lib) Error() (errMsg string) {
+func (me *Lib) Err() error {
 	if me.Errs.Refresh != nil {
-		errMsg = me.Errs.Refresh.Error()
+		return me.Errs.Refresh
+	}
+	for i := range me.SrcFiles {
+		for _, e := range me.SrcFiles[i].Errs() {
+			return e
+		}
+	}
+	return nil
+}
+
+func (me *Lib) Error() (errMsg string) {
+	if e := me.Err(); e != nil {
+		errMsg = e.Error()
 	}
 	return
+}
+
+type Libs []Lib
+
+func (me Libs) indexOf(dirPath string) int {
+	for i := range me {
+		if me[i].DirPath == dirPath {
+			return i
+		}
+	}
+	return -1
 }

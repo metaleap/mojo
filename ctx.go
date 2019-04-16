@@ -77,7 +77,6 @@ func (me *Ctx) Init(dirCur string) (err error) {
 			}
 
 			me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
-			me.libs.lookups.dirPaths, me.libs.lookups.libPaths = map[string]int{}, map[string]int{}
 			me.initLibs()
 		}
 	}
@@ -91,6 +90,7 @@ func (me *Ctx) ReadEvalPrint(in string) (out fmt.Stringer, err error) {
 }
 
 func (me *Ctx) Dispose() {
+	me.maybeInitPanic(false)
 	for _, cleanup := range me.cleanUps {
 		if cleanup != nil {
 			cleanup()
