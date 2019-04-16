@@ -6,6 +6,8 @@ import (
 	"github.com/go-leap/dev/lex"
 )
 
+type AstFiles []AstFile
+
 type AstFile struct {
 	TopLevel []AstFileTopLevelChunk
 	errs     struct {
@@ -77,3 +79,14 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 		me.LexAndParseSrc(srcfile)
 	}
 }
+
+func (me AstFiles) Contains(srcFilePath string) bool {
+	for i := range me {
+		if me[i].SrcFilePath == srcFilePath {
+			return true
+		}
+	}
+	return false
+}
+
+func (me *AstFiles) RemoveAt(i int) { *me = append((*me)[:i], (*me)[i+1:]...) }

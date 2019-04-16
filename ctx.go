@@ -1,6 +1,7 @@
 package atem
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,9 +21,9 @@ type Ctx struct {
 		Cache string
 		Libs  []string
 	}
-	Libs Libs
 	libs struct {
 		sync.Mutex
+		Known   Libs
 		lookups struct {
 			dirPaths map[string]int
 			libPaths map[string]int
@@ -40,7 +41,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 
 func (me *Ctx) Init(dirCur string) (err error) {
 	me.maybeInitPanic(true)
-	if me.initCalled, me.Libs = true, nil; dirCur == "" || dirCur == "." {
+	if me.initCalled, me.libs.Known = true, nil; dirCur == "" || dirCur == "." {
 		dirCur, err = os.Getwd()
 	} else if dirCur[0] == '~' {
 		if len(dirCur) > 1 && dirCur[1] == filepath.Separator {
@@ -66,6 +67,14 @@ func (me *Ctx) Init(dirCur string) (err error) {
 		}
 		if libsdirs := me.Dirs.Libs; err == nil {
 			libsdirs = ustr.Merge(ustr.Split(os.Getenv(EnvVarLibDirs), string(os.PathListSeparator)), libsdirs, true)
+			for i := range libsdirs {
+				for j := range libsdirs {
+					if i != j && (ustr.Pref(libsdirs[i], libsdirs[j]) || ustr.Pref(libsdirs[j], libsdirs[i])) {
+						err = errors.New("conflicting libs-dirs: " + libsdirs[i] + " vs. " + libsdirs[j])
+						return
+					}
+				}
+			}
 
 			me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
 			me.libs.lookups.dirPaths, me.libs.lookups.libPaths = map[string]int{}, map[string]int{}
@@ -83,6 +92,8 @@ func (me *Ctx) ReadEvalPrint(in string) (out fmt.Stringer, err error) {
 
 func (me *Ctx) Dispose() {
 	for _, cleanup := range me.cleanUps {
-		cleanup()
+		if cleanup != nil {
+			cleanup()
+		}
 	}
 }

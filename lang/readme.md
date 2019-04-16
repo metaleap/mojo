@@ -239,6 +239,25 @@ type AstFileTopLevelChunk struct {
 ```
 
 
+#### type AstFiles
+
+```go
+type AstFiles []AstFile
+```
+
+
+#### func (AstFiles) Contains
+
+```go
+func (me AstFiles) Contains(srcFilePath string) bool
+```
+
+#### func (*AstFiles) RemoveAt
+
+```go
+func (me *AstFiles) RemoveAt(i int)
+```
+
 #### type AstIdent
 
 ```go

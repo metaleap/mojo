@@ -1,5 +1,9 @@
 package atemrepl
 
+import (
+	"github.com/go-leap/str"
+)
+
 type directive struct {
 	Desc string
 	Run  func(string)
@@ -40,8 +44,10 @@ func (me *Repl) DWelcomeMsg(string) {
 func (me *Repl) DList(what string) {
 	switch what {
 	case "libs":
-		for i := range me.Ctx.Libs {
-			me.decoAddNotice(true, me.Ctx.Libs[i].LibPath, me.Ctx.Libs[i].DirPath)
+		libs := me.Ctx.KnownLibs()
+		for i := range libs {
+			lib := &libs[i]
+			me.decoAddNotice(true, ustr.Combine(lib.LibPath, " ═══!═══ ", lib.Error()), lib.DirPath)
 		}
 	default:
 		println("specify one of: `libs`, `defs`")
