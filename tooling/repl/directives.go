@@ -1,6 +1,8 @@
 package atmorepl
 
 import (
+	"path/filepath"
+
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 )
@@ -125,8 +127,18 @@ func (me *Repl) dInfoLib(whatLib string) {
 	} else {
 		me.IO.writeLns("\""+lib.LibPath+"\"", lib.DirPath)
 
+		me.IO.writeLns("", ustr.Int(len(lib.SrcFiles))+" source file(s) in lib:")
+		numlines, numdefs, numdefsinternal := 0, 0, 0
+		for i := range lib.SrcFiles {
+			sf := &lib.SrcFiles[i]
+			ndi := sf.CountUnexportedTopLevelDefs()
+			numlines, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numdefs+len(sf.TopLevel), numdefsinternal+ndi
+			me.decoAddNotice(true, filepath.Base(sf.SrcFilePath), ustr.Int(sf.LastLoad.NumLines)+" lines, "+ustr.Int(len(sf.TopLevel))+" top-level defs, "+ustr.Int(len(sf.TopLevel)-ndi)+" exported")
+		}
+		me.IO.writeLns("Total: " + ustr.Int(numlines) + " lines, " + ustr.Int(numdefs) + " top-level defs, " + ustr.Int(numdefs-numdefsinternal) + " exported")
+
 		if liberrs := lib.Errs(); len(liberrs) > 0 {
-			me.IO.writeLns("", ustr.Int(len(liberrs))+" error/s:")
+			me.IO.writeLns("", ustr.Int(len(liberrs))+" issue(s) in lib:")
 			for i := range liberrs {
 				errmsg := liberrs[i].Error()
 				if pos := ustr.Pos(errmsg, ": ["); pos > 0 && ustr.Has(errmsg[:pos], atmo.SrcFileExt+":") {
@@ -136,6 +148,7 @@ func (me *Repl) dInfoLib(whatLib string) {
 				}
 			}
 		}
+
 	}
 }
 

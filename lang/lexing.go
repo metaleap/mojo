@@ -90,6 +90,7 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 		}
 		chlast = ch
 	}
+	me.LastLoad.NumLines = curline
 	if lastpos < il {
 		tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:], pos: lastpos, line: lastln})
 	}

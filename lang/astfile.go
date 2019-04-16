@@ -18,6 +18,7 @@ type AstFile struct {
 		Time                 int64
 		size                 int64
 		tokCountInitialGuess int
+		NumLines             int
 	}
 
 	Options struct {
@@ -78,6 +79,15 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	if me.errs.loading == nil && srcfile != nil {
 		me.LexAndParseSrc(srcfile)
 	}
+}
+
+func (me *AstFile) CountUnexportedTopLevelDefs() (count int) {
+	for i := range me.TopLevel {
+		if me.TopLevel[i].Ast.Def != nil && me.TopLevel[i].Ast.DefIsUnexported {
+			count++
+		}
+	}
+	return
 }
 
 func (me AstFiles) Contains(srcFilePath string) bool {
