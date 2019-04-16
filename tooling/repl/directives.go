@@ -1,4 +1,4 @@
-package atemrepl
+package atmorepl
 
 import (
 	"github.com/go-leap/str"

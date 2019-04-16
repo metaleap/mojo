@@ -1,4 +1,4 @@
-package atemrepl
+package atmorepl
 
 import (
 	"io"

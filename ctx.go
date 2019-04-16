@@ -1,4 +1,4 @@
-package atem
+package atmo
 
 import (
 	"errors"
@@ -31,7 +31,7 @@ type Ctx struct {
 
 func (me *Ctx) maybeInitPanic(initingNow bool) {
 	if me.initCalled == initingNow {
-		panic("atem.Ctx.Init must be called exactly once only")
+		panic("atmo.Ctx.Init must be called exactly once only")
 	}
 }
 
@@ -54,7 +54,7 @@ func (me *Ctx) Init(dirCur string) (err error) {
 	}
 	if cachedir := me.Dirs.Cache; err == nil {
 		if cachedir == "" {
-			cachedir = filepath.Join(usys.UserDataDirPath(true), "atem")
+			cachedir = filepath.Join(usys.UserDataDirPath(true), "atmo")
 		}
 		if !ufs.IsDir(cachedir) {
 			err = ufs.EnsureDir(cachedir)

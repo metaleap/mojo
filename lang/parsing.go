@@ -1,4 +1,4 @@
-package atemlang
+package atmolang
 
 import (
 	"github.com/go-leap/dev/lex"

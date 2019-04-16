@@ -1,4 +1,4 @@
-package atem
+package atmo
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
-	"github.com/metaleap/atem/lang"
+	"github.com/metaleap/atmo/lang"
 )
 
 var LibWatchInterval = 1 * time.Second
@@ -21,7 +21,7 @@ type Lib struct {
 	Errors  struct {
 		Reload error
 	}
-	SrcFiles atemlang.AstFiles
+	SrcFiles atmolang.AstFiles
 }
 
 func (me *Ctx) KnownLibs() (known []Lib) {
@@ -116,7 +116,7 @@ func (me *Ctx) initLibs() {
 								}
 							}
 							me.libs.all = append(me.libs.all, Lib{DirPath: libdirpath, LibPath: libpath,
-								SrcFiles: make(atemlang.AstFiles, 0, numfilesguess)})
+								SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
 						}
 						me.libReload(idx)
 					}
@@ -168,7 +168,7 @@ func (me *Ctx) libReload(idx int) {
 	for _, file := range diritems {
 		if (!file.IsDir()) && ustr.Suff(file.Name(), SrcFileExt) {
 			if fp := filepath.Join(this.DirPath, file.Name()); !this.SrcFiles.Contains(fp) {
-				this.SrcFiles = append(this.SrcFiles, atemlang.AstFile{SrcFilePath: fp})
+				this.SrcFiles = append(this.SrcFiles, atmolang.AstFile{SrcFilePath: fp})
 			}
 		}
 	}

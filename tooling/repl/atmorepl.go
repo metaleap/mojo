@@ -1,4 +1,4 @@
-package atemrepl
+package atmorepl
 
 import (
 	"bufio"
@@ -6,11 +6,11 @@ import (
 	"os"
 
 	"github.com/go-leap/str"
-	"github.com/metaleap/atem"
+	"github.com/metaleap/atmo"
 )
 
 type Repl struct {
-	Ctx             atem.Ctx
+	Ctx             atmo.Ctx
 	KnownDirectives directives
 	IO              struct {
 		Stdin           io.Reader

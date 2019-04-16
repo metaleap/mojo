@@ -4,12 +4,12 @@ import (
 	"os"
 
 	"github.com/go-leap/dev/lex"
-	"github.com/metaleap/atem/lang"
+	"github.com/metaleap/atmo/lang"
 )
 
 func mainFmt() {
 	var err error
-	var astfile atemlang.AstFile
+	var astfile atmolang.AstFile
 
 	if len(os.Args) > 2 {
 		astfile.SrcFilePath = os.Args[2]
@@ -27,7 +27,7 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		_, err = os.Stdout.Write(astfile.Print(&atemlang.PrintFormatterMinimal{}))
+		_, err = os.Stdout.Write(astfile.Print(&atmolang.PrintFormatterMinimal{}))
 	}
 
 	if err != nil {

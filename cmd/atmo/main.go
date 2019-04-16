@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-leap/std"
 	"github.com/go-leap/sys"
-	"github.com/metaleap/atem"
+	"github.com/metaleap/atmo"
 )
 
 var (
@@ -13,8 +13,8 @@ var (
 )
 
 func main() {
-	atem.LibWatchInterval = ustd.FlagOfDuration("lib_watch_interval", atem.LibWatchInterval,
-		"    format: time-duration; sets how often to check all known atem libs-dirs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
+	atmo.LibWatchInterval = ustd.FlagOfDuration("lib_watch_interval", atmo.LibWatchInterval,
+		"    format: time-duration; sets how often to check all known atmo libs-dirs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
 
 	atcmd, showinfousage, showinfoargs := usys.Arg(1), false, false
 	switch atcmd {
@@ -32,11 +32,11 @@ func main() {
 
 	if showinfousage {
 		writeLns("", "Usage:", "",
-			"  atem repl",
-			"  atem fmt",
-			"  atem run",
-			"  atem help",
-			"  atem version", "")
+			"  atmo repl",
+			"  atmo fmt",
+			"  atmo run",
+			"  atmo help",
+			"  atmo version", "")
 	}
 
 	if f := ustd.Flags; showinfoargs {

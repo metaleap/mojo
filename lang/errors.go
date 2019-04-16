@@ -1,4 +1,4 @@
-package atemlang
+package atmolang
 
 import (
 	"text/scanner"
