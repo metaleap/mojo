@@ -31,16 +31,38 @@ func (me *Ctx) KnownLibs() (known Libs) {
 	return
 }
 
-func (me *Ctx) LibReachable(lib *Lib) bool {
+func (me *Ctx) KnownLibPaths() (libPaths []string) {
 	me.maybeInitPanic(false)
 	me.libs.Lock()
+	already := make(map[string]bool, len(me.libs.Known))
+	libPaths = make([]string, 0, len(me.libs.Known))
 	for i := range me.libs.Known {
-		if me.libs.Known[i].LibPath == lib.LibPath {
-			return lib == &me.libs.Known[i]
+		if libpath := me.libs.Known[i].LibPath; !already[libpath] {
+			already[libpath], libPaths = true, append(libPaths, libpath)
 		}
 	}
 	me.libs.Unlock()
-	return false
+	return
+}
+
+func (me *Ctx) Lib(libPath string) (lib *Lib) {
+	me.maybeInitPanic(false)
+	me.libs.Lock()
+	if idx := me.libs.Known.indexLibPath(libPath); idx >= 0 {
+		lib = &me.libs.Known[idx]
+	}
+	me.libs.Unlock()
+	return
+}
+
+func (me *Ctx) LibReachable(lib *Lib) (reachable bool) {
+	me.maybeInitPanic(false)
+	me.libs.Lock()
+	if idx := me.libs.Known.indexLibPath(lib.LibPath); idx >= 0 {
+		reachable = (lib == &me.libs.Known[idx])
+	}
+	me.libs.Unlock()
+	return
 }
 
 func (me *Ctx) initLibs() {
@@ -70,7 +92,7 @@ func (me *Ctx) initLibs() {
 				// add any new ones, refresh any potentially-modified ones
 				for libdirpath, numfilesguess := range modlibdirs {
 					if ufs.IsDir(libdirpath) {
-						idx := me.libs.Known.indexOf(libdirpath)
+						idx := me.libs.Known.indexDirPath(libdirpath)
 						if idx < 0 {
 							if idx = len(me.libs.Known); numfilesguess < 4 {
 								numfilesguess = 4
@@ -93,7 +115,7 @@ func (me *Ctx) initLibs() {
 		}))
 
 	handledir = func(dirfullpath string, modlibdirs map[string]int) {
-		if idx := me.libs.Known.indexOf(dirfullpath); idx >= 0 { // dir was previously known as a lib
+		if idx := me.libs.Known.indexDirPath(dirfullpath); idx >= 0 { // dir was previously known as a lib
 			modlibdirs[dirfullpath] = cap(me.libs.Known[idx].SrcFiles)
 		}
 		dircontents, _ := ufs.Dir(dirfullpath)
@@ -168,9 +190,18 @@ func (me *Lib) IsEverLib() bool { return me.LibPath == "ever" }
 
 type Libs []Lib
 
-func (me Libs) indexOf(dirPath string) int {
+func (me Libs) indexDirPath(dirPath string) int {
 	for i := range me {
 		if me[i].DirPath == dirPath {
+			return i
+		}
+	}
+	return -1
+}
+
+func (me Libs) indexLibPath(libPath string) int {
+	for i := range me {
+		if me[i].LibPath == libPath {
 			return i
 		}
 	}

@@ -23,11 +23,7 @@ type Ctx struct {
 	}
 	libs struct {
 		sync.Mutex
-		Known   Libs
-		lookups struct {
-			dirPaths map[string]int
-			libPaths map[string]int
-		}
+		Known Libs
 	}
 
 	cleanUps []func()

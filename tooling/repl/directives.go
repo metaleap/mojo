@@ -60,7 +60,7 @@ func (me *Repl) DList(what string) bool {
 			if numerrs := len(lib.Errs()); numerrs > 0 {
 				errstr = ustr.Int(numerrs) + " error(s)"
 			}
-			me.decoAddNotice(true, ustr.Combine(lib.LibPath, " ═══!═══ ", errstr), lib.DirPath)
+			me.decoAddNotice(true, ustr.Combine("\""+lib.LibPath+"\"", " ══!══ ", errstr), lib.DirPath)
 		}
 	default:
 		return false
@@ -74,8 +74,18 @@ func (me *Repl) DInfo(what string) bool {
 		whatlib, whatname = ustr.BreakOnFirstOrPref(what[1:], "\"")
 	}
 	if whatname == "" {
-		me.IO.writeLns("Info on lib: " + whatlib)
+		lib := me.Ctx.Lib(whatlib)
+		if lib == nil {
+			me.IO.writeLns("unknown lib: `" + whatlib + "`, see known libs via `:l libs`")
+		} else {
+			me.IO.writeLns("\""+lib.LibPath+"\"", lib.DirPath)
+			for _, e := range lib.Errs() {
+				me.IO.writeLns("══!══ " + e.Error())
+			}
+		}
 		return true
+	} else {
+
 	}
 	return false
 }

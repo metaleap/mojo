@@ -37,11 +37,11 @@ x pow y :=
     y < 0   | True  ? 1.0 / (x pow y.neg)
             | False ? *x from 1 To y
 
-f "from" _initial "or" from 1 To 'n' :=
+f from initial To n :=
     True    | n==0  ? initial
             |       ? f from initial To n-1 f
 
-/*  eg.     x pow 3 evaluates already statically to:
+/*  eg.     x pow 3 should evaluate statically to:
         = (*x from 1 To 3)
         = (*x from 1 To 2) *x
         = (*x from 1 To 1) *x *x
