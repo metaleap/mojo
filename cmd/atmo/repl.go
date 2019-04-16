@@ -4,12 +4,21 @@ import (
 	"github.com/metaleap/atmo/tooling/repl"
 )
 
-func mainRepl() {
-	var err error
-	var repl atmorepl.Repl
-	repl.IO.MultiLineSuffix = ",,,"
+var (
+	replMultiLineSuffix    = ",,,"
+	replAdditionalLibsDirs []string
+)
 
-	if err = repl.Ctx.Init("."); err == nil {
+func mainRepl() {
+	var repl atmorepl.Repl
+	repl.IO.MultiLineSuffix = replMultiLineSuffix
+	repl.Ctx.Dirs.Libs = replAdditionalLibsDirs
+
+	warns, err := repl.Ctx.Init(".")
+	for _, e := range warns {
+		println(e.Error())
+	}
+	if err == nil {
 		repl.Run(true)
 		repl.Ctx.Dispose()
 	}

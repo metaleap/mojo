@@ -34,16 +34,18 @@ func (me *Repl) init() {
 func (me *Repl) decoInputStart() {
 	me.run.multiLnInputHadLeadingTabs = false
 	me.IO.writeLns("┌" + sepLine)
-	me.decoInputAddLine()
+	me.decoInputBeginLine("")
 }
 
 func (me *Repl) decoInputDone() {
 	me.IO.writeLns("└" + sepLine)
 }
 
-func (me *Repl) decoInputAddLine() {
+func (me *Repl) decoInputBeginLine(andThen string) {
 	me.IO.write("│", 1)
-	me.IO.write(" ", me.run.indent)
+	if me.IO.write(" ", me.run.indent); len(andThen) > 0 {
+		me.IO.write(andThen, 1)
+	}
 }
 
 func (me *Repl) decoAddNotice(compact bool, noticeLines ...string) {

@@ -70,7 +70,7 @@ func (me *Repl) DReload(string) bool {
 
 func (me *Repl) DList(what string) bool {
 	switch what {
-	case "libs":
+	case "libs", "":
 		me.dListLibs()
 	default:
 		return false
@@ -79,16 +79,17 @@ func (me *Repl) DList(what string) bool {
 }
 
 func (me *Repl) dListLibs() {
+	me.IO.writeLns("From current search paths:")
+	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Libs, func(s string) string { return "─── " + s })...)
+
 	libs := me.Ctx.KnownLibs()
-	me.IO.writeLns("", ustr.Int(len(libs))+" known libs:")
+	me.IO.writeLns("", "found "+ustr.Int(len(libs))+" known libs:")
 	for i := range libs {
 		lib := &libs[i]
 		numerrs := len(lib.Errs())
 		me.decoAddNotice(true, "\""+lib.LibPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Int(numerrs)+" error(s)"))
 	}
-	me.IO.writeLns("", "were found in the following "+ustr.Int(len(me.Ctx.Dirs.Libs)), "currently active search paths:")
-	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Libs, func(s string) string { return "─── " + s })...)
-	me.IO.writeLns("", "for lib details use `:info \"<lib>\"`")
+	me.IO.writeLns("", "(for lib details use `:info \"<lib>\"`)")
 }
 
 func (me *Repl) DInfo(what string) bool {

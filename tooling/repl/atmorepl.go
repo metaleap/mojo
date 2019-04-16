@@ -45,7 +45,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 					me.run.indent++
 				}
 			}
-			me.decoInputAddLine()
+			me.decoInputBeginLine("")
 			continue
 		}
 
@@ -55,7 +55,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 					if me.run.indent, multiln = multiLnMinIndent, inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]+"\n  "; isdefbegin {
 						multiln = inputln + "\n  "
 					}
-					me.decoInputAddLine()
+					me.decoInputBeginLine("")
 					continue
 				}
 			} else if multiln, me.run.indent, inputln = "", 0, ustr.Trim(multiln+inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]); inputln == "" {
@@ -71,7 +71,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 		case multiln != "":
 			me.run.indent += numleadingspaces
 			multiln += ustr.Times(" ", numleadingspaces) + inputln + "\n" + ustr.Times(" ", me.run.indent)
-			me.decoInputAddLine()
+			me.decoInputBeginLine("")
 			continue
 
 		// else, a directive?

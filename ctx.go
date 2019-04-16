@@ -39,7 +39,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 	}
 }
 
-func (me *Ctx) Init(dirCur string) (err error) {
+func (me *Ctx) Init(dirCur string) (warnings []error, err error) {
 	me.maybeInitPanic(true)
 	if me.initCalled, me.libs.all = true, nil; dirCur == "" || dirCur == "." {
 		dirCur, err = os.Getwd()
@@ -73,10 +73,16 @@ func (me *Ctx) Init(dirCur string) (err error) {
 			for i := range libsdirs {
 				libsdirs[i] = filepath.Clean(libsdirs[i])
 			}
-			libsdirs = ustr.Merge(libsdirsenv, libsdirs, true)
+			libsdirs = ustr.Merge(libsdirsenv, libsdirs, func(ldp string) bool {
+				if ldp != "" && !ufs.IsDir(ldp) {
+					warnings = append(warnings, &os.PathError{Op: "libs-dir", Path: ldp, Err: os.ErrNotExist})
+					return true
+				}
+				return ldp == ""
+			})
 			for i := range libsdirs {
 				for j := range libsdirs {
-					if i != j && (ustr.Pref(libsdirs[i], libsdirs[j]) || ustr.Pref(libsdirs[j], libsdirs[i])) {
+					if iinj, jini := ustr.Pref(libsdirs[i], libsdirs[j]), ustr.Pref(libsdirs[j], libsdirs[i]); i != j && (iinj || jini) {
 						err = errors.New("conflicting libs-dirs: " + libsdirs[i] + " vs. " + libsdirs[j])
 						return
 					}

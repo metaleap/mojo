@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-leap/std"
+	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
 	"github.com/metaleap/atmo"
 )
@@ -14,8 +15,13 @@ var (
 )
 
 func main() {
-	atmo.LibWatchInterval = ustd.FlagOfDuration("lib-watch-interval", 123*time.Millisecond,
+	ustd.FlagsAddShortNames = true
+	atmo.LibWatchInterval = ustd.FlagOfDuration("repl-lib-watch-interval", 123*time.Millisecond,
 		"    format: time-duration; sets how often to check all known atmo libs-dirs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
+	replMultiLineSuffix = ustd.FlagOfString("repl-multiline-suffix", replMultiLineSuffix,
+		"    format: text; sets the line suffix that begins or ends a multi-line input")
+	replAdditionalLibsDirs = ustd.FlagOfStrings("repl-libsdirs", replAdditionalLibsDirs, string(os.PathListSeparator),
+		"    format: text (1 or more libs search-paths joined by `"+string(os.PathListSeparator)+"`)\n    will be used in addition to those in $"+atmo.EnvVarLibDirs)
 
 	atcmd, showinfousage, showinfoargs := usys.Arg(1), false, false
 	switch atcmd {
@@ -43,7 +49,7 @@ func main() {
 	if f := ustd.Flags; showinfoargs {
 		writeLns("", "Optional flags:", "")
 		for i := range f {
-			writeLns("  --"+f[i].Name+" (default: "+f[i].Default+")", f[i].Desc, "")
+			writeLns("  --"+f[i].Name+" or --"+f[i].ShortName()+" (default: "+ustr.If(f[i].Default != "", f[i].Default, "<empty>")+")", f[i].Desc, "")
 		}
 	}
 }
