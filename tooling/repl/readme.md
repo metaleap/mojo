@@ -39,12 +39,6 @@ func (me *Repl) DList(what string) bool
 func (me *Repl) DQuit(string) bool
 ```
 
-#### func (*Repl) DWelcomeMsg
-
-```go
-func (me *Repl) DWelcomeMsg(string) bool
-```
-
 #### func (*Repl) Run
 
 ```go

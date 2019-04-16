@@ -32,7 +32,7 @@ type Repl struct {
 
 func (me *Repl) Run(showWelcomeMsg bool) {
 	if me.init(); showWelcomeMsg {
-		me.DWelcomeMsg("")
+		me.DInfo("")
 	}
 	me.decoInputStart()
 	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan(); {
@@ -77,17 +77,17 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 		// else, a directive?
 		case inputln[0] == ':':
 			me.decoInputDone()
-			dletter, dargs := ustr.BreakOnFirstOrPref(inputln[1:], " ")
+			dname, dargs := ustr.BreakOnFirstOrPref(inputln[1:], " ")
 			var found *directive
-			if len(dletter) > 0 {
-				if found = me.KnownDirectives.By(dletter[0]); found != nil {
+			if len(dname) > 0 {
+				if found = me.KnownDirectives.By(dname); found != nil {
 					if dargs = ustr.Trim(dargs); !found.Run(dargs) {
-						me.IO.writeLns("directive `:"+dletter+"` does not understand `"+dargs+"`,", "as a reminder:", "   :"+found.Desc)
+						me.IO.writeLns("directive `:"+dname+"` does not understand `"+dargs+"`,", "as a reminder:", "   :"+found.Desc)
 					}
 				}
 			}
 			if found == nil {
-				me.IO.writeLns("unknown directive `:" + dletter + "` — try: ")
+				me.IO.writeLns("unknown directive `:" + dname + "` — try: ")
 				for i := range me.KnownDirectives {
 					me.IO.writeLns("   :" + me.KnownDirectives[i].Desc)
 				}
