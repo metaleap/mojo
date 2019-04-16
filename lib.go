@@ -17,7 +17,7 @@ func init() { ufs.WalkReadDirFunc = ufs.Dir }
 type Lib struct {
 	LibPath string
 	DirPath string
-	Errs    struct {
+	Errors  struct {
 		Refresh error
 	}
 	SrcFiles atemlang.AstFiles
@@ -29,6 +29,18 @@ func (me *Ctx) KnownLibs() (known Libs) {
 	known = me.libs.Known
 	me.libs.Unlock()
 	return
+}
+
+func (me *Ctx) LibReachable(lib *Lib) bool {
+	me.maybeInitPanic(false)
+	me.libs.Lock()
+	for i := range me.libs.Known {
+		if me.libs.Known[i].LibPath == lib.LibPath {
+			return lib == &me.libs.Known[i]
+		}
+	}
+	me.libs.Unlock()
+	return false
 }
 
 func (me *Ctx) initLibs() {
@@ -67,6 +79,7 @@ func (me *Ctx) initLibs() {
 							for _, ldp := range me.Dirs.Libs {
 								if ustr.Pref(libdirpath, ustr.TrimR(ldp, "/\\")+string(os.PathSeparator)) {
 									libpath = ustr.TrimLR(ustr.ReplB(libdirpath[len(ldp):], '\\', '/'), "/")
+									break
 								}
 							}
 							me.libs.Known = append(me.libs.Known, Lib{DirPath: libdirpath, LibPath: libpath,
@@ -100,7 +113,7 @@ func (me *Ctx) libRefresh(idx int) {
 	diritems, e := ufs.Dir(lib.DirPath)
 	if e != nil {
 		lib.SrcFiles = lib.SrcFiles[0:0]
-		lib.Errs.Refresh = e
+		lib.Errors.Refresh = e
 		return
 	}
 	// any deleted files get forgotten now
@@ -119,16 +132,27 @@ func (me *Ctx) libRefresh(idx int) {
 			}
 		}
 	}
+
+	for i := range lib.SrcFiles {
+		lib.SrcFiles[i].LexAndParseFile(true, false)
+	}
 }
 
-func (me *Lib) Err() error {
-	if me.Errs.Refresh != nil {
-		return me.Errs.Refresh
+func (me *Lib) Errs() (errs []error) {
+	if me.Errors.Refresh != nil {
+		errs = append(errs, me.Errors.Refresh)
 	}
 	for i := range me.SrcFiles {
 		for _, e := range me.SrcFiles[i].Errs() {
-			return e
+			errs = append(errs, e)
 		}
+	}
+	return
+}
+
+func (me *Lib) Err() error {
+	if errs := me.Errs(); len(errs) > 0 {
+		return errs[0]
 	}
 	return nil
 }
@@ -139,6 +163,8 @@ func (me *Lib) Error() (errMsg string) {
 	}
 	return
 }
+
+func (me *Lib) IsEverLib() bool { return me.LibPath == "ever" }
 
 type Libs []Lib
 

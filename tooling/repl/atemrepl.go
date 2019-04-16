@@ -81,7 +81,9 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 			var found *directive
 			if len(dletter) > 0 {
 				if found = me.KnownDirectives.By(dletter[0]); found != nil {
-					found.Run(dargs)
+					if dargs = ustr.Trim(dargs); !found.Run(dargs) {
+						me.IO.writeLns("directive `:"+dletter+"` does not understand `"+dargs+"`,", "as a reminder:", "   :"+found.Desc)
+					}
 				}
 			}
 			if found == nil {

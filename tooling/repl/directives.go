@@ -4,14 +4,22 @@ import (
 	"github.com/go-leap/str"
 )
 
+func (me *Repl) initEnsureDefaultDirectives() {
+	kd := me.KnownDirectives.ensure
+	kd("q · quit", me.DQuit)
+	kd("h · help", me.DWelcomeMsg)
+	kd("l · list <libs|defs>", me.DList)
+	kd("i · info on [\"libpath\"] [name]", me.DInfo)
+}
+
 type directive struct {
 	Desc string
-	Run  func(string)
+	Run  func(string) bool
 }
 
 type directives []directive
 
-func (me *directives) ensure(desc string, run func(string)) {
+func (me *directives) ensure(desc string, run func(string) bool) {
 	if found := me.By(desc[0]); found != nil {
 		found.Desc, found.Run = desc, run
 	} else {
@@ -28,31 +36,46 @@ func (me directives) By(letter byte) *directive {
 	return nil
 }
 
-func (me *Repl) DQuit(string) {
+func (me *Repl) DQuit(string) bool {
 	me.run.quit = true
+	return true
 }
 
-func (me *Repl) DWelcomeMsg(string) {
+func (me *Repl) DWelcomeMsg(string) bool {
 	me.IO.writeLns(
 		"", "— repl directives begin with `:`,\n  any other inputs are eval'd",
 		"", "— a line ending in "+me.IO.MultiLineSuffix+" begins\n  or ends a multi-line input",
 		"", "— for proper line-editing, run via\n  `rlwrap` or `rlfe` or similar.",
 		"",
 	)
+	return true
 }
 
-func (me *Repl) DList(what string) {
+func (me *Repl) DList(what string) bool {
 	switch what {
 	case "libs":
 		libs := me.Ctx.KnownLibs()
 		for i := range libs {
-			lib := &libs[i]
-			me.decoAddNotice(true, ustr.Combine(lib.LibPath, " ═══!═══ ", lib.Error()), lib.DirPath)
+			errstr, lib := "", &libs[i]
+			if numerrs := len(lib.Errs()); numerrs > 0 {
+				errstr = ustr.Int(numerrs) + " error(s)"
+			}
+			me.decoAddNotice(true, ustr.Combine(lib.LibPath, " ═══!═══ ", errstr), lib.DirPath)
 		}
 	default:
-		println("specify one of: `libs`, `defs`")
+		return false
 	}
+	return true
 }
 
-func (me *Repl) DReloadLib(libPath string) {
+func (me *Repl) DInfo(what string) bool {
+	var whatlib, whatname string
+	if whatname = what; what[0] == '"' {
+		whatlib, whatname = ustr.BreakOnFirstOrPref(what[1:], "\"")
+	}
+	if whatname == "" {
+		me.IO.writeLns("Info on lib: " + whatlib)
+		return true
+	}
+	return false
 }

@@ -16,14 +16,6 @@ var (
 	sepLine = ustr.Times("─", 41)
 )
 
-func (me *Repl) initEnsureDefaultDirectives() {
-	kd := me.KnownDirectives.ensure
-	kd("q · quit", me.DQuit)
-	kd("h · help", me.DWelcomeMsg)
-	// kd("r · (re)load the specified libs\n        (or all if none given)", me.DReloadLib)
-	kd("l · list <libs|defs>", me.DList)
-}
-
 func (me *Repl) init() {
 	me.run.quit, me.run.indent, me.run.multiLnInputHadLeadingTabs = false, 0, false
 
