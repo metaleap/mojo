@@ -95,10 +95,6 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 					a++
 				}
 			}
-			// if def.Name.IsOpish && len(def.Args) != 2 && len(def.Args) != 0 {
-			// 	err = errSyntax(&def.Args[len(def.Args)-1].Tokens[0], "operator definitions must have 2 arguments rather than "+ustr.Int(len(def.Args)))
-			// 	return
-			// }
 			if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
 				me.indentHint = tokheadbodysep.Meta.Position.Column - 1
 			}
@@ -256,8 +252,9 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 }
 
 func (me *ctxParseTld) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
+	const errmsg = "missing definitions following `,` comma"
 	if len(toks) == 1 {
-		err = errSyntax(&toks[0], "missing definitions following `,` comma")
+		err = errSyntax(&toks[0], errmsg)
 		return
 	}
 	var body IAstExpr
@@ -270,7 +267,7 @@ func (me *ctxParseTld) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, 
 		lasttokforerr := &toks[0]
 		for i := range chunks {
 			if len(chunks[i]) == 0 {
-				err = errSyntax(lasttokforerr, "missing definitions following `,` comma")
+				err = errSyntax(lasttokforerr, errmsg)
 			} else if err = me.parseDef(chunks[i], false, &let.Defs[i]); err == nil {
 				lasttokforerr = chunks[i].Last(nil)
 			}
