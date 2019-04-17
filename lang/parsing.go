@@ -24,9 +24,8 @@ func init() {
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	toks := this.Ast.Tokens
 	if this.Ast.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		if this.Ast.Def, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil && this.Ast.Def.Name.Val[0] == '_' {
-			this.Ast.DefIsUnexported = true
-			this.Ast.Def.Name.Val = this.Ast.Def.Name.Val[1:]
+		if this.Ast.Def, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil {
+			this.Ast.DefIsUnexported = (this.Ast.Def.Name.Val[0] == '_')
 		}
 	}
 }
@@ -60,7 +59,11 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 		toks = tokens.SansComments(me.mtc, me.mto)
 	}
 	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
-		err = errSyntax(&tokens[0], "missing: definition body following `:=`")
+		if tokens[0].Meta.Position.Column == 1 {
+			err = errSyntax(&tokens[0], "missing: definition body following `:=`")
+		} else {
+			err = errSyntax(&tokens[0], "subsequent line in top-level expression needs more indentation")
+		}
 	} else if len(tokshead) == 0 {
 		err = errSyntax(&tokens[0], "missing: definition name preceding `:=`")
 	} else if toksheads := tokshead.Chunked(","); len(toksheads[0]) == 0 {

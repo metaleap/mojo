@@ -9,9 +9,9 @@ import (
 
 func (me *Repl) initEnsureDefaultDirectives() {
 	kd := me.KnownDirectives.ensure
-	kd("quit", me.DQuit)
-	kd("info [\"libpath\"] [name]", me.DInfo)
 	kd("list <libs | defs | \"libpath\">", me.DList)
+	kd("info [\"libpath\"] [name]", me.DInfo)
+	kd("quit", me.DQuit)
 	if atmo.LibsWatchInterval == 0 {
 		kd("reload", me.DReload) //\n      (reloads modified code in known libs)", me.DReload)
 	}
@@ -138,12 +138,7 @@ func (me *Repl) DInfo(what string) bool {
 }
 
 func (me *Repl) dInfo() {
-	me.IO.writeLns(
-		"", "— repl directives begin with `:`,\n  any other inputs are eval'd",
-		"", "— a line ending in "+me.IO.MultiLineSuffix+" begins\n  or ends a multi-line input",
-		"", "— for proper line-editing, run via\n  `rlwrap` or `rlfe` or similar.",
-		"",
-	)
+	me.IO.writeLns(me.run.welcomeMsgLines...)
 }
 
 func (me *Repl) dInfoLib(whatLib string) {

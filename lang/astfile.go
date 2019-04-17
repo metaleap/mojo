@@ -16,11 +16,10 @@ type AstFile struct {
 	LastLoad struct {
 		Src                  []byte
 		Time                 int64
-		size                 int64
-		tokCountInitialGuess int
+		Size                 int64
+		TokCountInitialGuess int
 		NumLines             int
 	}
-
 	Options struct {
 		ApplStyle ApplStyle
 	}
@@ -60,7 +59,7 @@ func (me *AstFile) Tokens() udevlex.Tokens {
 func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
 	if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
-			if me.LastLoad.size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
+			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
 				if modtime := srcfileinfo.ModTime().UnixNano(); modtime > 0 && me.LastLoad.Time > modtime {
 					return
 				}

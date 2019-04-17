@@ -29,13 +29,15 @@ type Repl struct {
 		quit                       bool
 		indent                     int
 		multiLnInputHadLeadingTabs bool
+		welcomeMsgLines            []string
 	}
 }
 
-func (me *Repl) Run(showWelcomeMsg bool) {
+func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 	me.init()
 	if me.decoCtxMsgsIfAny(); showWelcomeMsg {
-		me.DInfo("")
+		me.run.welcomeMsgLines = welcomeMsgLines
+		me.decoWelcomeMsgAnim()
 	}
 	me.decoInputStart(false)
 	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan(); {

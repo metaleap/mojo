@@ -74,6 +74,18 @@ func (me *Repl) decoCtxMsgsIfAny() {
 	}
 }
 
+func (me *Repl) decoWelcomeMsgAnim() {
+	me.IO.writeLns("")
+	me.decoInputStart(false)
+	time.Sleep(345 * time.Millisecond)
+	for _, s := range []string{":", "i", "n", "f", "o", "\n"} {
+		time.Sleep(234 * time.Millisecond)
+		me.IO.write(s, 1)
+	}
+	me.decoInputDone(false)
+	me.DInfo("")
+}
+
 func trimAndCountPrefixRunes(s string) (trimmed string, count int, numtabs int) {
 	for _, r := range s {
 		if r == ' ' {

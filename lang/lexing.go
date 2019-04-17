@@ -10,13 +10,13 @@ import (
 )
 
 type AstFileTopLevelChunk struct {
-	src    []byte
-	offset struct {
-		line int
-		pos  int
+	Src    []byte
+	Offset struct {
+		Line int
+		Pos  int
 	}
-	dirty bool
-	errs  struct {
+	srcDirty bool
+	errs     struct {
 		lexing  []*udevlex.Error
 		parsing *Error
 	}
@@ -25,16 +25,17 @@ type AstFileTopLevelChunk struct {
 
 func (me *AstFile) LexAndParseSrc(r io.Reader) {
 	var src []byte
-	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.size); me.errs.loading == nil {
-		if me.LastLoad.size = int64(len(src)); bytes.Equal(src, me.LastLoad.Src) {
+	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading == nil {
+		if me.LastLoad.Size = int64(len(src)); bytes.Equal(src, me.LastLoad.Src) {
 			return
 		}
 		me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src
 		me.populateTopLevelChunksFrom(src)
 		for i := range me.TopLevel {
-			if this := &me.TopLevel[i]; this.dirty {
-				this.Ast.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.src},
-					me.SrcFilePath, this.offset.line, this.offset.pos, me.LastLoad.tokCountInitialGuess)
+			if this := &me.TopLevel[i]; this.srcDirty {
+				this.errs.parsing, this.Ast.Comments, this.Ast.Def = nil, nil, nil
+				this.Ast.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.Src},
+					me.SrcFilePath, this.Offset.Line, this.Offset.Pos, me.LastLoad.TokCountInitialGuess)
 				if len(this.errs.lexing) == 0 {
 					me.parse(this)
 				}
@@ -53,62 +54,74 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 
 	// stage ONE: go over all src bytes and gather `tlchunks`
 
-	var newline, istoplevelfulllinecomment, wastoplevelfulllinecomment, inmultilinecomment bool
+	var newline, istoplevelfulllinecomment, inmultilinecomment, inlinecomment bool
 	var curline, lastpos, lastln int
 	var chlast byte
-	if len(src) > 0 {
-		chlast = src[0]
-	}
-	if me.LastLoad.tokCountInitialGuess = 0; chlast == '\n' {
-		curline = 1
-	}
-	il := len(src) - 1
-	for i, l := 1, len(src); i < l; i++ {
+	me.LastLoad.TokCountInitialGuess = 0
+	allemptysofar, il := true, len(src)-1
+	for i, l := 0, len(src); i < l; i++ {
 		ch := src[i]
+		if allemptysofar && !(ch == '\n' || ch == ' ' || ch == '\t' || ch == '\v' || ch == '\r' || ch == '\b') {
+			allemptysofar, lastpos, lastln = false, i, curline
+		}
 		if inmultilinecomment {
 			if chlast == '*' && ch == '/' {
 				inmultilinecomment = false
 			}
-		} else if (!istoplevelfulllinecomment) && chlast == '/' && ch == '*' {
+		} else if (!inlinecomment) && chlast == '/' && ch == '*' {
 			inmultilinecomment = true
+		} else if (!inlinecomment) && chlast == '/' && ch == '/' {
+			inlinecomment = true
 		}
 
 		if ch == '\n' {
-			wastoplevelfulllinecomment, istoplevelfulllinecomment, newline, curline, me.LastLoad.tokCountInitialGuess = istoplevelfulllinecomment, false, true, curline+1, me.LastLoad.tokCountInitialGuess+1
+			inlinecomment, istoplevelfulllinecomment, newline, curline =
+				false, false, true, curline+1
 		} else if newline {
 			if newline = false; (!inmultilinecomment) && ch != ' ' {
 				isntlast := i < il
 				istoplevelfulllinecomment = isntlast && ch == '/' && src[i+1] == '/'
-				if !(istoplevelfulllinecomment && wastoplevelfulllinecomment) {
+				// naive at first: every non-indented line begins its own new chunk. after the loop we merge comments directly prefixed to defs
+				if lastpos != i {
 					tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:i], pos: lastpos, line: lastln})
-					lastpos, lastln = i, curline
 				}
+				lastpos, lastln = i, curline
 			}
-		} else if (!istoplevelfulllinecomment) && (!inmultilinecomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
-			me.LastLoad.tokCountInitialGuess++
+		} else if (!(istoplevelfulllinecomment || inmultilinecomment || inlinecomment)) && ch == ' ' && chlast != ' ' {
+			me.LastLoad.TokCountInitialGuess++
 		}
 		chlast = ch
 	}
 	if me.LastLoad.NumLines = curline; lastpos < il {
 		tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:], pos: lastpos, line: lastln})
 	}
+	for i := len(tlchunks) - 1; i > 0; i-- {
+		if tlchunks[i-1].line == tlchunks[i].line-1 && // belong together?
+			len(tlchunks[i-1].src) >= 2 && tlchunks[i-1].src[0] == '/' && tlchunks[i-1].src[1] == '/' {
+			tlchunks[i-1].src = append(tlchunks[i-1].src, tlchunks[i].src...)
+			for j := i; j < len(tlchunks)-1; j++ {
+				tlchunks[j] = tlchunks[j+1]
+			}
+			tlchunks = tlchunks[0 : len(tlchunks)-1]
+		}
+	}
 
 	// stage TWO: compare gathered `tlchunks` to existing `AstFileTopLevelChunk`s in `me.TopLevel`,
 	// dropping those that are gone, adding those that are new, and repositioning others as needed
 
-	unchanged := make(map[int]int, len(tlchunks))
-	for o := range me.TopLevel {
-		for n := range tlchunks {
-			if bytes.Equal(me.TopLevel[o].src, tlchunks[n].src) {
-				unchanged[n] = o
+	srcsame := make(map[int]int, len(tlchunks))
+	for oldidx := range me.TopLevel {
+		for newidx := range tlchunks {
+			if bytes.Equal(me.TopLevel[oldidx].Src, tlchunks[newidx].src) {
+				srcsame[newidx] = oldidx
 				break
 			}
 		}
 	}
-	allthesame := len(unchanged) == len(me.TopLevel) && len(me.TopLevel) == len(tlchunks)
+	allthesame := len(srcsame) == len(me.TopLevel) && len(me.TopLevel) == len(tlchunks)
 	if allthesame {
-		for n, o := range unchanged {
-			if n != o {
+		for newidx, oldidx := range srcsame {
+			if newidx != oldidx {
 				allthesame = false
 				break
 			}
@@ -118,13 +131,13 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 		oldtlc := me.TopLevel
 		me._toks, me.TopLevel = nil, make([]AstFileTopLevelChunk, len(tlchunks))
 		for i := range tlchunks {
-			if o, ok := unchanged[i]; ok {
-				me.TopLevel[i] = oldtlc[o]
+			if oldidx, ok := srcsame[i]; ok {
+				me.TopLevel[i] = oldtlc[oldidx]
 			} else {
-				me.TopLevel[i].src = tlchunks[i].src
-				me.TopLevel[i].dirty = true
+				me.TopLevel[i].Src = tlchunks[i].src
+				me.TopLevel[i].srcDirty = true
 			}
-			me.TopLevel[i].offset.line, me.TopLevel[i].offset.pos = tlchunks[i].line, tlchunks[i].pos
+			me.TopLevel[i].Offset.Line, me.TopLevel[i].Offset.Pos = tlchunks[i].line, tlchunks[i].pos
 		}
 	}
 }
