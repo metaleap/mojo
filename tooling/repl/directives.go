@@ -71,11 +71,12 @@ func (me *Repl) DReload(string) bool {
 }
 
 func (me *Repl) DList(what string) bool {
-	switch what {
-	case "libs", "":
+	if what == "" || ustr.Pref("libs", what) {
 		me.dListLibs()
-	default:
-		return false
+	} else if ustr.Pref("defs", what) {
+		me.dListDefs("")
+	} else {
+		me.dListDefs(what)
 	}
 	return true
 }
@@ -92,6 +93,44 @@ func (me *Repl) dListLibs() {
 		me.decoAddNotice(true, "\""+lib.LibPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Int(numerrs)+" error(s)"))
 	}
 	me.IO.writeLns("", "(to see lib details, use `:info \"<lib>\"`)")
+}
+
+func (me *Repl) dListDefs(whatLib string) {
+	if whatLib != "" && whatLib[0] == '"' && len(whatLib) > 1 {
+		whatLib = ustr.If(whatLib[len(whatLib)-1] != '"', whatLib[1:], whatLib[1:len(whatLib)-1])
+	}
+	if whatLib == "" {
+		me.IO.writeLns("TODO: list all defs")
+	} else if lib := me.Ctx.Lib(whatLib); lib == nil {
+		me.IO.writeLns("unknown lib: `" + whatLib + "`, see known libs via `:list libs`")
+	} else {
+		me.IO.writeLns("", "\""+lib.LibPath+"\"", "    "+lib.DirPath)
+		for i := range lib.SrcFiles {
+			sf := &lib.SrcFiles[i]
+			nd, _ := sf.CountTopLevelDefs()
+			me.IO.writeLns("", ustr.Int(nd)+" top-level def(s) in "+filepath.Base(sf.SrcFilePath)+":")
+			for d := range sf.TopLevel {
+				if def := sf.TopLevel[d].Ast.Def; def != nil {
+					pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
+						"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
+					me.decoAddNotice(true, ustr.Combine(def.Name.Val, " ─── ", pos))
+				}
+			}
+		}
+
+		// if liberrs := lib.Errs(); len(liberrs) > 0 {
+		// 	me.IO.writeLns("", ustr.Int(len(liberrs))+" issue(s) in lib \""+whatLib+"\":")
+		// 	for i := range liberrs {
+		// 		errmsg := liberrs[i].Error()
+		// 		if pos := ustr.Pos(errmsg, ": ["); pos > 0 && ustr.Has(errmsg[:pos], atmo.SrcFileExt+":") {
+		// 			me.decoAddNotice(true, errmsg[:pos], errmsg[pos+2:])
+		// 		} else {
+		// 			me.decoAddNotice(true, errmsg)
+		// 		}
+		// 	}
+		// }
+
+	}
 }
 
 func (me *Repl) DInfo(what string) bool {
@@ -125,7 +164,7 @@ func (me *Repl) dInfoLib(whatLib string) {
 	if lib == nil {
 		me.IO.writeLns("unknown lib: `" + whatLib + "`, see known libs via `:list libs`")
 	} else {
-		me.IO.writeLns("\""+lib.LibPath+"\"", lib.DirPath)
+		me.IO.writeLns("\""+lib.LibPath+"\"", "    "+lib.DirPath)
 
 		me.IO.writeLns("", ustr.Int(len(lib.SrcFiles))+" source file(s) in lib \""+whatLib+"\":")
 		numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
