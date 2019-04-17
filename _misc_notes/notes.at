@@ -34,8 +34,9 @@ list rest :=
 
 
 x pow y :=
-    y < 0   | True  ? 1.0 / (x pow y.neg)
-            | False ? *x from 1 To y
+    y   | < 0   ? 1.0 / (x pow y.neg)
+        |       ? *x from 1 To y
+        // desugars to: y < 0 | True ? then-expr | False ? else-expr
 
 f from initial To n :=
     True    | n==0  ? initial

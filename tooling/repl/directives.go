@@ -160,9 +160,9 @@ func (me *Repl) dInfoLib(whatLib string) {
 			nd, ndi := sf.CountTopLevelDefs()
 			sloc := sf.CountNetLinesOfCode()
 			numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
-			me.decoAddNotice(false, "", true, filepath.Base(sf.SrcFilePath), ustr.Int(sf.LastLoad.NumLines)+" lines ("+ustr.Int(sloc)+" net), "+ustr.Int(nd)+" top-level defs, "+ustr.Int(nd-ndi)+" exported")
+			me.decoAddNotice(false, "", true, filepath.Base(sf.SrcFilePath), ustr.Int(sf.LastLoad.NumLines)+" lines ("+ustr.Int(sloc)+" sloc), "+ustr.Int(nd)+" top-level defs, "+ustr.Int(nd-ndi)+" exported")
 		}
-		me.IO.writeLns("Total: "+ustr.Int(numlines)+" lines ("+ustr.Int(numlinesnet)+" net), "+ustr.Int(numdefs)+" top-level defs, "+ustr.Int(numdefs-numdefsinternal)+" exported",
+		me.IO.writeLns("Total: "+ustr.Int(numlines)+" lines ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Int(numdefs)+" top-level defs, "+ustr.Int(numdefs-numdefsinternal)+" exported",
 			"    (counts exclude failed-to-parse code portions, if any)")
 
 		if liberrs := lib.Errs(); len(liberrs) > 0 {

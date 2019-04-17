@@ -103,7 +103,7 @@ func (me *Ctx) initLibs() {
 		}
 	}
 
-	const modswatchdurationcritical = int64(time.Millisecond)
+	const modswatchdurationcritical = int64(3 * time.Millisecond)
 	modswatcher := ufs.ModificationsWatcher(LibsWatchInterval/2, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
 		if len(mods) > 0 {
 			modlibdirs := map[string]int{}

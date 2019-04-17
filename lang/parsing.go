@@ -2,7 +2,6 @@ package atmolang
 
 import (
 	"github.com/go-leap/dev/lex"
-	"github.com/go-leap/str"
 )
 
 type ApplStyle int
@@ -96,10 +95,10 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 					a++
 				}
 			}
-			if def.Name.IsOpish && len(def.Args) != 2 && len(def.Args) != 0 {
-				err = errSyntax(&def.Args[len(def.Args)-1].Tokens[0], "operator definitions must have 2 arguments rather than "+ustr.Int(len(def.Args)))
-				return
-			}
+			// if def.Name.IsOpish && len(def.Args) != 2 && len(def.Args) != 0 {
+			// 	err = errSyntax(&def.Args[len(def.Args)-1].Tokens[0], "operator definitions must have 2 arguments rather than "+ustr.Int(len(def.Args)))
+			// 	return
+			// }
 			if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
 				me.indentHint = tokheadbodysep.Meta.Position.Column - 1
 			}
@@ -221,9 +220,10 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 		} else if ifthen := alts[i].Chunked("?"); len(ifthen) > 2 {
 			err = errSyntax(&alts[i][0], "malformed `|?` branching: `|` case has more than one `?` result expression")
 		} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i], nil); len(ifthen[0]) == 0 {
+			// the branching's "default" case (empty between `|` and `?`)
 			if len(ifthen[1]) == 0 {
 				err = errSyntax(&alts[i][0], "malformed `|?` branching: default case has no result expression")
-			} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); caseof.defaultIndex >= 0 {
+			} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); err == nil && caseof.defaultIndex >= 0 {
 				err = errSyntax(&alts[i][0], "malformed `|?` branching: encountered a second default case, only at most one is permissible")
 			} else {
 				caseof.defaultIndex = i
@@ -247,9 +247,6 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 					canext.Conds = append(ca.Conds, canext.Conds...)
 					caseof.Alts = append(caseof.Alts[:i], caseof.Alts[i+1:]...)
 					i--
-				} else {
-					err = errSyntax(&ca.Tokens[0], "malformed `|?` branching: case has no result expression")
-					return
 				}
 			}
 		}
