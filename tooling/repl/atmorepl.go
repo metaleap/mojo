@@ -34,6 +34,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 	if me.init(); showWelcomeMsg {
 		me.DInfo("")
 	}
+	me.decoCtxMsgsIfAny()
 	me.decoInputStart()
 	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan(); {
 		inputln, numleadingspaces, numleadingtabs := trimAndCountPrefixRunes(readln.Text())

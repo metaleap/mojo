@@ -14,15 +14,10 @@ func mainRepl() {
 	repl.IO.MultiLineSuffix = replMultiLineSuffix
 	repl.Ctx.Dirs.Libs = replAdditionalLibsDirs
 
-	warns, err := repl.Ctx.Init(".")
-	for _, e := range warns {
-		println(e.Error())
-	}
-	if err == nil {
+	if err := repl.Ctx.Init("."); err == nil {
 		repl.Run(true)
 		repl.Ctx.Dispose()
-	}
-	if err != nil {
+	} else {
 		println(err.Error())
 	}
 }

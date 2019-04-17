@@ -39,6 +39,7 @@ func (me *Repl) decoInputStart() {
 
 func (me *Repl) decoInputDone() {
 	me.IO.writeLns("└" + sepLine)
+	me.decoCtxMsgsIfAny()
 }
 
 func (me *Repl) decoInputBeginLine(andThen string) {
@@ -60,6 +61,15 @@ func (me *Repl) decoAddNotice(compact bool, noticeLines ...string) {
 		noticeLines = append(noticeLines, "", "")
 	}
 	me.IO.writeLns(noticeLines...)
+}
+
+func (me *Repl) decoCtxMsgsIfAny() {
+	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
+		for i := range msgs {
+			me.decoAddNotice(true, msgs[i].Time.Format("15:04:05"), msgs[i].Text)
+		}
+		me.IO.writeLns()
+	}
 }
 
 func trimAndCountPrefixRunes(s string) (trimmed string, count int, numtabs int) {

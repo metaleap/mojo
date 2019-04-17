@@ -13,7 +13,7 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	kd("info [\"libpath\"] [name]", me.DInfo)
 	kd("list <libs | defs | \"libpath\">", me.DList)
 	if atmo.LibWatchInterval == 0 {
-		kd("reload\n      (reloads modified code in known libs)", me.DReload)
+		kd("reload", me.DReload) //\n      (reloads modified code in known libs)", me.DReload)
 	}
 }
 
@@ -141,7 +141,7 @@ func (me *Repl) DInfo(what string) bool {
 		if whatname = what; what[0] == '"' {
 			whatlib, whatname = ustr.BreakOnFirstOrPref(what[1:], "\"")
 		}
-		if whatname == "" {
+		if whatlib, whatname = ustr.Trim(whatlib), ustr.Trim(whatname); whatname == "" {
 			me.dInfoLib(whatlib)
 		} else {
 			me.dInfoDef(whatlib, whatname)

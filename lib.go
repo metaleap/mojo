@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-leap/fs"
+	"github.com/go-leap/std"
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo/lang"
 )
@@ -26,15 +27,15 @@ type Lib struct {
 
 func (me *Ctx) KnownLibs() (known []Lib) {
 	me.maybeInitPanic(false)
-	me.libs.Lock()
+	me.Lock()
 	known = me.libs.all
-	me.libs.Unlock()
+	me.Unlock()
 	return
 }
 
 func (me *Ctx) KnownLibPaths() (libPaths []string) {
 	me.maybeInitPanic(false)
-	me.libs.Lock()
+	me.Lock()
 	already := make(map[string]bool, len(me.libs.all))
 	libPaths = make([]string, 0, len(me.libs.all))
 	for i := range me.libs.all {
@@ -42,41 +43,41 @@ func (me *Ctx) KnownLibPaths() (libPaths []string) {
 			already[libpath], libPaths = true, append(libPaths, libpath)
 		}
 	}
-	me.libs.Unlock()
+	me.Unlock()
 	return
 }
 
 func (me *Ctx) Lib(libPath string) (lib *Lib) {
 	me.maybeInitPanic(false)
-	me.libs.Lock()
+	me.Lock()
 	if idx := me.libs.all.indexLibPath(libPath); idx >= 0 {
 		lib = &me.libs.all[idx]
 	}
-	me.libs.Unlock()
+	me.Unlock()
 	return
 }
 
 func (me *Ctx) LibEver() (lib *Lib) {
 	me.maybeInitPanic(false)
-	me.libs.Lock()
+	me.Lock()
 	lib = &me.libs.all[me.libs.all.indexDirPath(dirPathAutoLib)]
-	me.libs.Unlock()
+	me.Unlock()
 	return
 }
 
 func (me *Ctx) LibReachable(lib *Lib) (reachable bool) {
 	me.maybeInitPanic(false)
-	me.libs.Lock()
+	me.Lock()
 	if idx := me.libs.all.indexLibPath(lib.LibPath); idx >= 0 {
 		reachable = (lib == &me.libs.all[idx])
 	}
-	me.libs.Unlock()
+	me.Unlock()
 	return
 }
 
 func (me *Ctx) ReloadModifiedLibsUnlessAlreadyWatching() {
-	if me.state.manualReload != nil {
-		me.state.manualReload()
+	if me.state.modsWatcher != nil {
+		me.state.modsWatcher()
 	}
 }
 
@@ -102,59 +103,65 @@ func (me *Ctx) initLibs() {
 		}
 	}
 
-	doagain, dostop := ufs.WatchModTimesEvery(LibWatchInterval, LibWatchInterval, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo) {
-		modlibdirs := map[string]int{}
-		for fullpath, fileinfo := range mods {
-			if fileinfo.IsDir() {
-				handledir(fullpath, modlibdirs)
-			} else {
-				dp := filepath.Dir(fullpath)
-				modlibdirs[dp] = modlibdirs[dp] + 1
+	const modswatchdurationcritical = int64(time.Millisecond)
+	modswatcher := ufs.ModificationsWatcher(LibWatchInterval, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
+		if len(mods) > 0 {
+			modlibdirs := map[string]int{}
+			for fullpath, fileinfo := range mods {
+				if fileinfo.IsDir() {
+					handledir(fullpath, modlibdirs)
+				} else {
+					dp := filepath.Dir(fullpath)
+					modlibdirs[dp] = modlibdirs[dp] + 1
+				}
+			}
+
+			if len(modlibdirs) > 0 {
+				me.Lock()
+				// remove libs that have vanished from the file-system
+				for i := 0; i < len(me.libs.all); i++ {
+					if me.libs.all[i].DirPath != dirPathAutoLib && !ufs.IsDir(me.libs.all[i].DirPath) {
+						me.libs.all = append(me.libs.all[:i], me.libs.all[i+1:]...)
+						i--
+					}
+				}
+				// add any new ones, reload any potentially-modified ones
+				for libdirpath, numfilesguess := range modlibdirs {
+					if ufs.IsDir(libdirpath) || libdirpath == dirPathAutoLib {
+						idx := me.libs.all.indexDirPath(libdirpath)
+						if idx < 0 {
+							if idx = len(me.libs.all); numfilesguess < 4 {
+								numfilesguess = 4
+							}
+							var libpath string
+							for _, ldp := range me.Dirs.Libs {
+								if ustr.Pref(libdirpath, ldp+string(os.PathSeparator)) {
+									if libpath = filepath.Clean(libdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
+										libpath = ustr.Replace(libpath, string(os.PathSeparator), "/")
+									}
+									break
+								}
+							}
+							me.libs.all = append(me.libs.all, Lib{DirPath: libdirpath, LibPath: libpath,
+								SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
+						}
+						me.libReload(idx)
+					}
+				}
+				sort.Sort(me.libs.all)
+				me.Unlock()
 			}
 		}
-
-		if len(modlibdirs) > 0 {
-			me.libs.Lock()
-			// remove libs that have vanished from the file-system
-			for i := 0; i < len(me.libs.all); i++ {
-				if me.libs.all[i].DirPath != dirPathAutoLib && !ufs.IsDir(me.libs.all[i].DirPath) {
-					me.libs.all = append(me.libs.all[:i], me.libs.all[i+1:]...)
-					i--
-				}
-			}
-			// add any new ones, reload any potentially-modified ones
-			for libdirpath, numfilesguess := range modlibdirs {
-				if ufs.IsDir(libdirpath) || libdirpath == dirPathAutoLib {
-					idx := me.libs.all.indexDirPath(libdirpath)
-					if idx < 0 {
-						if idx = len(me.libs.all); numfilesguess < 4 {
-							numfilesguess = 4
-						}
-						var libpath string
-						for _, ldp := range me.Dirs.Libs {
-							if ustr.Pref(libdirpath, ldp+string(os.PathSeparator)) {
-								if libpath = filepath.Clean(libdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
-									libpath = ustr.Replace(libpath, string(os.PathSeparator), "/")
-								}
-								break
-							}
-						}
-						me.libs.all = append(me.libs.all, Lib{DirPath: libdirpath, LibPath: libpath,
-							SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
-					}
-					me.libReload(idx)
-				}
-			}
-			sort.Sort(me.libs.all)
-			me.libs.Unlock()
+		if duration := time.Now().UnixNano() - starttime; duration > modswatchdurationcritical {
+			me.msg(false, "[DBG] note to self, mods-watch took "+time.Duration(duration).String())
 		}
 	})
-	me.cleanUps = append(me.cleanUps, dostop)
-	if me.state.watcherRunning = LibWatchInterval > 0; !me.state.watcherRunning {
-		me.state.manualReload = doagain
+	if modswatchcancel := ustd.DoNowAndThenEvery(LibWatchInterval, modswatcher); modswatchcancel != nil {
+		me.state.modsWatcherRunning, me.state.cleanUps = true, append(me.state.cleanUps, modswatchcancel)
+	} else {
+		me.state.modsWatcher = modswatcher
 	}
 }
-
 func (me *Ctx) libReload(idx int) {
 	this := &me.libs.all[idx]
 
@@ -183,6 +190,11 @@ func (me *Ctx) libReload(idx int) {
 
 	for i := range this.SrcFiles {
 		this.SrcFiles[i].LexAndParseFile(true, false)
+		if errs := this.SrcFiles[i].Errs(); len(errs) > 0 {
+			for _, e := range errs {
+				me.msg(true, e.Error())
+			}
+		}
 	}
 }
 func (me *Lib) Errs() (errs []error) {
