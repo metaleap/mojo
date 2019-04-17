@@ -81,10 +81,27 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	}
 }
 
-func (me *AstFile) CountUnexportedTopLevelDefs() (count int) {
+func (me *AstFile) CountTopLevelDefs() (total int, unexported int) {
 	for i := range me.TopLevel {
-		if me.TopLevel[i].Ast.Def != nil && me.TopLevel[i].Ast.DefIsUnexported {
-			count++
+		if ast := &me.TopLevel[i].Ast; ast.Def != nil {
+			if total++; ast.DefIsUnexported {
+				unexported++
+			}
+		}
+	}
+	return
+}
+
+func (me *AstFile) CountNetLinesOfCode() (sloc int) {
+	var lastline int
+
+	for i := range me.TopLevel {
+		if def := me.TopLevel[i].Ast.Def; def != nil {
+			for t := range def.Tokens {
+				if tok := &def.Tokens[t]; tok.Meta.Line != lastline && tok.Kind() != udevlex.TOKEN_COMMENT {
+					lastline, sloc = tok.Meta.Line, sloc+1
+				}
+			}
 		}
 	}
 	return

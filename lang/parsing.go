@@ -200,6 +200,9 @@ func (me *ctxParseTld) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err
 }
 
 func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
+	if len(toks) == 1 {
+		err = errSyntax(&toks[0], "missing expressions following `|` branching")
+	}
 	var scrutinee IAstExpr
 	if len(accum) > 0 {
 		scrutinee = me.parseExprFinalize(accum, allToks, &toks[0])
@@ -256,6 +259,10 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 }
 
 func (me *ctxParseTld) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *Error) {
+	if len(toks) == 1 {
+		err = errSyntax(&toks[0], "missing definitions following `,` comma")
+		return
+	}
 	var body IAstExpr
 	body = me.parseExprFinalize(accum, allToks, &toks[0])
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
@@ -266,9 +273,9 @@ func (me *ctxParseTld) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, 
 		lasttokforerr := &toks[0]
 		for i := range chunks {
 			if len(chunks[i]) == 0 {
-				err = errSyntax(lasttokforerr, "unexpected empty space between two commas")
+				err = errSyntax(lasttokforerr, "missing definitions following `,` comma")
 			} else if err = me.parseDef(chunks[i], false, &let.Defs[i]); err == nil {
-				lasttokforerr = chunks[i].Last()
+				lasttokforerr = chunks[i].Last(nil)
 			}
 			if err != nil {
 				return

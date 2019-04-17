@@ -85,13 +85,13 @@ func (me *Repl) dListLibs() {
 	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Libs, func(s string) string { return "─── " + s })...)
 
 	libs := me.Ctx.KnownLibs()
-	me.IO.writeLns("", "found "+ustr.Int(len(libs))+" known libs:")
+	me.IO.writeLns("", "found "+ustr.Int(len(libs))+" libs:")
 	for i := range libs {
 		lib := &libs[i]
 		numerrs := len(lib.Errs())
 		me.decoAddNotice(true, "\""+lib.LibPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Int(numerrs)+" error(s)"))
 	}
-	me.IO.writeLns("", "(for lib details use `:info \"<lib>\"`)")
+	me.IO.writeLns("", "(to see lib details, use `:info \"<lib>\"`)")
 }
 
 func (me *Repl) DInfo(what string) bool {
@@ -127,18 +127,20 @@ func (me *Repl) dInfoLib(whatLib string) {
 	} else {
 		me.IO.writeLns("\""+lib.LibPath+"\"", lib.DirPath)
 
-		me.IO.writeLns("", ustr.Int(len(lib.SrcFiles))+" source file(s) in lib:")
-		numlines, numdefs, numdefsinternal := 0, 0, 0
+		me.IO.writeLns("", ustr.Int(len(lib.SrcFiles))+" source file(s) in lib \""+whatLib+"\":")
+		numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
 		for i := range lib.SrcFiles {
 			sf := &lib.SrcFiles[i]
-			ndi := sf.CountUnexportedTopLevelDefs()
-			numlines, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numdefs+len(sf.TopLevel), numdefsinternal+ndi
-			me.decoAddNotice(true, filepath.Base(sf.SrcFilePath), ustr.Int(sf.LastLoad.NumLines)+" lines, "+ustr.Int(len(sf.TopLevel))+" top-level defs, "+ustr.Int(len(sf.TopLevel)-ndi)+" exported")
+			nd, ndi := sf.CountTopLevelDefs()
+			sloc := sf.CountNetLinesOfCode()
+			numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
+			me.decoAddNotice(true, filepath.Base(sf.SrcFilePath), ustr.Int(sf.LastLoad.NumLines)+" lines ("+ustr.Int(sloc)+" net), "+ustr.Int(nd)+" top-level defs, "+ustr.Int(nd-ndi)+" exported")
 		}
-		me.IO.writeLns("Total: " + ustr.Int(numlines) + " lines, " + ustr.Int(numdefs) + " top-level defs, " + ustr.Int(numdefs-numdefsinternal) + " exported")
+		me.IO.writeLns("Total: "+ustr.Int(numlines)+" lines ("+ustr.Int(numlinesnet)+" net), "+ustr.Int(numdefs)+" top-level defs, "+ustr.Int(numdefs-numdefsinternal)+" exported",
+			"    (counts exclude failed-to-parse code portions, if any)")
 
 		if liberrs := lib.Errs(); len(liberrs) > 0 {
-			me.IO.writeLns("", ustr.Int(len(liberrs))+" issue(s) in lib:")
+			me.IO.writeLns("", ustr.Int(len(liberrs))+" issue(s) in lib \""+whatLib+"\":")
 			for i := range liberrs {
 				errmsg := liberrs[i].Error()
 				if pos := ustr.Pos(errmsg, ": ["); pos > 0 && ustr.Has(errmsg[:pos], atmo.SrcFileExt+":") {
@@ -149,6 +151,7 @@ func (me *Repl) dInfoLib(whatLib string) {
 			}
 		}
 
+		me.IO.writeLns("", "", "(to see lib defs, use `:list \""+whatLib+"\"`)")
 	}
 }
 

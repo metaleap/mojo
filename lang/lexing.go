@@ -53,7 +53,7 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 
 	// stage ONE: go over all src bytes and gather `tlchunks`
 
-	var newline, isfulllinecomment, wasfulllinecomment, inmultilinecomment bool
+	var newline, istoplevelfulllinecomment, wastoplevelfulllinecomment, inmultilinecomment bool
 	var curline, lastpos, lastln int
 	var chlast byte
 	if len(src) > 0 {
@@ -69,29 +69,27 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 			if chlast == '*' && ch == '/' {
 				inmultilinecomment = false
 			}
-		} else if (!isfulllinecomment) && chlast == '/' && ch == '*' {
+		} else if (!istoplevelfulllinecomment) && chlast == '/' && ch == '*' {
 			inmultilinecomment = true
 		}
 
 		if ch == '\n' {
-			wasfulllinecomment, isfulllinecomment, newline, curline, me.LastLoad.tokCountInitialGuess = isfulllinecomment, false, true, curline+1, me.LastLoad.tokCountInitialGuess+1
+			wastoplevelfulllinecomment, istoplevelfulllinecomment, newline, curline, me.LastLoad.tokCountInitialGuess = istoplevelfulllinecomment, false, true, curline+1, me.LastLoad.tokCountInitialGuess+1
 		} else if newline {
 			if newline = false; (!inmultilinecomment) && ch != ' ' {
 				isntlast := i < il
-				isfulllinecomment = ch == '/' && isntlast && src[i+1] == '/'
-				if (!(isfulllinecomment && wasfulllinecomment)) &&
-					!(ch != '/' && src[lastpos] == '/' && (src[lastpos+1] == '/') && (i < 2 || src[i-2] != '\n')) {
+				istoplevelfulllinecomment = isntlast && ch == '/' && src[i+1] == '/'
+				if !(istoplevelfulllinecomment && wastoplevelfulllinecomment) {
 					tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:i], pos: lastpos, line: lastln})
 					lastpos, lastln = i, curline
 				}
 			}
-		} else if (!isfulllinecomment) && (!inmultilinecomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
+		} else if (!istoplevelfulllinecomment) && (!inmultilinecomment) && ch == ' ' && chlast != ' ' && chlast != '\n' {
 			me.LastLoad.tokCountInitialGuess++
 		}
 		chlast = ch
 	}
-	me.LastLoad.NumLines = curline
-	if lastpos < il {
+	if me.LastLoad.NumLines = curline; lastpos < il {
 		tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:], pos: lastpos, line: lastln})
 	}
 
