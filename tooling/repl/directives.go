@@ -60,7 +60,7 @@ func (me *Repl) runDirective(name string, args string) {
 	}
 }
 
-func (me *Repl) DQuit(string) bool {
+func (me *Repl) DQuit(s string) bool {
 	me.run.quit = true
 	return true
 }

@@ -1,8 +1,10 @@
 package main
 
 import (
-	"github.com/metaleap/atmo/tooling/repl"
 	"time"
+
+	"github.com/go-leap/sys"
+	"github.com/metaleap/atmo/tooling/repl"
 )
 
 var (
@@ -20,6 +22,7 @@ func mainRepl() {
 	}
 
 	if err := repl.Ctx.Init("."); err == nil {
+		usys.OnSigint(repl.Quit)
 		repl.Run(true,
 			"", "This is a read-eval-print loop (repl).",
 			"", "— repl directives begin with `:`,", "  any other inputs are eval'd",

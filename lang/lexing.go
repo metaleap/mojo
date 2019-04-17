@@ -59,9 +59,8 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 	var chlast byte
 	me.LastLoad.TokCountInitialGuess = 0
 	allemptysofar, il := true, len(src)-1
-	for i, l := 0, len(src); i < l; i++ {
-		ch := src[i]
-		if allemptysofar && !(ch == '\n' || ch == ' ' || ch == '\t' || ch == '\v' || ch == '\r' || ch == '\b') {
+	for i, ch := range src {
+		if allemptysofar && !(ch == '\n' || ch == ' ') {
 			allemptysofar, lastpos, lastln = false, i, curline
 		}
 		if inmultilinecomment {
@@ -95,6 +94,7 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 	if me.LastLoad.NumLines = curline; lastpos < il {
 		tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:], pos: lastpos, line: lastln})
 	}
+	// fix naive tlchunks: stitch together what belongs together
 	for i := len(tlchunks) - 1; i > 0; i-- {
 		if tlchunks[i-1].line == tlchunks[i].line-1 && // belong together?
 			len(tlchunks[i-1].src) >= 2 && tlchunks[i-1].src[0] == '/' && tlchunks[i-1].src[1] == '/' {

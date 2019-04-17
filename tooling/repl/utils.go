@@ -33,7 +33,7 @@ func (me *Repl) init() {
 }
 
 func (me *Repl) decoInputStart(altStyle bool) {
-	me.decoCtxMsgsIfAny()
+	me.decoCtxMsgsIfAny(false)
 	me.run.multiLnInputHadLeadingTabs = false
 	me.IO.writeLns(ustr.If(altStyle, "╔", "┌") + sepLine)
 	me.decoInputBeginLine(altStyle, "")
@@ -41,7 +41,7 @@ func (me *Repl) decoInputStart(altStyle bool) {
 
 func (me *Repl) decoInputDone(altStyle bool) {
 	me.IO.writeLns(ustr.If(altStyle, "╚", "└") + sepLine)
-	me.decoCtxMsgsIfAny()
+	me.decoCtxMsgsIfAny(false)
 }
 
 func (me *Repl) decoInputBeginLine(altStyle bool, andThen string) {
@@ -65,12 +65,21 @@ func (me *Repl) decoAddNotice(altStyle bool, altPrefix string, compact bool, not
 	me.IO.writeLns(noticeLines...)
 }
 
-func (me *Repl) decoCtxMsgsIfAny() {
+func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
 		for i := range msgs {
-			me.decoAddNotice(true, "═!═ ", true, msgs[i].Time.Format("15:04:05"), msgs[i].Text)
+			if me.decoAddNotice(true, "═!═ ", true, msgs[i].Time.Format("15:04:05"), msgs[i].Text); !initial {
+				time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
+			}
 		}
 		me.IO.writeLns("", "")
+	}
+}
+
+func (me *Repl) decoTypingAnim(s string, speed time.Duration) {
+	for _, r := range s {
+		time.Sleep(speed)
+		me.IO.write(string(r), 1)
 	}
 }
 
@@ -78,10 +87,7 @@ func (me *Repl) decoWelcomeMsgAnim() {
 	me.IO.writeLns("")
 	me.decoInputStart(false)
 	time.Sleep(345 * time.Millisecond)
-	for _, s := range []string{":", "i", "n", "f", "o", "\n"} {
-		time.Sleep(234 * time.Millisecond)
-		me.IO.write(s, 1)
-	}
+	me.decoTypingAnim(":info\n", 234*time.Millisecond)
 	me.decoInputDone(false)
 	me.DInfo("")
 }

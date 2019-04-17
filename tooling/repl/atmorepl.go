@@ -35,12 +35,12 @@ type Repl struct {
 
 func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 	me.init()
-	if me.decoCtxMsgsIfAny(); showWelcomeMsg {
+	if me.decoCtxMsgsIfAny(true); showWelcomeMsg {
 		me.run.welcomeMsgLines = welcomeMsgLines
 		me.decoWelcomeMsgAnim()
 	}
 	me.decoInputStart(false)
-	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan(); {
+	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan() && (!me.run.quit); {
 		me.IO.TimeLastInput = time.Now()
 		inputln, numleadingspaces, numleadingtabs := trimAndCountPrefixRunes(readln.Text())
 		me.run.multiLnInputHadLeadingTabs = me.run.multiLnInputHadLeadingTabs || (len(multiln) > 0 && numleadingtabs > 0)
@@ -102,4 +102,12 @@ func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 			me.decoInputStart(false)
 		}
 	}
+}
+
+func (me *Repl) Quit() {
+	me.run.quit = true
+	me.decoTypingAnim(":quit \n", 123*time.Millisecond)
+	me.decoInputDone(false)
+	me.IO.writeLns("")
+	os.Exit(0)
 }
