@@ -3,6 +3,7 @@ package atmorepl
 import (
 	"io"
 	"os"
+	"time"
 
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
@@ -19,8 +20,8 @@ var (
 func (me *Repl) init() {
 	me.run.quit, me.run.indent, me.run.multiLnInputHadLeadingTabs = false, 0, false
 
-	me.IO.Stdin, me.IO.Stderr, me.IO.Stdout =
-		ustd.IfNil(me.IO.Stdin, os.Stdin).(io.Reader), ustd.IfNil(me.IO.Stderr, os.Stderr).(io.Writer), ustd.IfNil(me.IO.Stdout, os.Stdout).(io.Writer)
+	me.IO.TimeLastInput, me.IO.Stdin, me.IO.Stderr, me.IO.Stdout =
+		time.Now(), ustd.IfNil(me.IO.Stdin, os.Stdin).(io.Reader), ustd.IfNil(me.IO.Stderr, os.Stderr).(io.Writer), ustd.IfNil(me.IO.Stdout, os.Stdout).(io.Writer)
 	me.IO.writeLns, me.IO.printLns, me.IO.write =
 		ustd.WriteLines(me.IO.Stdout), ustd.WriteLines(me.IO.Stderr), func(s string, n int) {
 			if n > 0 {
@@ -31,28 +32,29 @@ func (me *Repl) init() {
 	me.initEnsureDefaultDirectives()
 }
 
-func (me *Repl) decoInputStart() {
+func (me *Repl) decoInputStart(altStyle bool) {
+	me.decoCtxMsgsIfAny()
 	me.run.multiLnInputHadLeadingTabs = false
-	me.IO.writeLns("┌" + sepLine)
-	me.decoInputBeginLine("")
+	me.IO.writeLns(ustr.If(altStyle, "╔", "┌") + sepLine)
+	me.decoInputBeginLine(altStyle, "")
 }
 
-func (me *Repl) decoInputDone() {
-	me.IO.writeLns("└" + sepLine)
+func (me *Repl) decoInputDone(altStyle bool) {
+	me.IO.writeLns(ustr.If(altStyle, "╚", "└") + sepLine)
 	me.decoCtxMsgsIfAny()
 }
 
-func (me *Repl) decoInputBeginLine(andThen string) {
-	me.IO.write("│", 1)
+func (me *Repl) decoInputBeginLine(altStyle bool, andThen string) {
+	me.IO.write(ustr.If(altStyle, "║", "│"), 1)
 	if me.IO.write(" ", me.run.indent); len(andThen) > 0 {
 		me.IO.write(andThen, 1)
 	}
 }
 
-func (me *Repl) decoAddNotice(compact bool, noticeLines ...string) {
+func (me *Repl) decoAddNotice(altStyle bool, altPrefix string, compact bool, noticeLines ...string) {
 	for i := range noticeLines {
 		if i == 0 {
-			noticeLines[i] = "├── " + noticeLines[i]
+			noticeLines[i] = ustr.If(altPrefix != "", altPrefix, ustr.If(altStyle, "╠══ ", "├── ")) + noticeLines[i]
 		} else {
 			noticeLines[i] = "    " + noticeLines[i]
 		}
@@ -66,9 +68,9 @@ func (me *Repl) decoAddNotice(compact bool, noticeLines ...string) {
 func (me *Repl) decoCtxMsgsIfAny() {
 	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
 		for i := range msgs {
-			me.decoAddNotice(true, msgs[i].Time.Format("15:04:05"), msgs[i].Text)
+			me.decoAddNotice(true, "═!═ ", true, msgs[i].Time.Format("15:04:05"), msgs[i].Text)
 		}
-		me.IO.writeLns()
+		me.IO.writeLns("", "")
 	}
 }
 

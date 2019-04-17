@@ -26,6 +26,10 @@ type Ctx struct {
 		Cache string
 		Libs  []string
 	}
+	LibsWatch struct {
+		Should func() bool
+	}
+
 	libs struct {
 		all libs
 	}

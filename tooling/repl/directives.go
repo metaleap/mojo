@@ -12,7 +12,7 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	kd("quit", me.DQuit)
 	kd("info [\"libpath\"] [name]", me.DInfo)
 	kd("list <libs | defs | \"libpath\">", me.DList)
-	if atmo.LibWatchInterval == 0 {
+	if atmo.LibsWatchInterval == 0 {
 		kd("reload", me.DReload) //\n      (reloads modified code in known libs)", me.DReload)
 	}
 }
@@ -90,7 +90,7 @@ func (me *Repl) dListLibs() {
 	for i := range libs {
 		lib := &libs[i]
 		numerrs := len(lib.Errs())
-		me.decoAddNotice(true, "\""+lib.LibPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Int(numerrs)+" error(s)"))
+		me.decoAddNotice(false, "", true, "\""+lib.LibPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Int(numerrs)+" error(s)"))
 	}
 	me.IO.writeLns("", "(to see lib details, use `:info \"<lib>\"`)")
 }
@@ -113,23 +113,10 @@ func (me *Repl) dListDefs(whatLib string) {
 				if def := sf.TopLevel[d].Ast.Def; def != nil {
 					pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
 						"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
-					me.decoAddNotice(true, ustr.Combine(def.Name.Val, " ─── ", pos))
+					me.decoAddNotice(false, "", true, ustr.Combine(def.Name.Val, " ─── ", pos))
 				}
 			}
 		}
-
-		// if liberrs := lib.Errs(); len(liberrs) > 0 {
-		// 	me.IO.writeLns("", ustr.Int(len(liberrs))+" issue(s) in lib \""+whatLib+"\":")
-		// 	for i := range liberrs {
-		// 		errmsg := liberrs[i].Error()
-		// 		if pos := ustr.Pos(errmsg, ": ["); pos > 0 && ustr.Has(errmsg[:pos], atmo.SrcFileExt+":") {
-		// 			me.decoAddNotice(true, errmsg[:pos], errmsg[pos+2:])
-		// 		} else {
-		// 			me.decoAddNotice(true, errmsg)
-		// 		}
-		// 	}
-		// }
-
 	}
 }
 
@@ -173,7 +160,7 @@ func (me *Repl) dInfoLib(whatLib string) {
 			nd, ndi := sf.CountTopLevelDefs()
 			sloc := sf.CountNetLinesOfCode()
 			numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
-			me.decoAddNotice(true, filepath.Base(sf.SrcFilePath), ustr.Int(sf.LastLoad.NumLines)+" lines ("+ustr.Int(sloc)+" net), "+ustr.Int(nd)+" top-level defs, "+ustr.Int(nd-ndi)+" exported")
+			me.decoAddNotice(false, "", true, filepath.Base(sf.SrcFilePath), ustr.Int(sf.LastLoad.NumLines)+" lines ("+ustr.Int(sloc)+" net), "+ustr.Int(nd)+" top-level defs, "+ustr.Int(nd-ndi)+" exported")
 		}
 		me.IO.writeLns("Total: "+ustr.Int(numlines)+" lines ("+ustr.Int(numlinesnet)+" net), "+ustr.Int(numdefs)+" top-level defs, "+ustr.Int(numdefs-numdefsinternal)+" exported",
 			"    (counts exclude failed-to-parse code portions, if any)")
@@ -183,9 +170,9 @@ func (me *Repl) dInfoLib(whatLib string) {
 			for i := range liberrs {
 				errmsg := liberrs[i].Error()
 				if pos := ustr.Pos(errmsg, ": ["); pos > 0 && ustr.Has(errmsg[:pos], atmo.SrcFileExt+":") {
-					me.decoAddNotice(true, errmsg[:pos], errmsg[pos+2:])
+					me.decoAddNotice(false, "", true, errmsg[:pos], errmsg[pos+2:])
 				} else {
-					me.decoAddNotice(true, errmsg)
+					me.decoAddNotice(false, "", true, errmsg)
 				}
 			}
 		}

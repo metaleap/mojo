@@ -12,7 +12,7 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-var LibWatchInterval = 1 * time.Second
+var LibsWatchInterval = 1 * time.Second
 
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
@@ -104,7 +104,7 @@ func (me *Ctx) initLibs() {
 	}
 
 	const modswatchdurationcritical = int64(time.Millisecond)
-	modswatcher := ufs.ModificationsWatcher(LibWatchInterval, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
+	modswatcher := ufs.ModificationsWatcher(LibsWatchInterval/2, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
 		if len(mods) > 0 {
 			modlibdirs := map[string]int{}
 			for fullpath, fileinfo := range mods {
@@ -155,9 +155,11 @@ func (me *Ctx) initLibs() {
 		if duration := time.Now().UnixNano() - starttime; duration > modswatchdurationcritical {
 			me.msg(false, "[DBG] note to self, mods-watch took "+time.Duration(duration).String())
 		}
+
 	})
-	if modswatchcancel := ustd.DoNowAndThenEvery(LibWatchInterval, modswatcher); modswatchcancel != nil {
-		me.state.modsWatcherRunning, me.state.cleanUps = true, append(me.state.cleanUps, modswatchcancel)
+	if modswatchcancel := ustd.DoNowAndThenEvery(LibsWatchInterval, me.LibsWatch.Should, modswatcher); modswatchcancel != nil {
+		me.state.modsWatcherRunning, me.state.cleanUps =
+			true, append(me.state.cleanUps, modswatchcancel)
 	} else {
 		me.state.modsWatcher = modswatcher
 	}
