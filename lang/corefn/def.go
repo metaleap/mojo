@@ -5,5 +5,9 @@ import (
 )
 
 type Def struct {
-	Orig *atmolang.AstTopLevel
+	Orig *atmolang.AstFileTopLevelChunk
+}
+
+func (me *Def) populate() {
+
 }

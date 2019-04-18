@@ -14,10 +14,6 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-var (
-	dirPathAutoPack string
-)
-
 type CtxMsg struct {
 	Time time.Time
 	Text string
@@ -30,7 +26,7 @@ type Ctx struct {
 		Cache string
 		Packs []string
 	}
-	AutoPacksWatch struct {
+	OngoingPacksWatch struct {
 		ShouldNow func() bool
 	}
 
@@ -55,7 +51,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 
 func (me *Ctx) Init(dirCur string) (err error) {
 	me.maybeInitPanic(true)
-	if me.state.initCalled, me.packs.all = true, nil; dirCur == "" || dirCur == "." {
+	if me.state.initCalled, me.packs.all = true, make(packs, 0, 32); dirCur == "" || dirCur == "." {
 		dirCur, err = os.Getwd()
 	} else if dirCur[0] == '~' {
 		if len(dirCur) > 1 && dirCur[1] == filepath.Separator {
@@ -102,16 +98,9 @@ func (me *Ctx) Init(dirCur string) (err error) {
 						return
 					}
 				}
-				if dirPathAutoPack == "" {
-					if dp := filepath.Join(packsdirs[i], atmo.NameAutoPack); ufs.IsDir(dp) {
-						dirPathAutoPack = dp
-					}
-				}
 			}
 			if len(packsdirs) == 0 {
 				err = errors.New("none of the specified packs dirs were found:\n    " + ustr.Join(append(packsdirsenv, packsdirsorig...), "\n    "))
-			} else if dirPathAutoPack == "" {
-				err = errors.New("`" + atmo.NameAutoPack + "` pack not found in any of these paths:\n    " + ustr.Join(packsdirs, "\n    "))
 			} else {
 				me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Packs = dirCur, cachedir, packsdirs
 				me.initPacks()
@@ -134,6 +123,7 @@ func (me *Ctx) Dispose() {
 			cleanup()
 		}
 	}
+	me.state.cleanUps = nil
 }
 
 func (me *Ctx) msg(alreadyLocked bool, text string) {

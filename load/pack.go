@@ -11,6 +11,7 @@ import (
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
+	"github.com/metaleap/atmo/lang/corefn"
 )
 
 var PacksWatchInterval time.Duration
@@ -18,12 +19,14 @@ var PacksWatchInterval time.Duration
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
 type Pack struct {
-	ImpPath  string
-	DirPath  string
-	srcFiles atmolang.AstFiles
+	ImpPath string
+	DirPath string
 
-	errs struct {
-		reload error
+	defs              atmocorefn.Defs
+	srcFiles          atmolang.AstFiles
+	wasEverToBeLoaded bool
+	errs              struct {
+		refresh error
 	}
 }
 
@@ -46,13 +49,16 @@ func (me *Ctx) KnownPackImpPaths() (packImpPaths []string) {
 	return
 }
 
-func (me *Ctx) WithPack(impPath string, do func(*Pack)) {
+func (me *Ctx) WithPack(impPath string, ensureLoaded bool, do func(*Pack)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	if idx := me.packs.all.indexImpPath(impPath); idx >= 0 {
-		do(&me.packs.all[idx])
-	} else {
+	if idx := me.packs.all.indexImpPath(impPath); idx < 0 {
 		do(nil)
+	} else {
+		if ensureLoaded && !me.packs.all[idx].wasEverToBeLoaded {
+			me.packReload(idx)
+		}
+		do(&me.packs.all[idx])
 	}
 	me.state.Unlock()
 	return
@@ -102,51 +108,61 @@ func (me *Ctx) initPacks() {
 			}
 
 			if len(modpackdirs) > 0 {
+				shouldrefresh := make(map[string]bool, len(modpackdirs))
+				// handle new-or-modified packs
+				for packdirpath, numfilesguess := range modpackdirs {
+					if me.packs.all.indexDirPath(packdirpath) < 0 {
+						if numfilesguess < 4 {
+							numfilesguess = 4
+						}
+						var packimppath string
+						for _, ldp := range me.Dirs.Packs {
+							if ustr.Pref(packdirpath, ldp+string(os.PathSeparator)) {
+								if packimppath = filepath.Clean(packdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
+									packimppath = ustr.Replace(packimppath, string(os.PathSeparator), "/")
+								}
+								break
+							}
+						}
+						if packimppath == "" {
+							panic("should never happen, debug immediately")
+						}
+						me.packs.all = append(me.packs.all, Pack{DirPath: packdirpath, ImpPath: packimppath,
+							srcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
+					}
+					shouldrefresh[packdirpath] = true
+				}
 				// remove packs that have vanished from the file-system
 				for i := 0; i < len(me.packs.all); i++ {
-					if me.packs.all[i].DirPath != dirPathAutoPack && !ufs.IsDir(me.packs.all[i].DirPath) {
-						me.packs.all = append(me.packs.all[:i], me.packs.all[i+1:]...)
+					if cur := &me.packs.all[i]; !ufs.IsDir(cur.DirPath) {
+						delete(shouldrefresh, cur.DirPath)
+						me.packs.all.removeAt(i)
 						i--
 					}
 				}
-				// add any new ones, reload any potentially-modified ones
-				for packdirpath, numfilesguess := range modpackdirs {
-					if isdropped := false; ufs.IsDir(packdirpath) || packdirpath == dirPathAutoPack {
-						idx := me.packs.all.indexDirPath(packdirpath)
-						if idx < 0 {
-							if idx = len(me.packs.all); numfilesguess < 4 {
-								numfilesguess = 4
-							}
-							var packimppath string
-							for _, ldp := range me.Dirs.Packs {
-								if ustr.Pref(packdirpath, ldp+string(os.PathSeparator)) {
-									if packimppath = filepath.Clean(packdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
-										packimppath = ustr.Replace(packimppath, string(os.PathSeparator), "/")
-									}
-									break
-								}
-							}
-							if packimppath == "" {
-								panic("should never happen, debug immediately")
-							}
-							for i := range me.packs.all {
-								if me.packs.all[i].ImpPath == packimppath {
-									isdropped = true
-									me.msg(true, "duplicate import path `"+packimppath+"`:\n    ignoring the one in "+packdirpath+"\n    and using the one in "+me.packs.all[i].DirPath)
-									break
-								}
-							}
-							if !isdropped {
-								me.packs.all = append(me.packs.all, Pack{DirPath: packdirpath, ImpPath: packimppath,
-									srcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
-							}
+				// ensure no duplicate imp-paths
+				for i := len(me.packs.all) - 1; i >= 0; i-- {
+					cur := &me.packs.all[i]
+					if idx := me.packs.all.indexImpPath(cur.ImpPath); idx != i {
+						delete(shouldrefresh, cur.DirPath)
+						delete(shouldrefresh, me.packs.all[idx].DirPath)
+						me.msg(true, "duplicate import path `"+cur.ImpPath+"`\n    in "+cur.PacksDirPath()+"\n    and "+me.packs.all[idx].PacksDirPath()+"\n    ─── both will not load until fixed")
+						if idx > i {
+							me.packs.all.removeAt(idx)
+							me.packs.all.removeAt(i)
+						} else {
+							me.packs.all.removeAt(i)
+							me.packs.all.removeAt(idx)
 						}
-						if !isdropped {
-							me.packReload(idx)
-						}
+						i--
 					}
 				}
+				// for stable listings etc.
 				sort.Sort(me.packs.all)
+				// per-file refresher
+				for packdirpath := range shouldrefresh {
+					me.packRefresh(me.packs.all.indexDirPath(packdirpath))
+				}
 			}
 			me.state.Unlock()
 		}
@@ -154,7 +170,7 @@ func (me *Ctx) initPacks() {
 			me.msg(false, "[DBG] note to self, mods-watch took "+time.Duration(duration).String())
 		}
 	})
-	if modswatchcancel := ustd.DoNowAndThenEvery(PacksWatchInterval, me.AutoPacksWatch.ShouldNow, modswatcher); modswatchcancel != nil {
+	if modswatchcancel := ustd.DoNowAndThenEvery(PacksWatchInterval, me.OngoingPacksWatch.ShouldNow, modswatcher); modswatchcancel != nil {
 		me.state.modsWatcherRunning, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
 	} else {
@@ -162,12 +178,11 @@ func (me *Ctx) initPacks() {
 	}
 }
 
-func (me *Ctx) packReload(idx int) {
+func (me *Ctx) packRefresh(idx int) {
 	this := &me.packs.all[idx]
-
 	var diritems []os.FileInfo
-	if diritems, this.errs.reload = ufs.Dir(this.DirPath); this.errs.reload != nil {
-		this.srcFiles = nil
+	if diritems, this.errs.refresh = ufs.Dir(this.DirPath); this.errs.refresh != nil {
+		this.srcFiles, this.defs = nil, nil
 		return
 	}
 
@@ -188,19 +203,29 @@ func (me *Ctx) packReload(idx int) {
 		}
 	}
 
+	if this.wasEverToBeLoaded {
+		me.packReload(idx)
+	}
+}
+
+func (me *Ctx) packReload(idx int) {
+	this := &me.packs.all[idx]
+	this.wasEverToBeLoaded = true
 	for i := range this.srcFiles {
-		this.srcFiles[i].LexAndParseFile(true, false)
-		if errs := this.srcFiles[i].Errs(); len(errs) > 0 {
+		sf := &this.srcFiles[i]
+		sf.LexAndParseFile(true, false)
+		if errs := sf.Errs(); len(errs) > 0 {
 			for _, e := range errs {
 				me.msg(true, e.Error())
 			}
 		}
 	}
+	this.defs.Reload(this.srcFiles)
 }
 
 func (me *Pack) Errs() (errs []error) {
-	if me.errs.reload != nil {
-		errs = append(errs, me.errs.reload)
+	if me.errs.refresh != nil {
+		errs = append(errs, me.errs.refresh)
 	}
 	for i := range me.srcFiles {
 		for _, e := range me.srcFiles[i].Errs() {
@@ -208,6 +233,10 @@ func (me *Pack) Errs() (errs []error) {
 		}
 	}
 	return
+}
+
+func (me *Pack) PacksDirPath() string {
+	return PacksDirPathFrom(me.DirPath, me.ImpPath)
 }
 
 func (me *Pack) SrcFiles() atmolang.AstFiles {
@@ -219,13 +248,22 @@ type packs []Pack
 func (me packs) Len() int          { return len(me) }
 func (me packs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me packs) Less(i int, j int) bool {
-	li, lj := &me[i], &me[j]
-	if li.DirPath != lj.DirPath {
-		if liev, ljev := li.DirPath == dirPathAutoPack, lj.DirPath == dirPathAutoPack; liev || ljev {
-			return liev || !ljev
+	pi, pj := &me[i], &me[j]
+	if pi.DirPath != pj.DirPath {
+		if piau, pjau := (pi.ImpPath == atmo.NameAutoPack), (pj.ImpPath == atmo.NameAutoPack); piau || pjau {
+			return piau || !pjau
 		}
 	}
-	return li.DirPath < lj.DirPath
+	return pi.DirPath < pj.DirPath
+}
+
+func (me *packs) removeAt(idx int) {
+	this := *me
+	for i := idx; i < len(this)-1; i++ {
+		this[i] = this[i+1]
+	}
+	this = this[:len(this)-1]
+	*me = this
 }
 
 func (me packs) indexDirPath(dirPath string) int {
@@ -244,4 +282,8 @@ func (me packs) indexImpPath(impPath string) int {
 		}
 	}
 	return -1
+}
+
+func PacksDirPathFrom(packDirPath string, packImpPath string) string {
+	return filepath.Clean(packDirPath[:len(packDirPath)-len(packImpPath)])
 }

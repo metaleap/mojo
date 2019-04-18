@@ -104,10 +104,10 @@ func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 	}
 }
 
-func (me *Repl) Quit() {
-	me.run.quit = true
-	me.decoTypingAnim(" :quit   \n", 42*time.Millisecond)
-	me.decoInputDone(false)
-	me.IO.writeLns("")
-	os.Exit(0)
+func (me *Repl) QuitNonUserInitiated(anim bool) {
+	if me.run.quit = true; anim {
+		me.decoTypingAnim(" :quit   \n", 42*time.Millisecond)
+		me.decoInputDone(false)
+		me.IO.writeLns("")
+	}
 }

@@ -106,7 +106,7 @@ func (me *Repl) dListDefs(whatPack string) {
 		me.IO.writeLns("TODO: list ALL defs")
 
 	} else {
-		me.Ctx.WithPack(whatPack, func(pack *atmoload.Pack) {
+		me.Ctx.WithPack(whatPack, true, func(pack *atmoload.Pack) {
 			if pack == nil {
 				me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
 			} else {
@@ -151,7 +151,7 @@ func (me *Repl) dInfo() {
 }
 
 func (me *Repl) dInfoPack(whatPack string) {
-	me.Ctx.WithPack(whatPack, func(pack *atmoload.Pack) {
+	me.Ctx.WithPack(whatPack, true, func(pack *atmoload.Pack) {
 		if pack == nil {
 			me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
 		} else {

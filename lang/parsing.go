@@ -271,7 +271,7 @@ func (me *ctxParseTld) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 				if i < len(caseof.Alts)-1 {
 					canext := &caseof.Alts[i+1]
 					canext.Conds = append(ca.Conds, canext.Conds...)
-					caseof.Alts = append(caseof.Alts[:i], caseof.Alts[i+1:]...)
+					caseof.removeAltAt(i)
 					i--
 				}
 			}

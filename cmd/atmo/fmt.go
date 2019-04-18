@@ -8,7 +8,6 @@ import (
 )
 
 func mainFmt() {
-	var err error
 	var astfile atmolang.AstFile
 
 	if len(os.Args) > 2 {
@@ -27,10 +26,6 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		_, err = os.Stdout.Write(astfile.Print(&atmolang.PrintFormatterMinimal{}))
-	}
-
-	if err != nil {
-		println(err.Error())
+		_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFormatterMinimal{}))
 	}
 }

@@ -123,4 +123,11 @@ func (me AstFiles) Index(srcFilePath string) int {
 	return -1
 }
 
-func (me *AstFiles) RemoveAt(i int) { *me = append((*me)[:i], (*me)[i+1:]...) }
+func (me *AstFiles) RemoveAt(idx int) {
+	this := *me
+	for i := idx; i < len(this)-1; i++ {
+		this[i] = this[i+1]
+	}
+	this = this[:len(this)-1]
+	*me = this
+}

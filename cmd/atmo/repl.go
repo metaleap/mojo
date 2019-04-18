@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"time"
 
 	"github.com/go-leap/sys"
@@ -17,11 +18,15 @@ func mainRepl() {
 	var repl atmorepl.Repl
 	repl.IO.MultiLineSuffix = replMultiLineSuffix
 	repl.Ctx.Dirs.Packs = replAdditionalPacksDirs
-	repl.Ctx.AutoPacksWatch.ShouldNow = func() bool {
+	repl.Ctx.OngoingPacksWatch.ShouldNow = func() bool {
 		return replPacksWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replPacksWatchPauseAfter
 	}
 	if err := repl.Ctx.Init("."); err == nil {
-		usys.OnSigint(repl.Quit)
+		usys.OnSigint(func() {
+			repl.QuitNonUserInitiated(true)
+			repl.Ctx.Dispose()
+			os.Exit(0)
+		})
 		repl.Run(true,
 			"", "This is a read-eval-print loop (repl).",
 			"", "— repl directives start with `:`,", "  any other inputs are eval'd",
