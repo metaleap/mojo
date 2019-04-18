@@ -8,19 +8,18 @@ import (
 )
 
 var (
-	replMultiLineSuffix     = ",,,"
-	replAdditionalLibsDirs  []string
-	replLibsWatchPauseAfter = 83 * time.Second
+	replMultiLineSuffix      = ",,,"
+	replAdditionalPacksDirs  []string
+	replPacksWatchPauseAfter = 83 * time.Second
 )
 
 func mainRepl() {
 	var repl atmorepl.Repl
 	repl.IO.MultiLineSuffix = replMultiLineSuffix
-	repl.Ctx.Dirs.Libs = replAdditionalLibsDirs
-	repl.Ctx.LibsWatch.Should = func() bool {
-		return replLibsWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replLibsWatchPauseAfter
+	repl.Ctx.Dirs.Packs = replAdditionalPacksDirs
+	repl.Ctx.PacksWatch.Should = func() bool {
+		return replPacksWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replPacksWatchPauseAfter
 	}
-
 	if err := repl.Ctx.Init("."); err == nil {
 		usys.OnSigint(repl.Quit)
 		repl.Run(true,

@@ -17,14 +17,14 @@ var (
 
 func main() {
 	ustd.FlagsAddShortNames = true
-	replAdditionalLibsDirs = ustd.FlagOfStrings("repl-libsdirs", replAdditionalLibsDirs, string(os.PathListSeparator),
-		"    format: text (1 or more libs search-paths joined by `"+string(os.PathListSeparator)+"`)\n    will be used in addition to those in $"+atmo.EnvVarLibDirs)
+	replAdditionalPacksDirs = ustd.FlagOfStrings("repl-packsdirs", replAdditionalPacksDirs, string(os.PathListSeparator),
+		"    format: text (1 or more packs dir paths joined by `"+string(os.PathListSeparator)+"`)\n    will be used in addition to those in $"+atmo.EnvVarPacksDirs)
 	replMultiLineSuffix = ustd.FlagOfString("repl-multiline-suffix", replMultiLineSuffix,
 		"    format: text; sets the line suffix that begins or ends a multi-line input")
-	atmoload.LibsWatchInterval = ustd.FlagOfDuration("repl-libswatch-interval", 123*time.Millisecond,
-		"    format: time-duration; sets how often to check all known atmo libs-dirs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
-	replLibsWatchPauseAfter = ustd.FlagOfDuration("repl-libswatch-pauseafter", replLibsWatchPauseAfter,
-		"    format: time-duration; sets after how long (since the last line input)\n    libs-watching is paused (to be resumed on the next line input)")
+	atmoload.PacksWatchInterval = ustd.FlagOfDuration("repl-packswatch-interval", 123*time.Millisecond,
+		"    format: time-duration; sets how often to check all known atmo packs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
+	replPacksWatchPauseAfter = ustd.FlagOfDuration("repl-packswatch-pauseafter", replPacksWatchPauseAfter,
+		"    format: time-duration; sets how soon (since the most-recent line input)\n    packs-watching will pause (to be resumed on the next line input)")
 
 	atcmd, showinfousage, showinfoargs := usys.Arg(1), false, false
 	switch atcmd {

@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	dirPathAutoLib string
+	dirPathAutoPack string
 )
 
 type CtxMsg struct {
@@ -29,14 +29,14 @@ type Ctx struct {
 	Dirs          struct {
 		Cur   string
 		Cache string
-		Libs  []string
+		Packs []string
 	}
-	LibsWatch struct {
+	PacksWatch struct {
 		Should func() bool
 	}
 
-	libs struct {
-		all libs
+	packs struct {
+		all packs
 	}
 	state struct {
 		initCalled         bool
@@ -55,7 +55,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 
 func (me *Ctx) Init(dirCur string) (err error) {
 	me.maybeInitPanic(true)
-	if me.state.initCalled, me.libs.all = true, nil; dirCur == "" || dirCur == "." {
+	if me.state.initCalled, me.packs.all = true, nil; dirCur == "" || dirCur == "." {
 		dirCur, err = os.Getwd()
 	} else if dirCur[0] == '~' {
 		if len(dirCur) > 1 && dirCur[1] == filepath.Separator {
@@ -79,42 +79,42 @@ func (me *Ctx) Init(dirCur string) (err error) {
 		} else if me.ClearCacheDir {
 			err = ufs.Del(cachedir)
 		}
-		if libsdirs := me.Dirs.Libs; err == nil {
-			libsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarLibDirs), string(os.PathListSeparator))
-			for i := range libsdirsenv {
-				libsdirsenv[i] = filepath.Clean(libsdirsenv[i])
+		if packsdirs := me.Dirs.Packs; err == nil {
+			packsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarPacksDirs), string(os.PathListSeparator))
+			for i := range packsdirsenv {
+				packsdirsenv[i] = filepath.Clean(packsdirsenv[i])
 			}
-			for i := range libsdirs {
-				libsdirs[i] = filepath.Clean(libsdirs[i])
+			for i := range packsdirs {
+				packsdirs[i] = filepath.Clean(packsdirs[i])
 			}
-			libsdirsorig := libsdirs
-			libsdirs = ustr.Merge(libsdirsenv, libsdirs, func(ldp string) bool {
+			packsdirsorig := packsdirs
+			packsdirs = ustr.Merge(packsdirsenv, packsdirs, func(ldp string) bool {
 				if ldp != "" && !ufs.IsDir(ldp) {
-					me.msg(true, "libs-dir "+ldp+" not found")
+					me.msg(true, "packs dir "+ldp+" not found")
 					return true
 				}
 				return ldp == ""
 			})
-			for i := range libsdirs {
-				for j := range libsdirs {
-					if iinj, jini := ustr.Pref(libsdirs[i], libsdirs[j]), ustr.Pref(libsdirs[j], libsdirs[i]); i != j && (iinj || jini) {
-						err = errors.New("conflicting libs-dirs: " + libsdirs[i] + " vs. " + libsdirs[j])
+			for i := range packsdirs {
+				for j := range packsdirs {
+					if iinj, jini := ustr.Pref(packsdirs[i], packsdirs[j]), ustr.Pref(packsdirs[j], packsdirs[i]); i != j && (iinj || jini) {
+						err = errors.New("conflicting packs dirs: " + packsdirs[i] + " vs. " + packsdirs[j])
 						return
 					}
 				}
-				if dirPathAutoLib == "" {
-					if dp := filepath.Join(libsdirs[i], atmo.NameAutoLib); ufs.IsDir(dp) {
-						dirPathAutoLib = dp
+				if dirPathAutoPack == "" {
+					if dp := filepath.Join(packsdirs[i], atmo.NameAutoPack); ufs.IsDir(dp) {
+						dirPathAutoPack = dp
 					}
 				}
 			}
-			if len(libsdirs) == 0 {
-				err = errors.New("none of the specified libs-dirs were found:\n    " + ustr.Join(append(libsdirsenv, libsdirsorig...), "\n    "))
-			} else if dirPathAutoLib == "" {
-				err = errors.New("`" + atmo.NameAutoLib + "` lib not found in any of these paths:\n    " + ustr.Join(libsdirs, "\n    "))
+			if len(packsdirs) == 0 {
+				err = errors.New("none of the specified packs dirs were found:\n    " + ustr.Join(append(packsdirsenv, packsdirsorig...), "\n    "))
+			} else if dirPathAutoPack == "" {
+				err = errors.New("`" + atmo.NameAutoPack + "` pack not found in any of these paths:\n    " + ustr.Join(packsdirs, "\n    "))
 			} else {
-				me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
-				me.initLibs()
+				me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Packs = dirCur, cachedir, packsdirs
+				me.initPacks()
 			}
 		}
 	}

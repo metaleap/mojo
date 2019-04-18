@@ -9,11 +9,11 @@ import (
 
 func (me *Repl) initEnsureDefaultDirectives() {
 	kd := me.KnownDirectives.ensure
-	kd("list <libs | defs | \"libpath\">", me.DList)
-	kd("info [\"libpath\"] [name]", me.DInfo)
+	kd("list <packs | defs | \"pack/import/path\">", me.DList)
+	kd("info [\"pack/import/path\"] [name]", me.DInfo)
 	kd("quit", me.DQuit)
-	if atmoload.LibsWatchInterval == 0 {
-		kd("reload", me.DReload) //\n      (reloads modified code in known libs)", me.DReload)
+	if atmoload.PacksWatchInterval == 0 {
+		kd("reload", me.DReload) //\n      (reloads modified code in known packs)", me.DReload)
 	}
 }
 
@@ -71,13 +71,12 @@ func (me *Repl) DQuit(s string) bool {
 }
 
 func (me *Repl) DReload(string) bool {
-	me.Ctx.ReloadModifiedLibsUnlessAlreadyWatching()
+	me.Ctx.ReloadModifiedPacksUnlessAlreadyWatching()
 	return true
 }
-
 func (me *Repl) DList(what string) bool {
-	if what == "" || ustr.Pref("libs", what) {
-		me.dListLibs()
+	if what == "" || ustr.Pref("packs", what) {
+		me.dListPacks()
 	} else if ustr.Pref("defs", what) {
 		me.dListDefs("")
 	} else {
@@ -86,32 +85,31 @@ func (me *Repl) DList(what string) bool {
 	return true
 }
 
-func (me *Repl) dListLibs() {
+func (me *Repl) dListPacks() {
 	me.IO.writeLns("From current search paths:")
-	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Libs, func(s string) string { return "─── " + s })...)
-
-	libs := me.Ctx.KnownLibs()
-	me.IO.writeLns("", "found "+ustr.Plu(len(libs), "lib")+":")
-	for i := range libs {
-		lib := &libs[i]
-		numerrs := len(lib.Errs())
-		me.decoAddNotice(false, "", true, "\""+lib.LibPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
+	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Packs, func(s string) string { return "─── " + s })...)
+	packs := me.Ctx.KnownPacks()
+	me.IO.writeLns("", "found "+ustr.Plu(len(packs), "pack")+":")
+	for i := range packs {
+		pack := &packs[i]
+		numerrs := len(pack.Errs())
+		me.decoAddNotice(false, "", true, "\""+pack.ImpPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
 	}
-	me.IO.writeLns("", "(to see lib details, use `:info \"<lib>\"`)")
+	me.IO.writeLns("", "(to see pack details, use `:info \"<pack/import/path>\"`)")
 }
 
-func (me *Repl) dListDefs(whatLib string) {
-	if whatLib != "" && whatLib[0] == '"' && len(whatLib) > 1 {
-		whatLib = ustr.If(whatLib[len(whatLib)-1] != '"', whatLib[1:], whatLib[1:len(whatLib)-1])
+func (me *Repl) dListDefs(whatPack string) {
+	if whatPack != "" && whatPack[0] == '"' && len(whatPack) > 1 {
+		whatPack = ustr.If(whatPack[len(whatPack)-1] != '"', whatPack[1:], whatPack[1:len(whatPack)-1])
 	}
-	if whatLib == "" {
+	if whatPack == "" {
 		me.IO.writeLns("TODO: list all defs")
-	} else if lib := me.Ctx.Lib(whatLib); lib == nil {
-		me.IO.writeLns("unknown lib: `" + whatLib + "`, see known libs via `:list libs`")
+	} else if pack := me.Ctx.Pack(whatPack); pack == nil {
+		me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
 	} else {
-		me.IO.writeLns("", "\""+lib.LibPath+"\"", "    "+lib.DirPath)
-		for i := range lib.SrcFiles {
-			sf := &lib.SrcFiles[i]
+		me.IO.writeLns("", "\""+pack.ImpPath+"\"", "    "+pack.DirPath)
+		for i := range pack.SrcFiles {
+			sf := &pack.SrcFiles[i]
 			nd, _ := sf.CountTopLevelDefs()
 			me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
 			for d := range sf.TopLevel {
@@ -129,14 +127,14 @@ func (me *Repl) DInfo(what string) bool {
 	if what == "" {
 		me.dInfo()
 	} else {
-		var whatlib, whatname string
+		var whatpack, whatname string
 		if whatname = what; what[0] == '"' {
-			whatlib, whatname = ustr.BreakOnFirstOrPref(what[1:], "\"")
+			whatpack, whatname = ustr.BreakOnFirstOrPref(what[1:], "\"")
 		}
-		if whatlib, whatname = ustr.Trim(whatlib), ustr.Trim(whatname); whatname == "" {
-			me.dInfoLib(whatlib)
+		if whatpack, whatname = ustr.Trim(whatpack), ustr.Trim(whatname); whatname == "" {
+			me.dInfoPack(whatpack)
 		} else {
-			me.dInfoDef(whatlib, whatname)
+			me.dInfoDef(whatpack, whatname)
 		}
 	}
 	return true
@@ -146,17 +144,17 @@ func (me *Repl) dInfo() {
 	me.IO.writeLns(me.run.welcomeMsgLines...)
 }
 
-func (me *Repl) dInfoLib(whatLib string) {
-	lib := me.Ctx.Lib(whatLib)
-	if lib == nil {
-		me.IO.writeLns("unknown lib: `" + whatLib + "`, see known libs via `:list libs`")
+func (me *Repl) dInfoPack(whatPack string) {
+	pack := me.Ctx.Pack(whatPack)
+	if pack == nil {
+		me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
 	} else {
-		me.IO.writeLns("\""+lib.LibPath+"\"", "    "+lib.DirPath)
+		me.IO.writeLns("\""+pack.ImpPath+"\"", "    "+pack.DirPath)
 
-		me.IO.writeLns("", ustr.Plu(len(lib.SrcFiles), "source file")+" in lib \""+whatLib+"\":")
+		me.IO.writeLns("", ustr.Plu(len(pack.SrcFiles), "source file")+" in pack \""+whatPack+"\":")
 		numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
-		for i := range lib.SrcFiles {
-			sf := &lib.SrcFiles[i]
+		for i := range pack.SrcFiles {
+			sf := &pack.SrcFiles[i]
 			nd, ndi := sf.CountTopLevelDefs()
 			sloc := sf.CountNetLinesOfCode()
 			numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
@@ -165,16 +163,16 @@ func (me *Repl) dInfoLib(whatLib string) {
 		me.IO.writeLns("Total: "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
 			"    (counts exclude failed-to-parse code portions, if any)")
 
-		if liberrs := lib.Errs(); len(liberrs) > 0 {
-			me.IO.writeLns("", ustr.Plu(len(liberrs), "issue")+" in lib \""+whatLib+"\":")
-			for i := range liberrs {
-				me.decoMsgNotice(liberrs[i].Error())
+		if packerrs := pack.Errs(); len(packerrs) > 0 {
+			me.IO.writeLns("", ustr.Plu(len(packerrs), "issue")+" in pack \""+whatPack+"\":")
+			for i := range packerrs {
+				me.decoMsgNotice(packerrs[i].Error())
 			}
 		}
-		me.IO.writeLns("", "", "(to see lib defs, use `:list \""+whatLib+"\"`)")
+		me.IO.writeLns("", "", "(to see pack defs, use `:list \""+whatPack+"\"`)")
 	}
 }
 
-func (me *Repl) dInfoDef(whatLib string, whatName string) {
-	me.IO.writeLns("Info on name: " + whatName + " in \"" + whatLib + "\"")
+func (me *Repl) dInfoDef(whatPack string, whatName string) {
+	me.IO.writeLns("Info on name: " + whatName + " in \"" + whatPack + "\"")
 }
