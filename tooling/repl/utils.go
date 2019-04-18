@@ -68,7 +68,7 @@ func (me *Repl) decoAddNotice(altStyle bool, altPrefix string, compact bool, not
 func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
 		for i := range msgs {
-			if me.decoAddNotice(true, "═!═ ", true, msgs[i].Time.Format("15:04:05"), msgs[i].Text); !initial {
+			if me.decoAddNotice(true, "▓▒░ ", true, msgs[i].Time.Format("15:04:05"), msgs[i].Text); !initial {
 				time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
 			}
 		}

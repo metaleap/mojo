@@ -12,8 +12,12 @@ type AstBaseTokens struct {
 	Tokens udevlex.Tokens
 }
 
+// to implement IAstNode
+func (me *AstBaseTokens) BaseTokens() *AstBaseTokens { return me }
+
 type IAstNode interface {
 	print(*CtxPrint)
+	BaseTokens() *AstBaseTokens
 }
 
 type AstTopLevel struct {

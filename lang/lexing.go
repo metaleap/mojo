@@ -19,7 +19,7 @@ type AstFileTopLevelChunk struct {
 	_id      string
 	srcDirty bool
 	errs     struct {
-		lexing  []*udevlex.Error
+		lexing  []*Error
 		parsing *Error
 	}
 	Ast AstTopLevel
@@ -32,14 +32,17 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 			return
 		}
 		me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src
-		println("LEX")
 		me.populateTopLevelChunksFrom(src)
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.srcDirty {
 				this.srcDirty, this.errs.parsing, this.Ast.Comments, this.Ast.Def = false, nil, nil, nil
-				this.Ast.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.Src},
+				toks, errs := udevlex.Lex(&ustd.BytesReader{Data: this.Src},
 					me.SrcFilePath, this.Offset.Line, this.Offset.Pos, me.LastLoad.TokCountInitialGuess)
-				if len(this.errs.lexing) == 0 {
+				if this.Ast.Tokens = toks; len(errs) > 0 {
+					for _, e := range errs {
+						this.errs.lexing = append(this.errs.lexing, errAt(ErrCatLexing, &e.Pos, 1, e.Msg))
+					}
+				} else {
 					me.parse(this)
 				}
 			}

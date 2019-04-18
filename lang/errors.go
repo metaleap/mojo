@@ -10,7 +10,8 @@ type ErrorCategory int
 
 const (
 	_ ErrorCategory = iota
-	ErrCatSyntax
+	ErrCatLexing
+	ErrCatParsing
 )
 
 type Error struct {
@@ -20,18 +21,20 @@ type Error struct {
 	Cat ErrorCategory
 }
 
-func errAt(cat ErrorCategory, tok *udevlex.Token, length int, msg string) *Error {
-	return &Error{Msg: msg, Pos: tok.Meta.Position, Len: length, Cat: cat}
+func errAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
+	return &Error{Msg: msg, Pos: *pos, Len: length, Cat: cat}
 }
 
 func errSyntax(tok *udevlex.Token, msg string) *Error {
-	return errAt(ErrCatSyntax, tok, len(tok.Meta.Orig), msg)
+	return errAt(ErrCatParsing, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
 
 func (me *Error) Error() (msg string) {
 	msg = me.Pos.String() + ": "
 	switch me.Cat {
-	case ErrCatSyntax:
+	case ErrCatLexing:
+		msg += "[lexical] "
+	case ErrCatParsing:
 		msg += "[syntax] "
 	default:
 		msg += "[other] "

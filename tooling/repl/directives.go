@@ -170,9 +170,9 @@ func (me *Repl) dInfoLib(whatLib string) {
 			for i := range liberrs {
 				errmsg := liberrs[i].Error()
 				if pos := ustr.Pos(errmsg, ": ["); pos > 0 && ustr.Has(errmsg[:pos], atmo.SrcFileExt+":") {
-					me.decoAddNotice(false, "", true, errmsg[:pos], errmsg[pos+2:])
+					me.decoAddNotice(false, "▓▒░ ", true, errmsg[:pos], errmsg[pos+2:])
 				} else {
-					me.decoAddNotice(false, "", true, errmsg)
+					me.decoAddNotice(false, "▓▒░ ", true, errmsg)
 				}
 			}
 		}

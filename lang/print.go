@@ -63,23 +63,14 @@ func (me *AstComment) print(p *CtxPrint) {
 	} else {
 		p.WriteString("//")
 		p.WriteString(me.ContentText)
-		p.CurIndentLevel++
 		p.writeNewLines(1)
 	}
 }
 
 func (me *AstDef) print(p *CtxPrint) {
-	printName := me.Name.print
-	if me == p.CurTopLevel.Def && p.CurTopLevel.DefIsUnexported {
-		printName = func(p *CtxPrint) {
-			p.WriteByte('_')
-			me.Name.print(p)
-		}
-	}
-
 	switch p.File.Options.ApplStyle {
 	case APPLSTYLE_VSO:
-		printName(p)
+		me.Name.print(p)
 		for i := range me.Args {
 			p.WriteByte(' ')
 			me.Args[i].print(p)
@@ -89,7 +80,7 @@ func (me *AstDef) print(p *CtxPrint) {
 			me.Args[0].print(p)
 			p.WriteByte(' ')
 		}
-		printName(p)
+		me.Name.print(p)
 		for i := 1; i < len(me.Args); i++ {
 			p.WriteByte(' ')
 			me.Args[i].print(p)
@@ -99,7 +90,7 @@ func (me *AstDef) print(p *CtxPrint) {
 			me.Args[i].print(p)
 			p.WriteByte(' ')
 		}
-		printName(p)
+		me.Name.print(p)
 	}
 	for i := range me.Meta {
 		p.WriteString(", ")
@@ -220,6 +211,8 @@ func (me *AstCaseAlt) print(p *CtxPrint) {
 		}
 		me.Conds[i].print(p)
 	}
-	p.WriteString(" ? ")
-	me.Body.print(p)
+	if me.Body != nil {
+		p.WriteString(" ? ")
+		me.Body.print(p)
+	}
 }

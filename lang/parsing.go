@@ -172,6 +172,7 @@ func (me *ctxParseTld) parseExprFinalize(accum []IAstExpr, allToks udevlex.Token
 	if len(accum) == 1 {
 		ret = accum[0]
 	} else {
+		accum = me.parseExprFinalizeClasp(accum, allToks, untilTok)
 		var appl AstExprAppl
 		ret = &appl
 
@@ -191,6 +192,28 @@ func (me *ctxParseTld) parseExprFinalize(accum []IAstExpr, allToks udevlex.Token
 		}
 	}
 	return
+}
+
+func (me *ctxParseTld) parseExprFinalizeClasp(accum []IAstExpr, allToks udevlex.Tokens, untilTok *udevlex.Token) []IAstExpr {
+	var claspstart int
+	for i := 1; i < len(accum); i++ {
+		dist := accum[i].BaseTokens().Tokens.NumberOfCharsBetweenFirstAndLastOf(accum[i-1].BaseTokens().Tokens)
+		if dist > 0 {
+			if clasp := accum[claspstart:i]; len(clasp) > 1 {
+				prefix, suffix := accum[:claspstart], accum[i:]
+				accum = append(prefix, me.parseExprFinalize(clasp, allToks, untilTok))
+				i = len(accum)
+				accum = append(accum, suffix...)
+			}
+			claspstart = i
+		}
+	}
+	if claspstart > 0 {
+		if clasp := accum[claspstart:]; len(clasp) > 1 {
+			accum = append(accum[:claspstart], me.parseExprFinalize(clasp, allToks, untilTok))
+		}
+	}
+	return accum
 }
 
 func (me *ctxParseTld) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err *Error) {
