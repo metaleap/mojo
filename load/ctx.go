@@ -22,9 +22,10 @@ type CtxMsg struct {
 type Ctx struct {
 	ClearCacheDir bool
 	Dirs          struct {
-		Cur   string
-		Cache string
-		Packs []string
+		Cur                   string
+		Cache                 string
+		Packs                 []string
+		curAlreadyInPacksDirs bool
 	}
 	OngoingPacksWatch struct {
 		ShouldNow func() bool
@@ -102,6 +103,12 @@ func (me *Ctx) Init(dirCur string) (err error) {
 			if len(packsdirs) == 0 {
 				err = errors.New("none of the specified packs dirs were found:\n    " + ustr.Join(append(packsdirsenv, packsdirsorig...), "\n    "))
 			} else {
+				me.Dirs.curAlreadyInPacksDirs = false
+				for _, packsdirpath := range packsdirs {
+					if me.Dirs.curAlreadyInPacksDirs = ustr.Pref(dirCur, packsdirpath+string(os.PathSeparator)); me.Dirs.curAlreadyInPacksDirs {
+						break
+					}
+				}
 				me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Packs = dirCur, cachedir, packsdirs
 				me.initPacks()
 			}

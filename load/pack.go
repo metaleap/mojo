@@ -74,8 +74,10 @@ func (me *Ctx) ReloadModifiedPacksUnlessAlreadyWatching() {
 func (me *Ctx) initPacks() {
 	var handledir func(string, map[string]int)
 	handledir = func(dirfullpath string, modpackdirs map[string]int) {
-		if idx := me.packs.all.indexDirPath(dirfullpath); idx >= 0 { // dir was previously known as a this
+		if idx := me.packs.all.indexDirPath(dirfullpath); idx >= 0 { // dir was previously known as a pack
 			modpackdirs[dirfullpath] = cap(me.packs.all[idx].srcFiles)
+		} else if dirfullpath == me.Dirs.Cur {
+			modpackdirs[dirfullpath] = 1
 		}
 		for i := range me.packs.all {
 			if ustr.Pref(me.packs.all[i].DirPath, dirfullpath+string(os.PathSeparator)) {
@@ -94,7 +96,11 @@ func (me *Ctx) initPacks() {
 	}
 
 	const modswatchdurationcritical = int64(3 * time.Millisecond)
-	modswatcher := ufs.ModificationsWatcher(PacksWatchInterval/2, me.Dirs.Packs, atmo.SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
+	var watchdircur []string
+	if !me.Dirs.curAlreadyInPacksDirs {
+		watchdircur = []string{me.Dirs.Cur}
+	}
+	modswatcher := ufs.ModificationsWatcher(PacksWatchInterval/2, me.Dirs.Packs, watchdircur, atmo.SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
 		if len(mods) > 0 {
 			me.state.Lock()
 			modpackdirs := map[string]int{}
@@ -107,6 +113,9 @@ func (me *Ctx) initPacks() {
 				}
 			}
 
+			if len(me.packs.all) == 0 && !me.Dirs.curAlreadyInPacksDirs {
+				modpackdirs[me.Dirs.Cur] = 1
+			}
 			if len(modpackdirs) > 0 {
 				shouldrefresh := make(map[string]bool, len(modpackdirs))
 				// handle new-or-modified packs
@@ -125,7 +134,11 @@ func (me *Ctx) initPacks() {
 							}
 						}
 						if packimppath == "" {
-							panic("should never happen, debug immediately")
+							if packdirpath == me.Dirs.Cur {
+								packimppath = "."
+							} else {
+								panic("the impossible, debug+fix stat")
+							}
 						}
 						me.packs.all = append(me.packs.all, Pack{DirPath: packdirpath, ImpPath: packimppath,
 							srcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
