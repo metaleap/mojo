@@ -75,6 +75,10 @@ type AstExprLitStr struct {
 	Val string
 }
 
+type AstExprLitEmptyParens struct {
+	AstExprLitBase
+}
+
 type AstIdent struct {
 	AstExprAtomBase
 	Val     string

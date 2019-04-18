@@ -106,7 +106,7 @@ func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 
 func (me *Repl) Quit() {
 	me.run.quit = true
-	me.decoTypingAnim(":quit \n", 123*time.Millisecond)
+	me.decoTypingAnim(" :quit   \n", 42*time.Millisecond)
 	me.decoInputDone(false)
 	me.IO.writeLns("")
 	os.Exit(0)

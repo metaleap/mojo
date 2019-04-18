@@ -24,6 +24,12 @@ func (me *ctxParseTld) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	return &this
 }
 
+func (me *ctxParseTld) newExprLitEmptyParens(toks udevlex.Tokens) *AstExprLitEmptyParens {
+	var this AstExprLitEmptyParens
+	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	return &this
+}
+
 func (me *ctxParseTld) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
 	var this AstExprLitFloat
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)

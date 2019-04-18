@@ -149,6 +149,9 @@ func (me *ctxParseTld) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error)
 			case udevlex.TOKEN_SEPISH:
 				if sub, rest, e := me.parseParens(toks); e != nil {
 					err = e
+				} else if len(sub) == 0 {
+					exprcur = me.newExprLitEmptyParens(toks)
+					toks = rest
 				} else if exprcur, err = me.parseExprInParens(sub); err == nil {
 					toks = rest
 				}
@@ -321,12 +324,8 @@ func (me *ctxParseTld) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, res
 	var numunclosed int
 	if toks[0].Str == ")" {
 		err = errSyntax(&toks[0], "closing parenthesis without matching opening")
-	} else if sub, rest, numunclosed = toks.Sub('(', ')'); len(sub) == 0 {
-		if numunclosed == 0 {
-			err = errSyntax(&toks[0], "empty parentheses")
-		} else {
-			err = errSyntax(&toks[0], "unclosed parenthesis")
-		}
+	} else if sub, rest, numunclosed = toks.Sub('(', ')'); len(sub) == 0 && numunclosed != 0 {
+		err = errSyntax(&toks[0], "unclosed parenthesis")
 	}
 	return
 }

@@ -25,9 +25,9 @@ func mainRepl() {
 		usys.OnSigint(repl.Quit)
 		repl.Run(true,
 			"", "This is a read-eval-print loop (repl).",
-			"", "— repl directives begin with `:`,", "  any other inputs are eval'd",
-			"", "— a line ending in "+repl.IO.MultiLineSuffix+" starts", "  or concludes a multi-line input",
-			"", "— for proper line-editing, run this repl", "  via `rlwrap` or `rlfe` or equivalent.",
+			"", "— repl directives start with `:`,", "  any other inputs are eval'd",
+			"", "— a line ending in "+repl.IO.MultiLineSuffix+" introduces", "  or concludes a multi-line input",
+			"", "— for smooth line-editing, run this repl", "  via `rlwrap` or `rlfe` or equivalent.",
 			"",
 		)
 		repl.Ctx.Dispose()

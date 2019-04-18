@@ -126,6 +126,14 @@ func (me *AstIdent) print(p *CtxPrint) {
 	}
 }
 
+func (me *AstExprLitEmptyParens) print(p *CtxPrint) {
+	p.WriteString("()")
+	for i := range me.Comments {
+		p.WriteByte(' ')
+		me.Comments[i].print(p)
+	}
+}
+
 func (me *AstExprLitFloat) print(p *CtxPrint) {
 	p.WriteString(strconv.FormatFloat(me.Val, 'g', -1, 64))
 	for i := range me.Comments {

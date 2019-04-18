@@ -15,6 +15,7 @@ type AstFileTopLevelChunk struct {
 		Line int
 		Pos  int
 	}
+	ID       [4]uint64
 	srcDirty bool
 	errs     struct {
 		lexing  []*udevlex.Error
@@ -134,8 +135,8 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 			if oldidx, ok := srcsame[i]; ok {
 				me.TopLevel[i] = oldtlc[oldidx]
 			} else {
-				me.TopLevel[i].Src = tlchunks[i].src
-				me.TopLevel[i].srcDirty = true
+				me.TopLevel[i].srcDirty, me.TopLevel[i].Src = true, tlchunks[i].src
+				me.TopLevel[i].ID[0], me.TopLevel[i].ID[1], _ = ustd.HashWyPlus(0, 0, []byte(me.SrcFilePath))
 			}
 			me.TopLevel[i].Offset.Line, me.TopLevel[i].Offset.Pos = tlchunks[i].line, tlchunks[i].pos
 		}
