@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/load"
 )
 
 type Repl struct {
-	Ctx             atmo.Ctx
+	Ctx             atmoload.Ctx
 	KnownDirectives directives
 	IO              struct {
 		Stdin           io.Reader

@@ -1,4 +1,4 @@
-package atmo
+package atmoload
 
 import (
 	"errors"
@@ -11,6 +11,11 @@ import (
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
+	"github.com/metaleap/atmo"
+)
+
+var (
+	dirPathAutoLib string
 )
 
 type CtxMsg struct {
@@ -75,13 +80,14 @@ func (me *Ctx) Init(dirCur string) (err error) {
 			err = ufs.Del(cachedir)
 		}
 		if libsdirs := me.Dirs.Libs; err == nil {
-			libsdirsenv := ustr.Split(os.Getenv(EnvVarLibDirs), string(os.PathListSeparator))
+			libsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarLibDirs), string(os.PathListSeparator))
 			for i := range libsdirsenv {
 				libsdirsenv[i] = filepath.Clean(libsdirsenv[i])
 			}
 			for i := range libsdirs {
 				libsdirs[i] = filepath.Clean(libsdirs[i])
 			}
+			libsdirsorig := libsdirs
 			libsdirs = ustr.Merge(libsdirsenv, libsdirs, func(ldp string) bool {
 				if ldp != "" && !ufs.IsDir(ldp) {
 					me.msg(true, "libs-dir "+ldp+" not found")
@@ -97,13 +103,15 @@ func (me *Ctx) Init(dirCur string) (err error) {
 					}
 				}
 				if dirPathAutoLib == "" {
-					if dp := filepath.Join(libsdirs[i], NameAutoLib); ufs.IsDir(dp) {
+					if dp := filepath.Join(libsdirs[i], atmo.NameAutoLib); ufs.IsDir(dp) {
 						dirPathAutoLib = dp
 					}
 				}
 			}
-			if dirPathAutoLib == "" {
-				err = errors.New("`" + NameAutoLib + "` lib not found in any of these paths: " + ustr.Join(libsdirs, "  ──  "))
+			if len(libsdirs) == 0 {
+				err = errors.New("none of the specified libs-dirs were found:\n    " + ustr.Join(append(libsdirsenv, libsdirsorig...), "\n    "))
+			} else if dirPathAutoLib == "" {
+				err = errors.New("`" + atmo.NameAutoLib + "` lib not found in any of these paths:\n    " + ustr.Join(libsdirs, "\n    "))
 			} else {
 				me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Libs = dirCur, cachedir, libsdirs
 				me.initLibs()

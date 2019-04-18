@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/load"
 )
 
 func (me *Repl) initEnsureDefaultDirectives() {
@@ -12,7 +12,7 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	kd("list <libs | defs | \"libpath\">", me.DList)
 	kd("info [\"libpath\"] [name]", me.DInfo)
 	kd("quit", me.DQuit)
-	if atmo.LibsWatchInterval == 0 {
+	if atmoload.LibsWatchInterval == 0 {
 		kd("reload", me.DReload) //\n      (reloads modified code in known libs)", me.DReload)
 	}
 }
@@ -168,12 +168,7 @@ func (me *Repl) dInfoLib(whatLib string) {
 		if liberrs := lib.Errs(); len(liberrs) > 0 {
 			me.IO.writeLns("", ustr.Plu(len(liberrs), "issue")+" in lib \""+whatLib+"\":")
 			for i := range liberrs {
-				errmsg := liberrs[i].Error()
-				if pos := ustr.Pos(errmsg, ": ["); pos > 0 && ustr.Has(errmsg[:pos], atmo.SrcFileExt+":") {
-					me.decoAddNotice(false, "▓▒░ ", true, errmsg[:pos], errmsg[pos+2:])
-				} else {
-					me.decoAddNotice(false, "▓▒░ ", true, errmsg)
-				}
+				me.decoErrNotice(liberrs[i].Error())
 			}
 		}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 )
 
 const (
@@ -65,10 +66,22 @@ func (me *Repl) decoAddNotice(altStyle bool, altPrefix string, compact bool, not
 	me.IO.writeLns(noticeLines...)
 }
 
+func (me *Repl) decoErrNotice(lines ...string) {
+	for i := 0; i < len(lines); i++ {
+		ln := lines[i]
+		if pos := ustr.Pos(ln, ": ["); pos > 0 && ustr.Has(ln[:pos], atmo.SrcFileExt+":") {
+			prefix, suffix := lines[:i], lines[i+1:]
+			i, lines = i+1, append(append(prefix, ln[:pos], ln[pos+2:]), suffix...)
+		}
+	}
+	me.decoAddNotice(false, "▓▒░ ", true, lines...)
+}
+
 func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
+		me.IO.writeLns("", "")
 		for i := range msgs {
-			if me.decoAddNotice(true, "▓▒░ ", true, msgs[i].Time.Format("15:04:05"), msgs[i].Text); !initial {
+			if me.decoErrNotice(msgs[i].Time.Format("15:04:05") + "\t" + msgs[i].Text); !initial {
 				time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
 			}
 		}

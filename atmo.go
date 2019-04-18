@@ -5,7 +5,3 @@ const (
 	NameAutoLib   = "ever"
 	SrcFileExt    = ".at"
 )
-
-var (
-	dirPathAutoLib string
-)

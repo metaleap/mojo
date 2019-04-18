@@ -1,4 +1,4 @@
-package atmo
+package atmoload
 
 import (
 	"os"
@@ -9,6 +9,7 @@ import (
 	"github.com/go-leap/fs"
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
 
@@ -97,14 +98,14 @@ func (me *Ctx) initLibs() {
 		for _, file := range dircontents {
 			if file.IsDir() {
 				handledir(filepath.Join(dirfullpath, file.Name()), modlibdirs)
-			} else if (!added) && ustr.Suff(file.Name(), SrcFileExt) {
+			} else if (!added) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
 				added, modlibdirs[dirfullpath] = true, modlibdirs[dirfullpath]+1
 			}
 		}
 	}
 
 	const modswatchdurationcritical = int64(3 * time.Millisecond)
-	modswatcher := ufs.ModificationsWatcher(LibsWatchInterval/2, me.Dirs.Libs, SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
+	modswatcher := ufs.ModificationsWatcher(LibsWatchInterval/2, me.Dirs.Libs, atmo.SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
 		if len(mods) > 0 {
 			modlibdirs := map[string]int{}
 			for fullpath, fileinfo := range mods {
@@ -183,7 +184,7 @@ func (me *Ctx) libReload(idx int) {
 
 	// any new files get added
 	for _, file := range diritems {
-		if (!file.IsDir()) && ustr.Suff(file.Name(), SrcFileExt) {
+		if (!file.IsDir()) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
 			if fp := filepath.Join(this.DirPath, file.Name()); this.SrcFiles.Index(fp) < 0 {
 				this.SrcFiles = append(this.SrcFiles, atmolang.AstFile{SrcFilePath: fp})
 			}
