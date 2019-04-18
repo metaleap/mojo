@@ -184,7 +184,7 @@ func (me *Ctx) libReload(idx int) {
 	// any new files get added
 	for _, file := range diritems {
 		if (!file.IsDir()) && ustr.Suff(file.Name(), SrcFileExt) {
-			if fp := filepath.Join(this.DirPath, file.Name()); !this.SrcFiles.Contains(fp) {
+			if fp := filepath.Join(this.DirPath, file.Name()); this.SrcFiles.Index(fp) < 0 {
 				this.SrcFiles = append(this.SrcFiles, atmolang.AstFile{SrcFilePath: fp})
 			}
 		}

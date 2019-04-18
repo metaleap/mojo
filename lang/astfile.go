@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 )
 
 type AstFiles []AstFile
@@ -106,13 +107,20 @@ func (me *AstFile) CountNetLinesOfCode() (sloc int) {
 	return
 }
 
-func (me AstFiles) Contains(srcFilePath string) bool {
+func (me *AstFileTopLevelChunk) ID() string {
+	if me._id == "" {
+		me._id = ustr.Uint64s('-', me.id[:])
+	}
+	return me._id
+}
+
+func (me AstFiles) Index(srcFilePath string) int {
 	for i := range me {
 		if me[i].SrcFilePath == srcFilePath {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }
 
 func (me *AstFiles) RemoveAt(i int) { *me = append((*me)[:i], (*me)[i+1:]...) }
