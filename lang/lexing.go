@@ -32,10 +32,11 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 			return
 		}
 		me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src
+		println("LEX")
 		me.populateTopLevelChunksFrom(src)
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.srcDirty {
-				this.errs.parsing, this.Ast.Comments, this.Ast.Def = nil, nil, nil
+				this.srcDirty, this.errs.parsing, this.Ast.Comments, this.Ast.Def = false, nil, nil, nil
 				this.Ast.Tokens, this.errs.lexing = udevlex.Lex(&ustd.BytesReader{Data: this.Src},
 					me.SrcFilePath, this.Offset.Line, this.Offset.Pos, me.LastLoad.TokCountInitialGuess)
 				if len(this.errs.lexing) == 0 {
@@ -137,8 +138,8 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 				me.TopLevel[i] = oldtlc[oldidx]
 			} else {
 				me.TopLevel[i].srcDirty, me.TopLevel[i]._id, me.TopLevel[i].Src = true, "", tlchunks[i].src
-				me.TopLevel[i].id[0], me.TopLevel[i].id[1], _ = ustd.HashWyPlus(0, 0, []byte(me.SrcFilePath))
-				me.TopLevel[i].id[2], me.TopLevel[i].id[3], _ = ustd.HashWyPlus(0, 0, me.TopLevel[i].Src)
+				me.TopLevel[i].id[0], me.TopLevel[i].id[1], _ = ustd.HashTwo(0, 0, []byte(me.SrcFilePath))
+				me.TopLevel[i].id[2], me.TopLevel[i].id[3], _ = ustd.HashTwo(0, 0, me.TopLevel[i].Src)
 			}
 			me.TopLevel[i].Offset.Line, me.TopLevel[i].Offset.Pos = tlchunks[i].line, tlchunks[i].pos
 		}

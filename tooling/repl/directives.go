@@ -53,6 +53,11 @@ func (me *Repl) runDirective(name string, args string) {
 		}
 	}
 	if found == nil {
+		if n, a := ustr.BreakOnFirstOrSuff(name, "\""); n != "" && args == "" {
+			me.runDirective(n, "\""+a)
+			return
+		}
+
 		me.IO.writeLns("unknown directive `:" + name + "` — try: ")
 		for i := range me.KnownDirectives {
 			me.IO.writeLns("   :" + me.KnownDirectives[i].Desc)
@@ -86,11 +91,11 @@ func (me *Repl) dListLibs() {
 	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Libs, func(s string) string { return "─── " + s })...)
 
 	libs := me.Ctx.KnownLibs()
-	me.IO.writeLns("", "found "+ustr.Int(len(libs))+" libs:")
+	me.IO.writeLns("", "found "+ustr.Plu(len(libs), "lib")+":")
 	for i := range libs {
 		lib := &libs[i]
 		numerrs := len(lib.Errs())
-		me.decoAddNotice(false, "", true, "\""+lib.LibPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Int(numerrs)+" error(s)"))
+		me.decoAddNotice(false, "", true, "\""+lib.LibPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
 	}
 	me.IO.writeLns("", "(to see lib details, use `:info \"<lib>\"`)")
 }
@@ -108,7 +113,7 @@ func (me *Repl) dListDefs(whatLib string) {
 		for i := range lib.SrcFiles {
 			sf := &lib.SrcFiles[i]
 			nd, _ := sf.CountTopLevelDefs()
-			me.IO.writeLns("", ustr.Int(nd)+" top-level def(s) in "+filepath.Base(sf.SrcFilePath)+":")
+			me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
 			for d := range sf.TopLevel {
 				if def := sf.TopLevel[d].Ast.Def; def != nil {
 					pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
@@ -148,20 +153,20 @@ func (me *Repl) dInfoLib(whatLib string) {
 	} else {
 		me.IO.writeLns("\""+lib.LibPath+"\"", "    "+lib.DirPath)
 
-		me.IO.writeLns("", ustr.Int(len(lib.SrcFiles))+" source file(s) in lib \""+whatLib+"\":")
+		me.IO.writeLns("", ustr.Plu(len(lib.SrcFiles), "source file")+" in lib \""+whatLib+"\":")
 		numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
 		for i := range lib.SrcFiles {
 			sf := &lib.SrcFiles[i]
 			nd, ndi := sf.CountTopLevelDefs()
 			sloc := sf.CountNetLinesOfCode()
 			numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
-			me.decoAddNotice(false, "", true, filepath.Base(sf.SrcFilePath), ustr.Int(sf.LastLoad.NumLines)+" lines ("+ustr.Int(sloc)+" sloc), "+ustr.Int(nd)+" top-level defs, "+ustr.Int(nd-ndi)+" exported")
+			me.decoAddNotice(false, "", true, filepath.Base(sf.SrcFilePath), ustr.Plu(sf.LastLoad.NumLines, "line")+" ("+ustr.Int(sloc)+" sloc), "+ustr.Plu(nd, "top-level def")+", "+ustr.Int(nd-ndi)+" exported")
 		}
-		me.IO.writeLns("Total: "+ustr.Int(numlines)+" lines ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Int(numdefs)+" top-level defs, "+ustr.Int(numdefs-numdefsinternal)+" exported",
+		me.IO.writeLns("Total: "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
 			"    (counts exclude failed-to-parse code portions, if any)")
 
 		if liberrs := lib.Errs(); len(liberrs) > 0 {
-			me.IO.writeLns("", ustr.Int(len(liberrs))+" issue(s) in lib \""+whatLib+"\":")
+			me.IO.writeLns("", ustr.Plu(len(liberrs), "issue")+" in lib \""+whatLib+"\":")
 			for i := range liberrs {
 				errmsg := liberrs[i].Error()
 				if pos := ustr.Pos(errmsg, ": ["); pos > 0 && ustr.Has(errmsg[:pos], atmo.SrcFileExt+":") {
