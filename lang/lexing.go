@@ -144,7 +144,6 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 				me.TopLevel[i].srcDirty, me.TopLevel[i]._id, me.TopLevel[i].Src = true, "", tlchunks[i].src
 				me.TopLevel[i].id[0], me.TopLevel[i].id[1], _ = ustd.HashTwo(0, 0, []byte(me.SrcFilePath))
 				me.TopLevel[i].id[2], me.TopLevel[i].id[3], _ = ustd.HashTwo(0, 0, me.TopLevel[i].Src)
-				println(me.TopLevel[i].ID())
 			}
 			me.TopLevel[i].Offset.Line, me.TopLevel[i].Offset.Pos = tlchunks[i].line, tlchunks[i].pos
 		}

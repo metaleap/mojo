@@ -148,6 +148,7 @@ func (me *Ctx) msg(alreadyLocked bool, text string) {
 }
 
 func (me *Ctx) Messages(clear bool) (msgs []CtxMsg) {
+	me.maybeInitPanic(false)
 	me.Lock()
 	if msgs = me.state.msgs; clear {
 		me.state.msgs = nil

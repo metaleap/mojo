@@ -91,7 +91,7 @@ func (me *Repl) dListPacks() {
 	packs := me.Ctx.KnownPacks()
 	me.IO.writeLns("", "found "+ustr.Plu(len(packs), "pack")+":")
 	for i := range packs {
-		pack := &packs[i]
+		pack := packs[i]
 		numerrs := len(pack.Errs())
 		me.decoAddNotice(false, "", true, "\""+pack.ImpPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
 	}

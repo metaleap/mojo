@@ -13,7 +13,7 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-var PacksWatchInterval = 1 * time.Second
+var PacksWatchInterval time.Duration
 
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
@@ -26,10 +26,13 @@ type Pack struct {
 	SrcFiles atmolang.AstFiles
 }
 
-func (me *Ctx) KnownPacks() (known []Pack) {
+func (me *Ctx) KnownPacks() (knownPacks []*Pack) {
 	me.maybeInitPanic(false)
 	me.Lock()
-	known = me.packs.all
+	knownPacks = make([]*Pack, len(me.packs.all))
+	for i := range me.packs.all {
+		knownPacks[i] = &me.packs.all[i]
+	}
 	me.Unlock()
 	return
 }
@@ -37,12 +40,9 @@ func (me *Ctx) KnownPacks() (known []Pack) {
 func (me *Ctx) KnownPackImpPaths() (packImpPaths []string) {
 	me.maybeInitPanic(false)
 	me.Lock()
-	already := make(map[string]bool, len(me.packs.all))
-	packImpPaths = make([]string, 0, len(me.packs.all))
+	packImpPaths = make([]string, len(me.packs.all))
 	for i := range me.packs.all {
-		if packimppath := me.packs.all[i].ImpPath; !already[packimppath] {
-			already[packimppath], packImpPaths = true, append(packImpPaths, packimppath)
-		}
+		packImpPaths[i] = me.packs.all[i].ImpPath
 	}
 	me.Unlock()
 	return
@@ -77,6 +77,7 @@ func (me *Ctx) PackReachable(pack *Pack) (reachable bool) {
 }
 
 func (me *Ctx) ReloadModifiedPacksUnlessAlreadyWatching() {
+	me.maybeInitPanic(false)
 	if me.state.modsWatcher != nil {
 		me.state.modsWatcher()
 	}
@@ -128,7 +129,7 @@ func (me *Ctx) initPacks() {
 				}
 				// add any new ones, reload any potentially-modified ones
 				for packdirpath, numfilesguess := range modpackdirs {
-					if ufs.IsDir(packdirpath) || packdirpath == dirPathAutoPack {
+					if isdropped := false; ufs.IsDir(packdirpath) || packdirpath == dirPathAutoPack {
 						idx := me.packs.all.indexDirPath(packdirpath)
 						if idx < 0 {
 							if idx = len(me.packs.all); numfilesguess < 4 {
@@ -143,10 +144,24 @@ func (me *Ctx) initPacks() {
 									break
 								}
 							}
-							me.packs.all = append(me.packs.all, Pack{DirPath: packdirpath, ImpPath: packimppath,
-								SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
+							if packimppath == "" {
+								panic("should never happen, debug immediately")
+							}
+							for i := range me.packs.all {
+								if me.packs.all[i].ImpPath == packimppath {
+									isdropped = true
+									me.msg(true, "duplicate pack import path `"+packimppath+"`: ignoring the one in "+packdirpath+" and using the one in "+me.packs.all[i].DirPath)
+									break
+								}
+							}
+							if !isdropped {
+								me.packs.all = append(me.packs.all, Pack{DirPath: packdirpath, ImpPath: packimppath,
+									SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
+							}
 						}
-						me.packReload(idx)
+						if !isdropped {
+							me.packReload(idx)
+						}
 					}
 				}
 				sort.Sort(me.packs.all)
@@ -199,6 +214,7 @@ func (me *Ctx) packReload(idx int) {
 			}
 		}
 	}
+
 }
 func (me *Pack) Errs() (errs []error) {
 	if me.Errors.Reload != nil {
