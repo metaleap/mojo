@@ -168,10 +168,9 @@ func (me *Repl) dInfoLib(whatLib string) {
 		if liberrs := lib.Errs(); len(liberrs) > 0 {
 			me.IO.writeLns("", ustr.Plu(len(liberrs), "issue")+" in lib \""+whatLib+"\":")
 			for i := range liberrs {
-				me.decoErrNotice(liberrs[i].Error())
+				me.decoMsgNotice(liberrs[i].Error())
 			}
 		}
-
 		me.IO.writeLns("", "", "(to see lib defs, use `:list \""+whatLib+"\"`)")
 	}
 }

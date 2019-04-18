@@ -66,7 +66,7 @@ func (me *Repl) decoAddNotice(altStyle bool, altPrefix string, compact bool, not
 	me.IO.writeLns(noticeLines...)
 }
 
-func (me *Repl) decoErrNotice(lines ...string) {
+func (me *Repl) decoMsgNotice(lines ...string) {
 	for i := 0; i < len(lines); i++ {
 		ln := lines[i]
 		if pos := ustr.Pos(ln, ": ["); pos > 0 && ustr.Has(ln[:pos], atmo.SrcFileExt+":") {
@@ -81,7 +81,7 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
 		me.IO.writeLns("", "")
 		for i := range msgs {
-			if me.decoErrNotice(msgs[i].Time.Format("15:04:05") + "\t" + msgs[i].Text); !initial {
+			if me.decoMsgNotice(msgs[i].Time.Format("15:04:05") + "\t" + msgs[i].Text); !initial {
 				time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
 			}
 		}
