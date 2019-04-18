@@ -88,13 +88,13 @@ func (me *Repl) DList(what string) bool {
 func (me *Repl) dListPacks() {
 	me.IO.writeLns("From current search paths:")
 	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Packs, func(s string) string { return "─── " + s })...)
-	packs := me.Ctx.KnownPacks()
-	me.IO.writeLns("", "found "+ustr.Plu(len(packs), "pack")+":")
-	for i := range packs {
-		pack := packs[i]
-		numerrs := len(pack.Errs())
-		me.decoAddNotice(false, "", true, "\""+pack.ImpPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
-	}
+	me.Ctx.WithKnownPacks(func(packs []atmoload.Pack) {
+		me.IO.writeLns("", "found "+ustr.Plu(len(packs), "pack")+":")
+		for _, pack := range packs {
+			numerrs := len(pack.Errs())
+			me.decoAddNotice(false, "", true, "\""+pack.ImpPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
+		}
+	})
 	me.IO.writeLns("", "(to see pack details, use `:info \"<pack/import/path>\"`)")
 }
 
@@ -103,23 +103,29 @@ func (me *Repl) dListDefs(whatPack string) {
 		whatPack = ustr.If(whatPack[len(whatPack)-1] != '"', whatPack[1:], whatPack[1:len(whatPack)-1])
 	}
 	if whatPack == "" {
-		me.IO.writeLns("TODO: list all defs")
-	} else if pack := me.Ctx.Pack(whatPack); pack == nil {
-		me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
+		me.IO.writeLns("TODO: list ALL defs")
+
 	} else {
-		me.IO.writeLns("", "\""+pack.ImpPath+"\"", "    "+pack.DirPath)
-		for i := range pack.SrcFiles {
-			sf := &pack.SrcFiles[i]
-			nd, _ := sf.CountTopLevelDefs()
-			me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
-			for d := range sf.TopLevel {
-				if def := sf.TopLevel[d].Ast.Def; def != nil {
-					pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
-						"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
-					me.decoAddNotice(false, "", true, ustr.Combine(def.Name.Val, " ─── ", pos))
+		me.Ctx.WithPack(whatPack, func(pack *atmoload.Pack) {
+			if pack == nil {
+				me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
+			} else {
+				me.IO.writeLns("", "\""+pack.ImpPath+"\"", "    "+pack.DirPath)
+				packsrcfiles := pack.SrcFiles()
+				for i := range packsrcfiles {
+					sf := &packsrcfiles[i]
+					nd, _ := sf.CountTopLevelDefs()
+					me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
+					for d := range sf.TopLevel {
+						if def := sf.TopLevel[d].Ast.Def; def != nil {
+							pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
+								"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
+							me.decoAddNotice(false, "", true, ustr.Combine(def.Name.Val, " ─── ", pos))
+						}
+					}
 				}
 			}
-		}
+		})
 	}
 }
 
@@ -145,32 +151,33 @@ func (me *Repl) dInfo() {
 }
 
 func (me *Repl) dInfoPack(whatPack string) {
-	pack := me.Ctx.Pack(whatPack)
-	if pack == nil {
-		me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
-	} else {
-		me.IO.writeLns("\""+pack.ImpPath+"\"", "    "+pack.DirPath)
-
-		me.IO.writeLns("", ustr.Plu(len(pack.SrcFiles), "source file")+" in pack \""+whatPack+"\":")
-		numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
-		for i := range pack.SrcFiles {
-			sf := &pack.SrcFiles[i]
-			nd, ndi := sf.CountTopLevelDefs()
-			sloc := sf.CountNetLinesOfCode()
-			numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
-			me.decoAddNotice(false, "", true, filepath.Base(sf.SrcFilePath), ustr.Plu(sf.LastLoad.NumLines, "line")+" ("+ustr.Int(sloc)+" sloc), "+ustr.Plu(nd, "top-level def")+", "+ustr.Int(nd-ndi)+" exported")
-		}
-		me.IO.writeLns("Total: "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
-			"    (counts exclude failed-to-parse code portions, if any)")
-
-		if packerrs := pack.Errs(); len(packerrs) > 0 {
-			me.IO.writeLns("", ustr.Plu(len(packerrs), "issue")+" in pack \""+whatPack+"\":")
-			for i := range packerrs {
-				me.decoMsgNotice(packerrs[i].Error())
+	me.Ctx.WithPack(whatPack, func(pack *atmoload.Pack) {
+		if pack == nil {
+			me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
+		} else {
+			me.IO.writeLns("\""+pack.ImpPath+"\"", "    "+pack.DirPath)
+			packsrcfiles := pack.SrcFiles()
+			me.IO.writeLns("", ustr.Plu(len(packsrcfiles), "source file")+" in pack \""+whatPack+"\":")
+			numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
+			for i := range packsrcfiles {
+				sf := &packsrcfiles[i]
+				nd, ndi := sf.CountTopLevelDefs()
+				sloc := sf.CountNetLinesOfCode()
+				numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
+				me.decoAddNotice(false, "", true, filepath.Base(sf.SrcFilePath), ustr.Plu(sf.LastLoad.NumLines, "line")+" ("+ustr.Int(sloc)+" sloc), "+ustr.Plu(nd, "top-level def")+", "+ustr.Int(nd-ndi)+" exported")
 			}
+			me.IO.writeLns("Total: "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
+				"    (counts exclude failed-to-parse code portions, if any)")
+
+			if packerrs := pack.Errs(); len(packerrs) > 0 {
+				me.IO.writeLns("", ustr.Plu(len(packerrs), "issue")+" in pack \""+whatPack+"\":")
+				for i := range packerrs {
+					me.decoMsgNotice(packerrs[i].Error())
+				}
+			}
+			me.IO.writeLns("", "", "(to see pack defs, use `:list \""+whatPack+"\"`)")
 		}
-		me.IO.writeLns("", "", "(to see pack defs, use `:list \""+whatPack+"\"`)")
-	}
+	})
 }
 
 func (me *Repl) dInfoDef(whatPack string, whatName string) {

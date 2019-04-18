@@ -18,61 +18,43 @@ var PacksWatchInterval time.Duration
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
 type Pack struct {
-	ImpPath string
-	DirPath string
-	Errors  struct {
-		Reload error
+	ImpPath  string
+	DirPath  string
+	srcFiles atmolang.AstFiles
+
+	errs struct {
+		reload error
 	}
-	SrcFiles atmolang.AstFiles
 }
 
-func (me *Ctx) KnownPacks() (knownPacks []*Pack) {
+func (me *Ctx) WithKnownPacks(do func([]Pack)) {
 	me.maybeInitPanic(false)
-	me.Lock()
-	knownPacks = make([]*Pack, len(me.packs.all))
-	for i := range me.packs.all {
-		knownPacks[i] = &me.packs.all[i]
-	}
-	me.Unlock()
+	me.state.Lock()
+	do(me.packs.all)
+	me.state.Unlock()
 	return
 }
 
 func (me *Ctx) KnownPackImpPaths() (packImpPaths []string) {
 	me.maybeInitPanic(false)
-	me.Lock()
+	me.state.Lock()
 	packImpPaths = make([]string, len(me.packs.all))
 	for i := range me.packs.all {
 		packImpPaths[i] = me.packs.all[i].ImpPath
 	}
-	me.Unlock()
+	me.state.Unlock()
 	return
 }
 
-func (me *Ctx) Pack(impPath string) (pack *Pack) {
+func (me *Ctx) WithPack(impPath string, do func(*Pack)) {
 	me.maybeInitPanic(false)
-	me.Lock()
+	me.state.Lock()
 	if idx := me.packs.all.indexImpPath(impPath); idx >= 0 {
-		pack = &me.packs.all[idx]
+		do(&me.packs.all[idx])
+	} else {
+		do(nil)
 	}
-	me.Unlock()
-	return
-}
-
-func (me *Ctx) PackAuto() (packAuto *Pack) {
-	me.maybeInitPanic(false)
-	me.Lock()
-	packAuto = &me.packs.all[me.packs.all.indexDirPath(dirPathAutoPack)]
-	me.Unlock()
-	return
-}
-
-func (me *Ctx) PackReachable(pack *Pack) (reachable bool) {
-	me.maybeInitPanic(false)
-	me.Lock()
-	if idx := me.packs.all.indexImpPath(pack.ImpPath); idx >= 0 {
-		reachable = (pack == &me.packs.all[idx])
-	}
-	me.Unlock()
+	me.state.Unlock()
 	return
 }
 
@@ -86,12 +68,12 @@ func (me *Ctx) ReloadModifiedPacksUnlessAlreadyWatching() {
 func (me *Ctx) initPacks() {
 	var handledir func(string, map[string]int)
 	handledir = func(dirfullpath string, modpackdirs map[string]int) {
-		if idx := me.packs.all.indexDirPath(dirfullpath); idx >= 0 { // dir was previously known as a pack
-			modpackdirs[dirfullpath] = cap(me.packs.all[idx].SrcFiles)
+		if idx := me.packs.all.indexDirPath(dirfullpath); idx >= 0 { // dir was previously known as a this
+			modpackdirs[dirfullpath] = cap(me.packs.all[idx].srcFiles)
 		}
 		for i := range me.packs.all {
 			if ustr.Pref(me.packs.all[i].DirPath, dirfullpath+string(os.PathSeparator)) {
-				modpackdirs[me.packs.all[i].DirPath] = cap(me.packs.all[i].SrcFiles)
+				modpackdirs[me.packs.all[i].DirPath] = cap(me.packs.all[i].srcFiles)
 			}
 		}
 		dircontents, _ := ufs.Dir(dirfullpath)
@@ -108,6 +90,7 @@ func (me *Ctx) initPacks() {
 	const modswatchdurationcritical = int64(3 * time.Millisecond)
 	modswatcher := ufs.ModificationsWatcher(PacksWatchInterval/2, me.Dirs.Packs, atmo.SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
 		if len(mods) > 0 {
+			me.state.Lock()
 			modpackdirs := map[string]int{}
 			for fullpath, fileinfo := range mods {
 				if fileinfo.IsDir() {
@@ -119,7 +102,6 @@ func (me *Ctx) initPacks() {
 			}
 
 			if len(modpackdirs) > 0 {
-				me.Lock()
 				// remove packs that have vanished from the file-system
 				for i := 0; i < len(me.packs.all); i++ {
 					if me.packs.all[i].DirPath != dirPathAutoPack && !ufs.IsDir(me.packs.all[i].DirPath) {
@@ -150,13 +132,13 @@ func (me *Ctx) initPacks() {
 							for i := range me.packs.all {
 								if me.packs.all[i].ImpPath == packimppath {
 									isdropped = true
-									me.msg(true, "duplicate pack import path `"+packimppath+"`: ignoring the one in "+packdirpath+" and using the one in "+me.packs.all[i].DirPath)
+									me.msg(true, "duplicate import path `"+packimppath+"`:\n    ignoring the one in "+packdirpath+"\n    and using the one in "+me.packs.all[i].DirPath)
 									break
 								}
 							}
 							if !isdropped {
 								me.packs.all = append(me.packs.all, Pack{DirPath: packdirpath, ImpPath: packimppath,
-									SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
+									srcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
 							}
 						}
 						if !isdropped {
@@ -165,34 +147,34 @@ func (me *Ctx) initPacks() {
 					}
 				}
 				sort.Sort(me.packs.all)
-				me.Unlock()
 			}
+			me.state.Unlock()
 		}
 		if duration := time.Now().UnixNano() - starttime; duration > modswatchdurationcritical {
 			me.msg(false, "[DBG] note to self, mods-watch took "+time.Duration(duration).String())
 		}
-
 	})
-	if modswatchcancel := ustd.DoNowAndThenEvery(PacksWatchInterval, me.PacksWatch.Should, modswatcher); modswatchcancel != nil {
+	if modswatchcancel := ustd.DoNowAndThenEvery(PacksWatchInterval, me.AutoPacksWatch.ShouldNow, modswatcher); modswatchcancel != nil {
 		me.state.modsWatcherRunning, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
 	} else {
 		me.state.modsWatcher = modswatcher
 	}
 }
+
 func (me *Ctx) packReload(idx int) {
 	this := &me.packs.all[idx]
 
 	var diritems []os.FileInfo
-	if diritems, this.Errors.Reload = ufs.Dir(this.DirPath); this.Errors.Reload != nil {
-		this.SrcFiles = nil
+	if diritems, this.errs.reload = ufs.Dir(this.DirPath); this.errs.reload != nil {
+		this.srcFiles = nil
 		return
 	}
 
 	// any deleted files get forgotten now
-	for i := 0; i < len(this.SrcFiles); i++ {
-		if !ufs.IsFile(this.SrcFiles[i].SrcFilePath) {
-			this.SrcFiles.RemoveAt(i)
+	for i := 0; i < len(this.srcFiles); i++ {
+		if !ufs.IsFile(this.srcFiles[i].SrcFilePath) {
+			this.srcFiles.RemoveAt(i)
 			i--
 		}
 	}
@@ -200,49 +182,37 @@ func (me *Ctx) packReload(idx int) {
 	// any new files get added
 	for _, file := range diritems {
 		if (!file.IsDir()) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
-			if fp := filepath.Join(this.DirPath, file.Name()); this.SrcFiles.Index(fp) < 0 {
-				this.SrcFiles = append(this.SrcFiles, atmolang.AstFile{SrcFilePath: fp})
+			if fp := filepath.Join(this.DirPath, file.Name()); this.srcFiles.Index(fp) < 0 {
+				this.srcFiles = append(this.srcFiles, atmolang.AstFile{SrcFilePath: fp})
 			}
 		}
 	}
 
-	for i := range this.SrcFiles {
-		this.SrcFiles[i].LexAndParseFile(true, false)
-		if errs := this.SrcFiles[i].Errs(); len(errs) > 0 {
+	for i := range this.srcFiles {
+		this.srcFiles[i].LexAndParseFile(true, false)
+		if errs := this.srcFiles[i].Errs(); len(errs) > 0 {
 			for _, e := range errs {
 				me.msg(true, e.Error())
 			}
 		}
 	}
-
 }
+
 func (me *Pack) Errs() (errs []error) {
-	if me.Errors.Reload != nil {
-		errs = append(errs, me.Errors.Reload)
+	if me.errs.reload != nil {
+		errs = append(errs, me.errs.reload)
 	}
-	for i := range me.SrcFiles {
-		for _, e := range me.SrcFiles[i].Errs() {
+	for i := range me.srcFiles {
+		for _, e := range me.srcFiles[i].Errs() {
 			errs = append(errs, e)
 		}
 	}
 	return
 }
 
-func (me *Pack) Err() error {
-	if errs := me.Errs(); len(errs) > 0 {
-		return errs[0]
-	}
-	return nil
+func (me *Pack) SrcFiles() atmolang.AstFiles {
+	return me.srcFiles
 }
-
-func (me *Pack) Error() (errMsg string) {
-	if e := me.Err(); e != nil {
-		errMsg = e.Error()
-	}
-	return
-}
-
-func (me *Pack) IsAutoPack() bool { return me.DirPath == dirPathAutoPack }
 
 type packs []Pack
 

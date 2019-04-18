@@ -17,7 +17,7 @@ func mainRepl() {
 	var repl atmorepl.Repl
 	repl.IO.MultiLineSuffix = replMultiLineSuffix
 	repl.Ctx.Dirs.Packs = replAdditionalPacksDirs
-	repl.Ctx.PacksWatch.Should = func() bool {
+	repl.Ctx.AutoPacksWatch.ShouldNow = func() bool {
 		return replPacksWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replPacksWatchPauseAfter
 	}
 	if err := repl.Ctx.Init("."); err == nil {

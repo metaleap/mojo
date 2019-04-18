@@ -24,21 +24,21 @@ type CtxMsg struct {
 }
 
 type Ctx struct {
-	sync.Mutex
 	ClearCacheDir bool
 	Dirs          struct {
 		Cur   string
 		Cache string
 		Packs []string
 	}
-	PacksWatch struct {
-		Should func() bool
+	AutoPacksWatch struct {
+		ShouldNow func() bool
 	}
 
 	packs struct {
 		all packs
 	}
 	state struct {
+		sync.Mutex
 		initCalled         bool
 		cleanUps           []func()
 		msgs               []CtxMsg
@@ -139,20 +139,20 @@ func (me *Ctx) Dispose() {
 func (me *Ctx) msg(alreadyLocked bool, text string) {
 	msg := CtxMsg{Time: time.Now(), Text: text}
 	if !alreadyLocked {
-		me.Lock()
+		me.state.Lock()
 	}
 	me.state.msgs = append(me.state.msgs, msg)
 	if !alreadyLocked {
-		me.Unlock()
+		me.state.Unlock()
 	}
 }
 
 func (me *Ctx) Messages(clear bool) (msgs []CtxMsg) {
 	me.maybeInitPanic(false)
-	me.Lock()
+	me.state.Lock()
 	if msgs = me.state.msgs; clear {
 		me.state.msgs = nil
 	}
-	me.Unlock()
+	me.state.Unlock()
 	return
 }

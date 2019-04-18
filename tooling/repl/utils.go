@@ -81,7 +81,7 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
 		me.IO.writeLns("", "")
 		for i := range msgs {
-			if me.decoMsgNotice(msgs[i].Time.Format("15:04:05") + "\t" + msgs[i].Text); !initial {
+			if me.decoMsgNotice(msgs[i].Time.Format("15:04:05") + " ─── " + msgs[i].Text); !initial {
 				time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
 			}
 		}
