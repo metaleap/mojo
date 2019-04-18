@@ -1,4 +1,4 @@
-package atmolang
+package atmo
 
 import (
 	"text/scanner"
@@ -21,14 +21,6 @@ type Error struct {
 	Cat ErrorCategory
 }
 
-func errAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
-	return &Error{Msg: msg, Pos: *pos, Len: length, Cat: cat}
-}
-
-func errSyntax(tok *udevlex.Token, msg string) *Error {
-	return errAt(ErrCatParsing, &tok.Meta.Position, len(tok.Meta.Orig), msg)
-}
-
 func (me *Error) Error() (msg string) {
 	msg = me.Pos.String() + ": "
 	switch me.Cat {
@@ -41,4 +33,16 @@ func (me *Error) Error() (msg string) {
 	}
 	msg += me.Msg
 	return
+}
+
+func ErrAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
+	return &Error{Msg: msg, Pos: *pos, Len: length, Cat: cat}
+}
+
+func ErrLex(pos *scanner.Position, msg string) *Error {
+	return ErrAt(ErrCatLexing, pos, 1, msg)
+}
+
+func ErrSyn(tok *udevlex.Token, msg string) *Error {
+	return ErrAt(ErrCatParsing, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }

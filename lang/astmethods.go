@@ -3,9 +3,10 @@ package atmolang
 import (
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 )
 
-func (me *AstDef) initIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at int, affixIndices map[int]int) (err *Error) {
+func (me *AstDef) initIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at int, affixIndices map[int]int) (err *atmo.Error) {
 	tok, this, isarg := &ttmp[at], &me.Name, arg > -1
 	if isarg {
 		this = &me.Args[arg]

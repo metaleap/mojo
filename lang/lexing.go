@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/std"
+	"github.com/metaleap/atmo"
 )
 
 type AstFileTopLevelChunk struct {
@@ -19,8 +20,8 @@ type AstFileTopLevelChunk struct {
 	_id      string
 	srcDirty bool
 	errs     struct {
-		lexing  []*Error
-		parsing *Error
+		lexing  []*atmo.Error
+		parsing *atmo.Error
 	}
 	Ast AstTopLevel
 }
@@ -40,7 +41,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 					me.SrcFilePath, this.Offset.Line, this.Offset.Pos, me.LastLoad.TokCountInitialGuess)
 				if this.Ast.Tokens = toks; len(errs) > 0 {
 					for _, e := range errs {
-						this.errs.lexing = append(this.errs.lexing, errAt(ErrCatLexing, &e.Pos, 1, e.Msg))
+						this.errs.lexing = append(this.errs.lexing, atmo.ErrLex(&e.Pos, e.Msg))
 					}
 				} else {
 					me.parse(this)
