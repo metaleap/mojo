@@ -17,10 +17,12 @@ var (
 
 func main() {
 	ustd.FlagsAddShortNames = true
-	replAdditionalPacksDirs = ustd.FlagOfStrings("repl-packsdirs", replAdditionalPacksDirs, string(os.PathListSeparator),
-		"    format: text (1 or more packs dir paths joined by `"+string(os.PathListSeparator)+"`)\n    will be used in addition to those in $"+atmo.EnvVarPacksDirs)
+	replCurDir = ustd.FlagOfString("repl-workdir", replCurDir,
+		"    format: text (1 dir path)")
 	replMultiLineSuffix = ustd.FlagOfString("repl-multiline-suffix", replMultiLineSuffix,
 		"    format: text; sets the line suffix that begins or ends a multi-line input")
+	replAdditionalPacksDirs = ustd.FlagOfStrings("repl-packsdirs", replAdditionalPacksDirs, string(os.PathListSeparator),
+		"    format: text (1 or more packs dir paths joined by `"+string(os.PathListSeparator)+"`)\n    will be used in addition to those in $"+atmo.EnvVarPacksDirs)
 	atmoload.PacksWatchInterval = ustd.FlagOfDuration("repl-packswatch-interval", 123*time.Millisecond,
 		"    format: time-duration; sets how often to check all known atmo packs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
 	replPacksWatchPauseAfter = ustd.FlagOfDuration("repl-packswatch-pauseafter", replPacksWatchPauseAfter,

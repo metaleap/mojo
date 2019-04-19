@@ -95,7 +95,7 @@ func (me *Ctx) initPacks() {
 		}
 	}
 
-	const modswatchdurationcritical = int64(3 * time.Millisecond)
+	const modswatchdurationcritical = int64(23 * time.Millisecond)
 	var watchdircur []string
 	if !me.Dirs.curAlreadyInPacksDirs {
 		watchdircur = []string{me.Dirs.Cur}
@@ -180,7 +180,7 @@ func (me *Ctx) initPacks() {
 			me.state.Unlock()
 		}
 		if duration := time.Now().UnixNano() - starttime; duration > modswatchdurationcritical {
-			me.msg(false, "[DBG] note to self, mods-watch took "+time.Duration(duration).String())
+			me.msg(false, "[DBG] note to dev, mods-watch took "+time.Duration(duration).String())
 		}
 	})
 	if modswatchcancel := ustd.DoNowAndThenEvery(PacksWatchInterval, me.OngoingPacksWatch.ShouldNow, modswatcher); modswatchcancel != nil {

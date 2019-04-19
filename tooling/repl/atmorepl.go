@@ -104,7 +104,7 @@ func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 	}
 }
 
-func (me *Repl) QuitNonUserInitiated(anim bool) {
+func (me *Repl) QuitNonDirectiveInitiated(anim bool) {
 	if me.run.quit = true; anim {
 		me.decoTypingAnim(" :quit   \n", 42*time.Millisecond)
 		me.decoInputDone(false)
