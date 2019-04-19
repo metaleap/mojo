@@ -11,15 +11,19 @@ func (me *AstDef) initIdent(ctx *ctxParseTld, arg int, ttmp udevlex.Tokens, at i
 	if isarg {
 		this = &me.Args[arg]
 	}
-	s, affix := tok.Meta.Orig, ""
+	s, k, affix := tok.Meta.Orig, tok.Kind(), ""
 	if affixIndices != nil {
 		if idx, ok := affixIndices[at]; ok {
 			s, affix = s[:idx], s[idx+1:]
 		}
 	}
-	this.Val, this.IsOpish, this.IsTag, this.Affix =
-		s, (tok.Kind() == udevlex.TOKEN_OPISH), isarg && ustr.BeginsUpper(s), affix
-	ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)
+	if (!isarg) && k != udevlex.TOKEN_IDENT && k != udevlex.TOKEN_OPISH {
+		err = atmo.ErrSyn(tok, "expected def name instead of `"+tok.Meta.Orig+"`")
+	} else {
+		ctx.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, ttmp, at)
+		this.Val, this.IsOpish, this.IsTag, this.Affix =
+			s, (k == udevlex.TOKEN_OPISH), isarg && ustr.BeginsUpper(s), affix
+	}
 	return
 }
 

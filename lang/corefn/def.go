@@ -23,14 +23,10 @@ func (me *Def) populateName() {
 		me.Name = me.Name[1:]
 	}
 	tok := &me.Orig.Name.Tokens[0]
-	if ustr.In(me.Name, langReservedOps...) {
-		me.Errs.AddTok(atmo.ErrCatNaming, tok, "reserved token not permissible as def name: `"+me.Name+"`")
-	}
-	if me.Orig.Name.IsTag || ((!me.Orig.Name.IsOpish) && !ustr.BeginsLower(me.Name)) {
+	if me.Name == "" || ustr.In(me.Name, langReservedOps...) {
+		me.Errs.AddTok(atmo.ErrCatNaming, tok, "reserved token not permissible as def name: `"+me.Orig.Name.Val+"`")
+	} else if me.Orig.Name.IsTag || ((!me.Orig.Name.IsOpish) && !ustr.BeginsLower(me.Name)) {
 		me.Errs.AddTok(atmo.ErrCatNaming, tok, "def names must be lower-case (or operator tokens)")
-	}
-	if me.Orig.Name.Affix != "" {
-		me.Errs.AddSyn(tok, "affixes are for def args, not for def names: drop `:"+me.Orig.Name.Affix+"`")
 	}
 }
 

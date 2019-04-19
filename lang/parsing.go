@@ -132,11 +132,11 @@ func (me *ctxParseTld) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				exprcur = me.newExprLitStr(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
-				switch toks[0].Str {
-				case ",":
+				switch toks[0].Str[0] {
+				case ',':
 					exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
 					accum = accum[:0]
-				case "|":
+				case '|':
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
 				default:
