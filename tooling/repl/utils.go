@@ -91,16 +91,19 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 
 func (me *Repl) decoTypingAnim(s string, speed time.Duration) {
 	for _, r := range s {
-		time.Sleep(speed)
+		if !AnimsDisabled {
+			time.Sleep(speed)
+		}
 		me.IO.write(string(r), 1)
 	}
 }
 
 func (me *Repl) decoWelcomeMsgAnim() {
 	me.IO.writeLns("")
-	me.decoInputStart(false)
-	time.Sleep(345 * time.Millisecond)
-	me.decoTypingAnim(":info\n", 234*time.Millisecond)
+	if me.decoInputStart(false); !AnimsDisabled {
+		time.Sleep(234 * time.Millisecond)
+	}
+	me.decoTypingAnim(":info\n", 123*time.Millisecond)
 	me.decoInputDone(false)
 	me.DInfo("")
 }

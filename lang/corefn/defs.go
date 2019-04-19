@@ -8,7 +8,7 @@ type Defs []Def
 
 func (me Defs) ByID(id string) *Def {
 	for i := range me {
-		if me[i].Orig.ID() == id {
+		if me[i].TopLevel.ID() == id {
 			return &me[i]
 		}
 	}
@@ -16,17 +16,17 @@ func (me Defs) ByID(id string) *Def {
 }
 
 func (me *Defs) Reload(packSrcFiles atmolang.AstFiles) {
-	this, olddefs, newdefs := *me, map[*Def]bool{}, make([]*atmolang.AstFileTopLevelChunk, 0, 2)
+	this, olddefs, newdefs := *me, make(map[*Def]bool, len(*me)), make([]*atmolang.AstFileTopLevelChunk, 0, 2)
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
 	for i := range packSrcFiles {
 		for j := range packSrcFiles[i].TopLevel {
-			tl := &packSrcFiles[i].TopLevel[j]
-			tlid := tl.ID()
-			if def := this.ByID(tlid); def == nil {
-				newdefs = append(newdefs, tl)
-			} else {
-				olddefs[def] = true
+			if tl := &packSrcFiles[i].TopLevel[j]; tl.Ast.Def != nil {
+				if def := this.ByID(tl.ID()); def == nil {
+					newdefs = append(newdefs, tl)
+				} else {
+					olddefs[def] = true
+				}
 			}
 		}
 	}
@@ -42,7 +42,7 @@ func (me *Defs) Reload(packSrcFiles atmolang.AstFiles) {
 	// add what's new
 	newstartfrom := len(this)
 	for _, tlc := range newdefs {
-		this = append(this, Def{Orig: tlc})
+		this = append(this, Def{TopLevel: tlc, Orig: tlc.Ast.Def})
 	}
 
 	// populate new `Def`s from orig AST node

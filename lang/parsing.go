@@ -13,10 +13,6 @@ const (
 	APPLSTYLE_SOV
 )
 
-var (
-	langReservedOps = []string{"|", "?", ",", ":=", "==", "/=", ">=", "<=", "<", ">", "+", "-", "*", "/"}
-)
-
 func init() {
 	udevlex.RestrictedWhitespace, udevlex.StandaloneSeps, udevlex.SepsForChunking =
 		true, []string{"(", ")"}, "([{}])"

@@ -36,8 +36,8 @@ func (me *AstFile) Errs() []error {
 			me._errs = append(me._errs, me.errs.loading)
 		}
 		for i := range me.TopLevel {
-			for _, e := range me.TopLevel[i].errs.lexing {
-				me._errs = append(me._errs, e)
+			for e := range me.TopLevel[i].errs.lexing {
+				me._errs = append(me._errs, &me.TopLevel[i].errs.lexing[e])
 			}
 			if e := me.TopLevel[i].errs.parsing; e != nil {
 				me._errs = append(me._errs, e)
@@ -113,6 +113,10 @@ func (me *AstFileTopLevelChunk) ID() string {
 	}
 	return me._id
 }
+
+func (me AstFiles) Len() int               { return len(me) }
+func (me AstFiles) Swap(i int, j int)      { me[i], me[j] = me[j], me[i] }
+func (me AstFiles) Less(i int, j int) bool { return me[i].SrcFilePath < me[j].SrcFilePath }
 
 func (me AstFiles) Index(srcFilePath string) int {
 	for i := range me {

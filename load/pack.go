@@ -22,7 +22,7 @@ type Pack struct {
 	ImpPath string
 	DirPath string
 
-	defs              atmocorefn.Defs
+	topLevel          atmocorefn.Defs
 	srcFiles          atmolang.AstFiles
 	wasEverToBeLoaded bool
 	errs              struct {
@@ -195,7 +195,7 @@ func (me *Ctx) packRefresh(idx int) {
 	this := &me.packs.all[idx]
 	var diritems []os.FileInfo
 	if diritems, this.errs.refresh = ufs.Dir(this.DirPath); this.errs.refresh != nil {
-		this.srcFiles, this.defs = nil, nil
+		this.srcFiles, this.topLevel = nil, nil
 		return
 	}
 
@@ -215,6 +215,7 @@ func (me *Ctx) packRefresh(idx int) {
 			}
 		}
 	}
+	sort.Sort(this.srcFiles)
 
 	if this.wasEverToBeLoaded {
 		me.packReload(idx)
@@ -233,7 +234,7 @@ func (me *Ctx) packReload(idx int) {
 			}
 		}
 	}
-	this.defs.Reload(this.srcFiles)
+	this.topLevel.Reload(this.srcFiles)
 }
 
 func (me *Pack) Errs() (errs []error) {
@@ -243,6 +244,11 @@ func (me *Pack) Errs() (errs []error) {
 	for i := range me.srcFiles {
 		for _, e := range me.srcFiles[i].Errs() {
 			errs = append(errs, e)
+		}
+	}
+	for i := range me.topLevel {
+		for e := range me.topLevel[i].Errs {
+			errs = append(errs, &me.topLevel[i].Errs[e])
 		}
 	}
 	return

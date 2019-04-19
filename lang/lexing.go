@@ -20,7 +20,7 @@ type AstFileTopLevelChunk struct {
 	_id      string
 	srcDirty bool
 	errs     struct {
-		lexing  []*atmo.Error
+		lexing  atmo.Errors
 		parsing *atmo.Error
 	}
 	Ast AstTopLevel
@@ -41,7 +41,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 					me.SrcFilePath, this.Offset.Line, this.Offset.Pos, me.LastLoad.TokCountInitialGuess)
 				if this.Ast.Tokens = toks; len(errs) > 0 {
 					for _, e := range errs {
-						this.errs.lexing = append(this.errs.lexing, atmo.ErrLex(&e.Pos, e.Msg))
+						this.errs.lexing.AddLex(&e.Pos, e.Msg)
 					}
 				} else {
 					me.parse(this)

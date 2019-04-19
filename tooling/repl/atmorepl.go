@@ -10,6 +10,10 @@ import (
 	"github.com/metaleap/atmo/load"
 )
 
+var (
+	AnimsDisabled bool
+)
+
 type Repl struct {
 	Ctx             atmoload.Ctx
 	KnownDirectives directives
@@ -102,10 +106,13 @@ func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 			me.decoInputStart(false)
 		}
 	}
+	if !me.run.quit {
+		me.QuitNonDirectiveInitiated(true)
+	}
 }
 
 func (me *Repl) QuitNonDirectiveInitiated(anim bool) {
-	if me.run.quit = true; anim {
+	if me.run.quit = true; anim && !AnimsDisabled {
 		me.decoTypingAnim(" :quit   \n", 42*time.Millisecond)
 		me.decoInputDone(false)
 		me.IO.writeLns("")

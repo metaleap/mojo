@@ -9,6 +9,7 @@ import (
 	"github.com/go-leap/sys"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/load"
+	"github.com/metaleap/atmo/tooling/repl"
 )
 
 var (
@@ -27,6 +28,8 @@ func main() {
 		"    format: time-duration; sets how often to check all known atmo packs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
 	replPacksWatchPauseAfter = ustd.FlagOfDuration("repl-packswatch-pauseafter", replPacksWatchPauseAfter,
 		"    format: time-duration; sets how soon (since the most-recent line input)\n    packs-watching will pause (to be resumed on the next line input)")
+	atmorepl.AnimsDisabled = ustd.FlagOfBool("repl-anims-disabled", atmorepl.AnimsDisabled,
+		"")
 
 	atcmd, showinfousage, showinfoargs := usys.Arg(1), false, false
 	switch atcmd {
@@ -54,7 +57,9 @@ func main() {
 	if f := ustd.Flags; showinfoargs {
 		writeLns("", "Optional flags:", "")
 		for i := range f {
-			writeLns("  --"+f[i].Name+" or --"+f[i].ShortName()+" (default: "+ustr.If(f[i].Default != "", f[i].Default, "<empty>")+")", f[i].Desc, "")
+			if f[i].Desc != "" {
+				writeLns("  --"+f[i].Name+" or --"+f[i].ShortName()+" (default: "+ustr.If(f[i].Default != "", f[i].Default, "<empty>")+")", f[i].Desc, "")
+			}
 		}
 	}
 }
