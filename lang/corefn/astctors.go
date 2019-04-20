@@ -1,16 +1,16 @@
 package atmocorefn
 
 import (
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
 
-func newIdentFrom(orig *atmolang.AstIdent) (ident IAstIdent) {
+func newIdentFrom(orig *atmolang.AstIdent) (ident IAstIdent, errs atmo.Errors) {
 	// val opish tag affix
 	switch {
 	case orig.IsTag:
-		// var tag AstIdentTag
-		// tag.initFrom(orig)
-		// return &tag
+		var tag AstIdentTag
+		ident, errs = &tag, tag.initFrom(orig)
 	case orig.IsOpish:
 	default:
 	}

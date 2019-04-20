@@ -25,7 +25,9 @@ func (me *AstDef) initName() {
 
 }
 
-func (me *AstIdentTag) initFrom(from *atmolang.AstIdent) (errs atmo.Errors) {
+func (me *AstIdentBase) initFrom(from *atmolang.AstIdent) (errs atmo.Errors) {
 	me.Name = from.Val
 	return
 }
+
+func (me *AstIdentBase) FromOrig() atmolang.IAstNode { return me.Orig }

@@ -47,6 +47,8 @@ type AstAtomBase struct {
 type AstIdentBase struct {
 	AstAtomBase
 	Name string
+
+	Orig *atmolang.AstIdent
 }
 
 type AstIdentName struct {
