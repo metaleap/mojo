@@ -21,12 +21,9 @@ func (me *ctxParseTld) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val, this.IsOpish, this.IsTag =
 		this.Tokens[0].Str, this.Tokens[0].Kind() == udevlex.TOKEN_OPISH, ustr.BeginsUpper(this.Tokens[0].Str)
-	return &this
-}
-
-func (me *ctxParseTld) newExprLitEmptyParens(toks udevlex.Tokens) *AstExprLitEmptyParens {
-	var this AstExprLitEmptyParens
-	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
+	if this.Val == "()" {
+		this.IsOpish = true
+	}
 	return &this
 }
 

@@ -146,8 +146,8 @@ func (me *ctxParseTld) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 			case udevlex.TOKEN_SEPISH:
 				if sub, rest, e := me.parseParens(toks); e != nil {
 					err = e
-				} else if len(sub) == 0 {
-					exprcur = me.newExprLitEmptyParens(toks)
+				} else if len(sub) == 0 { // empty parens are otherwise useless so we'll use it as some builtin ident
+					exprcur = me.newExprIdent(toks[:2])
 					toks = rest
 				} else if exprcur, err = me.parseExprInParens(sub); err == nil {
 					toks = rest
