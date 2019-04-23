@@ -47,6 +47,15 @@ func (me *AstFile) Errs() []error {
 	return me._errs
 }
 
+func (me *AstFile) StrToks() (r string) {
+	for i := range me.TopLevel {
+		if def := me.TopLevel[i].Ast.Def; def != nil {
+			r += "\n" + def.Tokens.String() + "\n"
+		}
+	}
+	return
+}
+
 func (me *AstFile) Tokens() udevlex.Tokens {
 	if me._toks == nil {
 		me._toks = make(udevlex.Tokens, 0, len(me.TopLevel)*16)

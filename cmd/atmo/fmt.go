@@ -26,6 +26,11 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFormatterMinimal{}))
+		const showtoks = true
+		if showtoks {
+			_, _ = os.Stdout.WriteString(astfile.StrToks())
+		} else {
+			_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFormatterMinimal{}))
+		}
 	}
 }

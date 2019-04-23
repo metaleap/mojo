@@ -7,12 +7,14 @@ import (
 
 type (
 	ctxParseTld struct {
-		file        *AstFile
-		curDef      *AstDef
-		indentHint  int
-		mto         map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
-		mtc         map[*udevlex.Token][]int // maps comments-stripped Tokens to comment Tokens in orig
-		parensLevel int
+		file            *AstFile
+		curDef          *AstDef
+		mto             map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
+		mtc             map[*udevlex.Token][]int // maps comments-stripped Tokens to comment Tokens in orig
+		indentHint      int
+		parensLevel     int
+		atTopLevelStill bool
+		allowOuterLet   bool
 	}
 )
 
@@ -66,15 +68,13 @@ func (me *ctxParseTld) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBa
 	}
 }
 
-func (me *ctxParseTld) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens, untilTok *udevlex.Token) {
-	if untilTok != nil {
-		for i := range toks {
-			if &toks[i] == untilTok {
-				toks = toks[:i]
-				break
-			}
-		}
-	}
+func (me *ctxParseTld) getTokensFor(from *AstBaseTokens, until *AstBaseTokens) udevlex.Tokens {
+	ifirst, ilast := me.mto[from.Tokens.First(nil)], me.mto[until.Tokens.Last(nil)]
+	tld := &me.curDef.AstBaseTokens
+	return tld.Tokens[ifirst : ilast+1]
+}
+
+func (me *ctxParseTld) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens) {
 	ifirst, ilast := me.mto[&toks[0]], me.mto[&toks[len(toks)-1]]
 	tld := &me.curDef.AstBaseTokens
 	this.Tokens = tld.Tokens[ifirst : ilast+1]
