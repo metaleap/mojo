@@ -22,7 +22,9 @@ func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	toks := this.Ast.Tokens
 	if this.Ast.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
 		if this.Ast.Def, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil {
-			this.Ast.DefIsUnexported = (this.Ast.Def.Name.Val[0] == '_')
+			if this.Ast.DefIsUnexported = (this.Ast.Def.Name.Val[0] == '_' && len(this.Ast.Def.Name.Val) > 1); this.Ast.DefIsUnexported {
+				this.Ast.Def.Name.Val = this.Ast.Def.Name.Val[1:]
+			}
 		}
 	}
 }
@@ -66,40 +68,53 @@ func (me *ctxParseTld) parseDef(tokens udevlex.Tokens, isTopLevel bool, def *Ast
 	} else if toksheads := tokshead.Chunked(","); len(toksheads[0]) == 0 {
 		err = atmo.ErrSyn(&tokens[0], "missing: definition name preceding `,`")
 	} else {
-		toksheadsig, affixindices := toksheads[0].JoinIdentPairings(":")
-		var namepos int
-		if len(toksheadsig) > 1 {
-			if me.file.Options.ApplStyle == APPLSTYLE_SVO {
-				namepos = 1
-			} else if me.file.Options.ApplStyle == APPLSTYLE_SOV {
-				namepos = len(toksheadsig) - 1
-			}
-		}
-
 		if isTopLevel {
 			me.curDef, def.Tokens, def.IsTopLevel = def, tokens, true
 		} else {
 			me.setTokensFor(&def.AstBaseTokens, toks, nil)
 		}
-		if err = def.initIdent(me, -1, toksheadsig, namepos, affixindices); err == nil {
-			if l, ol := len(toksheadsig)-1, len(def.Args); ol > l {
-				def.Args = def.Args[:l]
-			} else if ol < l {
-				def.Args = make([]AstIdent, l)
-			}
-			for i, a := 0, 0; i < len(toksheadsig); i++ {
-				if i != namepos {
-					if err = def.initIdent(me, a, toksheadsig, i, affixindices); err != nil {
-						return
+
+		toksheadsig := toksheads[0]
+		var exprsig IAstExpr
+		if exprsig, err = me.parseExpr(toksheadsig); err == nil {
+			switch sig := exprsig.(type) {
+			case *AstIdent:
+				def.Name, def.Args = *sig, nil
+			case *AstExprAppl:
+				switch nx := sig.Callee.(type) {
+				case *AstIdent:
+					def.Name, def.Args = *nx, make([]AstDefArg, len(sig.Args))
+					for i := range sig.Args {
+						if atom, ok1 := sig.Args[i].(IAstExprAtom); ok1 {
+							def.Args[i].NameOrConstVal = atom
+						} else {
+							if appl, ok2 := sig.Args[i].(*AstExprAppl); ok2 {
+								if colon, ok3 := appl.Callee.(*AstIdent); ok3 && colon.Val == ":" && len(appl.Args) == 2 {
+									if atom, ok1 = appl.Args[0].(IAstExprAtom); ok1 {
+										def.Args[i].NameOrConstVal, def.Args[i].Affix = atom, appl.Args[1]
+									}
+								}
+							}
+							if !ok1 {
+								err = atmo.ErrSyn(&sig.Args[i].BaseTokens().Tokens[0], "invalid def arg: not atomic")
+								return
+							}
+						}
 					}
-					a++
+				default:
+					err = atmo.ErrSyn(&nx.BaseTokens().Tokens[0], "invalid def name")
 				}
+			default:
+				err = atmo.ErrSyn(&sig.BaseTokens().Tokens[0], "invalid def signature: must be lone ident or func-appl form")
 			}
-			if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
-				me.indentHint = tokheadbodysep.Meta.Position.Column - 1
-			}
-			if def.Body, err = me.parseExpr(toksbody); err == nil && len(toksheads) > 1 {
-				def.Meta, err = me.parseMetas(toksheads[1:])
+			if err == nil {
+				if def.Body, err = me.parseExpr(toksbody); err == nil && len(toksheads) > 1 {
+					if def.Meta, err = me.parseMetas(toksheads[1:]); err == nil {
+						if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
+							me.indentHint = tokheadbodysep.Meta.Position.Column - 1
+						}
+					}
+				}
 			}
 		}
 	}
@@ -132,11 +147,11 @@ func (me *ctxParseTld) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				exprcur = me.newExprLitStr(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
-				switch toks[0].Str[0] {
-				case ',':
+				switch toks[0].Str {
+				case ",":
 					exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
 					accum = accum[:0]
-				case '|':
+				case "|":
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
 				default:

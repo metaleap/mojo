@@ -36,14 +36,24 @@ type AstComment struct {
 type AstDef struct {
 	AstBaseTokens
 	Name       AstIdent
-	Args       []AstIdent
+	Args       []AstDefArg
 	Meta       []IAstExpr
 	Body       IAstExpr
 	IsTopLevel bool
 }
 
+type AstDefArg struct {
+	NameOrConstVal IAstExprAtom
+	Affix          IAstExpr
+}
+
 type IAstExpr interface {
 	IAstNode
+}
+
+type IAstExprAtom interface {
+	IAstExpr
+	atomic()
 }
 
 type AstExprBase struct {
@@ -54,6 +64,8 @@ type AstExprAtomBase struct {
 	AstExprBase
 	AstBaseComments
 }
+
+func (*AstExprAtomBase) atomic() {}
 
 type AstExprLitBase struct {
 	AstExprAtomBase
@@ -82,7 +94,6 @@ type AstExprLitStr struct {
 type AstIdent struct {
 	AstExprAtomBase
 	Val     string
-	Affix   string
 	IsOpish bool
 	IsTag   bool
 }

@@ -6,7 +6,7 @@ import (
 )
 
 type IAstNode interface {
-	FromOrig() atmolang.IAstNode
+	Origin() atmolang.IAstNode
 }
 
 type IAstExpr interface {
@@ -21,19 +21,27 @@ type IAstIdent interface {
 	IAstAtom
 }
 
+type AstNodeBase struct {
+}
+
 type AstDef struct {
 	AstNodeBase
 
 	Name IAstIdent
+	Args []AstDefArg
+	Meta []IAstExpr
+	Body IAstExpr
 
 	Orig     *atmolang.AstDef
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errs     atmo.Errors
 }
 
-func (me *AstDef) FromOrig() atmolang.IAstNode { return me.Orig }
+type AstDefArg struct {
+	NameOrConstVal IAstAtom
+	Affix          IAstExpr
 
-type AstNodeBase struct {
+	Orig *atmolang.AstDefArg
 }
 
 type AstExprBase struct {
@@ -46,7 +54,7 @@ type AstAtomBase struct {
 
 type AstIdentBase struct {
 	AstAtomBase
-	Name string
+	Val string
 
 	Orig *atmolang.AstIdent
 }
@@ -77,20 +85,25 @@ type AstIdentUnderscores struct {
 
 type AstLitBase struct {
 	AstAtomBase
+	Orig atmolang.IAstExprAtom
 }
 
 type AstLitRune struct {
 	AstLitBase
+	Val rune
 }
 
 type AstLitStr struct {
 	AstLitBase
+	Val string
 }
 
 type AstLitUint struct {
 	AstLitBase
+	Val uint64
 }
 
 type AstLitFloat struct {
 	AstLitBase
+	Val float64
 }

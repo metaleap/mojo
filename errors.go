@@ -38,6 +38,10 @@ func (me *Error) Error() (msg string) {
 	return
 }
 
+func (me *Errors) Add(errs Errors) {
+	*me = append(*me, errs...)
+}
+
 func ErrAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
 	return &Error{Msg: msg, Pos: *pos, Len: length, Cat: cat}
 }
@@ -52,18 +56,18 @@ func ErrSyn(tok *udevlex.Token, msg string) *Error {
 
 type Errors []Error
 
-func (me *Errors) Add(cat ErrorCategory, pos *scanner.Position, length int, msg string) {
+func (me *Errors) AddAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) {
 	*me = append(*me, Error{Msg: msg, Pos: *pos, Len: length, Cat: cat})
 }
 
 func (me *Errors) AddLex(pos *scanner.Position, msg string) {
-	me.Add(ErrCatLexing, pos, 1, msg)
+	me.AddAt(ErrCatLexing, pos, 1, msg)
 }
 
 func (me *Errors) AddSyn(tok *udevlex.Token, msg string) {
-	me.AddTok(ErrCatParsing, tok, msg)
+	me.AddFrom(ErrCatParsing, tok, msg)
 }
 
-func (me *Errors) AddTok(cat ErrorCategory, tok *udevlex.Token, msg string) {
-	me.Add(cat, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) {
+	me.AddAt(cat, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
