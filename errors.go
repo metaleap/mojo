@@ -38,8 +38,11 @@ func (me *Error) Error() (msg string) {
 	return
 }
 
-func (me *Errors) Add(errs Errors) {
-	*me = append(*me, errs...)
+func (me *Errors) Add(errs Errors) (anyAdded bool) {
+	if anyAdded = len(errs) > 0; anyAdded {
+		*me = append(*me, errs...)
+	}
+	return
 }
 
 func ErrAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {

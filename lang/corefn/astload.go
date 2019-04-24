@@ -8,15 +8,21 @@ import (
 
 func (me *AstDef) initFrom(orig *atmolang.AstDef) {
 	me.state.genNamePrefs = []string{orig.Name.Val}
-	me.state.wrapBody = func(expr IAstExpr) IAstExpr { return expr }
-	me.Orig = orig
-	me.Errs.Add(me.initName())
-	me.Errs.Add(me.initArgs())
+	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
 }
 
-func (me *AstDef) initName() (errs atmo.Errors) {
+func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Errors) {
+	me.Orig = orig
+	errs.Add(me.initName(ctx))
+	errs.Add(me.initBody(ctx))
+	errs.Add(me.initArgs(ctx))
+	errs.Add(me.initMetas(ctx))
+	return
+}
+
+func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 	tok := &me.Orig.Name.Tokens[0]
-	if me.Name, errs = me.newAstIdentFrom(&me.Orig.Name); len(errs) == 0 {
+	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name); len(errs) == 0 {
 		switch name := me.Name.(type) {
 		case *AstIdentName:
 			// all ok
@@ -35,11 +41,21 @@ func (me *AstDef) initName() (errs atmo.Errors) {
 	return
 }
 
-func (me *AstDef) initArgs() (errs atmo.Errors) {
+func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
+	me.Body, errs = ctx.newAstExprFrom(me.Orig.Body)
+	return
+}
+
+func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 	me.Args = make([]AstDefArg, len(me.Orig.Args))
 	for i := range me.Orig.Args {
-		errs.Add(me.Args[i].initFrom(me, &me.Orig.Args[i], i))
+		errs.Add(me.Args[i].initFrom(ctx, &me.Orig.Args[i], i))
 	}
+	return
+}
+
+func (me *AstDefBase) initMetas(ctx *AstDef) (errs atmo.Errors) {
+	// TODO wrap
 	return
 }
 
@@ -75,6 +91,42 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ident IAstIdent, err
 	return
 }
 
+func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
+	switch o := orig.(type) {
+	case *atmolang.AstExprLitFloat:
+		var lit AstLitFloat
+		lit.initFrom(me, o)
+		expr = &lit
+	case *atmolang.AstExprLitUint:
+		var lit AstLitUint
+		lit.initFrom(me, o)
+		expr = &lit
+	case *atmolang.AstExprLitRune:
+		var lit AstLitRune
+		lit.initFrom(me, o)
+		expr = &lit
+	case *atmolang.AstExprLitStr:
+		var lit AstLitStr
+		lit.initFrom(me, o)
+		expr = &lit
+	case *atmolang.AstIdent:
+		expr, errs = me.newAstIdentFrom(o)
+	case *atmolang.AstExprLet:
+		expr, errs = me.newAstExprFrom(o.Body)
+		for i := range o.Defs {
+			var def AstDefBase
+			if !errs.Add(def.initFrom(me, &o.Defs[i])) {
+				me.Locals = append(me.Locals, def)
+			}
+		}
+	case *atmolang.AstExprAppl:
+	case *atmolang.AstExprCase:
+	default:
+		panic(o)
+	}
+	return
+}
+
 func (me *AstIdentBase) initFrom(ctx *AstDef, from *atmolang.AstIdent) (errs atmo.Errors) {
 	me.Val = from.Val
 	return
@@ -91,28 +143,18 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 				constexpr, me.AstIdentName = nil, *cx
 			}
 		}
-	case *atmolang.AstExprLitFloat:
-		var lit AstLitFloat
-		lit.initFrom(ctx, v)
-		constexpr = &lit
-	case *atmolang.AstExprLitUint:
-		var lit AstLitUint
-		lit.initFrom(ctx, v)
-		constexpr = &lit
-	case *atmolang.AstExprLitRune:
-		var lit AstLitRune
-		lit.initFrom(ctx, v)
-		constexpr = &lit
-	case *atmolang.AstExprLitStr:
-		var lit AstLitStr
-		lit.initFrom(ctx, v)
-		constexpr = &lit
+	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitRune, *atmolang.AstExprLitStr:
+		constexpr, errs = ctx.newAstExprFrom(v)
 	default:
 		panic(v)
 	}
-
 	if constexpr != nil {
 		me.AstIdentName.Val = "~arg~" + ustr.Int(argIdx)
+		// TODO wrap
+	}
+
+	if orig.Affix != nil {
+		// TODO wrap
 	}
 	return
 }

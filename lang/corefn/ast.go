@@ -27,11 +27,11 @@ type AstNodeBase struct {
 
 type AstDefBase struct {
 	AstNodeBase
+	Orig *atmolang.AstDef
 
 	Name IAstIdent
 	Args []AstDefArg
 	Body IAstExpr
-	Orig *atmolang.AstDef
 }
 
 type AstDef struct {
@@ -42,8 +42,8 @@ type AstDef struct {
 	Errs     atmo.Errors
 
 	state struct {
-		genNamePrefs []string
-		wrapBody     func(IAstExpr) IAstExpr
+		genNamePrefs  []string
+		bodyWrapCases []struct{}
 	}
 }
 
