@@ -4,9 +4,9 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type Defs []AstDef
+type AstDefs []AstDef
 
-func (me Defs) ByID(id string) *AstDef {
+func (me AstDefs) ByID(id string) *AstDef {
 	for i := range me {
 		if me[i].TopLevel.ID() == id {
 			return &me[i]
@@ -15,7 +15,7 @@ func (me Defs) ByID(id string) *AstDef {
 	return nil
 }
 
-func (me *Defs) Reload(packSrcFiles atmolang.AstFiles) {
+func (me *AstDefs) Reload(packSrcFiles atmolang.AstFiles) {
 	this, olddefs, newdefs := *me, make(map[*AstDef]bool, len(*me)), make([]*atmolang.AstFileTopLevelChunk, 0, 2)
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
@@ -53,7 +53,7 @@ func (me *Defs) Reload(packSrcFiles atmolang.AstFiles) {
 	*me = this
 }
 
-func (me *Defs) removeAt(idx int) {
+func (me *AstDefs) removeAt(idx int) {
 	this := *me
 	for i := idx; i < len(this)-1; i++ {
 		this[i] = this[i+1]

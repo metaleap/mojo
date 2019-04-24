@@ -11,14 +11,15 @@ type IAstNode interface {
 
 type IAstExpr interface {
 	IAstNode
+	IsAtomic() bool
 }
 
-type IAstAtom interface {
+type IAstExprAtomic interface {
 	IAstExpr
 }
 
 type IAstIdent interface {
-	IAstAtom
+	IAstExprAtomic
 }
 
 type AstNodeBase struct {
@@ -29,7 +30,6 @@ type AstDef struct {
 
 	Name IAstIdent
 	Args []AstDefArg
-	Meta []IAstExpr
 	Body IAstExpr
 
 	Orig     *atmolang.AstDef
@@ -37,9 +37,10 @@ type AstDef struct {
 	Errs     atmo.Errors
 }
 
+func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
+
 type AstDefArg struct {
-	NameOrConstVal IAstAtom
-	Affix          IAstExpr
+	AstIdentName
 
 	Orig *atmolang.AstDefArg
 }
@@ -48,9 +49,13 @@ type AstExprBase struct {
 	AstNodeBase
 }
 
+func (*AstExprBase) IsAtomic() bool { return false }
+
 type AstAtomBase struct {
 	AstExprBase
 }
+
+func (*AstAtomBase) IsAtomic() bool { return true }
 
 type AstIdentBase struct {
 	AstAtomBase
@@ -58,6 +63,8 @@ type AstIdentBase struct {
 
 	Orig *atmolang.AstIdent
 }
+
+func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
 
 type AstIdentName struct {
 	AstIdentBase
@@ -88,6 +95,10 @@ type AstLitBase struct {
 	Orig atmolang.IAstExprAtomic
 }
 
+func (me *AstLitBase) Origin() atmolang.IAstNode {
+	return me.Orig
+}
+
 type AstLitRune struct {
 	AstLitBase
 	Val rune
@@ -107,3 +118,5 @@ type AstLitFloat struct {
 	AstLitBase
 	Val float64
 }
+
+func (me *AstIdentUnderscores) Num() int { return len(me.Val) }
