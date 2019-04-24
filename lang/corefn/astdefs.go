@@ -4,6 +4,8 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
+type astDefs []AstDefBase
+
 type AstDefs []AstDef
 
 func (me AstDefs) ByID(id string) *AstDef {

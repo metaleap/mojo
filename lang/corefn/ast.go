@@ -25,14 +25,19 @@ type IAstIdent interface {
 type AstNodeBase struct {
 }
 
-type AstDef struct {
+type AstDefBase struct {
 	AstNodeBase
 
 	Name IAstIdent
 	Args []AstDefArg
 	Body IAstExpr
+	Orig *atmolang.AstDef
+}
 
-	Orig     *atmolang.AstDef
+type AstDef struct {
+	AstDefBase
+	Locals astDefs
+
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errs     atmo.Errors
 }
