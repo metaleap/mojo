@@ -40,6 +40,11 @@ type AstDef struct {
 
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errs     atmo.Errors
+
+	state struct {
+		genNamePrefs []string
+		wrapBody     func(IAstExpr) IAstExpr
+	}
 }
 
 func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }

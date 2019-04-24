@@ -14,8 +14,8 @@ const (
 )
 
 func init() {
-	udevlex.RestrictedWhitespace, udevlex.StandaloneSeps, udevlex.SepsForChunking =
-		true, []string{"(", ")"}, "([{}])"
+	udevlex.StandaloneSeps, udevlex.SepsForChunking, udevlex.RestrictedWhitespace, udevlex.SanitizeDirtyFloatsNextToOpishs =
+		[]string{"(", ")"}, "([{}])", true, true
 }
 
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
