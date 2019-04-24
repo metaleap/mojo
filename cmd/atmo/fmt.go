@@ -26,7 +26,7 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		const showtoks = true
+		const showtoks = false
 		if showtoks {
 			_, _ = os.Stdout.WriteString(astfile.StrToks())
 		} else {

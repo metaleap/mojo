@@ -14,7 +14,6 @@ type (
 		indentHint      int
 		parensLevel     int
 		atTopLevelStill bool
-		allowOuterLet   bool
 	}
 )
 
