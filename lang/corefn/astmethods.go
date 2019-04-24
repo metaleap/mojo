@@ -65,26 +65,26 @@ func (me *AstLitBase) Origin() atmolang.IAstNode {
 	return me.Orig
 }
 
-func (me *AstLitBase) initFrom(orig atmolang.IAstExprAtom) {
+func (me *AstLitBase) initFrom(orig atmolang.IAstExprAtomic) {
 	me.Orig = orig
 }
 
-func (me *AstLitFloat) initFrom(orig atmolang.IAstExprAtom) {
+func (me *AstLitFloat) initFrom(orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(orig)
 	me.Val = orig.BaseTokens().Tokens[0].Float
 }
 
-func (me *AstLitUint) initFrom(orig atmolang.IAstExprAtom) {
+func (me *AstLitUint) initFrom(orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(orig)
 	me.Val = orig.BaseTokens().Tokens[0].Uint
 }
 
-func (me *AstLitRune) initFrom(orig atmolang.IAstExprAtom) {
+func (me *AstLitRune) initFrom(orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(orig)
 	me.Val = orig.BaseTokens().Tokens[0].Rune()
 }
 
-func (me *AstLitStr) initFrom(orig atmolang.IAstExprAtom) {
+func (me *AstLitStr) initFrom(orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(orig)
 	me.Val = orig.BaseTokens().Tokens[0].Str
 }

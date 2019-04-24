@@ -1,10 +1,9 @@
 package atmolang
 
 import (
-	"os"
-
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 )
 
 type AstFiles []AstFile
@@ -30,7 +29,23 @@ type AstFile struct {
 	_errs []error
 }
 
-func (me *AstFile) Errs() []error {
+type AstFileTopLevelChunk struct {
+	Src    []byte
+	Offset struct {
+		Line int
+		Pos  int
+	}
+	id       [4]uint64
+	_id      string
+	srcDirty bool
+	errs     struct {
+		lexing  atmo.Errors
+		parsing *atmo.Error
+	}
+	Ast AstTopLevel
+}
+
+func (me *AstFile) Errors() []error {
 	if me._errs == nil {
 		if me._errs = make([]error, 0); me.errs.loading != nil {
 			me._errs = append(me._errs, me.errs.loading)
@@ -47,47 +62,13 @@ func (me *AstFile) Errs() []error {
 	return me._errs
 }
 
-func (me *AstFile) StrToks() (r string) {
+func (me *AstFile) String() (r string) {
 	for i := range me.TopLevel {
 		if def := me.TopLevel[i].Ast.Def; def != nil {
 			r += "\n" + def.Tokens.String() + "\n"
 		}
 	}
 	return
-}
-
-func (me *AstFile) Tokens() udevlex.Tokens {
-	if me._toks == nil {
-		me._toks = make(udevlex.Tokens, 0, len(me.TopLevel)*16)
-		for i := range me.TopLevel {
-			me._toks = append(me._toks, me.TopLevel[i].Ast.Tokens...)
-		}
-	}
-	return me._toks
-}
-
-func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
-	if me.SrcFilePath != "" {
-		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
-			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
-				if modtime := srcfileinfo.ModTime().UnixNano(); modtime > 0 && me.LastLoad.Time > modtime {
-					return
-				}
-			}
-		}
-	}
-
-	var srcfile *os.File
-	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
-		if srcfile, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
-			defer srcfile.Close()
-		}
-	} else if stdinIfNoSrcFilePathSet {
-		srcfile = os.Stdin
-	}
-	if me.errs.loading == nil && srcfile != nil {
-		me.LexAndParseSrc(srcfile)
-	}
 }
 
 func (me *AstFile) CountTopLevelDefs() (total int, unexported int) {

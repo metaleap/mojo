@@ -85,7 +85,7 @@ type AstIdentUnderscores struct {
 
 type AstLitBase struct {
 	AstAtomBase
-	Orig atmolang.IAstExprAtom
+	Orig atmolang.IAstExprAtomic
 }
 
 type AstLitRune struct {

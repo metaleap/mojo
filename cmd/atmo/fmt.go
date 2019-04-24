@@ -21,14 +21,14 @@ func mainFmt() {
 	}
 
 	astfile.LexAndParseFile(false, true)
-	if errs := astfile.Errs(); len(errs) > 0 {
+	if errs := astfile.Errors(); len(errs) > 0 {
 		for _, e := range errs {
 			println(e.Error())
 		}
 	} else {
 		const showtoks = false
 		if showtoks {
-			_, _ = os.Stdout.WriteString(astfile.StrToks())
+			_, _ = os.Stdout.WriteString(astfile.String())
 		} else {
 			_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFormatterMinimal{}))
 		}

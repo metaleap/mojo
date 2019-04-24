@@ -6,7 +6,7 @@ import (
 )
 
 type (
-	ctxParseTld struct {
+	tldParse struct {
 		file            *AstFile
 		curDef          *AstDef
 		mto             map[*udevlex.Token]int   // maps comments-stripped Tokens to orig Tokens
@@ -17,7 +17,7 @@ type (
 	}
 )
 
-func (me *ctxParseTld) newExprIdent(toks udevlex.Tokens) *AstIdent {
+func (me *tldParse) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	var this AstIdent
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val, this.IsOpish, this.IsTag =
@@ -28,35 +28,35 @@ func (me *ctxParseTld) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	return &this
 }
 
-func (me *ctxParseTld) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
+func (me *tldParse) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
 	var this AstExprLitFloat
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val = this.Tokens[0].Float
 	return &this
 }
 
-func (me *ctxParseTld) newExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
+func (me *tldParse) newExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
 	var this AstExprLitUint
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val = this.Tokens[0].Uint
 	return &this
 }
 
-func (me *ctxParseTld) newExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
+func (me *tldParse) newExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
 	var this AstExprLitRune
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val = this.Tokens[0].Rune()
 	return &this
 }
 
-func (me *ctxParseTld) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
+func (me *tldParse) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	var this AstExprLitStr
 	me.setTokenAndCommentsFor(&this.AstBaseTokens, &this.AstBaseComments, toks, 0)
 	this.Val = this.Tokens[0].Str
 	return &this
 }
 
-func (me *ctxParseTld) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBaseComments, toks udevlex.Tokens, at int) {
+func (me *tldParse) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBaseComments, toks udevlex.Tokens, at int) {
 	at = me.mto[&toks[at]]
 	tld := &me.curDef.AstBaseTokens
 	tbase.Tokens = tld.Tokens[at : at+1]
@@ -67,13 +67,7 @@ func (me *ctxParseTld) setTokenAndCommentsFor(tbase *AstBaseTokens, cbase *AstBa
 	}
 }
 
-func (me *ctxParseTld) getTokensFor(from *AstBaseTokens, until *AstBaseTokens) udevlex.Tokens {
-	ifirst, ilast := me.mto[from.Tokens.First(nil)], me.mto[until.Tokens.Last(nil)]
-	tld := &me.curDef.AstBaseTokens
-	return tld.Tokens[ifirst : ilast+1]
-}
-
-func (me *ctxParseTld) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens) {
+func (me *tldParse) setTokensFor(this *AstBaseTokens, toks udevlex.Tokens) {
 	ifirst, ilast := me.mto[&toks[0]], me.mto[&toks[len(toks)-1]]
 	tld := &me.curDef.AstBaseTokens
 	this.Tokens = tld.Tokens[ifirst : ilast+1]

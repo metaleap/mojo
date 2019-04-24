@@ -6,6 +6,10 @@ import (
 	"github.com/go-leap/std"
 )
 
+type IPrintFormatter interface {
+	// at some point.. not today
+}
+
 type CtxPrint struct {
 	IPrintFormatter
 	File           *AstFile
@@ -13,9 +17,6 @@ type CtxPrint struct {
 	CurIndentLevel int
 
 	ustd.BytesWriter
-}
-
-type IPrintFormatter interface {
 }
 
 type PrintFormatterBase struct {

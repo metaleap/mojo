@@ -228,7 +228,7 @@ func (me *Ctx) packReload(idx int) {
 	for i := range this.srcFiles {
 		sf := &this.srcFiles[i]
 		sf.LexAndParseFile(true, false)
-		if errs := sf.Errs(); len(errs) > 0 {
+		if errs := sf.Errors(); len(errs) > 0 {
 			for _, e := range errs {
 				me.msg(true, e.Error())
 			}
@@ -242,7 +242,7 @@ func (me *Pack) Errs() (errs []error) {
 		errs = append(errs, me.errs.refresh)
 	}
 	for i := range me.srcFiles {
-		for _, e := range me.srcFiles[i].Errs() {
+		for _, e := range me.srcFiles[i].Errors() {
 			errs = append(errs, e)
 		}
 	}

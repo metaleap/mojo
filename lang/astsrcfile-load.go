@@ -3,27 +3,35 @@ package atmolang
 import (
 	"bytes"
 	"io"
+	"os"
 	"time"
 
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/std"
-	"github.com/metaleap/atmo"
 )
 
-type AstFileTopLevelChunk struct {
-	Src    []byte
-	Offset struct {
-		Line int
-		Pos  int
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
+	if me.SrcFilePath != "" {
+		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
+			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
+				if modtime := srcfileinfo.ModTime().UnixNano(); modtime > 0 && me.LastLoad.Time > modtime {
+					return
+				}
+			}
+		}
 	}
-	id       [4]uint64
-	_id      string
-	srcDirty bool
-	errs     struct {
-		lexing  atmo.Errors
-		parsing *atmo.Error
+
+	var srcfile *os.File
+	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
+		if srcfile, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
+			defer srcfile.Close()
+		}
+	} else if stdinIfNoSrcFilePathSet {
+		srcfile = os.Stdin
 	}
-	Ast AstTopLevel
+	if me.errs.loading == nil && srcfile != nil {
+		me.LexAndParseSrc(srcfile)
+	}
 }
 
 func (me *AstFile) LexAndParseSrc(r io.Reader) {
