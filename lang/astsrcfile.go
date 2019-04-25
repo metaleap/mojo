@@ -64,7 +64,7 @@ func (me *AstFile) Errors() []error {
 
 func (me *AstFile) String() (r string) {
 	for i := range me.TopLevel {
-		if def := me.TopLevel[i].Ast.Def; def != nil {
+		if def := me.TopLevel[i].Ast.Def.Orig; def != nil {
 			r += "\n" + def.Tokens.String() + "\n"
 		}
 	}
@@ -73,8 +73,8 @@ func (me *AstFile) String() (r string) {
 
 func (me *AstFile) CountTopLevelDefs() (total int, unexported int) {
 	for i := range me.TopLevel {
-		if ast := &me.TopLevel[i].Ast; ast.Def != nil {
-			if total++; ast.DefIsUnexported {
+		if ast := &me.TopLevel[i].Ast; ast.Def.Orig != nil {
+			if total++; ast.Def.IsUnexported {
 				unexported++
 			}
 		}
@@ -86,7 +86,7 @@ func (me *AstFile) CountNetLinesOfCode() (sloc int) {
 	var lastline int
 
 	for i := range me.TopLevel {
-		if def := me.TopLevel[i].Ast.Def; def != nil {
+		if def := me.TopLevel[i].Ast.Def.Orig; def != nil {
 			for t := range def.Tokens {
 				if tok := &def.Tokens[t]; tok.Meta.Line != lastline && tok.Kind() != udevlex.TOKEN_COMMENT {
 					lastline, sloc = tok.Meta.Line, sloc+1

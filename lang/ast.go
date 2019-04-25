@@ -27,9 +27,12 @@ func (me *AstBaseTokens) Toks() udevlex.Tokens { return me.Tokens }
 
 type AstTopLevel struct {
 	AstBaseTokens
-	Comments        []AstComment
-	Def             *AstDef
-	DefIsUnexported bool
+	Comments []AstComment
+	Def      struct {
+		Orig         *AstDef
+		Desugared    *AstDef
+		IsUnexported bool
+	}
 }
 
 type AstComment struct {

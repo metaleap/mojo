@@ -47,8 +47,8 @@ func (me *AstFile) Print(pf IPrintFormatter) []byte {
 func (me *AstTopLevel) print(p *CtxPrint) {
 	p.CurIndentLevel = 0
 	p.WriteByte('\n')
-	if me.Def != nil {
-		me.Def.print(p)
+	if me.Def.Orig != nil {
+		me.Def.Orig.print(p)
 	}
 	p.WriteString("\n\n")
 }

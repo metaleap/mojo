@@ -23,7 +23,7 @@ func (me *AstDefs) Reload(packSrcFiles atmolang.AstFiles) {
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
 	for i := range packSrcFiles {
 		for j := range packSrcFiles[i].TopLevel {
-			if tl := &packSrcFiles[i].TopLevel[j]; tl.Ast.Def != nil {
+			if tl := &packSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil {
 				if def := this.ByID(tl.ID()); def == nil {
 					newdefs = append(newdefs, tl)
 				} else {
@@ -49,7 +49,9 @@ func (me *AstDefs) Reload(packSrcFiles atmolang.AstFiles) {
 
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
-		this[i].initFrom(this[i].TopLevel.Ast.Def)
+		atl := &this[i].TopLevel.Ast
+		atl.EnsureDesugared()
+		this[i].initFrom(atl.Def.Desugared)
 	}
 
 	*me = this

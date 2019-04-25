@@ -117,7 +117,7 @@ func (me *Repl) dListDefs(whatPack string) {
 					nd, _ := sf.CountTopLevelDefs()
 					me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
 					for d := range sf.TopLevel {
-						if def := sf.TopLevel[d].Ast.Def; def != nil {
+						if def := sf.TopLevel[d].Ast.Def.Orig; def != nil {
 							pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
 								"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
 							me.decoAddNotice(false, "", true, ustr.Combine(def.Name.Val, " ─── ", pos))

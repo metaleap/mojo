@@ -10,6 +10,10 @@ func (*AstBuilder) Appl(callee IAstIdent, arg IAstExprAtomic) *AstAppl {
 	return &AstAppl{Callee: callee, Arg: arg}
 }
 
+func (*AstBuilder) Cases() *AstCases {
+	return &AstCases{}
+}
+
 func (*AstBuilder) IdName(name string) *AstIdentName {
 	return &AstIdentName{AstIdentBase{Val: name}}
 }

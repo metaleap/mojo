@@ -103,7 +103,7 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 		errs = me.initFrom(ctx, orig.ToUnary())
 	} else {
 		dynnameappl := ctx.NextName("__appl__")
-		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false, dynnameappl+"__0")
+		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false, dynnameappl+"_0__")
 		c, e := ctx.ensureAstAtomFrom(orig.Callee, true, dynnameappl)
 		me.Callee, errs = c.(IAstIdent), append(errs, e...)
 	}
@@ -111,7 +111,7 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 	return
 }
 
-func (me *AstBranch) initFrom(ctx *AstDef, orig *atmolang.AstExprCase) (errs atmo.Errors) {
+func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCase) (errs atmo.Errors) {
 	me.Orig = orig
 	if def := orig.Default(); def != nil {
 		errs.AddTodo(&def.Toks()[0], "desugaring default cases (the default branch will be discarded)")
@@ -143,7 +143,7 @@ func (me *AstBranch) initFrom(ctx *AstDef, orig *atmolang.AstExprCase) (errs atm
 			me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
 			for c, cond := range alt.Conds {
 				me.Ifs[i][c], e = ctx.newAstExprFrom(cond)
-				me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false, "__cond__"+ustr.Int(i)+"__"+ustr.Int(c)+"__"))
+				me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false, "__cond_"+ustr.Int(i)+"_"+ustr.Int(c)+"__"))
 				errs.Add(e)
 			}
 		}
@@ -285,18 +285,22 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			errs = appl.initFrom(me, o)
 			expr = &appl
 		case *atmolang.AstExprCase:
-			if o.IsUnionSugar {
+			if !o.IsUnionSugar {
+				var cases AstCases
+				errs = cases.initFrom(me, o)
+				expr = &cases
+			} else {
+				var cases AstCases
+				cases.Orig, cases.Ifs, cases.Thens = o, make([][]IAstExpr, 1), make([]IAstExpr, 1)
+				cases.Ifs[0], cases.Thens[0] = make([]IAstExpr, len(o.Alts[0].Conds)), me.b.IdName("__union_scrut__")
+
 				// var def AstDefBase
 				// def.Name = builder.idname("__union__")
 				// def.Args = builder.defargs("__scrut__")
 				// def.Body = me
 				// ctx.Locals = append(ctx.Locals, def)
 				// alt = ctx.Locals[len(ctx.Locals)-1].Name
-				// return
-			} else {
-				var ifthens AstBranch
-				errs = ifthens.initFrom(me, o)
-				expr = &ifthens
+				return
 			}
 		default:
 			panic(o)

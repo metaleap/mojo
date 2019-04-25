@@ -21,9 +21,9 @@ func init() {
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	toks := this.Ast.Tokens
 	if this.Ast.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		if this.Ast.Def, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil {
-			if this.Ast.DefIsUnexported = (this.Ast.Def.Name.Val[0] == '_' && len(this.Ast.Def.Name.Val) > 1); this.Ast.DefIsUnexported {
-				this.Ast.Def.Name.Val = this.Ast.Def.Name.Val[1:]
+		if this.Ast.Def.Orig, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil {
+			if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
+				this.Ast.Def.Orig.Name.Val = this.Ast.Def.Orig.Name.Val[1:]
 			}
 		}
 	}
