@@ -277,6 +277,7 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 		// complete sugar of simple `foo | bar | baz` form for cleaner later desugaring
 		if len(caseof.Alts) == 1 && caseof.Alts[0].Body == nil && caseof.Scrutinee != nil {
 			caseof.Alts[0].Conds = append([]IAstExpr{caseof.Scrutinee}, caseof.Alts[0].Conds...)
+			caseof.Scrutinee, caseof.IsUnionSugar = nil, true
 		}
 	}
 	ret = &caseof
