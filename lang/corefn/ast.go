@@ -42,6 +42,7 @@ type AstDef struct {
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errs     atmo.Errors
 
+	b     AstBuilder
 	state struct {
 		counter       int
 		genNamePrefs  []string

@@ -116,14 +116,14 @@ func (me *AstBranch) initFrom(ctx *AstDef, orig *atmolang.AstExprCase) (errs atm
 	if def := orig.Default(); def != nil {
 		errs.AddTodo(&def.Toks()[0], "desugaring default cases (the default branch will be discarded)")
 	}
-	var e atmo.Errors
-	var scrut IAstExpr
-	if orig.Scrutinee != nil {
-		scrut, e = ctx.newAstExprFrom(orig.Scrutinee)
-		errs.Add(e)
-	} else {
-		scrut = &AstIdentTag{AstIdentBase{Val: "True"}}
-	}
+	// var e atmo.Errors
+	// var scrut IAstExpr
+	// if orig.Scrutinee != nil {
+	// 	scrut, e = ctx.newAstExprFrom(orig.Scrutinee)
+	// 	errs.Add(e)
+	// } else {
+	// 	scrut = builder.idtag &AstIdentTag{AstIdentBase{Val: "True"}}
+	// }
 	return
 }
 
@@ -161,7 +161,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 		ret, errs = me.newAstIdentFrom(oid)
 	} else {
 		var def AstDefBase
-		def.Name = &AstIdentName{AstIdentBase{Val: dynNameIfNeeded}}
+		def.Name = me.b.IdName(dynNameIfNeeded)
 		def.Body, errs = me.newAstExprFrom(orig)
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
@@ -247,8 +247,8 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 		case *atmolang.AstExprCase:
 			if o.IsUnionSugar {
 				// var def AstDefBase
-				// def.Name = &AstIdentName{AstIdentBase: AstIdentBase{Val: ctx.NextName("__union__")}}
-				// def.Args = []AstDefArg{{AstIdentName: AstIdentName{AstIdentBase: AstIdentBase{Val: "__scrut__"}}}}
+				// def.Name = builder.idname("__union__")
+				// def.Args = builder.defargs("__scrut__")
 				// def.Body = me
 				// ctx.Locals = append(ctx.Locals, def)
 				// alt = ctx.Locals[len(ctx.Locals)-1].Name
