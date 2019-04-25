@@ -62,15 +62,15 @@ type AstExprBase struct {
 
 func (*AstExprBase) IsAtomic() bool { return false }
 
-type AstAtomBase struct {
+type AstExprAtomBase struct {
 	AstExprBase
 }
 
-func (*AstAtomBase) IsAtomic() bool               { return true }
-func (*AstAtomBase) __implements_IAstExprAtomic() {}
+func (*AstExprAtomBase) IsAtomic() bool               { return true }
+func (*AstExprAtomBase) __implements_IAstExprAtomic() {}
 
 type AstIdentBase struct {
-	AstAtomBase
+	AstExprAtomBase
 	Val string
 
 	Orig *atmolang.AstIdent
@@ -103,7 +103,7 @@ type AstIdentUnderscores struct {
 }
 
 type AstLitBase struct {
-	AstAtomBase
+	AstExprAtomBase
 	Orig atmolang.IAstExprAtomic
 }
 
@@ -132,3 +132,12 @@ type AstLitFloat struct {
 }
 
 func (me *AstIdentUnderscores) Num() int { return len(me.Val) }
+
+type AstAppl struct {
+	AstExprBase
+	Orig   *atmolang.AstExprAppl
+	Callee IAstExprAtomic
+	Arg    IAstExprAtomic
+}
+
+func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }

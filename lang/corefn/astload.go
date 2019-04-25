@@ -8,7 +8,9 @@ import (
 
 func (me *AstDef) initFrom(orig *atmolang.AstDef) {
 	me.state.genNamePrefs = []string{orig.Name.Val}
+	me.Locals = make(astDefs, 0, 16)
 	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
+	println("LOCS:", len(me.Locals))
 }
 
 func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Errors) {
@@ -22,7 +24,7 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 	tok := &me.Orig.Name.Tokens[0]
-	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name); len(errs) == 0 {
+	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name); me.Name != nil {
 		switch name := me.Name.(type) {
 		case *AstIdentName:
 			// all ok
@@ -61,31 +63,33 @@ func (me *AstDefBase) initMetas(ctx *AstDef) (errs atmo.Errors) {
 	return
 }
 
-func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ident IAstIdent, errs atmo.Errors) {
-	if orig.IsTag || ustr.BeginsUpper(orig.Val) {
-		var tag AstIdentTag
-		ident, errs = &tag, tag.initFrom(me, orig)
+func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs atmo.Errors) {
+	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
+		var ident AstIdentTag
+		ret, ident.Val = &ident, orig.Val
+	} else if t1 != t2 {
+		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing")
 
 	} else if orig.IsOpish {
 		if orig.Val == "()" {
-			var empar AstIdentEmptyParens
-			ident = &empar
+			var ident AstIdentEmptyParens
+			ret, ident.Val = &ident, orig.Val
 		} else {
-			var op AstIdentOp
-			ident, errs = &op, op.initFrom(me, orig)
+			var ident AstIdentOp
+			ret, ident.Val = &ident, orig.Val
 		}
 
 	} else if orig.Val[0] != '_' {
-		var name AstIdentName
-		ident, errs = &name, name.initFrom(me, orig)
+		var ident AstIdentName
+		ret, ident.Val = &ident, orig.Val
 
 	} else if ustr.IsRepeat(orig.Val) {
-		var unsco AstIdentUnderscores
-		ident, errs = &unsco, unsco.initFrom(me, orig)
+		var ident AstIdentUnderscores
+		ret, ident.Val = &ident, orig.Val
 
 	} else if orig.Val[1] != '_' {
-		var idvar AstIdentVar
-		ident, errs = &idvar, idvar.initFrom(me, orig)
+		var ident AstIdentVar
+		ret, ident.Val = &ident, orig.Val
 
 	} else {
 		errs.AddFrom(atmo.ErrCatNaming, &orig.Tokens[0], "invalid identifier: begins with multiple underscores")
@@ -104,6 +108,8 @@ func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstE
 
 func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
 	switch o := orig.(type) {
+	case *atmolang.AstIdent:
+		expr, errs = me.newAstIdentFrom(o)
 	case *atmolang.AstExprLitFloat:
 		var lit AstLitFloat
 		lit.initFrom(me, o)
@@ -120,18 +126,17 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 		var lit AstLitStr
 		lit.initFrom(me, o)
 		expr = &lit
-	case *atmolang.AstIdent:
-		expr, errs = me.newAstIdentFrom(o)
 	case *atmolang.AstExprLet:
 		expr, errs = me.newAstExprFrom(o.Body)
 		for i := range o.Defs {
 			var def AstDefBase
-			if !errs.Add(def.initFrom(me, &o.Defs[i])) {
-				me.Locals = append(me.Locals, def)
-			}
+			errs.Add(def.initFrom(me, &o.Defs[i]))
+			me.Locals = append(me.Locals, def)
 		}
 	case *atmolang.AstExprAppl:
-		errs.AddTodo(&orig.Toks()[0], "appl exprs")
+		var appl AstAppl
+		errs = appl.initFrom(me, o)
+		expr = &appl
 	case *atmolang.AstExprCase:
 		errs.AddTodo(&orig.Toks()[0], "case exprs")
 	default:
@@ -167,8 +172,18 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 	return
 }
 
-func (me *AstIdentBase) initFrom(ctx *AstDef, from *atmolang.AstIdent) (errs atmo.Errors) {
-	me.Val = from.Val
+func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.Errors) {
+	var e atmo.Errors
+	if oc, _ := orig.Callee.(atmolang.IAstExprAtomic); oc != nil {
+		me.Callee, e = ctx.newAstExprAtomicFrom(oc)
+		errs.Add(e)
+	} else {
+		// var def AstDefBase
+		// def.Name = &AstIdentName{Val: ""}
+		// errs.Add(def.initFrom(me, &o.Defs[i]))
+		// me.Locals = append(me.Locals, def)
+
+	}
 	return
 }
 
