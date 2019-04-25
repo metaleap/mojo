@@ -109,16 +109,15 @@ type AstExprAppl struct {
 	Args   []IAstExpr
 }
 
-type AstExprCase struct {
+type AstExprCases struct {
 	AstExprBase
 	Scrutinee    IAstExpr
-	Alts         []AstCaseAlt
-	Desugared    bool
+	Alts         []AstCase
+	Desugared    *AstExprLet
 	defaultIndex int
 }
 
-type AstCaseAlt struct {
-	AstBaseTokens
+type AstCase struct {
 	Conds []IAstExpr
 	Body  IAstExpr
 }
@@ -128,14 +127,14 @@ func (me *AstComment) initFrom(tokens udevlex.Tokens, at int) {
 	me.ContentText, me.IsSelfTerminating = me.Tokens[0].Str, me.Tokens[0].IsCommentSelfTerminating()
 }
 
-func (me *AstExprCase) Default() *AstCaseAlt {
+func (me *AstExprCases) Default() *AstCase {
 	if me.defaultIndex < 0 {
 		return nil
 	}
 	return &me.Alts[me.defaultIndex]
 }
 
-func (me *AstExprCase) removeAltAt(idx int) {
+func (me *AstExprCases) removeAltAt(idx int) {
 	for i := idx; i < len(me.Alts)-1; i++ {
 		me.Alts[i] = me.Alts[i+1]
 	}

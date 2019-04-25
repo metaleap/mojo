@@ -31,7 +31,7 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 }
 
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
-	tok := &me.Orig.Name.Tokens[0]
+	tok := me.Orig.Name.Tokens.First(nil)
 	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name); me.Name != nil {
 		switch name := me.Name.(type) {
 		case *AstIdentName:
@@ -111,10 +111,10 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 	return
 }
 
-func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCase) (errs atmo.Errors) {
+func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atmo.Errors) {
 	me.Orig = orig
-	if def := orig.Default(); def != nil {
-		errs.AddTodo(&def.Toks()[0], "desugaring default cases (the default branch will be discarded)")
+	if defaultcase := orig.Default(); defaultcase != nil {
+		errs.AddTodo(&defaultcase.Body.Toks()[0], "desugaring default cases (the default branch will be discarded)")
 	}
 	var e atmo.Errors
 
@@ -131,21 +131,13 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCase) (errs atmo
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
 	for i := range orig.Alts {
 		alt := &orig.Alts[i]
-		if alt.Body == nil {
-			errs.AddSyn(&alt.Tokens[0], "malformed `|?` branching: expected result expression following `?`")
-		} else {
-			me.Thens[i], e = ctx.newAstExprFrom(alt.Body)
+		me.Thens[i], e = ctx.newAstExprFrom(alt.Body)
+		errs.Add(e)
+		me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
+		for c, cond := range alt.Conds {
+			me.Ifs[i][c], e = ctx.newAstExprFrom(cond)
+			me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false, "__cond_"+ustr.Int(i)+"_"+ustr.Int(c)+"__"))
 			errs.Add(e)
-		}
-		if len(alt.Conds) == 0 {
-			errs.AddSyn(&alt.Tokens[0], "malformed `|?` branching: expected condition expression preceding `?`")
-		} else {
-			me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
-			for c, cond := range alt.Conds {
-				me.Ifs[i][c], e = ctx.newAstExprFrom(cond)
-				me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false, "__cond_"+ustr.Int(i)+"_"+ustr.Int(c)+"__"))
-				errs.Add(e)
-			}
 		}
 	}
 	return
@@ -284,23 +276,13 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			var appl AstAppl
 			errs = appl.initFrom(me, o)
 			expr = &appl
-		case *atmolang.AstExprCase:
-			if !o.IsUnionSugar {
+		case *atmolang.AstExprCases:
+			if o.Desugared == nil {
 				var cases AstCases
 				errs = cases.initFrom(me, o)
 				expr = &cases
 			} else {
-				var cases AstCases
-				cases.Orig, cases.Ifs, cases.Thens = o, make([][]IAstExpr, 1), make([]IAstExpr, 1)
-				cases.Ifs[0], cases.Thens[0] = make([]IAstExpr, len(o.Alts[0].Conds)), me.b.IdName("__union_scrut__")
-
-				// var def AstDefBase
-				// def.Name = builder.idname("__union__")
-				// def.Args = builder.defargs("__scrut__")
-				// def.Body = me
-				// ctx.Locals = append(ctx.Locals, def)
-				// alt = ctx.Locals[len(ctx.Locals)-1].Name
-				return
+				expr, errs = me.newAstExprFrom(o.Desugared)
 			}
 		default:
 			panic(o)

@@ -14,10 +14,11 @@ type (
 		indentHint      int
 		parensLevel     int
 		atTopLevelStill bool
+		b               AstBuilder
 	}
 )
 
-func (me *tldParse) newExprIdent(toks udevlex.Tokens) *AstIdent {
+func (me *tldParse) parseExprIdent(toks udevlex.Tokens) *AstIdent {
 	var this AstIdent
 	me.setTokenFor(&this.AstBaseTokens, toks, 0)
 	this.Val, this.IsOpish, this.IsTag =
@@ -28,28 +29,28 @@ func (me *tldParse) newExprIdent(toks udevlex.Tokens) *AstIdent {
 	return &this
 }
 
-func (me *tldParse) newExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
+func (me *tldParse) parseExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
 	var this AstExprLitFloat
 	me.setTokenFor(&this.AstBaseTokens, toks, 0)
 	this.Val = this.Tokens[0].Float
 	return &this
 }
 
-func (me *tldParse) newExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
+func (me *tldParse) parseExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
 	var this AstExprLitUint
 	me.setTokenFor(&this.AstBaseTokens, toks, 0)
 	this.Val = this.Tokens[0].Uint
 	return &this
 }
 
-func (me *tldParse) newExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
+func (me *tldParse) parseExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
 	var this AstExprLitRune
 	me.setTokenFor(&this.AstBaseTokens, toks, 0)
 	this.Val = this.Tokens[0].Rune()
 	return &this
 }
 
-func (me *tldParse) newExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
+func (me *tldParse) parseExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	var this AstExprLitStr
 	me.setTokenFor(&this.AstBaseTokens, toks, 0)
 	this.Val = this.Tokens[0].Str

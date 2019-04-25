@@ -156,22 +156,22 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 				if sub, rest, e := me.parseParens(toks); e != nil {
 					err = e
 				} else if len(sub) == 0 { // empty parens are otherwise useless so we'll use it as some builtin ident
-					exprcur = me.newExprIdent(toks[:2])
+					exprcur = me.parseExprIdent(toks[:2])
 					toks = rest
 				} else if exprcur, err = me.parseExprInParens(sub); err == nil {
 					toks = rest
 				}
 			case udevlex.TOKEN_FLOAT:
-				exprcur = me.newExprLitFloat(toks)
+				exprcur = me.parseExprLitFloat(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_UINT:
-				exprcur = me.newExprLitUint(toks)
+				exprcur = me.parseExprLitUint(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_RUNE:
-				exprcur = me.newExprLitRune(toks)
+				exprcur = me.parseExprLitRune(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_STR:
-				exprcur = me.newExprLitStr(toks)
+				exprcur = me.parseExprLitStr(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
 				switch toks[0].Str {
@@ -182,7 +182,7 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
 				default:
-					exprcur = me.newExprIdent(toks)
+					exprcur = me.parseExprIdent(toks)
 					toks = toks[1:]
 				}
 			default:
@@ -227,15 +227,15 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 	if len(toks) == 1 {
 		err = atmo.ErrSyn(&toks[0], "missing expressions following `|` branching")
 	}
-	var caseof AstExprCase
+	var cases AstExprCases
 	if len(accum) > 0 {
-		caseof.Scrutinee = me.parseExprAppl(accum, allToks.FromUntil(nil, &toks[0], false))
+		cases.Scrutinee = me.parseExprAppl(accum, allToks.FromUntil(nil, &toks[0], false))
 	}
-	caseof.defaultIndex = -1
-	me.setTokensFor(&caseof.AstBaseTokens, allToks)
+	cases.defaultIndex = -1
+	me.setTokensFor(&cases.AstBaseTokens, allToks)
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 	alts := toks.Chunked("|")
-	caseof.Alts = make([]AstCaseAlt, len(alts))
+	cases.Alts = make([]AstCase, len(alts))
 	var cond IAstExpr
 	var hasmulticonds bool
 	for i := range alts {
@@ -243,18 +243,18 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 			err = atmo.ErrSyn(&toks[0], "malformed `|?` branching: empty case")
 		} else if ifthen := alts[i].Chunked("?"); len(ifthen) > 2 {
 			err = atmo.ErrSyn(&alts[i][0], "malformed `|?` branching: `|` case has more than one `?` result expression")
-		} else if me.setTokensFor(&caseof.Alts[i].AstBaseTokens, alts[i]); len(ifthen[0]) == 0 {
+		} else if len(ifthen[0]) == 0 {
 			// the branching's "default" case (empty between `|` and `?`)
 			if len(ifthen[1]) == 0 {
 				err = atmo.ErrSyn(&alts[i][0], "malformed `|?` branching: default case has no result expression")
-			} else if caseof.Alts[i].Body, err = me.parseExpr(ifthen[1]); err == nil && caseof.defaultIndex >= 0 {
+			} else if cases.Alts[i].Body, err = me.parseExpr(ifthen[1]); err == nil && cases.defaultIndex >= 0 {
 				err = atmo.ErrSyn(&alts[i][0], "malformed `|?` branching: encountered a second default case, only at most one is permissible")
 			} else {
-				caseof.defaultIndex = i
+				cases.defaultIndex = i
 			}
 		} else if cond, err = me.parseExpr(ifthen[0]); err == nil {
-			if caseof.Alts[i].Conds = []IAstExpr{cond}; len(ifthen) > 1 {
-				caseof.Alts[i].Body, err = me.parseExpr(ifthen[1])
+			if cases.Alts[i].Conds = []IAstExpr{cond}; len(ifthen) > 1 {
+				cases.Alts[i].Body, err = me.parseExpr(ifthen[1])
 			} else {
 				hasmulticonds = true
 			}
@@ -264,23 +264,30 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 		}
 	}
 	if hasmulticonds {
-		for i := 0; i < len(caseof.Alts); i++ {
-			if ca := &caseof.Alts[i]; ca.Body == nil {
-				if i < len(caseof.Alts)-1 {
-					canext := &caseof.Alts[i+1]
+		for i := 0; i < len(cases.Alts); i++ {
+			if ca := &cases.Alts[i]; ca.Body == nil {
+				if i < len(cases.Alts)-1 {
+					canext := &cases.Alts[i+1]
 					canext.Conds = append(ca.Conds, canext.Conds...)
-					caseof.removeAltAt(i)
+					cases.removeAltAt(i)
 					i--
 				}
 			}
 		}
-		// complete sugar of simple `foo | bar | baz` form for cleaner later desugaring
-		if len(caseof.Alts) == 1 && caseof.Alts[0].Body == nil && caseof.Scrutinee != nil {
-			caseof.Alts[0].Conds = append([]IAstExpr{caseof.Scrutinee}, caseof.Alts[0].Conds...)
-			caseof.Scrutinee, caseof.IsUnionSugar = nil, true
+		if isunionsugar := len(cases.Alts) == 1 && cases.Alts[0].Body == nil && cases.Scrutinee != nil; isunionsugar {
+			// fix-finish the sugar of simple `foo | bar | baz` form for cleaner desugaring
+			cases.Alts[0].Conds = append([]IAstExpr{cases.Scrutinee}, cases.Alts[0].Conds...)
+			cases.Scrutinee = nil
+
+			// now make & keep a desugared version:
+			// turn `foo|bar|baz` into `ˇ, arg ˇ := arg | foo | bar | baz ? arg`
+			let := AstExprLet{Defs: make([]AstDef, 1)}
+			letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "arg"}, Alts: make([]AstCase, 1)}
+			cases.Desugared, let.Body, letcase.Alts[0].Body, letcase.Alts[0].Conds, letdef.Name.Val, letdef.Body, letdef.Args, let.Tokens, letdef.Tokens, letcase.Tokens =
+				&let, &letdef.Name, letcase.Scrutinee, cases.Alts[0].Conds, "ˇ", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, cases.Tokens, cases.Tokens, cases.Tokens
 		}
 	}
-	ret = &caseof
+	ret = &cases
 	return
 }
 

@@ -168,7 +168,7 @@ func (me *AstExprLet) print(p *CtxPrint) {
 	}
 }
 
-func (me *AstExprCase) print(p *CtxPrint) {
+func (me *AstExprCases) print(p *CtxPrint) {
 	p.WriteByte('(')
 	me.Scrutinee.print(p)
 	for i := range me.Alts {
@@ -178,7 +178,7 @@ func (me *AstExprCase) print(p *CtxPrint) {
 	p.WriteByte(')')
 }
 
-func (me *AstCaseAlt) print(p *CtxPrint) {
+func (me *AstCase) print(p *CtxPrint) {
 	for i := range me.Conds {
 		if i > 0 {
 			p.WriteString(" | ")

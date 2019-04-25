@@ -145,7 +145,7 @@ func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
 
 type AstCases struct {
 	AstExprBase
-	Orig  *atmolang.AstExprCase
+	Orig  *atmolang.AstExprCases
 	Ifs   [][]IAstExpr
 	Thens []IAstExpr
 }
