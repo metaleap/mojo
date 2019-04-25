@@ -47,9 +47,6 @@ func (me *AstFile) Print(pf IPrintFormatter) []byte {
 func (me *AstTopLevel) print(p *CtxPrint) {
 	p.CurIndentLevel = 0
 	p.WriteByte('\n')
-	for i := range me.Comments {
-		me.Comments[i].print(p)
-	}
 	if me.Def != nil {
 		me.Def.print(p)
 	}
@@ -116,42 +113,22 @@ func (me *AstDefArg) print(p *CtxPrint) {
 
 func (me *AstIdent) print(p *CtxPrint) {
 	p.WriteString(me.Val)
-	for i := range me.Comments {
-		p.WriteByte(' ')
-		me.Comments[i].print(p)
-	}
 }
 
 func (me *AstExprLitFloat) print(p *CtxPrint) {
 	p.WriteString(strconv.FormatFloat(me.Val, 'g', -1, 64))
-	for i := range me.Comments {
-		p.WriteByte(' ')
-		me.Comments[i].print(p)
-	}
 }
 
 func (me *AstExprLitUint) print(p *CtxPrint) {
 	p.WriteString(strconv.FormatUint(me.Val, 10))
-	for i := range me.Comments {
-		p.WriteByte(' ')
-		me.Comments[i].print(p)
-	}
 }
 
 func (me *AstExprLitRune) print(p *CtxPrint) {
 	p.WriteString(strconv.QuoteRune(me.Val))
-	for i := range me.Comments {
-		p.WriteByte(' ')
-		me.Comments[i].print(p)
-	}
 }
 
 func (me *AstExprLitStr) print(p *CtxPrint) {
 	p.WriteString(strconv.Quote(me.Val))
-	for i := range me.Comments {
-		p.WriteByte(' ')
-		me.Comments[i].print(p)
-	}
 }
 
 func (me *AstExprAppl) print(p *CtxPrint) {

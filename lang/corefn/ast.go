@@ -11,7 +11,7 @@ type IAstNode interface {
 
 type IAstExpr interface {
 	IAstNode
-	IsAtomic() bool
+	__implements_IAstExpr()
 }
 
 type IAstExprAtomic interface {
@@ -61,13 +61,12 @@ type AstExprBase struct {
 	AstNodeBase
 }
 
-func (*AstExprBase) IsAtomic() bool { return false }
+func (*AstExprBase) __implements_IAstExpr() {}
 
 type AstExprAtomBase struct {
 	AstExprBase
 }
 
-func (*AstExprAtomBase) IsAtomic() bool               { return true }
 func (*AstExprAtomBase) __implements_IAstExprAtomic() {}
 
 type AstIdentBase struct {

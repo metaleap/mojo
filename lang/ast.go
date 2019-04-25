@@ -11,16 +11,12 @@ type IAstNode interface {
 
 type IAstExpr interface {
 	IAstNode
-	IsAtomic() bool
+	__implements_IAstExpr()
 }
 
 type IAstExprAtomic interface {
 	IAstExpr
 	__implements_IAstExprAtomic()
-}
-
-type AstBaseComments struct {
-	Comments []AstComment
 }
 
 type AstBaseTokens struct {
@@ -31,7 +27,7 @@ func (me *AstBaseTokens) Toks() udevlex.Tokens { return me.Tokens }
 
 type AstTopLevel struct {
 	AstBaseTokens
-	AstBaseComments
+	Comments        []AstComment
 	Def             *AstDef
 	DefIsUnexported bool
 }
@@ -60,14 +56,12 @@ type AstExprBase struct {
 	AstBaseTokens
 }
 
-func (*AstExprBase) IsAtomic() bool { return false }
+func (*AstExprBase) __implements_IAstExpr() {}
 
 type AstExprAtomBase struct {
 	AstExprBase
-	AstBaseComments
 }
 
-func (*AstExprAtomBase) IsAtomic() bool               { return true }
 func (*AstExprAtomBase) __implements_IAstExprAtomic() {}
 
 type AstExprLitBase struct {
@@ -143,4 +137,21 @@ func (me *AstExprCase) removeAltAt(idx int) {
 		me.Alts[i] = me.Alts[i+1]
 	}
 	me.Alts = me.Alts[:len(me.Alts)-1]
+}
+
+func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
+	/*
+		callee arg0 arg1 arg2
+		(callee arg0) arg1 arg2
+		((callee arg0) arg1) arg2
+	*/
+	if unary = me; len(me.Args) > 1 {
+		appl := *me
+		for len(appl.Args) > 1 {
+			appl.Callee = &AstExprAppl{Callee: appl.Callee, Args: appl.Args[:1]}
+			appl.Args = appl.Args[1:]
+		}
+		unary = &appl
+	}
+	return
 }

@@ -182,16 +182,28 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 }
 
 func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.Errors) {
-	me.Callee, errs = ctx.ensureAstIdentFrom(orig.Callee, "ª")
+	if len(orig.Args) > 1 {
+		errs = me.initFrom(ctx, orig.ToUnary())
+	} else {
+		dynnameappl := ctx.NextName("$")
+		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[len(orig.Args)-1], false, dynnameappl+"0")
+		c, e := ctx.ensureAstAtomFrom(orig.Callee, true, dynnameappl)
+		me.Callee, errs = c.(IAstIdent), append(errs, e...)
+	}
 	return
 }
 
-func (me *AstDef) ensureAstIdentFrom(orig atmolang.IAstExpr, dynNamePrefix string) (ret IAstIdent, errs atmo.Errors) {
+func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool, dynNameIfNeeded string) (ret IAstExprAtomic, errs atmo.Errors) {
+	if !retMustBeIAstIdent {
+		if oat, _ := orig.(atmolang.IAstExprAtomic); oat != nil {
+			return me.newAstExprAtomicFrom(oat)
+		}
+	}
 	if oid, _ := orig.(*atmolang.AstIdent); oid != nil {
 		ret, errs = me.newAstIdentFrom(oid)
 	} else {
 		var def AstDefBase
-		def.Name = &AstIdentName{AstIdentBase{Val: me.NextName(dynNamePrefix)}}
+		def.Name = &AstIdentName{AstIdentBase{Val: dynNameIfNeeded}}
 		def.Body, errs = me.newAstExprFrom(orig)
 		me.Locals = append(me.Locals, def)
 		ret = def.Name
