@@ -10,8 +10,20 @@ func (*AstBuilder) Appl(callee IAstIdent, arg IAstExprAtomic) *AstAppl {
 	return &AstAppl{Callee: callee, Arg: arg}
 }
 
-func (*AstBuilder) Cases() *AstCases {
-	return &AstCases{}
+func (*AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) *AstAppl {
+	var appl AstAppl
+	for i := range args {
+		if i == 0 {
+			appl.Callee, appl.Arg = callee, args[i]
+		} else {
+			appl = AstAppl{Callee: ctx.ensureAstAtomFor(&appl, true, "__appl_arg_"+ustr.Int(i)+"__").(IAstIdent), Arg: args[i]}
+		}
+	}
+	return &appl
+}
+
+func (*AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {
+	return &AstCases{Ifs: [][]IAstExpr{{ifThis}}, Thens: []IAstExpr{thenThat}}
 }
 
 func (*AstBuilder) IdName(name string) *AstIdentName {

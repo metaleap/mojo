@@ -7,9 +7,12 @@ import (
 )
 
 func (me *AstDef) initFrom(orig *atmolang.AstDef) {
-	me.state.counter, me.state.genNamePrefs = 0, []string{orig.Name.Val}
-	me.Locals = make(astDefs, 0, 16)
+	const caplocals = 3
+	me.Locals = make(astDefs, 0, caplocals)
 	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
+	if len(me.Locals) > caplocals {
+		println("LOCALDEFS", len(me.Locals))
+	}
 }
 
 func (me *AstDef) NextName(prefix string) string {
@@ -58,8 +61,11 @@ func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
 
 func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 	me.Args = make([]AstDefArg, len(me.Orig.Args))
+	opeq := ctx.b.IdOp("==")
 	for i := range me.Orig.Args {
-		errs.Add(me.Args[i].initFrom(ctx, &me.Orig.Args[i], i))
+		if errs.Add(me.Args[i].initFrom(ctx, &me.Orig.Args[i], i)); me.Args[i].coerceValue != nil {
+			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, me.Args[i].coerceValue), me.Body)
+		}
 	}
 	return
 }
@@ -89,7 +95,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 	}
 	if constexpr != nil {
 		me.AstIdentName.Val = "__arg__" + ustr.Int(argIdx)
-		errs.AddTodo(&orig.NameOrConstVal.Toks()[0], "def arg const-exprs")
+		me.coerceValue = constexpr
 	}
 
 	if orig.Affix != nil {
@@ -113,9 +119,6 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 
 func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atmo.Errors) {
 	me.Orig = orig
-	if defaultcase := orig.Default(); defaultcase != nil {
-		errs.AddTodo(&defaultcase.Body.Toks()[0], "desugaring default cases (the default branch will be discarded)")
-	}
 	var e atmo.Errors
 
 	var scrut IAstExpr
@@ -131,8 +134,12 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
 	for i := range orig.Alts {
 		alt := &orig.Alts[i]
-		me.Thens[i], e = ctx.newAstExprFrom(alt.Body)
-		errs.Add(e)
+		if alt.Body == nil {
+			panic("bug in atmo/lang: received an `AstCase` with a `nil` `Body`")
+		} else {
+			me.Thens[i], e = ctx.newAstExprFrom(alt.Body)
+			errs.Add(e)
+		}
 		me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
 		for c, cond := range alt.Conds {
 			me.Ifs[i][c], e = ctx.newAstExprFrom(cond)

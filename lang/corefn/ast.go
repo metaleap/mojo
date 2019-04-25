@@ -44,9 +44,7 @@ type AstDef struct {
 
 	b     AstBuilder
 	state struct {
-		counter       int
-		genNamePrefs  []string
-		bodyWrapCases []struct{}
+		counter int
 	}
 }
 
@@ -54,6 +52,7 @@ func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
 
 type AstDefArg struct {
 	AstIdentName
+	coerceValue IAstExprAtomic
 
 	Orig *atmolang.AstDefArg
 }
