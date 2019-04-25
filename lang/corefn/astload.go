@@ -7,10 +7,19 @@ import (
 )
 
 func (me *AstDef) initFrom(orig *atmolang.AstDef) {
-	me.state.genNamePrefs = []string{orig.Name.Val}
+	me.state.counter, me.state.genNamePrefs = 0, []string{orig.Name.Val}
 	me.Locals = make(astDefs, 0, 16)
 	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
 	println("LOCS:", len(me.Locals))
+}
+
+func (me *AstDef) NextName(prefix string) string {
+	return prefix + ustr.Int(me.Next())
+}
+
+func (me *AstDef) Next() (counterIncr int) {
+	counterIncr, me.state.counter = me.state.counter, me.state.counter+1
+	return
 }
 
 func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Errors) {
@@ -162,7 +171,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 		panic(v)
 	}
 	if constexpr != nil {
-		me.AstIdentName.Val = "~arg~" + ustr.Int(argIdx)
+		me.AstIdentName.Val = "@" + ustr.Int(argIdx)
 		errs.AddTodo(&orig.NameOrConstVal.Toks()[0], "def arg const-exprs")
 	}
 
@@ -173,16 +182,19 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 }
 
 func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.Errors) {
-	var e atmo.Errors
-	if oc, _ := orig.Callee.(atmolang.IAstExprAtomic); oc != nil {
-		me.Callee, e = ctx.newAstExprAtomicFrom(oc)
-		errs.Add(e)
-	} else {
-		// var def AstDefBase
-		// def.Name = &AstIdentName{Val: ""}
-		// errs.Add(def.initFrom(me, &o.Defs[i]))
-		// me.Locals = append(me.Locals, def)
+	me.Callee, errs = ctx.ensureAstIdentFrom(orig.Callee, "ª")
+	return
+}
 
+func (me *AstDef) ensureAstIdentFrom(orig atmolang.IAstExpr, dynNamePrefix string) (ret IAstIdent, errs atmo.Errors) {
+	if oid, _ := orig.(*atmolang.AstIdent); oid != nil {
+		ret, errs = me.newAstIdentFrom(oid)
+	} else {
+		var def AstDefBase
+		def.Name = &AstIdentName{AstIdentBase{Val: me.NextName(dynNamePrefix)}}
+		def.Body, errs = me.newAstExprFrom(orig)
+		me.Locals = append(me.Locals, def)
+		ret = def.Name
 	}
 	return
 }

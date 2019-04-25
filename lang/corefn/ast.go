@@ -43,6 +43,7 @@ type AstDef struct {
 	Errs     atmo.Errors
 
 	state struct {
+		counter       int
 		genNamePrefs  []string
 		bodyWrapCases []struct{}
 	}
@@ -136,7 +137,7 @@ func (me *AstIdentUnderscores) Num() int { return len(me.Val) }
 type AstAppl struct {
 	AstExprBase
 	Orig   *atmolang.AstExprAppl
-	Callee IAstExprAtomic
+	Callee IAstIdent
 	Arg    IAstExprAtomic
 }
 
