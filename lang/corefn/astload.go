@@ -131,7 +131,9 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			}
 		}
 	case *atmolang.AstExprAppl:
+		errs.AddTodo(&orig.Toks()[0], "appl exprs")
 	case *atmolang.AstExprCase:
+		errs.AddTodo(&orig.Toks()[0], "case exprs")
 	default:
 		panic(o)
 	}
