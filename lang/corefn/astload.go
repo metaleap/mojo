@@ -55,7 +55,9 @@ func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 }
 
 func (me *AstDefBase) initMetas(ctx *AstDef) (errs atmo.Errors) {
-	// TODO wrap
+	if len(me.Orig.Meta) > 0 {
+		errs.AddTodo(&me.Orig.Meta[0].Toks()[0], "def metas")
+	}
 	return
 }
 
@@ -87,6 +89,15 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ident IAstIdent, err
 
 	} else {
 		errs.AddFrom(atmo.ErrCatNaming, &orig.Tokens[0], "invalid identifier: begins with multiple underscores")
+	}
+	return
+}
+
+func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstExprAtomic, errs atmo.Errors) {
+	x, e := me.newAstExprFrom(orig)
+	errs.Add(e)
+	if expr, _ = x.(IAstExprAtomic); expr == nil {
+		errs.AddSyn(&orig.Toks()[0], "expected: atomic expression")
 	}
 	return
 }
@@ -127,11 +138,6 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 	return
 }
 
-func (me *AstIdentBase) initFrom(ctx *AstDef, from *atmolang.AstIdent) (errs atmo.Errors) {
-	me.Val = from.Val
-	return
-}
-
 func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int) (errs atmo.Errors) {
 	me.Orig = orig
 
@@ -144,18 +150,23 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 			}
 		}
 	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitRune, *atmolang.AstExprLitStr:
-		constexpr, errs = ctx.newAstExprFrom(v)
+		constexpr, errs = ctx.newAstExprAtomicFrom(v)
 	default:
 		panic(v)
 	}
 	if constexpr != nil {
 		me.AstIdentName.Val = "~arg~" + ustr.Int(argIdx)
-		// TODO wrap
+		errs.AddTodo(&orig.NameOrConstVal.Toks()[0], "def arg const-exprs")
 	}
 
 	if orig.Affix != nil {
-		// TODO wrap
+		errs.AddTodo(&orig.Affix.Toks()[0], "def arg affixes")
 	}
+	return
+}
+
+func (me *AstIdentBase) initFrom(ctx *AstDef, from *atmolang.AstIdent) (errs atmo.Errors) {
+	me.Val = from.Val
 	return
 }
 
@@ -165,20 +176,20 @@ func (me *AstLitBase) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 
 func (me *AstLitFloat) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(ctx, orig)
-	me.Val = orig.BaseTokens().Tokens[0].Float
+	me.Val = orig.Toks()[0].Float
 }
 
 func (me *AstLitUint) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(ctx, orig)
-	me.Val = orig.BaseTokens().Tokens[0].Uint
+	me.Val = orig.Toks()[0].Uint
 }
 
 func (me *AstLitRune) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(ctx, orig)
-	me.Val = orig.BaseTokens().Tokens[0].Rune()
+	me.Val = orig.Toks()[0].Rune()
 }
 
 func (me *AstLitStr) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(ctx, orig)
-	me.Val = orig.BaseTokens().Tokens[0].Str
+	me.Val = orig.Toks()[0].Str
 }

@@ -6,7 +6,7 @@ import (
 
 type IAstNode interface {
 	print(*CtxPrint)
-	BaseTokens() *AstBaseTokens
+	Toks() udevlex.Tokens
 }
 
 type IAstExpr interface {
@@ -16,7 +16,7 @@ type IAstExpr interface {
 
 type IAstExprAtomic interface {
 	IAstExpr
-	__implements_IAstExprAtom()
+	__implements_IAstExprAtomic()
 }
 
 type AstBaseComments struct {
@@ -27,8 +27,7 @@ type AstBaseTokens struct {
 	Tokens udevlex.Tokens
 }
 
-// to implement IAstNode
-func (me *AstBaseTokens) BaseTokens() *AstBaseTokens { return me }
+func (me *AstBaseTokens) Toks() udevlex.Tokens { return me.Tokens }
 
 type AstTopLevel struct {
 	AstBaseTokens
@@ -68,8 +67,8 @@ type AstExprAtomBase struct {
 	AstBaseComments
 }
 
-func (*AstExprAtomBase) IsAtomic() bool             { return true }
-func (*AstExprAtomBase) __implements_IAstExprAtom() {}
+func (*AstExprAtomBase) IsAtomic() bool               { return true }
+func (*AstExprAtomBase) __implements_IAstExprAtomic() {}
 
 type AstExprLitBase struct {
 	AstExprAtomBase

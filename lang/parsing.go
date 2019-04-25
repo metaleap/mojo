@@ -100,23 +100,23 @@ func (me *tldParse) parseDef(tokens udevlex.Tokens, def *AstDef) (err *atmo.Erro
 										if atom, ok1 = appl.Args[0].(IAstExprAtomic); ok1 {
 											var tsub udevlex.Tokens
 											if len(appl.Args) > 2 {
-												tsub = toksheadsig.FindSub(appl.Args[1].BaseTokens().Tokens, appl.Args[len(appl.Args)-1].BaseTokens().Tokens)
+												tsub = toksheadsig.FindSub(appl.Args[1].Toks(), appl.Args[len(appl.Args)-1].Toks())
 											}
 											def.Args[i].NameOrConstVal, def.Args[i].Affix = atom, me.parseExprAppl(appl.Args[1:], tsub)
 										}
 									}
 								}
 								if !ok1 {
-									err = atmo.ErrSyn(&sig.Args[i].BaseTokens().Tokens[0], "invalid def arg: needs to be atomic, or atomic:some-qualifying-expression")
+									err = atmo.ErrSyn(&sig.Args[i].Toks()[0], "invalid def arg: needs to be atomic, or atomic:some-qualifying-expression")
 									return
 								}
 							}
 						}
 					default:
-						err = atmo.ErrSyn(&nx.BaseTokens().Tokens[0], "invalid def name")
+						err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
 					}
 				default:
-					err = atmo.ErrSyn(&sig.BaseTokens().Tokens[0], "expected: def name")
+					err = atmo.ErrSyn(&sig.Toks()[0], "expected: def name")
 				}
 
 				if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {

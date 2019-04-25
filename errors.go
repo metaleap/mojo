@@ -10,6 +10,7 @@ type ErrorCategory int
 
 const (
 	_ ErrorCategory = iota
+	ErrCatTodo
 	ErrCatLexing
 	ErrCatParsing
 	ErrCatNaming
@@ -25,6 +26,8 @@ type Error struct {
 func (me *Error) Error() (msg string) {
 	msg = me.Pos.String() + ": "
 	switch me.Cat {
+	case ErrCatTodo:
+		msg += "[not yet implemented] "
 	case ErrCatLexing:
 		msg += "[lexical] "
 	case ErrCatParsing:
@@ -57,6 +60,10 @@ func ErrSyn(tok *udevlex.Token, msg string) *Error {
 	return ErrAt(ErrCatParsing, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
 
+func ErrTodo(tok *udevlex.Token, msg string) *Error {
+	return ErrAt(ErrCatTodo, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+}
+
 type Errors []Error
 
 func (me *Errors) AddAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) {
@@ -69,6 +76,10 @@ func (me *Errors) AddLex(pos *scanner.Position, msg string) {
 
 func (me *Errors) AddSyn(tok *udevlex.Token, msg string) {
 	me.AddFrom(ErrCatParsing, tok, msg)
+}
+
+func (me *Errors) AddTodo(tok *udevlex.Token, msg string) {
+	me.AddFrom(ErrCatTodo, tok, msg)
 }
 
 func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) {
