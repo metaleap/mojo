@@ -11,6 +11,7 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	kd := me.KnownDirectives.ensure
 	kd("list <packs | defs | \"pack/import/path\">", me.DList)
 	kd("info [\"pack/import/path\"] [name]", me.DInfo)
+	kd("srcs \"pack/import/path\" name", me.DSrcs)
 	kd("quit", me.DQuit)
 	if atmoload.PacksWatchInterval == 0 {
 		kd("reload", me.DReload) //\n      (reloads modified code in known packs)", me.DReload)
@@ -129,19 +130,21 @@ func (me *Repl) dListDefs(whatPack string) {
 	}
 }
 
+func (me *Repl) what2PackAndName(what string) (whatPack string, whatName string) {
+	if whatName = what; what != "" && what[0] == '"' {
+		whatPack, whatName = ustr.BreakOnFirstOrPref(what[1:], "\"")
+	}
+	whatPack, whatName = ustr.Trim(whatPack), ustr.Trim(whatName)
+	return
+}
+
 func (me *Repl) DInfo(what string) bool {
 	if what == "" {
 		me.dInfo()
+	} else if whatpack, whatname := me.what2PackAndName(what); whatname == "" {
+		me.dInfoPack(whatpack)
 	} else {
-		var whatpack, whatname string
-		if whatname = what; what[0] == '"' {
-			whatpack, whatname = ustr.BreakOnFirstOrPref(what[1:], "\"")
-		}
-		if whatpack, whatname = ustr.Trim(whatpack), ustr.Trim(whatname); whatname == "" {
-			me.dInfoPack(whatpack)
-		} else {
-			me.dInfoDef(whatpack, whatname)
-		}
+		me.dInfoDef(whatpack, whatname)
 	}
 	return true
 }
@@ -182,4 +185,19 @@ func (me *Repl) dInfoPack(whatPack string) {
 
 func (me *Repl) dInfoDef(whatPack string, whatName string) {
 	me.IO.writeLns("Info on name: " + whatName + " in \"" + whatPack + "\"")
+}
+
+func (me *Repl) DSrcs(what string) bool {
+	if whatpack, whatname := me.what2PackAndName(what); whatpack != "" && whatname != "" {
+		me.Ctx.WithPack(whatpack, true, func(pack *atmoload.Pack) {
+			if pack == nil {
+				me.IO.writeLns("unknown pack: `" + whatpack + "`, see known packs via `:list packs`")
+			} else {
+				defs := pack.Defs(whatname)
+				me.IO.writeLns(ustr.Plu(len(defs), "def") + " found")
+			}
+		})
+		return true
+	}
+	return false
 }

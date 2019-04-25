@@ -21,6 +21,7 @@ type IAstExprAtomic interface {
 
 type IAstIdent interface {
 	IAstExprAtomic
+	String() string
 }
 
 type AstNodeBase struct {
@@ -77,6 +78,7 @@ type AstIdentBase struct {
 }
 
 func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstIdentBase) String() string            { return me.Val }
 
 type AstIdentName struct {
 	AstIdentBase

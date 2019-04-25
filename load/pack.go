@@ -109,3 +109,13 @@ func (me *Pack) PacksDirPath() string {
 func (me *Pack) SrcFiles() atmolang.AstFiles {
 	return me.srcFiles
 }
+
+func (me *Pack) Defs(name string) (defs []*atmocorefn.AstDef) {
+	wantall := (name == "")
+	for i := range me.topLevel {
+		if def := &me.topLevel[i]; wantall || def.Name.String() == name {
+			defs = append(defs, def)
+		}
+	}
+	return
+}
