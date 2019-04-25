@@ -49,9 +49,7 @@ func (me *AstDefs) Reload(packSrcFiles atmolang.AstFiles) {
 
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
-		atl := &this[i].TopLevel.Ast
-		atl.EnsureDesugared()
-		this[i].initFrom(atl.Def.Desugared)
+		this[i].initFrom(this[i].TopLevel.Ast.Def.Orig)
 	}
 
 	*me = this

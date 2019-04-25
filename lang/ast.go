@@ -30,7 +30,6 @@ type AstTopLevel struct {
 	Comments []AstComment
 	Def      struct {
 		Orig         *AstDef
-		Desugared    *AstDef
 		IsUnexported bool
 	}
 }
@@ -114,7 +113,7 @@ type AstExprCase struct {
 	AstExprBase
 	Scrutinee    IAstExpr
 	Alts         []AstCaseAlt
-	IsUnionSugar bool
+	Desugared    bool
 	defaultIndex int
 }
 
