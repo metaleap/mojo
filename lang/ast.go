@@ -139,6 +139,26 @@ func (me *AstExprCase) removeAltAt(idx int) {
 	me.Alts = me.Alts[:len(me.Alts)-1]
 }
 
+func (me *AstExprCase) ToIfsAndThens() (ifs []IAstExpr, thens []IAstExpr) {
+	ifs, thens = make([]IAstExpr, len(me.Alts)), make([]IAstExpr, len(me.Alts))
+	eq, or := &AstIdent{Val: "==", IsOpish: true}, &AstIdent{Val: "||", IsOpish: true}
+	for i := range me.Alts {
+		alt := &me.Alts[i]
+		thens[i] = alt.Body
+		var ors IAstExpr
+		for c := range alt.Conds {
+			cmp := &AstExprAppl{Callee: eq, Args: []IAstExpr{me.Scrutinee, alt.Conds[c]}}
+			if c == 0 {
+				ors = cmp
+			} else {
+				ors = &AstExprAppl{Callee: or, Args: []IAstExpr{ors, cmp}}
+			}
+		}
+		ifs[i] = ors
+	}
+	return
+}
+
 func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 	/*
 		callee arg0 arg1 arg2

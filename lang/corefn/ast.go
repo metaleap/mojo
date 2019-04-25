@@ -141,3 +141,12 @@ type AstAppl struct {
 }
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
+
+type AstBranch struct {
+	AstExprBase
+	Orig  *atmolang.AstExprCase
+	Ifs   []IAstExpr
+	Thens []IAstExpr
+}
+
+func (me *AstBranch) Origin() atmolang.IAstNode { return me.Orig }

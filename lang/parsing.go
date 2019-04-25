@@ -227,12 +227,11 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 	if len(toks) == 1 {
 		err = atmo.ErrSyn(&toks[0], "missing expressions following `|` branching")
 	}
-	var scrutinee IAstExpr
-	if len(accum) > 0 {
-		scrutinee = me.parseExprAppl(accum, allToks.FromUntil(nil, &toks[0], false))
-	}
 	var caseof AstExprCase
-	caseof.Scrutinee, caseof.defaultIndex = scrutinee, -1
+	if len(accum) > 0 {
+		caseof.Scrutinee = me.parseExprAppl(accum, allToks.FromUntil(nil, &toks[0], false))
+	}
+	caseof.defaultIndex = -1
 	me.setTokensFor(&caseof.AstBaseTokens, allToks)
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 	alts := toks.Chunked("|")
@@ -274,6 +273,10 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 					i--
 				}
 			}
+		}
+		// complete sugar of simple `foo | bar | baz` form for cleaner later desugaring
+		if len(caseof.Alts) == 1 && caseof.Alts[0].Body == nil && caseof.Scrutinee != nil {
+			caseof.Alts[0].Conds = append([]IAstExpr{caseof.Scrutinee}, caseof.Alts[0].Conds...)
 		}
 	}
 	ret = &caseof

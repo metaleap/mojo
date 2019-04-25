@@ -10,7 +10,6 @@ func (me *AstDef) initFrom(orig *atmolang.AstDef) {
 	me.state.counter, me.state.genNamePrefs = 0, []string{orig.Name.Val}
 	me.Locals = make(astDefs, 0, 16)
 	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
-	println("LOCS:", len(me.Locals))
 }
 
 func (me *AstDef) NextName(prefix string) string {
@@ -72,88 +71,6 @@ func (me *AstDefBase) initMetas(ctx *AstDef) (errs atmo.Errors) {
 	return
 }
 
-func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs atmo.Errors) {
-	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
-		var ident AstIdentTag
-		ret, ident.Val = &ident, orig.Val
-	} else if t1 != t2 {
-		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing")
-
-	} else if orig.IsOpish {
-		if orig.Val == "()" {
-			var ident AstIdentEmptyParens
-			ret, ident.Val = &ident, orig.Val
-		} else {
-			var ident AstIdentOp
-			ret, ident.Val = &ident, orig.Val
-		}
-
-	} else if orig.Val[0] != '_' {
-		var ident AstIdentName
-		ret, ident.Val = &ident, orig.Val
-
-	} else if ustr.IsRepeat(orig.Val) {
-		var ident AstIdentUnderscores
-		ret, ident.Val = &ident, orig.Val
-
-	} else if orig.Val[1] != '_' {
-		var ident AstIdentVar
-		ret, ident.Val = &ident, orig.Val
-
-	} else {
-		errs.AddFrom(atmo.ErrCatNaming, &orig.Tokens[0], "invalid identifier: begins with multiple underscores")
-	}
-	return
-}
-
-func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstExprAtomic, errs atmo.Errors) {
-	x, e := me.newAstExprFrom(orig)
-	errs.Add(e)
-	if expr, _ = x.(IAstExprAtomic); expr == nil {
-		errs.AddSyn(&orig.Toks()[0], "expected: atomic expression")
-	}
-	return
-}
-
-func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
-	switch o := orig.(type) {
-	case *atmolang.AstIdent:
-		expr, errs = me.newAstIdentFrom(o)
-	case *atmolang.AstExprLitFloat:
-		var lit AstLitFloat
-		lit.initFrom(me, o)
-		expr = &lit
-	case *atmolang.AstExprLitUint:
-		var lit AstLitUint
-		lit.initFrom(me, o)
-		expr = &lit
-	case *atmolang.AstExprLitRune:
-		var lit AstLitRune
-		lit.initFrom(me, o)
-		expr = &lit
-	case *atmolang.AstExprLitStr:
-		var lit AstLitStr
-		lit.initFrom(me, o)
-		expr = &lit
-	case *atmolang.AstExprLet:
-		expr, errs = me.newAstExprFrom(o.Body)
-		for i := range o.Defs {
-			var def AstDefBase
-			errs.Add(def.initFrom(me, &o.Defs[i]))
-			me.Locals = append(me.Locals, def)
-		}
-	case *atmolang.AstExprAppl:
-		var appl AstAppl
-		errs = appl.initFrom(me, o)
-		expr = &appl
-	case *atmolang.AstExprCase:
-		errs.AddTodo(&orig.Toks()[0], "case exprs")
-	default:
-		panic(o)
-	}
-	return
-}
-
 func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int) (errs atmo.Errors) {
 	me.Orig = orig
 
@@ -186,27 +103,30 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 		errs = me.initFrom(ctx, orig.ToUnary())
 	} else {
 		dynnameappl := ctx.NextName("$")
-		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[len(orig.Args)-1], false, dynnameappl+"0")
+		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false, dynnameappl+"0")
 		c, e := ctx.ensureAstAtomFrom(orig.Callee, true, dynnameappl)
 		me.Callee, errs = c.(IAstIdent), append(errs, e...)
 	}
+	me.Orig = orig
 	return
 }
 
-func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool, dynNameIfNeeded string) (ret IAstExprAtomic, errs atmo.Errors) {
-	if !retMustBeIAstIdent {
-		if oat, _ := orig.(atmolang.IAstExprAtomic); oat != nil {
-			return me.newAstExprAtomicFrom(oat)
-		}
+func (me *AstBranch) initFrom(ctx *AstDef, orig *atmolang.AstExprCase) (errs atmo.Errors) {
+	me.Orig = orig
+	if def := orig.Default(); def != nil {
+		errs.AddTodo(&def.Toks()[0], "desugaring default cases (the default branch will be discarded)")
 	}
-	if oid, _ := orig.(*atmolang.AstIdent); oid != nil {
-		ret, errs = me.newAstIdentFrom(oid)
-	} else {
-		var def AstDefBase
-		def.Name = &AstIdentName{AstIdentBase{Val: dynNameIfNeeded}}
-		def.Body, errs = me.newAstExprFrom(orig)
-		me.Locals = append(me.Locals, def)
-		ret = def.Name
+	ifs, thens := orig.ToIfsAndThens()
+	me.Ifs, me.Thens = make([]IAstExpr, len(ifs)), make([]IAstExpr, len(thens))
+	var e atmo.Errors
+	for i := range ifs {
+		me.Ifs[i], e = ctx.newAstExprFrom(ifs[i])
+		errs.Add(e)
+		me.Thens[i], e = ctx.newAstExprFrom(thens[i])
+		errs.Add(e)
+	}
+	if isunionsugar := len(thens) == 1 && thens[0] == nil; isunionsugar {
+		errs.AddTodo(&orig.Toks()[0], "desugaring unions")
 	}
 	return
 }
@@ -233,4 +153,108 @@ func (me *AstLitRune) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 func (me *AstLitStr) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(ctx, orig)
 	me.Val = orig.Toks()[0].Str
+}
+
+func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool, dynNameIfNeeded string) (ret IAstExprAtomic, errs atmo.Errors) {
+	if !retMustBeIAstIdent {
+		if oat, _ := orig.(atmolang.IAstExprAtomic); oat != nil {
+			return me.newAstExprAtomicFrom(oat)
+		}
+	}
+	if oid, _ := orig.(*atmolang.AstIdent); oid != nil {
+		ret, errs = me.newAstIdentFrom(oid)
+	} else {
+		var def AstDefBase
+		def.Name = &AstIdentName{AstIdentBase{Val: dynNameIfNeeded}}
+		def.Body, errs = me.newAstExprFrom(orig)
+		me.Locals = append(me.Locals, def)
+		ret = def.Name
+	}
+	return
+}
+
+func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs atmo.Errors) {
+	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
+		var ident AstIdentTag
+		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+	} else if t1 != t2 {
+		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing")
+
+	} else if orig.IsOpish {
+		if orig.Val == "()" {
+			var ident AstIdentEmptyParens
+			ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+		} else {
+			var ident AstIdentOp
+			ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+		}
+
+	} else if orig.Val[0] != '_' {
+		var ident AstIdentName
+		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+
+	} else if ustr.IsRepeat(orig.Val) {
+		var ident AstIdentUnderscores
+		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+
+	} else if orig.Val[1] != '_' {
+		var ident AstIdentVar
+		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+
+	} else {
+		errs.AddFrom(atmo.ErrCatNaming, &orig.Tokens[0], "invalid identifier: begins with multiple underscores")
+	}
+	return
+}
+
+func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstExprAtomic, errs atmo.Errors) {
+	x, e := me.newAstExprFrom(orig)
+	errs.Add(e)
+	if expr, _ = x.(IAstExprAtomic); expr == nil {
+		errs.AddSyn(&orig.Toks()[0], "expected: atomic expression")
+	}
+	return
+}
+
+func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
+	if orig != nil {
+		switch o := orig.(type) {
+		case *atmolang.AstIdent:
+			expr, errs = me.newAstIdentFrom(o)
+		case *atmolang.AstExprLitFloat:
+			var lit AstLitFloat
+			lit.initFrom(me, o)
+			expr = &lit
+		case *atmolang.AstExprLitUint:
+			var lit AstLitUint
+			lit.initFrom(me, o)
+			expr = &lit
+		case *atmolang.AstExprLitRune:
+			var lit AstLitRune
+			lit.initFrom(me, o)
+			expr = &lit
+		case *atmolang.AstExprLitStr:
+			var lit AstLitStr
+			lit.initFrom(me, o)
+			expr = &lit
+		case *atmolang.AstExprLet:
+			expr, errs = me.newAstExprFrom(o.Body)
+			for i := range o.Defs {
+				var def AstDefBase
+				errs.Add(def.initFrom(me, &o.Defs[i]))
+				me.Locals = append(me.Locals, def)
+			}
+		case *atmolang.AstExprAppl:
+			var appl AstAppl
+			errs = appl.initFrom(me, o)
+			expr = &appl
+		case *atmolang.AstExprCase:
+			var ifthens AstBranch
+			errs = ifthens.initFrom(me, o)
+			expr = &ifthens
+		default:
+			panic(o)
+		}
+	}
+	return
 }

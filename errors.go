@@ -27,7 +27,7 @@ func (me *Error) Error() (msg string) {
 	msg = me.Pos.String() + ": "
 	switch me.Cat {
 	case ErrCatTodo:
-		msg += "[not yet implemented] "
+		msg += "[──TODO──] "
 	case ErrCatLexing:
 		msg += "[lexical] "
 	case ErrCatParsing:
