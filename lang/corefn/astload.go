@@ -116,14 +116,38 @@ func (me *AstBranch) initFrom(ctx *AstDef, orig *atmolang.AstExprCase) (errs atm
 	if def := orig.Default(); def != nil {
 		errs.AddTodo(&def.Toks()[0], "desugaring default cases (the default branch will be discarded)")
 	}
-	// var e atmo.Errors
-	// var scrut IAstExpr
-	// if orig.Scrutinee != nil {
-	// 	scrut, e = ctx.newAstExprFrom(orig.Scrutinee)
-	// 	errs.Add(e)
-	// } else {
-	// 	scrut = builder.idtag &AstIdentTag{AstIdentBase{Val: "True"}}
-	// }
+	var e atmo.Errors
+
+	var scrut IAstExpr
+	if orig.Scrutinee != nil {
+		scrut, e = ctx.newAstExprFrom(orig.Scrutinee)
+		errs.Add(e)
+	} else {
+		scrut = ctx.b.IdTag("True")
+	}
+	scrut = ctx.b.Appl(ctx.b.IdOp("=="), ctx.ensureAstAtomFor(scrut, false, "__scrut__"))
+	scrutid := ctx.ensureAstAtomFor(scrut, true, "__scrut_eq__").(IAstIdent)
+
+	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
+	for i := range orig.Alts {
+		alt := &orig.Alts[i]
+		if alt.Body == nil {
+			errs.AddSyn(&alt.Tokens[0], "malformed `|?` branching: expected result expression following `?`")
+		} else {
+			me.Thens[i], e = ctx.newAstExprFrom(alt.Body)
+			errs.Add(e)
+		}
+		if len(alt.Conds) == 0 {
+			errs.AddSyn(&alt.Tokens[0], "malformed `|?` branching: expected condition expression preceding `?`")
+		} else {
+			me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
+			for c, cond := range alt.Conds {
+				me.Ifs[i][c], e = ctx.newAstExprFrom(cond)
+				me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false, "__cond__"+ustr.Int(i)+"__"+ustr.Int(c)+"__"))
+				errs.Add(e)
+			}
+		}
+	}
 	return
 }
 
@@ -149,6 +173,22 @@ func (me *AstLitRune) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 func (me *AstLitStr) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 	me.AstLitBase.initFrom(ctx, orig)
 	me.Val = orig.Toks()[0].Str
+}
+
+func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool, dynNameIfNeeded string) IAstExprAtomic {
+	if !retMustBeIAstIdent {
+		if xat, _ := expr.(IAstExprAtomic); xat != nil {
+			return xat
+		}
+	}
+	if xid, _ := expr.(IAstIdent); xid != nil {
+		return xid
+	}
+	var def AstDefBase
+	def.Name = me.b.IdName(dynNameIfNeeded)
+	def.Body = expr
+	me.Locals = append(me.Locals, def)
+	return me.Locals[len(me.Locals)-1].Name
 }
 
 func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool, dynNameIfNeeded string) (ret IAstExprAtomic, errs atmo.Errors) {

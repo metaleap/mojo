@@ -6,6 +6,10 @@ import (
 
 type AstBuilder struct{}
 
+func (*AstBuilder) Appl(callee IAstIdent, arg IAstExprAtomic) *AstAppl {
+	return &AstAppl{Callee: callee, Arg: arg}
+}
+
 func (*AstBuilder) IdName(name string) *AstIdentName {
 	return &AstIdentName{AstIdentBase{Val: name}}
 }
