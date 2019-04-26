@@ -27,6 +27,20 @@ func (me *Ctx) WithKnownPacks(do func([]Pack)) {
 	return
 }
 
+func (me *Ctx) WithKnownPacksWhere(where func(*Pack) bool, do func([]*Pack)) {
+	me.maybeInitPanic(false)
+	me.state.Lock()
+	doall, packs := where == nil, make([]*Pack, 0, len(me.packs.all))
+	for i := range me.packs.all {
+		if pack := &me.packs.all[i]; doall || where(pack) {
+			packs = append(packs, pack)
+		}
+	}
+	do(packs)
+	me.state.Unlock()
+	return
+}
+
 func (me *Ctx) KnownPackImpPaths() (packImpPaths []string) {
 	me.maybeInitPanic(false)
 	me.state.Lock()

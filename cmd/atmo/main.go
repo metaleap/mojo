@@ -27,7 +27,7 @@ func main() {
 	replDirCache = ustd.FlagOfString("repl-dir-cache", replDirCache,
 		"    format: text (1 dir path)")
 	atmoload.PacksWatchInterval = ustd.FlagOfDuration("repl-packswatch-interval", 123*time.Millisecond,
-		"    format: time-duration; sets how often to check all known atmo packs for\n    file-modifications to reload accordingly. Disable with a zero duration.")
+		"    format: time-duration; sets how often to check all known atmo packs for\n    file-modifications to reload accordingly. Disable with a zero duration\n    (doing so will make available the `:reload` repl command).")
 	replPacksWatchPauseAfter = ustd.FlagOfDuration("repl-packswatch-pauseafter", replPacksWatchPauseAfter,
 		"    format: time-duration; sets how soon (since the most-recent line input)\n    packs-watching will pause (to be resumed on the next line input)")
 	atmorepl.AnimsDisabled = ustd.FlagOfBool("repl-anims-disabled", atmorepl.AnimsDisabled,

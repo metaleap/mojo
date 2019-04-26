@@ -9,17 +9,22 @@ import (
 
 func (me *Repl) initEnsureDefaultDirectives() {
 	kd := me.KnownDirectives.ensure
-	kd("list <packs | defs | \"pack/import/path\">", me.DList)
-	kd("info [\"pack/import/path\"] [name]", me.DInfo)
-	kd("srcs \"pack/import/path\" name", me.DSrcs)
+	kd("list ‹pack›", me.DList,
+		"help for list")
+	kd("info ‹pack› [‹name›]", me.DInfo,
+		"help for info")
+	kd("srcs ‹pack› ‹name›", me.DSrcs,
+		"help for srcs")
 	kd("quit", me.DQuit)
+	kd("intro", me.DIntro)
 	if atmoload.PacksWatchInterval == 0 {
-		kd("reload", me.DReload) //\n      (reloads modified code in known packs)", me.DReload)
+		kd("reload", me.DReload)
 	}
 }
 
 type directive struct {
 	Desc string
+	Help []string
 	Run  func(string) bool
 }
 
@@ -27,11 +32,11 @@ func (me *directive) Name() string { return ustr.Until(me.Desc, " ") }
 
 type directives []directive
 
-func (me *directives) ensure(desc string, run func(string) bool) {
+func (me *directives) ensure(desc string, run func(string) bool, help ...string) {
 	if found := me.By(desc); found != nil {
 		found.Desc, found.Run = desc, run
 	} else {
-		*me = append(*me, directive{Desc: desc, Run: run})
+		*me = append(*me, directive{Desc: desc, Run: run, Help: help})
 	}
 }
 
@@ -49,20 +54,20 @@ func (me *Repl) runDirective(name string, args string) {
 	if len(name) > 0 {
 		if found = me.KnownDirectives.By(name); found != nil {
 			if args = ustr.Trim(args); !found.Run(args) {
-				me.IO.writeLns("directive `:"+found.Name()+"` does not understand `"+args+"`,", "as a reminder:", "   :"+found.Desc)
+				me.IO.writeLns("command `:"+found.Name()+"` does not understand `"+args+"`,", "as a reminder:", "   :"+found.Desc)
+				if len(found.Help) > 0 {
+					me.IO.writeLns("")
+					me.IO.writeLns(found.Help...)
+				}
 			}
 		}
 	}
 	if found == nil {
-		if n, a := ustr.BreakOnFirstOrSuff(name, "\""); n != "" && args == "" {
-			me.runDirective(n, "\""+a)
-			return
-		}
-
-		me.IO.writeLns("unknown directive `:" + name + "` — try: ")
+		me.IO.writeLns("unknown command `:"+name+"` — try: ", "")
 		for i := range me.KnownDirectives {
 			me.IO.writeLns("   :" + me.KnownDirectives[i].Desc)
 		}
+		me.IO.writeLns("", "(further help for a given complex command", "will display when invoking it without args)")
 	}
 }
 
@@ -75,11 +80,13 @@ func (me *Repl) DReload(string) bool {
 	me.Ctx.ReloadModifiedPacksUnlessAlreadyWatching()
 	return true
 }
+
 func (me *Repl) DList(what string) bool {
-	if what == "" || ustr.Pref("packs", what) {
+	if what == "" {
+		return false
+	}
+	if what == "_" {
 		me.dListPacks()
-	} else if ustr.Pref("defs", what) {
-		me.dListDefs("")
 	} else {
 		me.dListDefs(what)
 	}
@@ -93,55 +100,51 @@ func (me *Repl) dListPacks() {
 		me.IO.writeLns("", "found "+ustr.Plu(len(packs), "pack")+":")
 		for _, pack := range packs {
 			numerrs := len(pack.Errs())
-			me.decoAddNotice(false, "", true, "\""+pack.ImpPath+"\""+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
+			me.decoAddNotice(false, "", true, pack.ImpPath+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
 		}
 	})
-	me.IO.writeLns("", "(to see pack details, use `:info \"<pack/import/path>\"`)")
+	me.IO.writeLns("", "(to see pack details, use `:info ‹pack›`)")
 }
 
 func (me *Repl) dListDefs(whatPack string) {
-	if whatPack != "" && whatPack[0] == '"' && len(whatPack) > 1 {
-		whatPack = ustr.If(whatPack[len(whatPack)-1] != '"', whatPack[1:], whatPack[1:len(whatPack)-1])
-	}
-	if whatPack == "" {
-		me.IO.writeLns("TODO: list ALL defs")
-
-	} else {
-		me.Ctx.WithPack(whatPack, true, func(pack *atmoload.Pack) {
-			if pack == nil {
-				me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
-			} else {
-				me.IO.writeLns("", "\""+pack.ImpPath+"\"", "    "+pack.DirPath)
-				packsrcfiles := pack.SrcFiles()
-				for i := range packsrcfiles {
-					sf := &packsrcfiles[i]
-					nd, _ := sf.CountTopLevelDefs()
-					me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
-					for d := range sf.TopLevel {
-						if def := sf.TopLevel[d].Ast.Def.Orig; def != nil {
-							pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
-								"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
-							me.decoAddNotice(false, "", true, ustr.Combine(def.Name.Val, " ─── ", pos))
-						}
+	me.Ctx.WithPack(whatPack, true, func(pack *atmoload.Pack) {
+		if pack == nil {
+			me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list _`")
+		} else {
+			me.IO.writeLns("", pack.ImpPath, "    "+pack.DirPath)
+			packsrcfiles := pack.SrcFiles()
+			for i := range packsrcfiles {
+				sf := &packsrcfiles[i]
+				nd, _ := sf.CountTopLevelDefs()
+				me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
+				for d := range sf.TopLevel {
+					if def := sf.TopLevel[d].Ast.Def.Orig; def != nil {
+						pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
+							"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
+						me.decoAddNotice(false, "", true, ustr.Combine(def.Name.Val, " ─── ", pos))
 					}
 				}
 			}
-		})
-	}
+		}
+	})
+}
+
+func (me *Repl) DIntro(string) bool {
+	me.IO.writeLns(me.run.welcomeMsgLines...)
+	return true
 }
 
 func (me *Repl) what2PackAndName(what string) (whatPack string, whatName string) {
-	if whatName = what; what != "" && what[0] == '"' {
-		whatPack, whatName = ustr.BreakOnFirstOrPref(what[1:], "\"")
-	}
+	whatPack, whatName = ustr.BreakOnFirstOrPref(what, " ")
 	whatPack, whatName = ustr.Trim(whatPack), ustr.Trim(whatName)
 	return
 }
 
 func (me *Repl) DInfo(what string) bool {
 	if what == "" {
-		me.dInfo()
-	} else if whatpack, whatname := me.what2PackAndName(what); whatname == "" {
+		return false
+	}
+	if whatpack, whatname := me.what2PackAndName(what); whatname == "" {
 		me.dInfoPack(whatpack)
 	} else {
 		me.dInfoDef(whatpack, whatname)
@@ -149,18 +152,14 @@ func (me *Repl) DInfo(what string) bool {
 	return true
 }
 
-func (me *Repl) dInfo() {
-	me.IO.writeLns(me.run.welcomeMsgLines...)
-}
-
 func (me *Repl) dInfoPack(whatPack string) {
 	me.Ctx.WithPack(whatPack, true, func(pack *atmoload.Pack) {
 		if pack == nil {
-			me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list packs`")
+			me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list _`")
 		} else {
-			me.IO.writeLns("\""+pack.ImpPath+"\"", "    "+pack.DirPath)
+			me.IO.writeLns(pack.ImpPath, "    "+pack.DirPath)
 			packsrcfiles := pack.SrcFiles()
-			me.IO.writeLns("", ustr.Plu(len(packsrcfiles), "source file")+" in pack \""+whatPack+"\":")
+			me.IO.writeLns("", ustr.Plu(len(packsrcfiles), "source file")+" in pack "+whatPack+":")
 			numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
 			for i := range packsrcfiles {
 				sf := &packsrcfiles[i]
@@ -173,25 +172,25 @@ func (me *Repl) dInfoPack(whatPack string) {
 				"    (counts exclude failed-to-parse code portions, if any)")
 
 			if packerrs := pack.Errs(); len(packerrs) > 0 {
-				me.IO.writeLns("", ustr.Plu(len(packerrs), "issue")+" in pack \""+whatPack+"\":")
+				me.IO.writeLns("", ustr.Plu(len(packerrs), "issue")+" in pack "+whatPack+":")
 				for i := range packerrs {
 					me.decoMsgNotice(packerrs[i].Error())
 				}
 			}
-			me.IO.writeLns("", "", "(to see pack defs, use `:list \""+whatPack+"\"`)")
+			me.IO.writeLns("", "", "(to see pack defs, use `:list "+whatPack+"`)")
 		}
 	})
 }
 
 func (me *Repl) dInfoDef(whatPack string, whatName string) {
-	me.IO.writeLns("Info on name: " + whatName + " in \"" + whatPack + "\"")
+	me.IO.writeLns("Info on name: " + whatName + " in " + whatPack)
 }
 
 func (me *Repl) DSrcs(what string) bool {
 	if whatpack, whatname := me.what2PackAndName(what); whatpack != "" && whatname != "" {
 		me.Ctx.WithPack(whatpack, true, func(pack *atmoload.Pack) {
 			if pack == nil {
-				me.IO.writeLns("unknown pack: `" + whatpack + "`, see known packs via `:list packs`")
+				me.IO.writeLns("unknown pack: `" + whatpack + "`, see known packs via `:list _`")
 			} else {
 				defs := pack.Defs(whatname)
 				me.IO.writeLns(ustr.Plu(len(defs), "def") + " found")

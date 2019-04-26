@@ -103,9 +103,9 @@ func (me *Repl) decoWelcomeMsgAnim() {
 	if me.decoInputStart(false); !AnimsDisabled {
 		time.Sleep(234 * time.Millisecond)
 	}
-	me.decoTypingAnim(":info\n", 123*time.Millisecond)
+	me.decoTypingAnim(":intro\n", 123*time.Millisecond)
 	me.decoInputDone(false)
-	me.DInfo("")
+	me.DIntro("")
 }
 
 func trimAndCountPrefixRunes(s string) (trimmed string, count int, numtabs int) {
