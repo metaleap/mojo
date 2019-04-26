@@ -52,11 +52,12 @@ func (me *Ctx) KnownPackImpPaths() (packImpPaths []string) {
 	return
 }
 
-func (me *Ctx) ReloadModifiedPacksUnlessAlreadyWatching() {
+func (me *Ctx) ReloadModifiedPacksUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int) {
 	me.maybeInitPanic(false)
-	if me.state.modsWatcher != nil {
-		me.state.modsWatcher()
+	if me.state.fileModsWatch.doManually != nil {
+		numFileSystemModsNoticedAndActedUpon = me.state.fileModsWatch.doManually()
 	}
+	return
 }
 
 func (me *Ctx) initPacks() {
@@ -83,12 +84,12 @@ func (me *Ctx) initPacks() {
 		}
 	}
 
-	const modswatchdurationcritical = int64(23 * time.Millisecond)
 	var watchdircur []string
 	if !me.Dirs.curAlreadyInPacksDirs {
 		watchdircur = []string{me.Dirs.Session}
 	}
 	modswatcher := ufs.ModificationsWatcher(PacksWatchInterval/2, me.Dirs.Packs, watchdircur, atmo.SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
+		var filemodwatchduration int64
 		if len(mods) > 0 {
 			me.state.Lock()
 			modpackdirs := map[string]int{}
@@ -104,7 +105,7 @@ func (me *Ctx) initPacks() {
 			if len(me.packs.all) == 0 && !me.Dirs.curAlreadyInPacksDirs {
 				modpackdirs[me.Dirs.Session] = 1
 			}
-			if len(modpackdirs) > 0 {
+			if filemodwatchduration = time.Now().UnixNano() - starttime; len(modpackdirs) > 0 {
 				shouldrefresh := make(map[string]bool, len(modpackdirs))
 				// handle new-or-modified packs
 				for packdirpath, numfilesguess := range modpackdirs {
@@ -134,11 +135,12 @@ func (me *Ctx) initPacks() {
 					shouldrefresh[packdirpath] = true
 				}
 				// remove packs that have vanished from the file-system
+				var numremoved int
 				for i := 0; i < len(me.packs.all); i++ {
 					if cur := &me.packs.all[i]; !ufs.IsDir(cur.DirPath) {
 						delete(shouldrefresh, cur.DirPath)
 						me.packs.all.removeAt(i)
-						i--
+						i, numremoved = i-1, numremoved+1
 					}
 				}
 				// ensure no duplicate imp-paths
@@ -147,7 +149,7 @@ func (me *Ctx) initPacks() {
 					if idx := me.packs.all.indexImpPath(cur.ImpPath); idx != i {
 						delete(shouldrefresh, cur.DirPath)
 						delete(shouldrefresh, me.packs.all[idx].DirPath)
-						me.msg(true, "duplicate import path `"+cur.ImpPath+"`\n    in "+cur.PacksDirPath()+"\n    and "+me.packs.all[idx].PacksDirPath()+"\n    ─── both will not load until fixed")
+						me.msg(true, "duplicate import path `"+cur.ImpPath+"`", "in "+cur.PacksDirPath(), "and "+me.packs.all[idx].PacksDirPath(), "─── both will not load until fixed")
 						if idx > i {
 							me.packs.all.removeAt(idx)
 							me.packs.all.removeAt(i)
@@ -160,22 +162,29 @@ func (me *Ctx) initPacks() {
 				}
 				// for stable listings etc.
 				sort.Sort(me.packs.all)
+				// timing until now, before reloads
+				nowtime := time.Now().UnixNano()
+				starttime, filemodwatchduration = nowtime, nowtime-starttime
 				// per-file refresher
 				for packdirpath := range shouldrefresh {
 					me.packRefresh(me.packs.all.indexDirPath(packdirpath))
 				}
+				if me.state.fileModsWatch.emitMsgs {
+					me.msg(true, "Modifications in "+ustr.Plu(len(modpackdirs), "pack")+" led to dropping "+ustr.Plu(numremoved, "pack"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "pack")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")
+				}
 			}
 			me.state.Unlock()
 		}
-		if duration := time.Now().UnixNano() - starttime; duration > modswatchdurationcritical {
-			me.msg(false, "[DBG] note to dev, mods-watch took "+time.Duration(duration).String())
+		const modswatchdurationcritical = int64(23 * time.Millisecond)
+		if filemodwatchduration > modswatchdurationcritical {
+			me.msg(false, "[DBG] note to dev, mods-watch took "+time.Duration(filemodwatchduration).String())
 		}
 	})
-	if modswatchcancel := ustd.DoNowAndThenEvery(PacksWatchInterval, me.OngoingPacksWatch.ShouldNow, modswatcher); modswatchcancel != nil {
-		me.state.modsWatcherRunning, me.state.cleanUps =
+	if modswatchcancel := ustd.DoNowAndThenEvery(PacksWatchInterval, me.OngoingPacksWatch.ShouldNow, func() { _ = modswatcher() }); modswatchcancel != nil {
+		me.state.fileModsWatch.runningAutomaticallyPeriodically, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
 	} else {
-		me.state.modsWatcher = modswatcher
+		me.state.fileModsWatch.emitMsgs, me.state.fileModsWatch.doManually = true, modswatcher
 	}
 }
 

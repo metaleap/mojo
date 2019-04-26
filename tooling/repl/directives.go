@@ -93,7 +93,9 @@ func (me *Repl) DQuit(s string) bool {
 }
 
 func (me *Repl) DReload(string) bool {
-	me.Ctx.ReloadModifiedPacksUnlessAlreadyWatching()
+	if nummods := me.Ctx.ReloadModifiedPacksUnlessAlreadyWatching(); nummods == 0 {
+		me.IO.writeLns("No relevant modifications noted ── nothing to (re)load.")
+	}
 	return true
 }
 

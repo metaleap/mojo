@@ -97,8 +97,11 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
 		me.IO.writeLns("", "")
 		for i := range msgs {
-			if me.decoMsgNotice(msgs[i].Time.Format("15:04:05") + " ─── " + msgs[i].Text); !initial {
-				time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
+			if lines := msgs[i].Lines; len(lines) > 0 {
+				lines[0] = msgs[i].Time.Format("15:04:05") + " ─── " + lines[0]
+				if me.decoMsgNotice(lines...); !initial {
+					time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
+				}
 			}
 		}
 		me.IO.writeLns("", "")

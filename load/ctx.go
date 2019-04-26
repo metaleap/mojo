@@ -15,8 +15,8 @@ import (
 )
 
 type CtxMsg struct {
-	Time time.Time
-	Text string
+	Time  time.Time
+	Lines []string
 }
 
 type Ctx struct {
@@ -36,11 +36,14 @@ type Ctx struct {
 	}
 	state struct {
 		sync.Mutex
-		initCalled         bool
-		cleanUps           []func()
-		msgs               []CtxMsg
-		modsWatcher        func()
-		modsWatcherRunning bool
+		initCalled    bool
+		cleanUps      []func()
+		msgs          []CtxMsg
+		fileModsWatch struct {
+			runningAutomaticallyPeriodically bool
+			doManually                       func() int
+			emitMsgs                         bool
+		}
 	}
 }
 
@@ -145,8 +148,8 @@ func (me *Ctx) Dispose() {
 	me.state.cleanUps = nil
 }
 
-func (me *Ctx) msg(alreadyLocked bool, text string) {
-	msg := CtxMsg{Time: time.Now(), Text: text}
+func (me *Ctx) msg(alreadyLocked bool, lines ...string) {
+	msg := CtxMsg{Time: time.Now(), Lines: lines}
 	if !alreadyLocked {
 		me.state.Lock()
 	}
