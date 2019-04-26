@@ -13,13 +13,13 @@ func (me *Repl) initEnsureDefaultDirectives() {
 		":list ‹kit/import/path› ── list defs in the specified kit",
 		":list _                 ── list all currently known kits",
 	)
-	kd("info ‹kit› [‹name›]", me.DInfo,
+	kd("info ‹kit› [‹def›]", me.DInfo,
 		":info ‹kit/import/path›         ── infos on the specified kit",
 		":info ‹kit/import/path› ‹def›   ── infos on the specified def",
 		":info _ ‹def›                   ── infos on the specified def,",
 		"                                   having searched all currently known kits",
 	)
-	kd("srcs ‹kit› ‹name›", me.DSrcs,
+	kd("srcs ‹kit› ‹def›", me.DSrcs,
 		":srcs ‹kit/import/path› ‹def›   ── sources for the specified def",
 		":srcs _ ‹def›                   ── sources for the specified def,",
 		"                                   having searched all currently known kits",
@@ -59,16 +59,14 @@ func (me directives) By(name string) *directive {
 }
 
 func (me *Repl) runDirective(name string, args string) {
+	if name, args = ustr.Trim(name), ustr.Trim(args); name == "" {
+		name, args = args, ""
+	}
 	var found *directive
 	if name = ustr.Lo(name); len(name) > 0 {
 		if found = me.KnownDirectives.By(name); found != nil {
-			if args = ustr.Trim(args); !found.Run(args) {
-				if args != "" {
-					me.IO.writeLns("Input `"+args+"` refused by command `:"+found.Name()+"`.", "")
-				} else {
-					me.IO.writeLns("Input needed for command `:"+found.Name()+"`.", "")
-				}
-				me.IO.writeLns("Usage:")
+			if !found.Run(args) {
+				me.IO.writeLns("Input `"+args+"` insufficient for command `:"+found.Name()+"`.", "", "Usage:")
 				if len(found.Help) > 0 {
 					me.IO.writeLns("")
 					me.IO.writeLns(found.Help...)
@@ -83,7 +81,7 @@ func (me *Repl) runDirective(name string, args string) {
 		for i := range me.KnownDirectives {
 			me.IO.writeLns("    :" + me.KnownDirectives[i].Desc)
 		}
-		me.IO.writeLns("", "(further help for a given complex command", "will display when invoking it without args)")
+		me.IO.writeLns("", "(for usage details on a complex", "command, invoke it without args)")
 	}
 }
 
@@ -152,7 +150,7 @@ func (me *Repl) dListDefs(whatKit string) {
 }
 
 func (me *Repl) DIntro(string) bool {
-	me.IO.writeLns(me.run.welcomeMsgLines...)
+	me.IO.writeLns(Ux.WelcomeMsgLines...)
 	return true
 }
 

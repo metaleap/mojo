@@ -24,17 +24,18 @@ func (me *Repl) init() {
 	me.IO.TimeLastInput, me.IO.Stdin, me.IO.Stderr, me.IO.Stdout =
 		time.Now(), ustd.IfNil(me.IO.Stdin, os.Stdin).(io.Reader), ustd.IfNil(me.IO.Stderr, os.Stderr).(io.Writer), ustd.IfNil(me.IO.Stdout, os.Stdout).(io.Writer)
 
-	if StdoutUx.MoreLines > 0 {
+	if Ux.MoreLines > 0 {
 		orig := me.IO.Stdout
 		more := ustd.Writer{Writer: orig}
 		more.On.Byte, more.On.AfterEveryNth, more.On.ButDontCountImmediateRepeats, more.On.Do =
-			'\n', StdoutUx.MoreLines, true, func(int) bool {
-				orig.Write(StdoutUx.MoreLinesPrompt)
+			'\n', Ux.MoreLines, true, func(int) bool {
+				orig.Write(Ux.MoreLinesPrompt)
 				_, _ = me.IO.Stdin.Read([]byte{0})
 				return false
 			}
 		me.IO.Stdout = &more
 	}
+	me.uxMore(false) // initially
 
 	me.IO.writeLns, me.IO.printLns, me.IO.write =
 		ustd.WriteLines(me.IO.Stdout), ustd.WriteLines(me.IO.Stderr), func(s string, n int) {
@@ -44,7 +45,6 @@ func (me *Repl) init() {
 		}
 
 	me.initEnsureDefaultDirectives()
-
 }
 
 func (me *Repl) decoInputStart(altStyle bool) {
@@ -110,7 +110,7 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 
 func (me *Repl) decoTypingAnim(s string, speed time.Duration) {
 	for _, r := range s {
-		if StdoutUx.AnimsEnabled {
+		if Ux.AnimsEnabled {
 			time.Sleep(speed)
 		}
 		me.IO.write(string(r), 1)
@@ -119,13 +119,15 @@ func (me *Repl) decoTypingAnim(s string, speed time.Duration) {
 
 func (me *Repl) decoWelcomeMsgAnim() {
 	me.IO.writeLns("")
-	if me.decoInputStart(false); StdoutUx.AnimsEnabled {
+	if me.decoInputStart(false); Ux.AnimsEnabled {
 		time.Sleep(234 * time.Millisecond)
 	}
 	me.decoTypingAnim(":intro\n", 123*time.Millisecond)
 	me.decoInputDone(false)
 	me.uxMore(false)
+	me.IO.writeLns("")
 	me.DIntro("")
+	me.IO.writeLns("", "")
 }
 
 func (me *Repl) uxMore(restartIfTrueElseSuspend bool) {

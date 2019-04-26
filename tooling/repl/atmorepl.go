@@ -11,14 +11,15 @@ import (
 )
 
 var (
-	StdoutUx struct {
+	Ux struct {
 		AnimsEnabled    bool
 		MoreLines       int
 		MoreLinesPrompt []byte
+		WelcomeMsgLines []string
 	}
 )
 
-func init() { StdoutUx.AnimsEnabled, StdoutUx.MoreLinesPrompt = true, []byte("     ¶¶¶") }
+func init() { Ux.AnimsEnabled, Ux.MoreLinesPrompt = true, []byte("     ¶¶¶") }
 
 type Repl struct {
 	Ctx             atmoload.Ctx
@@ -39,15 +40,12 @@ type Repl struct {
 		quit                       bool
 		indent                     int
 		multiLnInputHadLeadingTabs bool
-		welcomeMsgLines            []string
 	}
 }
 
-func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
+func (me *Repl) Run(showWelcomeMsg bool) {
 	me.init()
-	me.uxMore(false)
 	if me.decoCtxMsgsIfAny(true); showWelcomeMsg {
-		me.run.welcomeMsgLines = welcomeMsgLines
 		me.decoWelcomeMsgAnim()
 	}
 	me.decoInputStart(false)
@@ -95,7 +93,7 @@ func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 		case inputln[0] == ':':
 			me.decoInputDone(false)
 			me.IO.writeLns("")
-			if me.runDirective(ustr.BreakOnFirstOrPref(inputln[1:], " ")); !me.run.quit {
+			if me.runDirective(ustr.BreakOnFirstOrPref(ustr.Trim(inputln[1:]), " ")); !me.run.quit {
 				me.IO.writeLns("", "")
 				me.decoInputStart(false)
 			}
@@ -105,11 +103,13 @@ func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 			if me.run.multiLnInputHadLeadingTabs {
 				me.decoAddNotice(false, "", false, "multi-line input had leading tabs,note", "that repl auto-indent is based on spaces")
 			}
+			me.IO.writeLns("")
 			if out, err := me.Ctx.ReadEvalPrint(inputln); err != nil {
 				me.IO.printLns(err.Error())
 			} else {
 				me.IO.writeLns(out.String())
 			}
+			me.IO.writeLns("", "")
 			me.decoInputStart(false)
 		}
 	}

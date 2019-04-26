@@ -31,16 +31,19 @@ func mainRepl() {
 			repl.Ctx.Dispose()
 			os.Exit(0)
 		})
-		repl.Run(true,
-			"", "This is a read-eval-print loop (repl).",
+		atmorepl.Ux.WelcomeMsgLines = []string{
+			"This is a read-eval-print loop (repl).",
 			"", "— repl commands start with `:`, any other", "  inputs are eval'd as atmo expressions",
-			"", "— in case of the latter, a line ending in "+repl.IO.MultiLineSuffix, "  introduces or concludes a multi-line input",
-			"", "- to see --flags, quit and run `atmo help`",
-			ustr.If(replRunsVia("rlwrap", "rlfe") != "", "",
-				"\n— for smooth line-editing, run the repl\n  via `rlwrap` or `rlfe` or equivalent\n"),
-			ustr.If(atmorepl.StdoutUx.MoreLines <= 0, "",
-				"— every "+ustr.Plu(atmorepl.StdoutUx.MoreLines, "line")+", further output is held back\n  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.StdoutUx.MoreLinesPrompt))+"` prompt shown\n\n"),
-		)
+			"", "— in case of the latter, a line ending in " + repl.IO.MultiLineSuffix, "  introduces or concludes a multi-line input",
+			"", "— to see --flags, quit and run `atmo help`",
+		}
+		if replRunsVia("rlwrap", "rlfe") == "" {
+			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— for smooth line-editing, run the repl", "  via `rlwrap` or `rlfe` or equivalent")
+		}
+		if atmorepl.Ux.MoreLines > 0 {
+			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— every "+ustr.Plu(atmorepl.Ux.MoreLines, "line")+", further output is held back", "  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.Ux.MoreLinesPrompt))+"` prompt shown")
+		}
+		repl.Run(true)
 		repl.Ctx.Dispose()
 	} else {
 		println(err.Error())

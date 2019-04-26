@@ -30,9 +30,9 @@ func main() {
 		"    format: time-duration; sets how often to check all known atmo kits for\n    file-modifications to reload accordingly. Disable with a zero duration\n    (doing so will make available the `:reload` repl command).")
 	replKitsWatchPauseAfter = ustd.FlagOfDuration("repl-kitswatch-pauseafter", replKitsWatchPauseAfter,
 		"    format: time-duration; sets how soon after the most-recent line input\n    kits-watching will suspend (to be resumed on the next line input)")
-	atmorepl.StdoutUx.MoreLines = int(ustd.FlagOfUint("repl-ux-morelines", uint64(atmorepl.StdoutUx.MoreLines),
+	atmorepl.Ux.MoreLines = int(ustd.FlagOfUint("repl-ux-morelines", uint64(atmorepl.Ux.MoreLines),
 		"    format: integral number >= 0;\n    enables `more`-like output page breaks every n lines"))
-	atmorepl.StdoutUx.AnimsEnabled = ustd.FlagOfBool("repl-ux-anims", atmorepl.StdoutUx.AnimsEnabled,
+	atmorepl.Ux.AnimsEnabled = ustd.FlagOfBool("repl-ux-anims", atmorepl.Ux.AnimsEnabled,
 		"    format: one of 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False")
 
 	atcmd, showinfousage, showinfoargs := usys.Arg(1), false, false
