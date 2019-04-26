@@ -34,7 +34,7 @@ func mainRepl() {
 		repl.Run(true,
 			"", "This is a read-eval-print loop (repl).",
 			"", "— repl directives start with `:`,", "  any other inputs are eval'd",
-			"", "— a line ending in "+repl.IO.MultiLineSuffix+" introduces", "  or concludes a multi-line input",
+			"", "— in case of the latter, a line ending in "+repl.IO.MultiLineSuffix, "  introduces or concludes a multi-line input",
 			"", "- see optional flags via `atmo help`",
 			"", ustr.If(replRunsVia("rlwrap", "rlfe") != "", "",
 				"— for smooth line-editing, run this repl\n  via `rlwrap` or `rlfe` or equivalent.\n\n"),
