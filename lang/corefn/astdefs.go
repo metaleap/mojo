@@ -16,30 +16,33 @@ func (me AstDefs) ByID(id string) *AstDef {
 	}
 	return nil
 }
+func (me AstDefs) IndexByID(id string) int {
+	for i := range me {
+		if me[i].TopLevel.ID() == id {
+			return i
+		}
+	}
+	return -1
+}
 
 func (me *AstDefs) Reload(packSrcFiles atmolang.AstFiles) {
-	this, olddefs, newdefs := *me, make(map[*AstDef]bool, len(*me)), make([]*atmolang.AstFileTopLevelChunk, 0, 2)
+	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make([]int, 0, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
 	for i := range packSrcFiles {
 		for j := range packSrcFiles[i].TopLevel {
 			if tl := &packSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil {
-				if def := this.ByID(tl.ID()); def == nil {
+				if defidx := this.IndexByID(tl.ID()); defidx < 0 {
 					newdefs = append(newdefs, tl)
 				} else {
-					olddefs[def] = true
+					oldunchangeddefidxs = append(oldunchangeddefidxs, defidx)
 				}
 			}
 		}
 	}
 
 	// gather & drop what's gone
-	for i := 0; i < len(this); i++ {
-		if !olddefs[&this[i]] {
-			me.removeAt(i)
-			i--
-		}
-	}
+	this.removeAt(oldunchangeddefidxs...)
 
 	// add what's new
 	newstartfrom := len(this)
@@ -55,11 +58,19 @@ func (me *AstDefs) Reload(packSrcFiles atmolang.AstFiles) {
 	*me = this
 }
 
-func (me *AstDefs) removeAt(idx int) {
+func (me *AstDefs) removeAt(idxs ...int) {
 	this := *me
-	for i := idx; i < len(this)-1; i++ {
-		this[i] = this[i+1]
+	n, nume := 0, make(AstDefs, len(this)-len(idxs))
+	for i := range this {
+		var remove bool
+		for _, idx := range idxs {
+			if remove = (i == idx); remove {
+				break
+			}
+		}
+		if !remove {
+			n, nume[n] = n+1, this[i]
+		}
 	}
-	this = this[:len(this)-1]
-	*me = this
+	*me = nume
 }
