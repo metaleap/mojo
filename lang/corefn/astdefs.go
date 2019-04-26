@@ -25,13 +25,13 @@ func (me AstDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstDefs) Reload(packSrcFiles atmolang.AstFiles) {
+func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make([]int, 0, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
-	for i := range packSrcFiles {
-		for j := range packSrcFiles[i].TopLevel {
-			if tl := &packSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil {
+	for i := range kitSrcFiles {
+		for j := range kitSrcFiles[i].TopLevel {
+			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil {
 				if defidx := this.IndexByID(tl.ID()); defidx < 0 {
 					newdefs = append(newdefs, tl)
 				} else {

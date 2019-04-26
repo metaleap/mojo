@@ -24,12 +24,12 @@ func main() {
 		"    format: text (a dir path)")
 	replDirCache = ustd.FlagOfString("repl-dir-cache", replDirCache,
 		"    format: text (a dir path)")
-	replDirsAdditionalPacks = ustd.FlagOfStrings("repl-dirs-packs", replDirsAdditionalPacks, string(os.PathListSeparator),
-		"    format: text (1 or more packs-dir paths sep'd by `"+string(os.PathListSeparator)+"`);\n    will be used in addition to those in $"+atmo.EnvVarPacksDirs)
-	atmoload.PacksWatchInterval = ustd.FlagOfDuration("repl-packswatch-interval", 123*time.Millisecond,
-		"    format: time-duration; sets how often to check all known atmo packs for\n    file-modifications to reload accordingly. Disable with a zero duration\n    (doing so will make available the `:reload` repl command).")
-	replPacksWatchPauseAfter = ustd.FlagOfDuration("repl-packswatch-pauseafter", replPacksWatchPauseAfter,
-		"    format: time-duration; sets how soon after the most-recent line input\n    packs-watching will suspend (to be resumed on the next line input)")
+	replDirsAdditionalKits = ustd.FlagOfStrings("repl-dirs-kits", replDirsAdditionalKits, string(os.PathListSeparator),
+		"    format: text (1 or more kits-dir paths sep'd by `"+string(os.PathListSeparator)+"`);\n    will be used in addition to those in $"+atmo.EnvVarKitsDirs)
+	atmoload.KitsWatchInterval = ustd.FlagOfDuration("repl-kitswatch-interval", 123*time.Millisecond,
+		"    format: time-duration; sets how often to check all known atmo kits for\n    file-modifications to reload accordingly. Disable with a zero duration\n    (doing so will make available the `:reload` repl command).")
+	replKitsWatchPauseAfter = ustd.FlagOfDuration("repl-kitswatch-pauseafter", replKitsWatchPauseAfter,
+		"    format: time-duration; sets how soon after the most-recent line input\n    kits-watching will suspend (to be resumed on the next line input)")
 	atmorepl.StdoutUx.MoreLines = int(ustd.FlagOfUint("repl-ux-morelines", uint64(atmorepl.StdoutUx.MoreLines),
 		"    format: integral number >= 0;\n    enables `more`-like output page breaks every n lines"))
 	atmorepl.StdoutUx.AnimsEnabled = ustd.FlagOfBool("repl-ux-anims", atmorepl.StdoutUx.AnimsEnabled,

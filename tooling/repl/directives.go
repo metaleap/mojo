@@ -9,24 +9,24 @@ import (
 
 func (me *Repl) initEnsureDefaultDirectives() {
 	kd := me.KnownDirectives.ensure
-	kd("list ‹pack›", me.DList,
-		":list ‹pack/import/path›    ── list defs in the specified pack",
-		":list _                     ── list all currently known packs",
+	kd("list ‹kit›", me.DList,
+		":list ‹kit/import/path› ── list defs in the specified kit",
+		":list _                 ── list all currently known kits",
 	)
-	kd("info ‹pack› [‹name›]", me.DInfo,
-		":info ‹pack/import/path›        ── infos on the specified pack",
-		":info ‹pack/import/path› ‹def›  ── infos on the specified def",
+	kd("info ‹kit› [‹name›]", me.DInfo,
+		":info ‹kit/import/path›         ── infos on the specified kit",
+		":info ‹kit/import/path› ‹def›   ── infos on the specified def",
 		":info _ ‹def›                   ── infos on the specified def,",
-		"                                   having searched all currently known packs",
+		"                                   having searched all currently known kits",
 	)
-	kd("srcs ‹pack› ‹name›", me.DSrcs,
-		":srcs ‹pack/import/path› ‹def›  ── sources for the specified def",
+	kd("srcs ‹kit› ‹name›", me.DSrcs,
+		":srcs ‹kit/import/path› ‹def›   ── sources for the specified def",
 		":srcs _ ‹def›                   ── sources for the specified def,",
-		"                                   having searched all currently known packs",
+		"                                   having searched all currently known kits",
 	)
 	kd("quit", me.DQuit)
 	kd("intro", me.DIntro)
-	if atmoload.PacksWatchInterval == 0 {
+	if atmoload.KitsWatchInterval == 0 {
 		kd("reload", me.DReload)
 	}
 }
@@ -93,7 +93,7 @@ func (me *Repl) DQuit(s string) bool {
 }
 
 func (me *Repl) DReload(string) bool {
-	if nummods := me.Ctx.ReloadModifiedPacksUnlessAlreadyWatching(); nummods == 0 {
+	if nummods := me.Ctx.ReloadModifiedKitsUnlessAlreadyWatching(); nummods == 0 {
 		me.IO.writeLns("No relevant modifications noted ── nothing to (re)load.")
 	}
 	return true
@@ -104,35 +104,35 @@ func (me *Repl) DList(what string) bool {
 		return false
 	}
 	if what == "_" {
-		me.dListPacks()
+		me.dListKits()
 	} else {
 		me.dListDefs(what)
 	}
 	return true
 }
 
-func (me *Repl) dListPacks() {
+func (me *Repl) dListKits() {
 	me.IO.writeLns("From current search paths:")
-	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Packs, func(s string) string { return "─── " + s })...)
-	me.Ctx.WithKnownPacks(func(packs []atmoload.Pack) {
-		me.IO.writeLns("", "found "+ustr.Plu(len(packs), "pack")+":")
-		for _, pack := range packs {
-			numerrs := len(pack.Errs())
-			me.decoAddNotice(false, "", true, pack.ImpPath+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
+	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Kits, func(s string) string { return "─── " + s })...)
+	me.Ctx.WithKnownKits(func(kits []atmoload.Kit) {
+		me.IO.writeLns("", "found "+ustr.Plu(len(kits), "kit")+":")
+		for _, kit := range kits {
+			numerrs := len(kit.Errs())
+			me.decoAddNotice(false, "", true, kit.ImpPath+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
 		}
 	})
-	me.IO.writeLns("", "(to see pack details, use `:info ‹pack›`)")
+	me.IO.writeLns("", "(to see kit details, use `:info ‹kit›`)")
 }
 
-func (me *Repl) dListDefs(whatPack string) {
-	me.Ctx.WithPack(whatPack, true, func(pack *atmoload.Pack) {
-		if pack == nil {
-			me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list _`")
+func (me *Repl) dListDefs(whatKit string) {
+	me.Ctx.WithKit(whatKit, true, func(kit *atmoload.Kit) {
+		if kit == nil {
+			me.IO.writeLns("unknown kit: `" + whatKit + "`, see known kits via `:list _`")
 		} else {
-			me.IO.writeLns("", pack.ImpPath, "    "+pack.DirPath)
-			packsrcfiles, numdefs := pack.SrcFiles(), 0
-			for i := range packsrcfiles {
-				sf := &packsrcfiles[i]
+			me.IO.writeLns("", kit.ImpPath, "    "+kit.DirPath)
+			kitsrcfiles, numdefs := kit.SrcFiles(), 0
+			for i := range kitsrcfiles {
+				sf := &kitsrcfiles[i]
 				nd, _ := sf.CountTopLevelDefs()
 				me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
 				for d := range sf.TopLevel {
@@ -144,8 +144,8 @@ func (me *Repl) dListDefs(whatPack string) {
 					}
 				}
 			}
-			if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(packsrcfiles), ".at source file")); numdefs > 0 {
-				me.IO.writeLns("", "(To see more details, try also:", "`:info "+whatPack+"` or `:info "+whatPack+" ‹def›`.)")
+			if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kitsrcfiles), ".at source file")); numdefs > 0 {
+				me.IO.writeLns("", "(To see more details, try also:", "`:info "+whatKit+"` or `:info "+whatKit+" ‹def›`.)")
 			}
 		}
 	})
@@ -156,9 +156,9 @@ func (me *Repl) DIntro(string) bool {
 	return true
 }
 
-func (me *Repl) what2PackAndName(what string) (whatPack string, whatName string) {
-	whatPack, whatName = ustr.BreakOnFirstOrPref(what, " ")
-	whatPack, whatName = ustr.Trim(whatPack), ustr.Trim(whatName)
+func (me *Repl) what2KitAndName(what string) (whatKit string, whatName string) {
+	whatKit, whatName = ustr.BreakOnFirstOrPref(what, " ")
+	whatKit, whatName = ustr.Trim(whatKit), ustr.Trim(whatName)
 	return
 }
 
@@ -166,25 +166,25 @@ func (me *Repl) DInfo(what string) bool {
 	if what == "" {
 		return false
 	}
-	if whatpack, whatname := me.what2PackAndName(what); whatname == "" {
-		me.dInfoPack(whatpack)
+	if whatkit, whatname := me.what2KitAndName(what); whatname == "" {
+		me.dInfoKit(whatkit)
 	} else {
-		me.dInfoDef(whatpack, whatname)
+		me.dInfoDef(whatkit, whatname)
 	}
 	return true
 }
 
-func (me *Repl) dInfoPack(whatPack string) {
-	me.Ctx.WithPack(whatPack, true, func(pack *atmoload.Pack) {
-		if pack == nil {
-			me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list _`")
+func (me *Repl) dInfoKit(whatKit string) {
+	me.Ctx.WithKit(whatKit, true, func(kit *atmoload.Kit) {
+		if kit == nil {
+			me.IO.writeLns("unknown kit: `" + whatKit + "`, see known kits via `:list _`")
 		} else {
-			me.IO.writeLns(pack.ImpPath, "    "+pack.DirPath)
-			packsrcfiles := pack.SrcFiles()
-			me.IO.writeLns("", ustr.Plu(len(packsrcfiles), "source file")+" in pack "+whatPack+":")
+			me.IO.writeLns(kit.ImpPath, "    "+kit.DirPath)
+			kitsrcfiles := kit.SrcFiles()
+			me.IO.writeLns("", ustr.Plu(len(kitsrcfiles), "source file")+" in kit "+whatKit+":")
 			numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
-			for i := range packsrcfiles {
-				sf := &packsrcfiles[i]
+			for i := range kitsrcfiles {
+				sf := &kitsrcfiles[i]
 				nd, ndi := sf.CountTopLevelDefs()
 				sloc := sf.CountNetLinesOfCode()
 				numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
@@ -193,28 +193,28 @@ func (me *Repl) dInfoPack(whatPack string) {
 			me.IO.writeLns("Total:", "    "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
 				"    (counts exclude failed-to-parse code portions, if any)")
 
-			if packerrs := pack.Errs(); len(packerrs) > 0 {
-				me.IO.writeLns("", ustr.Plu(len(packerrs), "issue")+" in pack "+whatPack+":")
-				for i := range packerrs {
-					me.decoMsgNotice(packerrs[i].Error())
+			if kiterrs := kit.Errs(); len(kiterrs) > 0 {
+				me.IO.writeLns("", ustr.Plu(len(kiterrs), "issue")+" in kit "+whatKit+":")
+				for i := range kiterrs {
+					me.decoMsgNotice(kiterrs[i].Error())
 				}
 			}
-			me.IO.writeLns("", "", "(to see pack defs, use `:list "+whatPack+"`)")
+			me.IO.writeLns("", "", "(to see kit defs, use `:list "+whatKit+"`)")
 		}
 	})
 }
 
-func (me *Repl) dInfoDef(whatPack string, whatName string) {
-	me.IO.writeLns("Info on name: " + whatName + " in " + whatPack)
+func (me *Repl) dInfoDef(whatKit string, whatName string) {
+	me.IO.writeLns("Info on name: " + whatName + " in " + whatKit)
 }
 
 func (me *Repl) DSrcs(what string) bool {
-	if whatpack, whatname := me.what2PackAndName(what); whatpack != "" && whatname != "" {
-		me.Ctx.WithPack(whatpack, true, func(pack *atmoload.Pack) {
-			if pack == nil {
-				me.IO.writeLns("unknown pack: `" + whatpack + "`, see known packs via `:list _`")
+	if whatkit, whatname := me.what2KitAndName(what); whatkit != "" && whatname != "" {
+		me.Ctx.WithKit(whatkit, true, func(kit *atmoload.Kit) {
+			if kit == nil {
+				me.IO.writeLns("unknown kit: `" + whatkit + "`, see known kits via `:list _`")
 			} else {
-				defs := pack.Defs(whatname)
+				defs := kit.Defs(whatname)
 				me.IO.writeLns(ustr.Plu(len(defs), "def") + " found")
 			}
 		})

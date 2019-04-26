@@ -22,17 +22,17 @@ type CtxMsg struct {
 type Ctx struct {
 	ClearCacheDir bool
 	Dirs          struct {
-		Session               string
-		Cache                 string
-		Packs                 []string
-		curAlreadyInPacksDirs bool
+		Session              string
+		Cache                string
+		Kits                 []string
+		curAlreadyInKitsDirs bool
 	}
-	OngoingPacksWatch struct {
+	OngoingKitsWatch struct {
 		ShouldNow func() bool
 	}
 
-	packs struct {
-		all packs
+	kits struct {
+		all kits
 	}
 	state struct {
 		sync.Mutex
@@ -60,7 +60,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 func (me *Ctx) Init() (err error) {
 	me.maybeInitPanic(true)
 	dirsession := me.Dirs.Session
-	if me.state.initCalled, me.packs.all = true, make(packs, 0, 32); dirsession == "" || dirsession == "." {
+	if me.state.initCalled, me.kits.all = true, make(kits, 0, 32); dirsession == "" || dirsession == "." {
 		dirsession, err = os.Getwd()
 	} else if dirsession[0] == '~' {
 		if len(dirsession) == 1 {
@@ -84,26 +84,26 @@ func (me *Ctx) Init() (err error) {
 		} else if me.ClearCacheDir {
 			err = ufs.Del(cachedir)
 		}
-		if packsdirs := me.Dirs.Packs; err == nil {
-			packsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarPacksDirs), string(os.PathListSeparator))
-			for i := range packsdirsenv {
-				packsdirsenv[i] = filepath.Clean(packsdirsenv[i])
+		if kitsdirs := me.Dirs.Kits; err == nil {
+			kitsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarKitsDirs), string(os.PathListSeparator))
+			for i := range kitsdirsenv {
+				kitsdirsenv[i] = filepath.Clean(kitsdirsenv[i])
 			}
-			for i := range packsdirs {
-				packsdirs[i] = filepath.Clean(packsdirs[i])
+			for i := range kitsdirs {
+				kitsdirs[i] = filepath.Clean(kitsdirs[i])
 			}
-			packsdirsorig := packsdirs
-			packsdirs = ustr.Merge(packsdirsenv, packsdirs, func(ldp string) bool {
+			kitsdirsorig := kitsdirs
+			kitsdirs = ustr.Merge(kitsdirsenv, kitsdirs, func(ldp string) bool {
 				if ldp != "" && !ufs.IsDir(ldp) {
-					me.msg(true, "packs-dir "+ldp+" not found")
+					me.msg(true, "kits-dir "+ldp+" not found")
 					return true
 				}
 				return ldp == ""
 			})
-			for i := range packsdirs {
-				for j := range packsdirs {
-					if iinj, jini := ustr.Pref(packsdirs[i], packsdirs[j]), ustr.Pref(packsdirs[j], packsdirs[i]); i != j && (iinj || jini) {
-						err = errors.New("conflicting packs-dirs: " + packsdirs[i] + " vs. " + packsdirs[j])
+			for i := range kitsdirs {
+				for j := range kitsdirs {
+					if iinj, jini := ustr.Pref(kitsdirs[i], kitsdirs[j]), ustr.Pref(kitsdirs[j], kitsdirs[i]); i != j && (iinj || jini) {
+						err = errors.New("conflicting kits-dirs: " + kitsdirs[i] + " vs. " + kitsdirs[j])
 						break
 					}
 				}
@@ -111,18 +111,22 @@ func (me *Ctx) Init() (err error) {
 					break
 				}
 			}
-			if err == nil && len(packsdirs) == 0 {
-				err = errors.New("none of the specified packs-dirs were found:\n    " + ustr.Join(append(packsdirsenv, packsdirsorig...), "\n    "))
+			if err == nil && len(kitsdirs) == 0 {
+				if kitsdirstried := append(kitsdirsenv, kitsdirsorig...); len(kitsdirstried) == 0 {
+					err = errors.New("no kits-dirs were specified, neither via env-var " + atmo.EnvVarKitsDirs + " nor via command-line flags")
+				} else {
+					err = errors.New("none of the specified kits-dirs were found:\n    " + ustr.Join(kitsdirstried, "\n    "))
+				}
 			}
 			if err == nil {
-				me.Dirs.curAlreadyInPacksDirs = false
-				for _, packsdirpath := range packsdirs {
-					if me.Dirs.curAlreadyInPacksDirs = ustr.Pref(dirsession, packsdirpath+string(os.PathSeparator)); me.Dirs.curAlreadyInPacksDirs {
+				me.Dirs.curAlreadyInKitsDirs = false
+				for _, kitsdirpath := range kitsdirs {
+					if me.Dirs.curAlreadyInKitsDirs = ustr.Pref(dirsession, kitsdirpath+string(os.PathSeparator)); me.Dirs.curAlreadyInKitsDirs {
 						break
 					}
 				}
-				me.Dirs.Session, me.Dirs.Cache, me.Dirs.Packs = dirsession, cachedir, packsdirs
-				me.initPacks()
+				me.Dirs.Session, me.Dirs.Cache, me.Dirs.Kits = dirsession, cachedir, kitsdirs
+				me.initKits()
 			}
 		}
 	}

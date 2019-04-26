@@ -12,7 +12,7 @@ import (
 	"github.com/metaleap/atmo/lang/corefn"
 )
 
-type Pack struct {
+type Kit struct {
 	ImpPath string
 	DirPath string
 
@@ -24,23 +24,23 @@ type Pack struct {
 	}
 }
 
-func (me *Ctx) WithPack(impPath string, ensureLoaded bool, do func(*Pack)) {
+func (me *Ctx) WithKit(impPath string, ensureLoaded bool, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	if idx := me.packs.all.indexImpPath(impPath); idx < 0 {
+	if idx := me.kits.all.indexImpPath(impPath); idx < 0 {
 		do(nil)
 	} else {
-		if ensureLoaded && !me.packs.all[idx].wasEverToBeLoaded {
-			me.packReload(idx)
+		if ensureLoaded && !me.kits.all[idx].wasEverToBeLoaded {
+			me.kitReload(idx)
 		}
-		do(&me.packs.all[idx])
+		do(&me.kits.all[idx])
 	}
 	me.state.Unlock()
 	return
 }
 
-func (me *Ctx) packRefresh(idx int) {
-	this := &me.packs.all[idx]
+func (me *Ctx) kitRefresh(idx int) {
+	this := &me.kits.all[idx]
 	var diritems []os.FileInfo
 	if diritems, this.errs.refresh = ufs.Dir(this.DirPath); this.errs.refresh != nil {
 		this.srcFiles, this.topLevel = nil, nil
@@ -66,12 +66,12 @@ func (me *Ctx) packRefresh(idx int) {
 	sort.Sort(this.srcFiles)
 
 	if this.wasEverToBeLoaded {
-		me.packReload(idx)
+		me.kitReload(idx)
 	}
 }
 
-func (me *Ctx) packReload(idx int) {
-	this := &me.packs.all[idx]
+func (me *Ctx) kitReload(idx int) {
+	this := &me.kits.all[idx]
 	this.wasEverToBeLoaded = true
 	for i := range this.srcFiles {
 		sf := &this.srcFiles[i]
@@ -85,7 +85,7 @@ func (me *Ctx) packReload(idx int) {
 	this.topLevel.Reload(this.srcFiles)
 }
 
-func (me *Pack) Errs() (errs []error) {
+func (me *Kit) Errs() (errs []error) {
 	if me.errs.refresh != nil {
 		errs = append(errs, me.errs.refresh)
 	}
@@ -102,15 +102,15 @@ func (me *Pack) Errs() (errs []error) {
 	return
 }
 
-func (me *Pack) PacksDirPath() string {
-	return PacksDirPathFrom(me.DirPath, me.ImpPath)
+func (me *Kit) KitsDirPath() string {
+	return KitsDirPathFrom(me.DirPath, me.ImpPath)
 }
 
-func (me *Pack) SrcFiles() atmolang.AstFiles {
+func (me *Kit) SrcFiles() atmolang.AstFiles {
 	return me.srcFiles
 }
 
-func (me *Pack) Defs(name string) (defs []*atmocorefn.AstDef) {
+func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDef) {
 	wantall := (name == "")
 	for i := range me.topLevel {
 		if def := &me.topLevel[i]; wantall || def.Name.String() == name {

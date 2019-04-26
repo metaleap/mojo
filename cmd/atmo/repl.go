@@ -12,18 +12,18 @@ import (
 )
 
 var (
-	replMultiLineSuffix      = ",,,"
-	replDirSession           = "."
-	replDirCache             = atmoload.CtxDefaultCacheDirPath()
-	replDirsAdditionalPacks  []string
-	replPacksWatchPauseAfter = 83 * time.Second
+	replMultiLineSuffix     = ",,,"
+	replDirSession          = "."
+	replDirCache            = atmoload.CtxDefaultCacheDirPath()
+	replDirsAdditionalKits  []string
+	replKitsWatchPauseAfter = 83 * time.Second
 )
 
 func mainRepl() {
 	var repl atmorepl.Repl
-	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Packs, repl.Ctx.Dirs.Cache, repl.Ctx.Dirs.Session = replMultiLineSuffix, replDirsAdditionalPacks, replDirCache, replDirSession
-	repl.Ctx.OngoingPacksWatch.ShouldNow = func() bool {
-		return replPacksWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replPacksWatchPauseAfter
+	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Kits, repl.Ctx.Dirs.Cache, repl.Ctx.Dirs.Session = replMultiLineSuffix, replDirsAdditionalKits, replDirCache, replDirSession
+	repl.Ctx.OngoingKitsWatch.ShouldNow = func() bool {
+		return replKitsWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replKitsWatchPauseAfter
 	}
 	if err := repl.Ctx.Init(); err == nil {
 		usys.OnSigint(func() {

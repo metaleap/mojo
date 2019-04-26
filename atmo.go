@@ -1,7 +1,7 @@
 package atmo
 
 const (
-	EnvVarPacksDirs = "ATMO_PACKS_DIRS"
-	NameAutoPack    = "ever"
-	SrcFileExt      = ".at"
+	EnvVarKitsDirs = "ATMO_KITS_DIRS"
+	NameAutoKit    = "ever"
+	SrcFileExt     = ".at"
 )
