@@ -50,7 +50,7 @@ func (me *Ctx) initPacks() {
 	handledir = func(dirfullpath string, modpackdirs map[string]int) {
 		if idx := me.packs.all.indexDirPath(dirfullpath); idx >= 0 { // dir was previously known as a pack
 			modpackdirs[dirfullpath] = cap(me.packs.all[idx].srcFiles)
-		} else if dirfullpath == me.Dirs.Cur {
+		} else if dirfullpath == me.Dirs.Session {
 			modpackdirs[dirfullpath] = 1
 		}
 		for i := range me.packs.all {
@@ -72,7 +72,7 @@ func (me *Ctx) initPacks() {
 	const modswatchdurationcritical = int64(23 * time.Millisecond)
 	var watchdircur []string
 	if !me.Dirs.curAlreadyInPacksDirs {
-		watchdircur = []string{me.Dirs.Cur}
+		watchdircur = []string{me.Dirs.Session}
 	}
 	modswatcher := ufs.ModificationsWatcher(PacksWatchInterval/2, me.Dirs.Packs, watchdircur, atmo.SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
 		if len(mods) > 0 {
@@ -88,7 +88,7 @@ func (me *Ctx) initPacks() {
 			}
 
 			if len(me.packs.all) == 0 && !me.Dirs.curAlreadyInPacksDirs {
-				modpackdirs[me.Dirs.Cur] = 1
+				modpackdirs[me.Dirs.Session] = 1
 			}
 			if len(modpackdirs) > 0 {
 				shouldrefresh := make(map[string]bool, len(modpackdirs))
@@ -108,7 +108,7 @@ func (me *Ctx) initPacks() {
 							}
 						}
 						if packimppath == "" {
-							if packdirpath == me.Dirs.Cur {
+							if packdirpath == me.Dirs.Session {
 								packimppath = "."
 							} else {
 								panic("the impossible, debug+fix stat")

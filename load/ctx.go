@@ -22,7 +22,7 @@ type CtxMsg struct {
 type Ctx struct {
 	ClearCacheDir bool
 	Dirs          struct {
-		Cur                   string
+		Session               string
 		Cache                 string
 		Packs                 []string
 		curAlreadyInPacksDirs bool
@@ -44,32 +44,37 @@ type Ctx struct {
 	}
 }
 
+func CtxDefaultCacheDirPath() string {
+	return filepath.Join(usys.UserDataDirPath(true), "atmo")
+}
+
 func (me *Ctx) maybeInitPanic(initingNow bool) {
 	if me.state.initCalled == initingNow {
 		panic("atmo.Ctx.Init must be called exactly once only")
 	}
 }
 
-func (me *Ctx) Init(dirCur string) (err error) {
+func (me *Ctx) Init() (err error) {
 	me.maybeInitPanic(true)
-	if me.state.initCalled, me.packs.all = true, make(packs, 0, 32); dirCur == "" || dirCur == "." {
-		dirCur, err = os.Getwd()
-	} else if dirCur[0] == '~' {
-		if len(dirCur) > 1 && dirCur[1] == filepath.Separator {
-			dirCur = filepath.Join(usys.UserHomeDirPath(), dirCur[2:])
-		} else {
-			dirCur = usys.UserHomeDirPath()
+	dirsession := me.Dirs.Session
+	if me.state.initCalled, me.packs.all = true, make(packs, 0, 32); dirsession == "" || dirsession == "." {
+		dirsession, err = os.Getwd()
+	} else if dirsession[0] == '~' {
+		if len(dirsession) == 1 {
+			dirsession = usys.UserHomeDirPath()
+		} else if dirsession[1] == filepath.Separator {
+			dirsession = filepath.Join(usys.UserHomeDirPath(), dirsession[2:])
 		}
 	}
 	if err == nil {
-		dirCur, err = filepath.Abs(dirCur)
+		dirsession, err = filepath.Abs(dirsession)
 	}
-	if err == nil && !ufs.IsDir(dirCur) {
-		err = &os.PathError{Path: dirCur, Op: "directory", Err: os.ErrNotExist}
+	if err == nil && !ufs.IsDir(dirsession) {
+		err = &os.PathError{Path: dirsession, Op: "directory", Err: os.ErrNotExist}
 	}
 	if cachedir := me.Dirs.Cache; err == nil {
 		if cachedir == "" {
-			cachedir = filepath.Join(usys.UserDataDirPath(true), "atmo")
+			cachedir = CtxDefaultCacheDirPath()
 		}
 		if !ufs.IsDir(cachedir) {
 			err = ufs.EnsureDir(cachedir)
@@ -96,23 +101,30 @@ func (me *Ctx) Init(dirCur string) (err error) {
 				for j := range packsdirs {
 					if iinj, jini := ustr.Pref(packsdirs[i], packsdirs[j]), ustr.Pref(packsdirs[j], packsdirs[i]); i != j && (iinj || jini) {
 						err = errors.New("conflicting packs dirs: " + packsdirs[i] + " vs. " + packsdirs[j])
-						return
-					}
-				}
-			}
-			if len(packsdirs) == 0 {
-				err = errors.New("none of the specified packs dirs were found:\n    " + ustr.Join(append(packsdirsenv, packsdirsorig...), "\n    "))
-			} else {
-				me.Dirs.curAlreadyInPacksDirs = false
-				for _, packsdirpath := range packsdirs {
-					if me.Dirs.curAlreadyInPacksDirs = ustr.Pref(dirCur, packsdirpath+string(os.PathSeparator)); me.Dirs.curAlreadyInPacksDirs {
 						break
 					}
 				}
-				me.Dirs.Cur, me.Dirs.Cache, me.Dirs.Packs = dirCur, cachedir, packsdirs
+				if err != nil {
+					break
+				}
+			}
+			if err == nil && len(packsdirs) == 0 {
+				err = errors.New("none of the specified packs dirs were found:\n    " + ustr.Join(append(packsdirsenv, packsdirsorig...), "\n    "))
+			}
+			if err == nil {
+				me.Dirs.curAlreadyInPacksDirs = false
+				for _, packsdirpath := range packsdirs {
+					if me.Dirs.curAlreadyInPacksDirs = ustr.Pref(dirsession, packsdirpath+string(os.PathSeparator)); me.Dirs.curAlreadyInPacksDirs {
+						break
+					}
+				}
+				me.Dirs.Session, me.Dirs.Cache, me.Dirs.Packs = dirsession, cachedir, packsdirs
 				me.initPacks()
 			}
 		}
+	}
+	if err != nil {
+		me.state.initCalled = false
 	}
 	return
 }
