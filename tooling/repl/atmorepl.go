@@ -11,8 +11,14 @@ import (
 )
 
 var (
-	AnimsDisabled bool
+	StdoutUx struct {
+		AnimsEnabled    bool
+		MoreLines       int
+		MoreLinesPrompt []byte
+	}
 )
+
+func init() { StdoutUx.AnimsEnabled, StdoutUx.MoreLinesPrompt = true, []byte("     ¶¶¶") }
 
 type Repl struct {
 	Ctx             atmoload.Ctx
@@ -39,6 +45,7 @@ type Repl struct {
 
 func (me *Repl) Run(showWelcomeMsg bool, welcomeMsgLines ...string) {
 	me.init()
+	me.uxMore(false)
 	if me.decoCtxMsgsIfAny(true); showWelcomeMsg {
 		me.run.welcomeMsgLines = welcomeMsgLines
 		me.decoWelcomeMsgAnim()

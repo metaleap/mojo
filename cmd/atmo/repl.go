@@ -33,11 +33,13 @@ func mainRepl() {
 		})
 		repl.Run(true,
 			"", "This is a read-eval-print loop (repl).",
-			"", "— repl commands start with `:`,", "  any other inputs are eval'd",
+			"", "— repl commands start with `:`, any other", "  inputs are eval'd as atmo expressions",
 			"", "— in case of the latter, a line ending in "+repl.IO.MultiLineSuffix, "  introduces or concludes a multi-line input",
-			"", "- see optional flags via `atmo help`",
-			"", ustr.If(replRunsVia("rlwrap", "rlfe") != "", "",
-				"— for smooth line-editing, run this repl\n  via `rlwrap` or `rlfe` or equivalent.\n\n"),
+			"", "- to see --flags, quit and run `atmo help`",
+			ustr.If(replRunsVia("rlwrap", "rlfe") != "", "",
+				"\n— for smooth line-editing, run the repl\n  via `rlwrap` or `rlfe` or equivalent\n"),
+			ustr.If(atmorepl.StdoutUx.MoreLines <= 0, "",
+				"— every "+ustr.Plu(atmorepl.StdoutUx.MoreLines, "line")+", further output is held back\n  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.StdoutUx.MoreLinesPrompt))+"` prompt shown\n\n"),
 		)
 		repl.Ctx.Dispose()
 	} else {

@@ -10,11 +10,20 @@ import (
 func (me *Repl) initEnsureDefaultDirectives() {
 	kd := me.KnownDirectives.ensure
 	kd("list ‹pack›", me.DList,
-		"help for list")
+		":list ‹pack/import/path›    ── list defs in the specified pack",
+		":list _                     ── list all currently known packs",
+	)
 	kd("info ‹pack› [‹name›]", me.DInfo,
-		"help for info")
+		":info ‹pack/import/path›        ── infos on the specified pack",
+		":info ‹pack/import/path› ‹def›  ── infos on the specified def",
+		":info _ ‹def›                   ── infos on the specified def,",
+		"                                   having searched all currently known packs",
+	)
 	kd("srcs ‹pack› ‹name›", me.DSrcs,
-		"help for srcs")
+		":srcs ‹pack/import/path› ‹def›  ── sources for the specified def",
+		":srcs _ ‹def›                   ── sources for the specified def,",
+		"                                   having searched all currently known packs",
+	)
 	kd("quit", me.DQuit)
 	kd("intro", me.DIntro)
 	if atmoload.PacksWatchInterval == 0 {
@@ -51,13 +60,20 @@ func (me directives) By(name string) *directive {
 
 func (me *Repl) runDirective(name string, args string) {
 	var found *directive
-	if len(name) > 0 {
+	if name = ustr.Lo(name); len(name) > 0 {
 		if found = me.KnownDirectives.By(name); found != nil {
 			if args = ustr.Trim(args); !found.Run(args) {
-				me.IO.writeLns("command `:"+found.Name()+"` does not understand `"+args+"`,", "as a reminder:", "   :"+found.Desc)
+				if args != "" {
+					me.IO.writeLns("Input `"+args+"` refused by command `:"+found.Name()+"`.", "")
+				} else {
+					me.IO.writeLns("Input needed for command `:"+found.Name()+"`.", "")
+				}
+				me.IO.writeLns("Usage:")
 				if len(found.Help) > 0 {
 					me.IO.writeLns("")
 					me.IO.writeLns(found.Help...)
+				} else {
+					me.IO.writeLns(found.Desc)
 				}
 			}
 		}
@@ -65,7 +81,7 @@ func (me *Repl) runDirective(name string, args string) {
 	if found == nil {
 		me.IO.writeLns("unknown command `:"+name+"` — try: ", "")
 		for i := range me.KnownDirectives {
-			me.IO.writeLns("   :" + me.KnownDirectives[i].Desc)
+			me.IO.writeLns("    :" + me.KnownDirectives[i].Desc)
 		}
 		me.IO.writeLns("", "(further help for a given complex command", "will display when invoking it without args)")
 	}
@@ -112,18 +128,22 @@ func (me *Repl) dListDefs(whatPack string) {
 			me.IO.writeLns("unknown pack: `" + whatPack + "`, see known packs via `:list _`")
 		} else {
 			me.IO.writeLns("", pack.ImpPath, "    "+pack.DirPath)
-			packsrcfiles := pack.SrcFiles()
+			packsrcfiles, numdefs := pack.SrcFiles(), 0
 			for i := range packsrcfiles {
 				sf := &packsrcfiles[i]
 				nd, _ := sf.CountTopLevelDefs()
 				me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
 				for d := range sf.TopLevel {
 					if def := sf.TopLevel[d].Ast.Def.Orig; def != nil {
+						numdefs++
 						pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
 							"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
 						me.decoAddNotice(false, "", true, ustr.Combine(def.Name.Val, " ─── ", pos))
 					}
 				}
+			}
+			if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(packsrcfiles), ".at source file")); numdefs > 0 {
+				me.IO.writeLns("", "(To see more details, try also:", "`:info "+whatPack+"` or `:info "+whatPack+" ‹def›`.)")
 			}
 		}
 	})

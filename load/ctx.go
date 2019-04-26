@@ -92,7 +92,7 @@ func (me *Ctx) Init() (err error) {
 			packsdirsorig := packsdirs
 			packsdirs = ustr.Merge(packsdirsenv, packsdirs, func(ldp string) bool {
 				if ldp != "" && !ufs.IsDir(ldp) {
-					me.msg(true, "packs dir "+ldp+" not found")
+					me.msg(true, "packs-dir "+ldp+" not found")
 					return true
 				}
 				return ldp == ""
@@ -100,7 +100,7 @@ func (me *Ctx) Init() (err error) {
 			for i := range packsdirs {
 				for j := range packsdirs {
 					if iinj, jini := ustr.Pref(packsdirs[i], packsdirs[j]), ustr.Pref(packsdirs[j], packsdirs[i]); i != j && (iinj || jini) {
-						err = errors.New("conflicting packs dirs: " + packsdirs[i] + " vs. " + packsdirs[j])
+						err = errors.New("conflicting packs-dirs: " + packsdirs[i] + " vs. " + packsdirs[j])
 						break
 					}
 				}
@@ -109,7 +109,7 @@ func (me *Ctx) Init() (err error) {
 				}
 			}
 			if err == nil && len(packsdirs) == 0 {
-				err = errors.New("none of the specified packs dirs were found:\n    " + ustr.Join(append(packsdirsenv, packsdirsorig...), "\n    "))
+				err = errors.New("none of the specified packs-dirs were found:\n    " + ustr.Join(append(packsdirsenv, packsdirsorig...), "\n    "))
 			}
 			if err == nil {
 				me.Dirs.curAlreadyInPacksDirs = false

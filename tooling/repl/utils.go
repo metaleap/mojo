@@ -23,6 +23,19 @@ func (me *Repl) init() {
 
 	me.IO.TimeLastInput, me.IO.Stdin, me.IO.Stderr, me.IO.Stdout =
 		time.Now(), ustd.IfNil(me.IO.Stdin, os.Stdin).(io.Reader), ustd.IfNil(me.IO.Stderr, os.Stderr).(io.Writer), ustd.IfNil(me.IO.Stdout, os.Stdout).(io.Writer)
+
+	if StdoutUx.MoreLines > 0 {
+		orig := me.IO.Stdout
+		more := ustd.Writer{Writer: orig}
+		more.On.Byte, more.On.AfterEveryNth, more.On.ButDontCountImmediateRepeats, more.On.Do =
+			'\n', StdoutUx.MoreLines, true, func(int) bool {
+				orig.Write(StdoutUx.MoreLinesPrompt)
+				_, _ = me.IO.Stdin.Read([]byte{0})
+				return false
+			}
+		me.IO.Stdout = &more
+	}
+
 	me.IO.writeLns, me.IO.printLns, me.IO.write =
 		ustd.WriteLines(me.IO.Stdout), ustd.WriteLines(me.IO.Stderr), func(s string, n int) {
 			if n > 0 {
@@ -31,9 +44,11 @@ func (me *Repl) init() {
 		}
 
 	me.initEnsureDefaultDirectives()
+
 }
 
 func (me *Repl) decoInputStart(altStyle bool) {
+	me.uxMore(false)
 	me.decoCtxMsgsIfAny(false)
 	me.run.multiLnInputHadLeadingTabs = false
 	me.IO.writeLns(ustr.If(altStyle, "╔", "┌") + sepLine)
@@ -42,6 +57,7 @@ func (me *Repl) decoInputStart(altStyle bool) {
 
 func (me *Repl) decoInputDone(altStyle bool) {
 	me.IO.writeLns(ustr.If(altStyle, "╚", "└") + sepLine)
+	me.uxMore(true)
 	me.decoCtxMsgsIfAny(false)
 }
 
@@ -91,7 +107,7 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 
 func (me *Repl) decoTypingAnim(s string, speed time.Duration) {
 	for _, r := range s {
-		if !AnimsDisabled {
+		if StdoutUx.AnimsEnabled {
 			time.Sleep(speed)
 		}
 		me.IO.write(string(r), 1)
@@ -100,12 +116,23 @@ func (me *Repl) decoTypingAnim(s string, speed time.Duration) {
 
 func (me *Repl) decoWelcomeMsgAnim() {
 	me.IO.writeLns("")
-	if me.decoInputStart(false); !AnimsDisabled {
+	if me.decoInputStart(false); StdoutUx.AnimsEnabled {
 		time.Sleep(234 * time.Millisecond)
 	}
 	me.decoTypingAnim(":intro\n", 123*time.Millisecond)
 	me.decoInputDone(false)
+	me.uxMore(false)
 	me.DIntro("")
+}
+
+func (me *Repl) uxMore(restartIfTrueElseSuspend bool) {
+	if w, _ := me.IO.Stdout.(*ustd.Writer); w != nil {
+		if restartIfTrueElseSuspend {
+			w.RestartOnDo()
+		} else {
+			w.SuspendOnDo()
+		}
+	}
 }
 
 func trimAndCountPrefixRunes(s string) (trimmed string, count int, numtabs int) {
