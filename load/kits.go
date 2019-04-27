@@ -169,7 +169,7 @@ func (me *Ctx) initKits() {
 				starttime, filemodwatchduration = nowtime, nowtime-starttime
 				// per-file refresher
 				for kitdirpath := range shouldrefresh {
-					me.kitRefresh(me.kits.all.indexDirPath(kitdirpath))
+					me.kitRefreshFilesAndReloadIfWasLoaded(me.kits.all.indexDirPath(kitdirpath))
 				}
 				if me.state.fileModsWatch.emitMsgs {
 					me.msg(true, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")

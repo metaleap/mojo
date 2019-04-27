@@ -39,7 +39,7 @@ func (me *Ctx) WithKit(impPath string, ensureLoaded bool, do func(*Kit)) {
 	return
 }
 
-func (me *Ctx) kitRefresh(idx int) {
+func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
 	this := &me.kits.all[idx]
 	var diritems []os.FileInfo
 	if diritems, this.errs.refresh = ufs.Dir(this.DirPath); this.errs.refresh != nil {

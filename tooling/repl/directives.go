@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/load"
 )
 
@@ -118,7 +119,7 @@ func (me *Repl) DList(what string) bool {
 }
 
 func (me *Repl) dListKits() {
-	me.IO.writeLns("From current search paths:")
+	me.IO.writeLns("LIST of kits from current search paths:")
 	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Kits, func(s string) string { return "─── " + s })...)
 	me.Ctx.WithKnownKits(func(kits []atmoload.Kit) {
 		me.IO.writeLns("", "found "+ustr.Plu(len(kits), "kit")+":")
@@ -135,7 +136,7 @@ func (me *Repl) dListDefs(whatKit string) {
 		if kit == nil {
 			me.IO.writeLns("unknown kit: `" + whatKit + "`, see known kits via `:list _`")
 		} else {
-			me.IO.writeLns("", kit.ImpPath, "    "+kit.DirPath)
+			me.IO.writeLns("LIST of defs in kit:    "+kit.ImpPath, "           found in:    "+kit.DirPath)
 			kitsrcfiles, numdefs := kit.SrcFiles(), 0
 			for i := range kitsrcfiles {
 				sf := &kitsrcfiles[i]
@@ -150,7 +151,7 @@ func (me *Repl) dListDefs(whatKit string) {
 					}
 				}
 			}
-			if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kitsrcfiles), ".at source file")); numdefs > 0 {
+			if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kitsrcfiles), "`*"+atmo.SrcFileExt+"` source file")); numdefs > 0 {
 				me.IO.writeLns("", "(To see more details, try also:", "`:info "+whatKit+"` or `:info "+whatKit+" ‹def›`.)")
 			}
 		}
@@ -185,7 +186,7 @@ func (me *Repl) dInfoKit(whatKit string) {
 		if kit == nil {
 			me.IO.writeLns("unknown kit: `" + whatKit + "`, see known kits via `:list _`")
 		} else {
-			me.IO.writeLns(kit.ImpPath, "    "+kit.DirPath)
+			me.IO.writeLns("INFO summary on kit:    "+kit.ImpPath, "           found in:    "+kit.DirPath)
 			kitsrcfiles := kit.SrcFiles()
 			me.IO.writeLns("", ustr.Plu(len(kitsrcfiles), "source file")+" in kit "+whatKit+":")
 			numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
