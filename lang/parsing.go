@@ -58,15 +58,15 @@ func (me *tldParse) parseDef(tokens udevlex.Tokens, def *AstDef) (err *atmo.Erro
 		toks = tokens.SansComments(me.mtc, me.mto)
 	}
 	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
-		if tokens[0].Meta.Position.Column == 1 {
-			err = atmo.ErrSyn(&tokens[0], "missing: definition body following `:=`")
+		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Position.Column == 1 {
+			err = atmo.ErrSyn(t, "missing: definition body following `:=`")
 		} else {
-			err = atmo.ErrSyn(&tokens[0], "at this indent level, expected a def")
+			err = atmo.ErrSyn(t, "at this indent level, expected a def")
 		}
 	} else if len(tokshead) == 0 {
-		err = atmo.ErrSyn(&tokens[0], "missing: definition name preceding `:=`")
+		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `:=`")
 	} else if toksheads := tokshead.Chunked(","); len(toksheads[0]) == 0 {
-		err = atmo.ErrSyn(&tokens[0], "missing: definition name preceding `,`")
+		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else {
 		if istopleveldef {
 			me.curDef, def.Tokens, def.IsTopLevel = def, tokens, true
@@ -74,69 +74,73 @@ func (me *tldParse) parseDef(tokens udevlex.Tokens, def *AstDef) (err *atmo.Erro
 			me.setTokensFor(&def.AstBaseTokens, toks)
 		}
 		if def.Body, err = me.parseExpr(toksbody); err == nil {
-
 			if len(toksheads) > 1 {
 				if def.Meta, err = me.parseMetas(toksheads[1:]); err != nil {
 					return
 				}
 			}
+			err = me.parseDefHeadSig(toksheads[0], def)
+			if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
+				me.indentHint = tokheadbodysep.Meta.Position.Column - 1
+			}
+		}
+	}
+	return
+}
 
-			toksheadsig := toksheads[0]
-			var exprsig IAstExpr
-			if exprsig, err = me.parseExpr(toksheadsig); err == nil {
-				switch sig := exprsig.(type) {
-				case *AstIdent:
-					def.Name, def.Args = *sig, nil
-				case *AstExprAppl:
-					switch nx := sig.Callee.(type) {
-					case *AstIdent:
-						def.Name, def.Args = *nx, make([]AstDefArg, len(sig.Args))
-						for i := range sig.Args {
-							if atom, ok1 := sig.Args[i].(IAstExprAtomic); ok1 {
-								def.Args[i].NameOrConstVal = atom
-							} else {
-								if appl, ok2 := sig.Args[i].(*AstExprAppl); ok2 {
-									if colon, ok3 := appl.Callee.(*AstIdent); ok3 && colon.Val == ":" && len(appl.Args) >= 2 {
-										if atom, ok1 = appl.Args[0].(IAstExprAtomic); ok1 {
-											var tsub udevlex.Tokens
-											if len(appl.Args) > 2 {
-												tsub = toksheadsig.FindSub(appl.Args[1].Toks(), appl.Args[len(appl.Args)-1].Toks())
-											}
-											def.Args[i].NameOrConstVal, def.Args[i].Affix = atom, me.parseExprAppl(appl.Args[1:], tsub)
-										}
-									}
-								}
-								if !ok1 {
-									err = atmo.ErrSyn(&sig.Args[i].Toks()[0], "invalid def arg: needs to be atomic, or atomic:some-qualifying-expression")
-									return
-								}
-							}
-						}
-					case *AstExprAppl:
-						var ok bool
-						if colon, ok1 := nx.Callee.(*AstIdent); ok1 && colon.Val == ":" && len(nx.Args) >= 2 {
-							if ident, ok2 := nx.Args[0].(*AstIdent); ok2 {
-								var tsub udevlex.Tokens
-								if len(nx.Args) > 2 {
-									tsub = toksheadsig.FindSub(nx.Args[1].Toks(), nx.Args[len(nx.Args)-1].Toks())
-								}
-								ok, def.Name, def.NameAffix = true, *ident, me.parseExprAppl(nx.Args[1:], tsub)
-							}
-						}
-						if !ok {
-							err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
-						}
-					default:
-						err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
+func (me *tldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (err *atmo.Error) {
+	parseaffix := func(appl *AstExprAppl) IAstExpr {
+		var tsub udevlex.Tokens
+		if len(appl.Args) > 2 {
+			tsub = toksHeadSig.FindSub(appl.Args[1].Toks(), appl.Args[len(appl.Args)-1].Toks())
+		}
+		return me.parseExprAppl(appl.Args[1:], tsub)
+	}
+
+	var exprsig IAstExpr
+	if exprsig, err = me.parseExpr(toksHeadSig); err == nil {
+		switch sig := exprsig.(type) {
+		case *AstIdent:
+			def.Name, def.Args = *sig, nil
+		case *AstExprAppl:
+			switch nx := sig.Callee.(type) {
+			case *AstIdent:
+				def.Name = *nx
+			case *AstExprAppl:
+				var ok bool
+				if colon, ok1 := nx.Callee.(*AstIdent); ok1 && colon.Val == ":" && len(nx.Args) >= 2 {
+					if ident, ok2 := nx.Args[0].(*AstIdent); ok2 {
+						ok, def.Name, def.NameAffix = true, *ident, parseaffix(nx)
 					}
-				default:
-					err = atmo.ErrSyn(&sig.Toks()[0], "expected: def name")
 				}
-
-				if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
-					me.indentHint = tokheadbodysep.Meta.Position.Column - 1
+				if !ok {
+					err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
+				}
+			default:
+				err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
+			}
+			if err == nil {
+				def.Args = make([]AstDefArg, len(sig.Args))
+				for i := range sig.Args {
+					if atom, ok1 := sig.Args[i].(IAstExprAtomic); ok1 {
+						def.Args[i].NameOrConstVal = atom
+					} else {
+						if appl, ok2 := sig.Args[i].(*AstExprAppl); ok2 {
+							if colon, ok3 := appl.Callee.(*AstIdent); ok3 && colon.Val == ":" && len(appl.Args) >= 2 {
+								if atom, ok1 = appl.Args[0].(IAstExprAtomic); ok1 {
+									def.Args[i].NameOrConstVal, def.Args[i].Affix = atom, parseaffix(appl)
+								}
+							}
+						}
+						if !ok1 {
+							err = atmo.ErrSyn(&sig.Args[i].Toks()[0], "invalid def arg: needs to be atomic, or atomic:some-qualifying-expression")
+							return
+						}
+					}
 				}
 			}
+		default:
+			err = atmo.ErrSyn(&sig.Toks()[0], "expected: def name")
 		}
 	}
 	return
@@ -240,10 +244,14 @@ func (me *tldParse) parseExprAppl(accum []IAstExpr, allToks udevlex.Tokens) (ret
 func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
 	if len(toks) == 1 {
 		err = atmo.ErrSyn(&toks[0], "missing expressions following `|` branching")
+		return
 	}
 	var cases AstExprCases
 	if len(accum) > 0 {
 		cases.Scrutinee = me.parseExprAppl(accum, allToks.FromUntil(nil, &toks[0], false))
+	} else {
+		err = atmo.ErrSyn(&toks[0], "malformed `|?` branching: missing scrutinee expression")
+		return
 	}
 	cases.defaultIndex = -1
 	me.setTokensFor(&cases.AstBaseTokens, allToks)
@@ -257,11 +265,11 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 			err = atmo.ErrSyn(&toks[0], "malformed `|?` branching: empty case")
 		} else if ifthen := alts[i].Chunked("?"); len(ifthen) > 2 {
 			err = atmo.ErrSyn(&alts[i][0], "malformed `|?` branching: `|` case has more than one `?` result expression")
+		} else if len(ifthen) > 1 && len(ifthen[1]) == 0 {
+			err = atmo.ErrSyn(&alts[i][0], "malformed `|?` branching: case has no result expression")
 		} else if len(ifthen[0]) == 0 {
 			// the branching's "default" case (empty between `|` and `?`)
-			if len(ifthen[1]) == 0 {
-				err = atmo.ErrSyn(&alts[i][0], "malformed `|?` branching: default case has no result expression")
-			} else if cases.Alts[i].Body, err = me.parseExpr(ifthen[1]); err == nil && cases.defaultIndex >= 0 {
+			if cases.Alts[i].Body, err = me.parseExpr(ifthen[1]); err == nil && cases.defaultIndex >= 0 {
 				err = atmo.ErrSyn(&alts[i][0], "malformed `|?` branching: encountered a second default case, only at most one is permissible")
 			} else {
 				cases.defaultIndex = i

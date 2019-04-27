@@ -149,7 +149,8 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 			if oldidx, ok := srcsame[i]; ok {
 				me.TopLevel[i] = oldtlc[oldidx]
 			} else {
-				me.TopLevel[i].srcDirty, me.TopLevel[i]._id, me.TopLevel[i].Src = true, "", tlchunks[i].src
+				me.TopLevel[i].srcDirty, me.TopLevel[i]._id, me.TopLevel[i]._errs, me.TopLevel[i].Src =
+					true, "", nil, tlchunks[i].src
 				me.TopLevel[i].id[0], me.TopLevel[i].id[1], _ = ustd.HashTwo(0, 0, []byte(me.SrcFilePath))
 				me.TopLevel[i].id[2], me.TopLevel[i].id[3], _ = ustd.HashTwo(0, 0, me.TopLevel[i].Src)
 			}

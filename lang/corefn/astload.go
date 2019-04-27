@@ -7,7 +7,7 @@ import (
 )
 
 func (me *AstDef) initFrom(orig *atmolang.AstDef) {
-	const caplocals = 3
+	const caplocals = 5
 	me.Locals = make(astDefs, 0, caplocals)
 	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
 	if len(me.Locals) > caplocals {
@@ -53,9 +53,9 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 			panic(name)
 		}
 	}
-	// if me.Orig.NameAffix != nil {
-	// 	errs.AddTodo(&me.Orig.NameAffix.Toks()[0], "def name affixes")
-	// }
+	if me.Orig.NameAffix != nil {
+		errs.AddTodo(&me.Orig.NameAffix.Toks()[0], "def name affixes")
+	}
 
 	return
 }
@@ -104,9 +104,9 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 		me.coerceValue = constexpr
 	}
 
-	// if orig.Affix != nil {
-	// 	errs.AddTodo(&orig.Affix.Toks()[0], "def arg affixes")
-	// }
+	if orig.Affix != nil {
+		errs.AddTodo(&orig.Affix.Toks()[0], "def arg affixes")
+	}
 	return
 }
 
@@ -252,7 +252,7 @@ func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstE
 	x, e := me.newAstExprFrom(orig)
 	errs.Add(e)
 	if expr, _ = x.(IAstExprAtomic); expr == nil {
-		errs.AddSyn(&orig.Toks()[0], "expected: atomic expression")
+		panic("should-be-impossible bug just occurred in atmo/lang/corefn.AstDefnewAstExprAtomicFrom")
 	}
 	return
 }

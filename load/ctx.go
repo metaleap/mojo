@@ -14,8 +14,8 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-type CtxMsg struct {
-	Odd   bool
+type CtxBgMsg struct {
+	Issue bool
 	Time  time.Time
 	Lines []string
 }
@@ -39,7 +39,7 @@ type Ctx struct {
 		sync.Mutex
 		initCalled    bool
 		cleanUps      []func()
-		msgs          []CtxMsg
+		bgMsgs        []CtxBgMsg
 		fileModsWatch struct {
 			runningAutomaticallyPeriodically bool
 			doManually                       func() int
@@ -96,7 +96,7 @@ func (me *Ctx) Init() (err error) {
 			kitsdirsorig := kitsdirs
 			kitsdirs = ustr.Merge(kitsdirsenv, kitsdirs, func(ldp string) bool {
 				if ldp != "" && !ufs.IsDir(ldp) {
-					me.msg(true, true, "kits-dir "+ldp+" not found")
+					me.bgMsg(true, true, "kits-dir "+ldp+" not found")
 					return true
 				}
 				return ldp == ""
@@ -153,22 +153,22 @@ func (me *Ctx) Dispose() {
 	me.state.cleanUps = nil
 }
 
-func (me *Ctx) msg(alreadyLocked bool, odd bool, lines ...string) {
-	msg := CtxMsg{Odd: odd, Time: time.Now(), Lines: lines}
+func (me *Ctx) bgMsg(alreadyLocked bool, issue bool, lines ...string) {
+	msg := CtxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
 	if !alreadyLocked {
 		me.state.Lock()
 	}
-	me.state.msgs = append(me.state.msgs, msg)
+	me.state.bgMsgs = append(me.state.bgMsgs, msg)
 	if !alreadyLocked {
 		me.state.Unlock()
 	}
 }
 
-func (me *Ctx) Messages(clear bool) (msgs []CtxMsg) {
+func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	if msgs = me.state.msgs; clear {
-		me.state.msgs = nil
+	if msgs = me.state.bgMsgs; clear {
+		me.state.bgMsgs = nil
 	}
 	me.state.Unlock()
 	return

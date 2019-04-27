@@ -37,6 +37,7 @@ type AstFileTopLevelChunk struct {
 	}
 	id       [4]uint64
 	_id      string
+	_errs    []error
 	srcDirty bool
 	errs     struct {
 		lexing  atmo.Errors
@@ -45,18 +46,41 @@ type AstFileTopLevelChunk struct {
 	Ast AstTopLevel
 }
 
+func (me *AstFileTopLevelChunk) HasErrors() bool {
+	return me.errs.parsing != nil || len(me.errs.lexing) > 0
+}
+
+func (me *AstFileTopLevelChunk) Errors() []error {
+	if me._errs == nil {
+		me._errs = make([]error, 0, len(me.errs.lexing)+1)
+		for i := range me.errs.lexing {
+			me._errs = append(me._errs, &me.errs.lexing[i])
+		}
+		if me.errs.parsing != nil {
+			me._errs = append(me._errs, me.errs.parsing)
+		}
+	}
+	return me._errs
+}
+
+func (me *AstFile) HasErrors() (r bool) {
+	if r = me.errs.loading != nil; !r {
+		for i := range me.TopLevel {
+			if r = me.TopLevel[i].HasErrors(); r {
+				break
+			}
+		}
+	}
+	return
+}
+
 func (me *AstFile) Errors() []error {
 	if me._errs == nil {
-		if me._errs = make([]error, 0); me.errs.loading != nil {
+		if me._errs = make([]error, 0, 4); me.errs.loading != nil {
 			me._errs = append(me._errs, me.errs.loading)
 		}
 		for i := range me.TopLevel {
-			for e := range me.TopLevel[i].errs.lexing {
-				me._errs = append(me._errs, &me.TopLevel[i].errs.lexing[e])
-			}
-			if e := me.TopLevel[i].errs.parsing; e != nil {
-				me._errs = append(me._errs, e)
-			}
+			me._errs = append(me._errs, me.TopLevel[i].Errors()...)
 		}
 	}
 	return me._errs
@@ -71,25 +95,29 @@ func (me *AstFile) String() (r string) {
 	return
 }
 
-func (me *AstFile) CountTopLevelDefs() (total int, unexported int) {
+func (me *AstFile) CountTopLevelDefs(onlyCountErrless bool) (total int, unexported int) {
 	for i := range me.TopLevel {
-		if ast := &me.TopLevel[i].Ast; ast.Def.Orig != nil {
-			if total++; ast.Def.IsUnexported {
-				unexported++
+		if tld := &me.TopLevel[i]; (!onlyCountErrless) || (!tld.HasErrors()) {
+			if def := &tld.Ast.Def; def.Orig != nil {
+				if total++; def.IsUnexported {
+					unexported++
+				}
 			}
 		}
 	}
 	return
 }
 
-func (me *AstFile) CountNetLinesOfCode() (sloc int) {
+func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 	var lastline int
 
 	for i := range me.TopLevel {
-		if def := me.TopLevel[i].Ast.Def.Orig; def != nil {
-			for t := range def.Tokens {
-				if tok := &def.Tokens[t]; tok.Meta.Line != lastline && tok.Kind() != udevlex.TOKEN_COMMENT {
-					lastline, sloc = tok.Meta.Line, sloc+1
+		if tld := &me.TopLevel[i]; (!onlyCountErrless) || (!tld.HasErrors()) {
+			if def := tld.Ast.Def.Orig; def != nil {
+				for t := range def.Tokens {
+					if tok := &def.Tokens[t]; tok.Meta.Line != lastline && tok.Kind() != udevlex.TOKEN_COMMENT {
+						lastline, sloc = tok.Meta.Line, sloc+1
+					}
 				}
 			}
 		}

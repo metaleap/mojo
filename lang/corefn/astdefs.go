@@ -2,11 +2,19 @@ package atmocorefn
 
 import (
 	"github.com/metaleap/atmo/lang"
+	"sort"
 )
 
 type astDefs []AstDefBase
 
 type AstDefs []AstDef
+
+func (me AstDefs) Len() int          { return len(me) }
+func (me AstDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+func (me AstDefs) Less(i int, j int) bool {
+	dis, dat := &me[i].Orig.Tokens[0].Meta, &me[j].Orig.Tokens[0].Meta
+	return (dis.Filename == dat.Filename && dis.Line < dat.Line) || dis.Filename < dat.Filename
+}
 
 func (me AstDefs) ByID(id string) *AstDef {
 	for i := range me {
@@ -31,7 +39,7 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
 	for i := range kitSrcFiles {
 		for j := range kitSrcFiles[i].TopLevel {
-			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil {
+			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
 				if defidx := this.IndexByID(tl.ID()); defidx < 0 {
 					newdefs = append(newdefs, tl)
 				} else {
@@ -42,12 +50,14 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 	}
 
 	// gather & drop what's gone
-	this.removeAt(oldunchangeddefidxs...)
+	this.removeAllExcept(oldunchangeddefidxs)
 
 	// add what's new
 	newstartfrom := len(this)
 	for _, tlc := range newdefs {
-		this = append(this, AstDef{TopLevel: tlc})
+		if !tlc.HasErrors() {
+			this = append(this, AstDef{TopLevel: tlc})
+		}
 	}
 
 	// populate new `Def`s from orig AST node
@@ -55,22 +65,19 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 		this[i].initFrom(this[i].TopLevel.Ast.Def.Orig)
 	}
 
+	sort.Sort(this)
 	*me = this
 }
 
-func (me *AstDefs) removeAt(idxs ...int) {
-	this := *me
-	n, nume := 0, make(AstDefs, len(this)-len(idxs))
-	for i := range this {
-		var remove bool
-		for _, idx := range idxs {
-			if remove = (i == idx); remove {
-				break
-			}
+func (me *AstDefs) removeAllExcept(keepIdxs []int) {
+	if this := *me; len(keepIdxs) == 0 {
+		*me = this[:0]
+	} else {
+		nume := make(AstDefs, 0, len(keepIdxs))
+		for _, idx := range keepIdxs {
+			println(idx)
+			nume = append(nume, this[idx])
 		}
-		if !remove {
-			n, nume[n] = n+1, this[i]
-		}
+		*me = nume
 	}
-	*me = nume
 }

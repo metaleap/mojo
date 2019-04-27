@@ -76,16 +76,16 @@ func (me *Ctx) kitReload(idx int) {
 	for i := range this.srcFiles {
 		sf := &this.srcFiles[i]
 		sf.LexAndParseFile(true, false)
-		if errs := sf.Errors(); len(errs) > 0 {
-			for _, e := range errs {
-				me.msg(true, true, e.Error())
-			}
-		}
 	}
 	this.topLevel.Reload(this.srcFiles)
+	if errs := this.Errors(); len(errs) > 0 {
+		for _, e := range errs {
+			me.bgMsg(true, true, e.Error())
+		}
+	}
 }
 
-func (me *Kit) Errs() (errs []error) {
+func (me *Kit) Errors() (errs []error) {
 	if me.errs.refresh != nil {
 		errs = append(errs, me.errs.refresh)
 	}

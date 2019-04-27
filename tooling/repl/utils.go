@@ -83,7 +83,7 @@ func (me *Repl) decoAddNotice(altStyle bool, altPrefix string, compact bool, not
 	me.IO.writeLns(noticeLines...)
 }
 
-func (me *Repl) decoMsgNotice(odd bool, lines ...string) {
+func (me *Repl) decoMsgNotice(bg bool, lines ...string) {
 	for i := 0; i < len(lines); i++ {
 		ln := lines[i]
 		if pos := ustr.Pos(ln, ": ["); pos > 0 && ustr.Has(ln[:pos], atmo.SrcFileExt+":") {
@@ -91,19 +91,20 @@ func (me *Repl) decoMsgNotice(odd bool, lines ...string) {
 			i, lines = i+1, append(append(prefix, ln[:pos], ln[pos+2:]), suffix...)
 		}
 	}
-	me.decoAddNotice(false, ustr.If(odd,
-		ustr.If(Ux.OldSchoolTty, "≡!≡ ", "▓▒░ "),
-		ustr.If(Ux.OldSchoolTty, "≡i≡ ", "░▒▓ "),
+	me.decoAddNotice(false, ustr.If(bg,
+		ustr.If(Ux.OldSchoolTty, "≡«≡ ", "▓▒░ "),
+		ustr.If(Ux.OldSchoolTty, "≡»≡ ", "░▒▓ "),
 	), true, lines...)
 }
 
 func (me *Repl) decoCtxMsgsIfAny(initial bool) {
-	if msgs := me.Ctx.Messages(true); len(msgs) > 0 {
+	if msgs := me.Ctx.BackgroundMessages(true); len(msgs) > 0 {
 		me.IO.writeLns("", "")
 		for i := range msgs {
-			if lines := msgs[i].Lines; len(lines) > 0 {
-				lines[0] = msgs[i].Time.Format("15:04:05") + " ─── " + lines[0]
-				if me.decoMsgNotice(msgs[i].Odd, lines...); !initial {
+			msg := &msgs[i]
+			if lines := msg.Lines; len(lines) > 0 {
+				lines[0] = msg.Time.Format("15:04:05") + ustr.If(msg.Issue, " ══════ ", " ────── ") + lines[0]
+				if me.decoMsgNotice(true, lines...); !initial {
 					time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
 				}
 			}
