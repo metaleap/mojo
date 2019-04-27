@@ -26,7 +26,8 @@ func main() {
 		"    format: text (a dir path)")
 	replDirsAdditionalKits = ustd.FlagOfStrings("repl-dirs-kits", replDirsAdditionalKits, string(os.PathListSeparator),
 		"    format: text (1 or more kits-dir paths sep'd by `"+string(os.PathListSeparator)+"`);\n    will be used in addition to those in $"+atmo.EnvVarKitsDirs)
-	atmoload.KitsWatchInterval = ustd.FlagOfDuration("repl-kitswatch-interval", 123*time.Millisecond,
+	atmorepl.Ux.KitsWatchInfoFlagName = "repl-kitswatch-interval"
+	atmoload.KitsWatchInterval = ustd.FlagOfDuration(atmorepl.Ux.KitsWatchInfoFlagName, 123*time.Millisecond,
 		"    format: time-duration; sets how often to check all known atmo kits for\n    file-modifications to reload accordingly. Disable with a zero duration\n    (doing so will make available the `:reload` repl command).")
 	replKitsWatchPauseAfter = ustd.FlagOfDuration("repl-kitswatch-pauseafter", replKitsWatchPauseAfter,
 		"    format: time-duration; sets how soon after the most-recent line input\n    kits-watching will suspend (to be resumed on the next line input)")

@@ -12,10 +12,11 @@ import (
 
 var (
 	Ux struct {
-		AnimsEnabled    bool
-		MoreLines       int
-		MoreLinesPrompt []byte
-		WelcomeMsgLines []string
+		AnimsEnabled          bool
+		MoreLines             int
+		MoreLinesPrompt       []byte
+		WelcomeMsgLines       []string
+		KitsWatchInfoFlagName string
 	}
 )
 

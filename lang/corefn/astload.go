@@ -51,6 +51,10 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 			errs.AddFrom(atmo.ErrCatNaming, tok, "invalid def name: `"+tok.Meta.Orig+"`")
 		}
 	}
+	if me.Orig.NameAffix != nil {
+		errs.AddTodo(&me.Orig.NameAffix.Toks()[0], "def name affixes")
+	}
+
 	return
 }
 

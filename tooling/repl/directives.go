@@ -100,7 +100,7 @@ func (me *Repl) DReload(string) bool {
 	if nummods := me.Ctx.ReloadModifiedKitsUnlessAlreadyWatching(); nummods == 0 {
 		me.IO.writeLns("No relevant modifications noted ── nothing to (re)load.")
 	} else if nummods < 0 {
-		me.IO.writeLns("No manual (re)load possible: it's done automatically every " + atmoload.KitsWatchInterval.String())
+		me.IO.writeLns("No manual (re)load possible: already checking every " + atmoload.KitsWatchInterval.String() + ".")
 	}
 	return true
 }

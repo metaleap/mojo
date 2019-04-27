@@ -112,6 +112,20 @@ func (me *tldParse) parseDef(tokens udevlex.Tokens, def *AstDef) (err *atmo.Erro
 								}
 							}
 						}
+					case *AstExprAppl:
+						var ok bool
+						if colon, ok1 := nx.Callee.(*AstIdent); ok1 && colon.Val == ":" && len(nx.Args) >= 2 {
+							if ident, ok2 := nx.Args[0].(*AstIdent); ok2 {
+								var tsub udevlex.Tokens
+								if len(nx.Args) > 2 {
+									tsub = toksheadsig.FindSub(nx.Args[1].Toks(), nx.Args[len(nx.Args)-1].Toks())
+								}
+								ok, def.Name, def.NameAffix = true, *ident, me.parseExprAppl(nx.Args[1:], tsub)
+							}
+						}
+						if !ok {
+							err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
+						}
 					default:
 						err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
 					}

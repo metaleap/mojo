@@ -43,6 +43,7 @@ type AstComment struct {
 type AstDef struct {
 	AstBaseTokens
 	Name       AstIdent
+	NameAffix  IAstExpr
 	Args       []AstDefArg
 	Meta       []IAstExpr
 	Body       IAstExpr
