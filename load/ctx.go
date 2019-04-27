@@ -33,7 +33,7 @@ type Ctx struct {
 	}
 
 	kits struct {
-		all kits
+		all Kits
 	}
 	state struct {
 		sync.Mutex
@@ -61,7 +61,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 func (me *Ctx) Init() (err error) {
 	me.maybeInitPanic(true)
 	dirsession := me.Dirs.Session
-	if me.state.initCalled, me.kits.all = true, make(kits, 0, 32); dirsession == "" || dirsession == "." {
+	if me.state.initCalled, me.kits.all = true, make(Kits, 0, 32); dirsession == "" || dirsession == "." {
 		dirsession, err = os.Getwd()
 	} else if dirsession[0] == '~' {
 		if len(dirsession) == 1 {

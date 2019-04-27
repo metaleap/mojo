@@ -121,7 +121,7 @@ func (me *Repl) DList(what string) bool {
 func (me *Repl) dListKits() {
 	me.IO.writeLns("LIST of kits from current search paths:")
 	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Kits, func(s string) string { return "─── " + s })...)
-	me.Ctx.WithKnownKits(func(kits []atmoload.Kit) {
+	me.Ctx.WithKnownKits(func(kits atmoload.Kits) {
 		me.IO.writeLns("", "found "+ustr.Plu(len(kits), "kit")+":")
 		for _, kit := range kits {
 			numerrs := len(kit.Errors())
@@ -132,10 +132,11 @@ func (me *Repl) dListKits() {
 }
 
 func (me *Repl) dListDefs(whatKit string) {
-	me.Ctx.WithKit(whatKit, true, func(kit *atmoload.Kit) {
+	me.Ctx.WithKit(whatKit, func(kit *atmoload.Kit) {
 		if kit == nil {
 			me.IO.writeLns("unknown kit: `" + whatKit + "`, see known kits via `:list _`")
 		} else {
+			me.Ctx.KitEnsureLoaded(kit)
 			me.IO.writeLns("LIST of defs in kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
 			kitsrcfiles, numdefs := kit.SrcFiles(), 0
 			for i := range kitsrcfiles {
@@ -184,10 +185,11 @@ func (me *Repl) DInfo(what string) bool {
 }
 
 func (me *Repl) dInfoKit(whatKit string) {
-	me.Ctx.WithKit(whatKit, true, func(kit *atmoload.Kit) {
+	me.Ctx.WithKit(whatKit, func(kit *atmoload.Kit) {
 		if kit == nil {
 			me.IO.writeLns("unknown kit: `" + whatKit + "`, see known kits via `:list _`")
 		} else {
+			me.Ctx.KitEnsureLoaded(kit)
 			me.IO.writeLns("INFO summary on kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
 			kitsrcfiles := kit.SrcFiles()
 			me.IO.writeLns("", ustr.Plu(len(kitsrcfiles), "source file")+" in kit `"+whatKit+"`:")
@@ -219,13 +221,20 @@ func (me *Repl) dInfoDef(whatKit string, whatName string) {
 
 func (me *Repl) DSrcs(what string) bool {
 	if whatkit, whatname := me.what2KitAndName(what); whatkit != "" && whatname != "" {
-		me.Ctx.WithKit(whatkit, true, func(kit *atmoload.Kit) {
+		me.Ctx.WithKnownKits(func(kits atmoload.Kits) {
+			var kit *atmoload.Kit
+			if whatkit != "_" {
+				kit = kits.ByImpPath(whatkit)
+			} else {
+			}
 			if kit == nil {
 				me.IO.writeLns("unknown kit: `" + whatkit + "`, see known kits via `:list _`")
 			} else {
+				me.Ctx.KitEnsureLoaded(kit)
 				defs := kit.Defs(whatname)
 				me.IO.writeLns(ustr.Plu(len(defs), "def") + " found")
 			}
+
 		})
 		return true
 	}

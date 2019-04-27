@@ -24,15 +24,18 @@ type Kit struct {
 	}
 }
 
-func (me *Ctx) WithKit(impPath string, ensureLoaded bool, do func(*Kit)) {
+func (me *Ctx) KitEnsureLoaded(kit *Kit) {
+	if !kit.wasEverToBeLoaded {
+		me.kitForceReload(kit)
+	}
+}
+
+func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
 	if idx := me.kits.all.indexImpPath(impPath); idx < 0 {
 		do(nil)
 	} else {
-		if ensureLoaded && !me.kits.all[idx].wasEverToBeLoaded {
-			me.kitReload(idx)
-		}
 		do(&me.kits.all[idx])
 	}
 	me.state.Unlock()
@@ -66,12 +69,11 @@ func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
 	sort.Sort(this.srcFiles)
 
 	if this.wasEverToBeLoaded {
-		me.kitReload(idx)
+		me.kitForceReload(this)
 	}
 }
 
-func (me *Ctx) kitReload(idx int) {
-	this := &me.kits.all[idx]
+func (me *Ctx) kitForceReload(this *Kit) {
 	this.wasEverToBeLoaded = true
 	for i := range this.srcFiles {
 		sf := &this.srcFiles[i]

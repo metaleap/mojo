@@ -13,13 +13,13 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type kits []Kit
+type Kits []Kit
 
 var KitsWatchInterval time.Duration
 
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
-func (me *Ctx) WithKnownKits(do func([]Kit)) {
+func (me *Ctx) WithKnownKits(do func(Kits)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
 	do(me.kits.all)
@@ -191,9 +191,9 @@ func (me *Ctx) initKits() {
 	}
 }
 
-func (me kits) Len() int          { return len(me) }
-func (me kits) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
-func (me kits) Less(i int, j int) bool {
+func (me Kits) Len() int          { return len(me) }
+func (me Kits) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+func (me Kits) Less(i int, j int) bool {
 	pi, pj := &me[i], &me[j]
 	if pi.DirPath != pj.DirPath {
 		if piau, pjau := (pi.ImpPath == atmo.NameAutoKit), (pj.ImpPath == atmo.NameAutoKit); piau || pjau {
@@ -203,7 +203,7 @@ func (me kits) Less(i int, j int) bool {
 	return pi.DirPath < pj.DirPath
 }
 
-func (me *kits) removeAt(idx int) {
+func (me *Kits) removeAt(idx int) {
 	this := *me
 	for i := idx; i < len(this)-1; i++ {
 		this[i] = this[i+1]
@@ -212,7 +212,7 @@ func (me *kits) removeAt(idx int) {
 	*me = this
 }
 
-func (me kits) indexDirPath(dirPath string) int {
+func (me Kits) indexDirPath(dirPath string) int {
 	for i := range me {
 		if me[i].DirPath == dirPath {
 			return i
@@ -221,7 +221,7 @@ func (me kits) indexDirPath(dirPath string) int {
 	return -1
 }
 
-func (me kits) indexImpPath(impPath string) int {
+func (me Kits) indexImpPath(impPath string) int {
 	for i := range me {
 		if me[i].ImpPath == impPath {
 			return i
@@ -232,4 +232,11 @@ func (me kits) indexImpPath(impPath string) int {
 
 func KitsDirPathFrom(kitDirPath string, kitImpPath string) string {
 	return filepath.Clean(kitDirPath[:len(kitDirPath)-len(kitImpPath)])
+}
+
+func (me Kits) ByImpPath(kitImpPath string) *Kit {
+	if idx := me.indexImpPath(kitImpPath); idx >= 0 {
+		return &me[idx]
+	}
+	return nil
 }

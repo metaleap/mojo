@@ -66,12 +66,23 @@ func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
 }
 
 func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
-	me.Args = make([]AstDefArg, len(me.Orig.Args))
-	opeq := ctx.b.IdOp("==")
-	for i := range me.Orig.Args {
-		if errs.Add(me.Args[i].initFrom(ctx, &me.Orig.Args[i], i)); me.Args[i].coerceValue != nil {
-			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, me.Args[i].coerceValue), me.Body)
+	if len(me.Orig.Args) > 0 {
+		opeq := ctx.b.IdOp("==")
+
+		var arg AstDefArg
+		if errs.Add(arg.initFrom(ctx, &me.Orig.Args[0], 0)); arg.coerceValue != nil {
+			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &arg.AstIdentName, arg.coerceValue), me.Body)
 		}
+		me.Arg = &arg
+
+		// TODO: remove multi-args and make all defs unary
+		args := make([]AstDefArg, len(me.Orig.Args))
+		for i := range me.Orig.Args {
+			if errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i)); args[i].coerceValue != nil {
+				me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &args[i].AstIdentName, args[i].coerceValue), me.Body)
+			}
+		}
+		me.Args = args
 	}
 	return
 }

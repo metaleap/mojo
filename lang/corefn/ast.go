@@ -32,7 +32,8 @@ type AstDefBase struct {
 	Orig *atmolang.AstDef
 
 	Name IAstIdent
-	Args []AstDefArg
+	Args []AstDefArg // TODO: remove multi-args and make all defs unary with:
+	Arg  *AstDefArg
 	Body IAstExpr
 }
 

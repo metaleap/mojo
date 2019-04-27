@@ -75,7 +75,6 @@ func (me *AstDefs) removeAllExcept(keepIdxs []int) {
 	} else {
 		nume := make(AstDefs, 0, len(keepIdxs))
 		for _, idx := range keepIdxs {
-			println(idx)
 			nume = append(nume, this[idx])
 		}
 		*me = nume
