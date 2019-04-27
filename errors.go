@@ -82,6 +82,10 @@ func (me *Errors) AddTodo(tok *udevlex.Token, msg string) {
 	me.AddFrom(ErrCatTodo, tok, msg)
 }
 
+func (me *Errors) AddNaming(tok *udevlex.Token, msg string) {
+	me.AddFrom(ErrCatNaming, tok, msg)
+}
+
 func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) {
 	me.AddAt(cat, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }

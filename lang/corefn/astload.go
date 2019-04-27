@@ -41,14 +41,14 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 			// all ok
 		case *AstIdentOp:
 			if name.Val == "" || ustr.In(name.Val, langReservedOps...) {
-				errs.AddFrom(atmo.ErrCatNaming, tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
+				errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 			}
 		case *AstIdentTag:
-			errs.AddFrom(atmo.ErrCatNaming, tok, "invalid def name: `"+name.Val+"` is upper-case, this is reserved for tags")
+			errs.AddNaming(tok, "invalid def name: `"+name.Val+"` is upper-case, this is reserved for tags")
 		case *AstIdentVar:
-			errs.AddFrom(atmo.ErrCatNaming, tok, "invalid def name: `"+tok.Meta.Orig+"` (begins with multiple underscores)")
+			errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"` (begins with multiple underscores)")
 		case *AstIdentUnderscores:
-			errs.AddFrom(atmo.ErrCatNaming, tok, "invalid def name: `"+tok.Meta.Orig+"`")
+			errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`")
 		default:
 			panic(name)
 		}
@@ -254,7 +254,7 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs 
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	} else {
-		errs.AddFrom(atmo.ErrCatNaming, &orig.Tokens[0], "invalid identifier: begins with multiple underscores")
+		errs.AddNaming(&orig.Tokens[0], "invalid identifier: begins with multiple underscores")
 	}
 	return
 }
@@ -294,6 +294,7 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			for i := range o.Defs {
 				var def AstDefBase
 				errs.Add(def.initFrom(me, &o.Defs[i]))
+				def.OrigScope = o
 				me.Locals = append(me.Locals, def)
 			}
 		case *atmolang.AstExprAppl:

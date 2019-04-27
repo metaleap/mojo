@@ -7,6 +7,15 @@ import (
 
 type astDefs []AstDefBase
 
+func (me astDefs) byName(name string) *AstDefBase {
+	for i := range me {
+		if me[i].Name.String() == name {
+			return &me[i]
+		}
+	}
+	return nil
+}
+
 type AstDefs []AstDef
 
 func (me AstDefs) Len() int          { return len(me) }
