@@ -42,10 +42,6 @@ func (*AstBuilder) IdVar(name string) *AstIdentVar {
 	return &AstIdentVar{AstIdentBase{Val: name}}
 }
 
-func (*AstBuilder) IdUnderscores(num int) *AstIdentUnderscores {
-	return &AstIdentUnderscores{AstIdentBase{Val: ustr.Times("_", num)}}
-}
-
 func (*AstBuilder) IdTag(name string) *AstIdentTag {
 	return &AstIdentTag{AstIdentBase{Val: name}}
 }

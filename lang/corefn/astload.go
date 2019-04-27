@@ -47,8 +47,10 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 			errs.AddFrom(atmo.ErrCatNaming, tok, "invalid def name: `"+name.Val+"` is upper-case, this is reserved for tags")
 		case *AstIdentVar:
 			errs.AddFrom(atmo.ErrCatNaming, tok, "invalid def name: `"+tok.Meta.Orig+"` (begins with multiple underscores)")
-		default:
+		case *AstIdentUnderscores:
 			errs.AddFrom(atmo.ErrCatNaming, tok, "invalid def name: `"+tok.Meta.Orig+"`")
+		default:
+			panic(name)
 		}
 	}
 	if me.Orig.NameAffix != nil {
