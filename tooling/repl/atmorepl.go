@@ -16,6 +16,7 @@ var (
 		MoreLines             int
 		MoreLinesPrompt       []byte
 		WelcomeMsgLines       []string
+		OldSchoolTty          bool
 		KitsWatchInfoFlagName string
 	}
 )
@@ -98,6 +99,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 				me.IO.writeLns("", "")
 				me.decoInputStart(false)
 			}
+
 		// else, input to be EVAL'd now
 		default:
 			me.decoInputDone(false)

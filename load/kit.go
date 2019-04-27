@@ -78,7 +78,7 @@ func (me *Ctx) kitReload(idx int) {
 		sf.LexAndParseFile(true, false)
 		if errs := sf.Errors(); len(errs) > 0 {
 			for _, e := range errs {
-				me.msg(true, e.Error())
+				me.msg(true, true, e.Error())
 			}
 		}
 	}

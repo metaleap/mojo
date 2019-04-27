@@ -53,9 +53,9 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 			panic(name)
 		}
 	}
-	if me.Orig.NameAffix != nil {
-		errs.AddTodo(&me.Orig.NameAffix.Toks()[0], "def name affixes")
-	}
+	// if me.Orig.NameAffix != nil {
+	// 	errs.AddTodo(&me.Orig.NameAffix.Toks()[0], "def name affixes")
+	// }
 
 	return
 }
@@ -104,9 +104,9 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 		me.coerceValue = constexpr
 	}
 
-	if orig.Affix != nil {
-		errs.AddTodo(&orig.Affix.Toks()[0], "def arg affixes")
-	}
+	// if orig.Affix != nil {
+	// 	errs.AddTodo(&orig.Affix.Toks()[0], "def arg affixes")
+	// }
 	return
 }
 

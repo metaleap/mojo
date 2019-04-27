@@ -61,7 +61,7 @@ func (me *tldParse) parseDef(tokens udevlex.Tokens, def *AstDef) (err *atmo.Erro
 		if tokens[0].Meta.Position.Column == 1 {
 			err = atmo.ErrSyn(&tokens[0], "missing: definition body following `:=`")
 		} else {
-			err = atmo.ErrSyn(&tokens[0], "subsequent line in top-level expression needs more indentation")
+			err = atmo.ErrSyn(&tokens[0], "at this indent level, expected a def")
 		}
 	} else if len(tokshead) == 0 {
 		err = atmo.ErrSyn(&tokens[0], "missing: definition name preceding `:=`")

@@ -151,7 +151,7 @@ func (me *Ctx) initKits() {
 					if idx := me.kits.all.indexImpPath(cur.ImpPath); idx != i {
 						delete(shouldrefresh, cur.DirPath)
 						delete(shouldrefresh, me.kits.all[idx].DirPath)
-						me.msg(true, "duplicate import path `"+cur.ImpPath+"`", "in "+cur.KitsDirPath(), "and "+me.kits.all[idx].KitsDirPath(), "─── both will not load until fixed")
+						me.msg(true, true, "duplicate import path `"+cur.ImpPath+"`", "in "+cur.KitsDirPath(), "and "+me.kits.all[idx].KitsDirPath(), "─── both will not load until fixed")
 						if idx > i {
 							me.kits.all.removeAt(idx)
 							me.kits.all.removeAt(i)
@@ -172,14 +172,14 @@ func (me *Ctx) initKits() {
 					me.kitRefreshFilesAndReloadIfWasLoaded(me.kits.all.indexDirPath(kitdirpath))
 				}
 				if me.state.fileModsWatch.emitMsgs {
-					me.msg(true, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")
+					me.msg(true, false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")
 				}
 			}
 			me.state.Unlock()
 		}
 		const modswatchdurationcritical = int64(23 * time.Millisecond)
 		if filemodwatchduration > modswatchdurationcritical {
-			me.msg(false, "[DBG] note to dev, mods-watch took "+time.Duration(filemodwatchduration).String())
+			me.msg(false, false, "[DBG] note to dev, mods-watch took "+time.Duration(filemodwatchduration).String())
 		}
 	})
 	if modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval, me.OngoingKitsWatch.ShouldNow, func() { _ = modswatcher() }); modswatchstart != nil {

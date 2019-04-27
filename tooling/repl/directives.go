@@ -99,7 +99,7 @@ func (me *Repl) DQuit(s string) bool {
 
 func (me *Repl) DReload(string) bool {
 	if nummods := me.Ctx.ReloadModifiedKitsUnlessAlreadyWatching(); nummods == 0 {
-		me.IO.writeLns("No relevant modifications noted ── nothing to (re)load.")
+		me.IO.writeLns("No relevant modifications ── nothing to (re)load.")
 	} else if nummods < 0 {
 		me.IO.writeLns("No manual (re)load possible: already checking every " + atmoload.KitsWatchInterval.String() + ".")
 	}
@@ -203,7 +203,7 @@ func (me *Repl) dInfoKit(whatKit string) {
 			if kiterrs := kit.Errs(); len(kiterrs) > 0 {
 				me.IO.writeLns("", ustr.Plu(len(kiterrs), "issue")+" in kit "+whatKit+":")
 				for i := range kiterrs {
-					me.decoMsgNotice(kiterrs[i].Error())
+					me.decoMsgNotice(true, kiterrs[i].Error())
 				}
 			}
 			me.IO.writeLns("", "", "(to see kit defs, use `:list "+whatKit+"`)")

@@ -49,6 +49,7 @@ func (me *Repl) init() {
 
 func (me *Repl) decoInputStart(altStyle bool) {
 	me.uxMore(false)
+	time.Sleep(1 * time.Millisecond)
 	me.decoCtxMsgsIfAny(false)
 	me.run.multiLnInputHadLeadingTabs = false
 	me.IO.writeLns(ustr.If(altStyle, "╔", "┌") + sepLine)
@@ -82,7 +83,7 @@ func (me *Repl) decoAddNotice(altStyle bool, altPrefix string, compact bool, not
 	me.IO.writeLns(noticeLines...)
 }
 
-func (me *Repl) decoMsgNotice(lines ...string) {
+func (me *Repl) decoMsgNotice(odd bool, lines ...string) {
 	for i := 0; i < len(lines); i++ {
 		ln := lines[i]
 		if pos := ustr.Pos(ln, ": ["); pos > 0 && ustr.Has(ln[:pos], atmo.SrcFileExt+":") {
@@ -90,7 +91,10 @@ func (me *Repl) decoMsgNotice(lines ...string) {
 			i, lines = i+1, append(append(prefix, ln[:pos], ln[pos+2:]), suffix...)
 		}
 	}
-	me.decoAddNotice(false, "▓▒░ ", true, lines...)
+	me.decoAddNotice(false, ustr.If(odd,
+		ustr.If(Ux.OldSchoolTty, "≡!≡ ", "▓▒░ "),
+		ustr.If(Ux.OldSchoolTty, "≡i≡ ", "░▒▓ "),
+	), true, lines...)
 }
 
 func (me *Repl) decoCtxMsgsIfAny(initial bool) {
@@ -99,7 +103,7 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 		for i := range msgs {
 			if lines := msgs[i].Lines; len(lines) > 0 {
 				lines[0] = msgs[i].Time.Format("15:04:05") + " ─── " + lines[0]
-				if me.decoMsgNotice(lines...); !initial {
+				if me.decoMsgNotice(msgs[i].Odd, lines...); !initial {
 					time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
 				}
 			}

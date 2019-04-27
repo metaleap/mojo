@@ -37,7 +37,7 @@ func mainRepl() {
 			"", "— in case of the latter, a line ending in " + repl.IO.MultiLineSuffix, "  introduces or concludes a multi-line input",
 			"", "— to see --flags, quit and run `atmo help`",
 		}
-		if replRunsVia("rlwrap", "rlfe") == "" {
+		if atmorepl.Ux.OldSchoolTty = (replRunsVia("login") == "login"); replRunsVia("rlwrap", "rlfe") == "" {
 			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— for smooth line-editing, run the repl", "  via `rlwrap` or `rlfe` or equivalent")
 		}
 		if atmorepl.Ux.MoreLines > 0 {
@@ -52,9 +52,13 @@ func mainRepl() {
 
 func replRunsVia(parentProcessNames ...string) string {
 	defer func() { _ = recover() }() // go-ps not doing all the bounds-checks it could be doing
-	if ppid := os.Getppid(); ppid != 0 && len(parentProcessNames) > 0 {
-		if p, _ := ps.FindProcess(ppid); p != nil {
-			parentexename := p.Executable()
+
+	for ppid := os.Getppid(); ppid != 0; {
+		if proc, _ := ps.FindProcess(ppid); proc == nil {
+			ppid = 0
+		} else {
+			ppid = proc.PPid()
+			parentexename := proc.Executable()
 			for _, ppn := range parentProcessNames {
 				if ppn == parentexename {
 					return ppn

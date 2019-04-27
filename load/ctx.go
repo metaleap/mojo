@@ -15,6 +15,7 @@ import (
 )
 
 type CtxMsg struct {
+	Odd   bool
 	Time  time.Time
 	Lines []string
 }
@@ -95,7 +96,7 @@ func (me *Ctx) Init() (err error) {
 			kitsdirsorig := kitsdirs
 			kitsdirs = ustr.Merge(kitsdirsenv, kitsdirs, func(ldp string) bool {
 				if ldp != "" && !ufs.IsDir(ldp) {
-					me.msg(true, "kits-dir "+ldp+" not found")
+					me.msg(true, true, "kits-dir "+ldp+" not found")
 					return true
 				}
 				return ldp == ""
@@ -152,8 +153,8 @@ func (me *Ctx) Dispose() {
 	me.state.cleanUps = nil
 }
 
-func (me *Ctx) msg(alreadyLocked bool, lines ...string) {
-	msg := CtxMsg{Time: time.Now(), Lines: lines}
+func (me *Ctx) msg(alreadyLocked bool, odd bool, lines ...string) {
+	msg := CtxMsg{Odd: odd, Time: time.Now(), Lines: lines}
 	if !alreadyLocked {
 		me.state.Lock()
 	}
