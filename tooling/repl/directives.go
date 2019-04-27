@@ -26,27 +26,31 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	)
 	kd("quit", me.DQuit)
 	kd("intro", me.DIntro)
-	if atmoload.KitsWatchInterval == 0 {
-		kd("reload", me.DReload)
-	}
+	kd("reload", me.DReload).Hidden = (atmoload.KitsWatchInterval > 0)
 }
 
 type directive struct {
-	Desc string
-	Help []string
-	Run  func(string) bool
+	Desc   string
+	Help   []string
+	Run    func(string) bool
+	Hidden bool
 }
 
 func (me *directive) Name() string { return ustr.Until(me.Desc, " ") }
 
 type directives []directive
 
-func (me *directives) ensure(desc string, run func(string) bool, help ...string) {
-	if found := me.By(desc); found != nil {
-		found.Desc, found.Run = desc, run
+func (me *directives) ensure(desc string, run func(string) bool, help ...string) (ret *directive) {
+	if ret = me.By(desc); ret != nil {
+		ret.Desc, ret.Run, ret.Help = desc, run, help
 	} else {
-		*me = append(*me, directive{Desc: desc, Run: run, Help: help})
+		this := *me
+		idx := len(this)
+		this = append(this, directive{Desc: desc, Run: run, Help: help})
+		ret = &this[idx]
+		*me = this
 	}
+	return
 }
 
 func (me directives) By(name string) *directive {
@@ -79,7 +83,9 @@ func (me *Repl) runDirective(name string, args string) {
 	if found == nil {
 		me.IO.writeLns("unknown command `:"+name+"` — try: ", "")
 		for i := range me.KnownDirectives {
-			me.IO.writeLns("    :" + me.KnownDirectives[i].Desc)
+			if !me.KnownDirectives[i].Hidden {
+				me.IO.writeLns("    :" + me.KnownDirectives[i].Desc)
+			}
 		}
 		me.IO.writeLns("", "(for usage details on a complex", "command, invoke it without args)")
 	}
@@ -93,6 +99,8 @@ func (me *Repl) DQuit(s string) bool {
 func (me *Repl) DReload(string) bool {
 	if nummods := me.Ctx.ReloadModifiedKitsUnlessAlreadyWatching(); nummods == 0 {
 		me.IO.writeLns("No relevant modifications noted ── nothing to (re)load.")
+	} else if nummods < 0 {
+		me.IO.writeLns("No manual (re)load possible: it's done automatically every " + atmoload.KitsWatchInterval.String())
 	}
 	return true
 }

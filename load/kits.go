@@ -54,7 +54,9 @@ func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
 
 func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int) {
 	me.maybeInitPanic(false)
-	if me.state.fileModsWatch.doManually != nil {
+	if me.state.fileModsWatch.doManually == nil {
+		numFileSystemModsNoticedAndActedUpon = -1
+	} else {
 		numFileSystemModsNoticedAndActedUpon = me.state.fileModsWatch.doManually()
 	}
 	return
@@ -180,9 +182,10 @@ func (me *Ctx) initKits() {
 			me.msg(false, "[DBG] note to dev, mods-watch took "+time.Duration(filemodwatchduration).String())
 		}
 	})
-	if modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval, me.OngoingKitsWatch.ShouldNow, func() { _ = modswatcher() }); modswatchcancel != nil {
+	if modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval, me.OngoingKitsWatch.ShouldNow, func() { _ = modswatcher() }); modswatchstart != nil {
 		me.state.fileModsWatch.runningAutomaticallyPeriodically, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
+		go modswatchstart()
 	} else {
 		me.state.fileModsWatch.emitMsgs, me.state.fileModsWatch.doManually = true, modswatcher
 	}

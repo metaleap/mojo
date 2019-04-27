@@ -62,7 +62,7 @@ func main() {
 		writeLns("", "Optional flags:", "")
 		for i := range f {
 			if f[i].Desc != "" {
-				writeLns("  --"+f[i].Name+" or --"+f[i].ShortName()+" (default: "+ustr.If(f[i].Default != "", f[i].Default, "<empty>")+")", f[i].Desc, "")
+				writeLns("  --"+f[i].Name+" (or --"+f[i].ShortName()+") ─── default value: "+ustr.If(f[i].Default != "", f[i].Default, "‹empty›"), f[i].Desc, "")
 			}
 		}
 	}
