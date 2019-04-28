@@ -49,7 +49,6 @@ func (me *Repl) init() {
 }
 
 func (me *Repl) decoInputStart(altStyle bool, msgsSummaryOnly bool) {
-	me.uxMore(false)
 	time.Sleep(1 * time.Millisecond)
 	if !msgsSummaryOnly {
 		me.decoCtxMsgsIfAny(false)
@@ -57,6 +56,7 @@ func (me *Repl) decoInputStart(altStyle bool, msgsSummaryOnly bool) {
 		me.decoAddNotice(true, "", true, ustr.Int(msgcount)+" new notices while processing your input, show via any input:", "", "")
 	}
 	me.run.multiLnInputHadLeadingTabs = false
+	me.uxMore(false)
 	me.IO.writeLns(ustr.If(altStyle, "╔", "┌") + sepLine)
 	me.decoInputBeginLine(altStyle, "")
 }

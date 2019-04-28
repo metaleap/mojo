@@ -65,7 +65,8 @@ func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNotic
 
 func (me *Ctx) initKits() {
 	dirok := func(dirfullpath string, dirname string) bool {
-		return dirname != "*" && dirname != "~" && dirname != "_" && !ustr.HasAny(dirname, unicode.IsSpace)
+		return dirfullpath == me.Dirs.Session || ustr.In(dirfullpath, me.Dirs.Kits...) ||
+			(dirname != "*" && dirname != "#" && dirname != "_" && !ustr.HasAny(dirname, unicode.IsSpace))
 	}
 
 	var handledir func(string, map[string]int)
@@ -137,7 +138,7 @@ func (me *Ctx) initKits() {
 						}
 						if kitimppath == "" {
 							if kitdirpath == me.Dirs.Session {
-								kitimppath = "~"
+								kitimppath = "#"
 							} else {
 								panic(kitdirpath) // should be impossible unless newly introduced bug
 							}
