@@ -12,8 +12,8 @@ type IPrintFormatter interface {
 
 type CtxPrint struct {
 	IPrintFormatter
-	File           *AstFile
-	CurTopLevel    *AstTopLevel
+	ApplStyle      ApplStyle
+	CurTopLevel    *AstFileTopLevelChunk
 	CurIndentLevel int
 
 	ustd.BytesWriter
@@ -36,19 +36,23 @@ func (me *CtxPrint) writeNewLines(times int) {
 }
 
 func (me *AstFile) Print(pf IPrintFormatter) []byte {
-	ctx := CtxPrint{File: me, IPrintFormatter: pf, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 1024)}}
+	ctx := CtxPrint{ApplStyle: me.Options.ApplStyle, IPrintFormatter: pf, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 1024)}}
 	for i := range me.TopLevel {
-		ctx.CurTopLevel = &me.TopLevel[i].Ast
+		ctx.CurTopLevel = &me.TopLevel[i]
 		ctx.CurTopLevel.print(&ctx)
 	}
 	return ctx.BytesWriter.Data
 }
 
-func (me *AstTopLevel) print(p *CtxPrint) {
+func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
+	me.print(p)
+}
+
+func (me *AstFileTopLevelChunk) print(p *CtxPrint) {
 	p.CurIndentLevel = 0
 	p.WriteByte('\n')
-	if me.Def.Orig != nil {
-		me.Def.Orig.print(p)
+	if me.Ast.Def.Orig != nil {
+		me.Ast.Def.Orig.print(p)
 	}
 	p.WriteString("\n\n")
 }
@@ -66,7 +70,7 @@ func (me *AstComment) print(p *CtxPrint) {
 }
 
 func (me *AstDef) print(p *CtxPrint) {
-	switch p.File.Options.ApplStyle {
+	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
 		me.Name.print(p)
 		for i := range me.Args {
@@ -133,7 +137,7 @@ func (me *AstExprLitStr) print(p *CtxPrint) {
 
 func (me *AstExprAppl) print(p *CtxPrint) {
 	p.WriteByte('(')
-	switch p.File.Options.ApplStyle {
+	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
 		me.Callee.print(p)
 		for i := range me.Args {

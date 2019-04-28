@@ -3,8 +3,10 @@ package atmorepl
 import (
 	"path/filepath"
 
+	"github.com/go-leap/std"
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/lang"
 	"github.com/metaleap/atmo/session"
 )
 
@@ -258,8 +260,16 @@ func (me *Repl) DSrcs(what string) bool {
 			if kit == nil {
 				me.IO.writeLns("Unknown kit: `" + whatkit + "`, see known kits via `:list _`.")
 			} else {
-				defs := kit.Defs(whatname)
+				pf := atmolang.PrintFormatterMinimal{}
+				defs, pctx := kit.Defs(whatname), atmolang.CtxPrint{ApplStyle: atmolang.APPLSTYLE_SVO, IPrintFormatter: pf, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}}
 				me.IO.writeLns(ustr.Plu(len(defs), "def") + " found in kit `" + kit.ImpPath + "`:")
+
+				for _, def := range defs {
+					if def != nil {
+						def.TopLevel.Print(&pctx)
+					}
+				}
+				pctx.BytesWriter.WriteTo(me.IO.Stdout)
 			}
 
 		})

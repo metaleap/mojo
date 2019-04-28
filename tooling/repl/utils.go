@@ -107,7 +107,7 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 		me.IO.writeLns("", "")
 		if !initial {
 			me.IO.writeLns("Also noticed in the meantime:")
-			time.Sleep(456 * time.Millisecond)
+			time.Sleep(567 * time.Millisecond)
 		}
 		for i := range msgs {
 			msg := &msgs[i]
