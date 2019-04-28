@@ -70,24 +70,29 @@ func (me *Ctx) initKits() {
 
 	var handledir func(string, map[string]int)
 	handledir = func(dirfullpath string, modkitdirs map[string]int) {
+		isdirsess := dirfullpath == me.Dirs.Session && !me.Dirs.sessAlreadyInKitsDirs
 		if idx := me.kits.all.indexDirPath(dirfullpath); idx >= 0 {
 			// dir was previously known as a kit
 			modkitdirs[dirfullpath] = cap(me.kits.all[idx].srcFiles)
-		} else if dirfullpath == me.Dirs.Session {
+		} else if isdirsess {
 			// cur sess dir is a (real or faux) "kit"
 			modkitdirs[dirfullpath] = 1
 		}
-		for i := range me.kits.all {
-			if ustr.Pref(me.kits.all[i].DirPath, dirfullpath+string(os.PathSeparator)) {
-				modkitdirs[me.kits.all[i].DirPath] = cap(me.kits.all[i].srcFiles)
+		if !isdirsess {
+			for i := range me.kits.all {
+				if ustr.Pref(me.kits.all[i].DirPath, dirfullpath+string(os.PathSeparator)) {
+					modkitdirs[me.kits.all[i].DirPath] = cap(me.kits.all[i].srcFiles)
+				}
 			}
 		}
 		dircontents, _ := ufs.Dir(dirfullpath)
 		var added bool
-		for _, file := range dircontents {
-			if isdir, fp := file.IsDir(), filepath.Join(dirfullpath, file.Name()); isdir && dirok(fp, file.Name()) {
+		for _, fileinfo := range dircontents {
+			if isdir, fp := fileinfo.IsDir(), filepath.Join(dirfullpath, fileinfo.Name()); isdir && isdirsess {
+				// continue next one
+			} else if isdir && dirok(fp, fileinfo.Name()) {
 				handledir(fp, modkitdirs)
-			} else if (!isdir) && (!added) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
+			} else if (!isdir) && (!added) && ustr.Suff(fileinfo.Name(), atmo.SrcFileExt) {
 				added, modkitdirs[dirfullpath] = true, modkitdirs[dirfullpath]+1
 			}
 		}
@@ -110,7 +115,6 @@ func (me *Ctx) initKits() {
 					modkitdirs[dp] = modkitdirs[dp] + 1
 				}
 			}
-
 			if len(me.kits.all) == 0 && !me.Dirs.sessAlreadyInKitsDirs {
 				modkitdirs[me.Dirs.Session] = 1
 			}
@@ -135,7 +139,7 @@ func (me *Ctx) initKits() {
 							if kitdirpath == me.Dirs.Session {
 								kitimppath = "~"
 							} else {
-								panic("the impossible, debug+fix stat")
+								panic(kitdirpath) // should be impossible unless newly introduced bug
 							}
 						}
 						me.kits.all = append(me.kits.all, Kit{DirPath: kitdirpath, ImpPath: kitimppath,
