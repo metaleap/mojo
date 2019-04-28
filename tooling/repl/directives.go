@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/load"
+	"github.com/metaleap/atmo/session"
 )
 
 func (me *Repl) initEnsureDefaultDirectives() {
@@ -27,7 +27,7 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	)
 	kd("quit", me.DQuit)
 	kd("intro", me.DIntro)
-	kd("reload", me.DReload).Hidden = (atmoload.KitsWatchInterval > 0)
+	kd("reload", me.DReload).Hidden = (atmosess.KitsWatchInterval > 0)
 }
 
 type directive struct {
@@ -101,7 +101,7 @@ func (me *Repl) DReload(string) bool {
 	if nummods := me.Ctx.ReloadModifiedKitsUnlessAlreadyWatching(); nummods == 0 {
 		me.IO.writeLns("No relevant modifications ── nothing to (re)load.")
 	} else if nummods < 0 {
-		me.IO.writeLns("No manual (re)load possible: already checking every " + atmoload.KitsWatchInterval.String() + ".")
+		me.IO.writeLns("No manual (re)load possible: already checking every " + atmosess.KitsWatchInterval.String() + ".")
 	}
 	return true
 }
@@ -121,18 +121,18 @@ func (me *Repl) DList(what string) bool {
 func (me *Repl) dListKits() {
 	me.IO.writeLns("LIST of kits from current search paths:")
 	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Kits, func(s string) string { return "─── " + s })...)
-	me.Ctx.WithKnownKits(func(kits atmoload.Kits) {
+	me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
 		me.IO.writeLns("", "found "+ustr.Plu(len(kits), "kit")+":")
 		for _, kit := range kits {
 			numerrs := len(kit.Errors())
-			me.decoAddNotice(false, "", true, kit.ImpPath+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "error")))
+			me.decoAddNotice(false, "", true, "["+ustr.If(kit.WasEverToBeLoaded, "×", "_")+"] "+kit.ImpPath+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "issue")))
 		}
 	})
-	me.IO.writeLns("", "(to see kit details, use `:info ‹kit›`)")
+	me.IO.writeLns("", "Legend: [_] = unloaded, [×] = loaded or load attempted", "(to see kit details, use `:info ‹kit›`)")
 }
 
 func (me *Repl) dListDefs(whatKit string) {
-	me.Ctx.WithKit(whatKit, func(kit *atmoload.Kit) {
+	me.Ctx.WithKit(whatKit, func(kit *atmosess.Kit) {
 		if kit == nil {
 			me.IO.writeLns("unknown kit: `" + whatKit + "`, see known kits via `:list _`")
 		} else {
@@ -185,7 +185,7 @@ func (me *Repl) DInfo(what string) bool {
 }
 
 func (me *Repl) dInfoKit(whatKit string) {
-	me.Ctx.WithKit(whatKit, func(kit *atmoload.Kit) {
+	me.Ctx.WithKit(whatKit, func(kit *atmosess.Kit) {
 		if kit == nil {
 			me.IO.writeLns("unknown kit: `" + whatKit + "`, see known kits via `:list _`")
 		} else {
@@ -221,11 +221,16 @@ func (me *Repl) dInfoDef(whatKit string, whatName string) {
 
 func (me *Repl) DSrcs(what string) bool {
 	if whatkit, whatname := me.what2KitAndName(what); whatkit != "" && whatname != "" {
-		me.Ctx.WithKnownKits(func(kits atmoload.Kits) {
-			var kit *atmoload.Kit
+		me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
+			var kit *atmosess.Kit
 			if whatkit != "_" {
 				kit = kits.ByImpPath(whatkit)
 			} else {
+				for i := range kits {
+					if kits[i].HasDefs(whatname) {
+
+					}
+				}
 			}
 			if kit == nil {
 				me.IO.writeLns("unknown kit: `" + whatkit + "`, see known kits via `:list _`")

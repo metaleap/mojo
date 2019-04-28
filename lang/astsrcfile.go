@@ -63,6 +63,17 @@ func (me *AstFileTopLevelChunk) Errors() []error {
 	return me._errs
 }
 
+func (me *AstFile) HasDefs(name string) bool {
+	for i := range me.TopLevel {
+		if tld := &me.TopLevel[i]; (!tld.HasErrors()) && tld.Ast.Def.Orig != nil {
+			if tld.Ast.Def.Orig.Name.Val == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (me *AstFile) HasErrors() (r bool) {
 	if r = me.errs.loading != nil; !r {
 		for i := range me.TopLevel {

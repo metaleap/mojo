@@ -1,4 +1,4 @@
-package atmoload
+package atmosess
 
 import (
 	"os"
@@ -13,19 +13,19 @@ import (
 )
 
 type Kit struct {
-	ImpPath string
-	DirPath string
+	ImpPath           string
+	DirPath           string
+	WasEverToBeLoaded bool
 
-	topLevel          atmocorefn.AstDefs
-	srcFiles          atmolang.AstFiles
-	wasEverToBeLoaded bool
-	errs              struct {
+	topLevel atmocorefn.AstDefs
+	srcFiles atmolang.AstFiles
+	errs     struct {
 		refresh error
 	}
 }
 
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
-	if !kit.wasEverToBeLoaded {
+	if !kit.WasEverToBeLoaded {
 		me.kitForceReload(kit)
 	}
 }
@@ -68,13 +68,13 @@ func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
 	}
 	sort.Sort(this.srcFiles)
 
-	if this.wasEverToBeLoaded {
+	if this.WasEverToBeLoaded {
 		me.kitForceReload(this)
 	}
 }
 
 func (me *Ctx) kitForceReload(this *Kit) {
-	this.wasEverToBeLoaded = true
+	this.WasEverToBeLoaded = true
 	for i := range this.srcFiles {
 		sf := &this.srcFiles[i]
 		sf.LexAndParseFile(true, false)
@@ -110,6 +110,15 @@ func (me *Kit) KitsDirPath() string {
 
 func (me *Kit) SrcFiles() atmolang.AstFiles {
 	return me.srcFiles
+}
+
+func (me *Kit) HasDefs(name string) bool {
+	for i := range me.srcFiles {
+		if me.srcFiles[i].HasDefs(name) {
+			return true
+		}
+	}
+	return false
 }
 
 func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDef) {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo/load"
+	"github.com/metaleap/atmo/session"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 func init() { Ux.AnimsEnabled, Ux.MoreLinesPrompt = true, []byte("     ¶¶¶") }
 
 type Repl struct {
-	Ctx             atmoload.Ctx
+	Ctx             atmosess.Ctx
 	KnownDirectives directives
 	IO              struct {
 		Stdin           io.Reader

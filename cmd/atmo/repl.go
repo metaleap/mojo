@@ -7,14 +7,14 @@ import (
 	"github.com/go-forks/go-ps"
 	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
-	"github.com/metaleap/atmo/load"
+	"github.com/metaleap/atmo/session"
 	"github.com/metaleap/atmo/tooling/repl"
 )
 
 var (
 	replMultiLineSuffix     = ",,,"
 	replDirSession          = "."
-	replDirCache            = atmoload.CtxDefaultCacheDirPath()
+	replDirCache            = atmosess.CtxDefaultCacheDirPath()
 	replDirsAdditionalKits  []string
 	replKitsWatchPauseAfter = 83 * time.Second
 )

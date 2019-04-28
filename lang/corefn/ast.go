@@ -29,8 +29,7 @@ type AstNodeBase struct {
 
 type AstDefBase struct {
 	AstNodeBase
-	Orig      *atmolang.AstDef
-	OrigScope *atmolang.AstExprLet
+	Orig *atmolang.AstDef
 
 	Name IAstIdent
 	Args []AstDefArg // TODO: remove multi-args and make all defs unary with:

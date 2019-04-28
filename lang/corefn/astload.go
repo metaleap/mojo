@@ -294,7 +294,6 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			for i := range o.Defs {
 				var def AstDefBase
 				errs.Add(def.initFrom(me, &o.Defs[i]))
-				def.OrigScope = o
 				me.Locals = append(me.Locals, def)
 			}
 		case *atmolang.AstExprAppl:
