@@ -229,6 +229,7 @@ func (me *Repl) DSrcs(what string) bool {
 			var kit *atmosess.Kit
 			if searchloaded, searchall := whatkit == "_", whatkit == "*"; !(searchall || searchloaded) {
 				kit = kits.ByImpPath(whatkit)
+				me.Ctx.KitEnsureLoaded(kit)
 			} else {
 				var finds []*atmosess.Kit
 				for i := range kits {
