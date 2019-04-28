@@ -23,10 +23,10 @@ type CtxBgMsg struct {
 type Ctx struct {
 	ClearCacheDir bool
 	Dirs          struct {
-		Session              string
-		Cache                string
-		Kits                 []string
-		curAlreadyInKitsDirs bool
+		Session               string
+		Cache                 string
+		Kits                  []string
+		sessAlreadyInKitsDirs bool
 	}
 	OngoingKitsWatch struct {
 		ShouldNow func() bool
@@ -120,9 +120,9 @@ func (me *Ctx) Init() (err error) {
 				}
 			}
 			if err == nil {
-				me.Dirs.curAlreadyInKitsDirs = false
+				me.Dirs.sessAlreadyInKitsDirs = false
 				for _, kitsdirpath := range kitsdirs {
-					if me.Dirs.curAlreadyInKitsDirs = ustr.Pref(dirsession, kitsdirpath+string(os.PathSeparator)); me.Dirs.curAlreadyInKitsDirs {
+					if me.Dirs.sessAlreadyInKitsDirs = ustr.Pref(dirsession, kitsdirpath+string(os.PathSeparator)); me.Dirs.sessAlreadyInKitsDirs {
 						break
 					}
 				}

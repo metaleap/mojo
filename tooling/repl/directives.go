@@ -17,13 +17,17 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	kd("info ‹kit› [‹def›]", me.DInfo,
 		":info ‹kit/import/path›         ── infos on the specified kit",
 		":info ‹kit/import/path› ‹def›   ── infos on the specified def",
-		":info _ ‹def›                   ── infos on the specified def,",
-		"                                   having searched all currently known kits",
+		":info + ‹def›                   ── infos on the specified def, having",
+		"                                   searched all currently loaded kits",
+		":info _ ‹def›                   ── infos on the specified def, having",
+		"                                   searched all currently known kits",
 	)
 	kd("srcs ‹kit› ‹def›", me.DSrcs,
 		":srcs ‹kit/import/path› ‹def›   ── sources for the specified def",
-		":srcs _ ‹def›                   ── sources for the specified def,",
-		"                                   having searched all currently known kits",
+		":srcs _ ‹def›                   ── sources for the specified def, having",
+		"                                   searched all currently loaded kits",
+		":srcs * ‹def›                   ── sources for the specified def, having",
+		"                                   searched all currently known kits",
 	)
 	kd("quit", me.DQuit)
 	kd("intro", me.DIntro)

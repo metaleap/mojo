@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+	"unicode"
 
 	"github.com/go-leap/fs"
 	"github.com/go-leap/std"
@@ -63,11 +64,17 @@ func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNotic
 }
 
 func (me *Ctx) initKits() {
+	dirnameok := func(dirName string) bool {
+		return dirName != "*" && dirName != "_" && !ustr.HasAny(dirName, unicode.IsSpace)
+	}
+
 	var handledir func(string, map[string]int)
 	handledir = func(dirfullpath string, modkitdirs map[string]int) {
-		if idx := me.kits.all.indexDirPath(dirfullpath); idx >= 0 { // dir was previously known as a kit
+		if idx := me.kits.all.indexDirPath(dirfullpath); idx >= 0 {
+			// dir was previously known as a kit
 			modkitdirs[dirfullpath] = cap(me.kits.all[idx].srcFiles)
 		} else if dirfullpath == me.Dirs.Session {
+			// cur sess dir is a (real or faux) "kit"
 			modkitdirs[dirfullpath] = 1
 		}
 		for i := range me.kits.all {
@@ -78,19 +85,19 @@ func (me *Ctx) initKits() {
 		dircontents, _ := ufs.Dir(dirfullpath)
 		var added bool
 		for _, file := range dircontents {
-			if file.IsDir() {
+			if isdir := file.IsDir(); isdir && dirnameok(file.Name()) {
 				handledir(filepath.Join(dirfullpath, file.Name()), modkitdirs)
-			} else if (!added) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
+			} else if (!isdir) && (!added) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
 				added, modkitdirs[dirfullpath] = true, modkitdirs[dirfullpath]+1
 			}
 		}
 	}
 
-	var watchdircur []string
-	if !me.Dirs.curAlreadyInKitsDirs {
-		watchdircur = []string{me.Dirs.Session}
+	var watchdirsess []string
+	if !me.Dirs.sessAlreadyInKitsDirs {
+		watchdirsess = []string{me.Dirs.Session}
 	}
-	modswatcher := ufs.ModificationsWatcher(KitsWatchInterval/2, me.Dirs.Kits, watchdircur, atmo.SrcFileExt, func(mods map[string]os.FileInfo, starttime int64) {
+	modswatcher := ufs.ModificationsWatcher(KitsWatchInterval/2, me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, dirnameok, func(mods map[string]os.FileInfo, starttime int64) {
 		var filemodwatchduration int64
 		if len(mods) > 0 {
 			me.state.Lock()
@@ -104,7 +111,7 @@ func (me *Ctx) initKits() {
 				}
 			}
 
-			if len(me.kits.all) == 0 && !me.Dirs.curAlreadyInKitsDirs {
+			if len(me.kits.all) == 0 && !me.Dirs.sessAlreadyInKitsDirs {
 				modkitdirs[me.Dirs.Session] = 1
 			}
 			if filemodwatchduration = time.Now().UnixNano() - starttime; len(modkitdirs) > 0 {
@@ -112,8 +119,8 @@ func (me *Ctx) initKits() {
 				// handle new-or-modified kits
 				for kitdirpath, numfilesguess := range modkitdirs {
 					if me.kits.all.indexDirPath(kitdirpath) < 0 {
-						if numfilesguess < 4 {
-							numfilesguess = 4
+						if numfilesguess < 2 {
+							numfilesguess = 2
 						}
 						var kitimppath string
 						for _, ldp := range me.Dirs.Kits {
@@ -139,19 +146,19 @@ func (me *Ctx) initKits() {
 				// remove kits that have vanished from the file-system
 				var numremoved int
 				for i := 0; i < len(me.kits.all); i++ {
-					if cur := &me.kits.all[i]; !ufs.IsDir(cur.DirPath) {
-						delete(shouldrefresh, cur.DirPath)
+					if kit := &me.kits.all[i]; (!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt) {
+						delete(shouldrefresh, kit.DirPath)
 						me.kits.all.removeAt(i)
 						i, numremoved = i-1, numremoved+1
 					}
 				}
 				// ensure no duplicate imp-paths
 				for i := len(me.kits.all) - 1; i >= 0; i-- {
-					cur := &me.kits.all[i]
-					if idx := me.kits.all.indexImpPath(cur.ImpPath); idx != i {
-						delete(shouldrefresh, cur.DirPath)
+					kit := &me.kits.all[i]
+					if idx := me.kits.all.indexImpPath(kit.ImpPath); idx != i {
+						delete(shouldrefresh, kit.DirPath)
 						delete(shouldrefresh, me.kits.all[idx].DirPath)
-						me.bgMsg(true, true, "duplicate import path `"+cur.ImpPath+"`", "in "+cur.KitsDirPath(), "and "+me.kits.all[idx].KitsDirPath(), "─── both will not load until fixed")
+						me.bgMsg(true, true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.KitsDirPath(), "and "+me.kits.all[idx].KitsDirPath(), "─── both will not load until fixed")
 						if idx > i {
 							me.kits.all.removeAt(idx)
 							me.kits.all.removeAt(i)
