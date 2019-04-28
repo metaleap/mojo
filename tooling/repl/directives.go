@@ -263,7 +263,6 @@ func (me *Repl) DSrcs(what string) bool {
 				pf := atmolang.PrintFormatterMinimal{}
 				defs, pctx := kit.Defs(whatname), atmolang.CtxPrint{ApplStyle: atmolang.APPLSTYLE_SVO, IPrintFormatter: pf, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}}
 				me.IO.writeLns(ustr.Plu(len(defs), "def") + " found in kit `" + kit.ImpPath + "`:")
-
 				for _, def := range defs {
 					if def != nil {
 						def.TopLevel.Print(&pctx)
