@@ -64,8 +64,8 @@ func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNotic
 }
 
 func (me *Ctx) initKits() {
-	dirnameok := func(dirName string) bool {
-		return dirName != "*" && dirName != "_" && !ustr.HasAny(dirName, unicode.IsSpace)
+	dirok := func(dirfullpath string, dirname string) bool {
+		return dirname != "*" && dirname != "~" && dirname != "_" && !ustr.HasAny(dirname, unicode.IsSpace)
 	}
 
 	var handledir func(string, map[string]int)
@@ -85,8 +85,8 @@ func (me *Ctx) initKits() {
 		dircontents, _ := ufs.Dir(dirfullpath)
 		var added bool
 		for _, file := range dircontents {
-			if isdir := file.IsDir(); isdir && dirnameok(file.Name()) {
-				handledir(filepath.Join(dirfullpath, file.Name()), modkitdirs)
+			if isdir, fp := file.IsDir(), filepath.Join(dirfullpath, file.Name()); isdir && dirok(fp, file.Name()) {
+				handledir(fp, modkitdirs)
 			} else if (!isdir) && (!added) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
 				added, modkitdirs[dirfullpath] = true, modkitdirs[dirfullpath]+1
 			}
@@ -97,7 +97,7 @@ func (me *Ctx) initKits() {
 	if !me.Dirs.sessAlreadyInKitsDirs {
 		watchdirsess = []string{me.Dirs.Session}
 	}
-	modswatcher := ufs.ModificationsWatcher(KitsWatchInterval/2, me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, dirnameok, func(mods map[string]os.FileInfo, starttime int64) {
+	modswatcher := ufs.ModificationsWatcher(KitsWatchInterval/2, me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, dirok, func(mods map[string]os.FileInfo, starttime int64) {
 		var filemodwatchduration int64
 		if len(mods) > 0 {
 			me.state.Lock()
@@ -133,7 +133,7 @@ func (me *Ctx) initKits() {
 						}
 						if kitimppath == "" {
 							if kitdirpath == me.Dirs.Session {
-								kitimppath = "."
+								kitimppath = "~"
 							} else {
 								panic("the impossible, debug+fix stat")
 							}
@@ -146,7 +146,8 @@ func (me *Ctx) initKits() {
 				// remove kits that have vanished from the file-system
 				var numremoved int
 				for i := 0; i < len(me.kits.all); i++ {
-					if kit := &me.kits.all[i]; (!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt) {
+					if kit := &me.kits.all[i]; kit.DirPath != me.Dirs.Session &&
+						((!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
 						delete(shouldrefresh, kit.DirPath)
 						me.kits.all.removeAt(i)
 						i, numremoved = i-1, numremoved+1
