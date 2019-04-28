@@ -33,17 +33,17 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	if idx := me.kits.all.indexImpPath(impPath); idx < 0 {
+	if idx := me.Kits.all.indexImpPath(impPath); idx < 0 {
 		do(nil)
 	} else {
-		do(&me.kits.all[idx])
+		do(&me.Kits.all[idx])
 	}
 	me.state.Unlock()
 	return
 }
 
 func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
-	this := &me.kits.all[idx]
+	this := &me.Kits.all[idx]
 	var diritems []os.FileInfo
 	if diritems, this.errs.refresh = ufs.Dir(this.DirPath); this.errs.refresh != nil {
 		this.srcFiles, this.topLevel = nil, nil

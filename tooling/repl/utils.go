@@ -8,6 +8,7 @@ import (
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/session"
 )
 
 const (
@@ -47,10 +48,14 @@ func (me *Repl) init() {
 	me.initEnsureDefaultDirectives()
 }
 
-func (me *Repl) decoInputStart(altStyle bool) {
+func (me *Repl) decoInputStart(altStyle bool, msgsSummaryOnly bool) {
 	me.uxMore(false)
 	time.Sleep(1 * time.Millisecond)
-	me.decoCtxMsgsIfAny(false)
+	if !msgsSummaryOnly {
+		me.decoCtxMsgsIfAny(false)
+	} else if msgcount := me.Ctx.BackgroundMessagesCount(); msgcount > 3 {
+		me.decoAddNotice(true, "", true, ustr.Int(msgcount)+" new notices while processing your input, show via any input:", "", "")
+	}
 	me.run.multiLnInputHadLeadingTabs = false
 	me.IO.writeLns(ustr.If(altStyle, "╔", "┌") + sepLine)
 	me.decoInputBeginLine(altStyle, "")
@@ -100,6 +105,10 @@ func (me *Repl) decoMsgNotice(bg bool, lines ...string) {
 func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 	if msgs := me.Ctx.BackgroundMessages(true); len(msgs) > 0 {
 		me.IO.writeLns("", "")
+		if !initial {
+			me.IO.writeLns("Also noticed in the meantime:")
+			time.Sleep(456 * time.Millisecond)
+		}
 		for i := range msgs {
 			msg := &msgs[i]
 			if lines := msg.Lines; len(lines) > 0 {
@@ -124,7 +133,7 @@ func (me *Repl) decoTypingAnim(s string, speed time.Duration) {
 
 func (me *Repl) decoWelcomeMsgAnim() {
 	me.IO.writeLns("")
-	if me.decoInputStart(false); Ux.AnimsEnabled {
+	if me.decoInputStart(false, false); Ux.AnimsEnabled {
 		time.Sleep(234 * time.Millisecond)
 	}
 	me.decoTypingAnim(":intro\n", 123*time.Millisecond)
@@ -133,6 +142,10 @@ func (me *Repl) decoWelcomeMsgAnim() {
 	me.IO.writeLns("")
 	me.DIntro("")
 	me.IO.writeLns("", "")
+}
+
+func (me *Repl) kitEnsureLoaded(kit *atmosess.Kit) {
+	me.Ctx.KitEnsureLoaded(kit)
 }
 
 func (me *Repl) uxMore(restartIfTrueElseSuspend bool) {

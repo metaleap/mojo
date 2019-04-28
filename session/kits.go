@@ -23,7 +23,7 @@ func init() { ufs.WalkReadDirFunc = ufs.Dir }
 func (me *Ctx) WithKnownKits(do func(Kits)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	do(me.kits.all)
+	do(me.Kits.all)
 	me.state.Unlock()
 	return
 }
@@ -31,9 +31,9 @@ func (me *Ctx) WithKnownKits(do func(Kits)) {
 func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func([]*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	doall, kits := (where == nil), make([]*Kit, 0, len(me.kits.all))
-	for i := range me.kits.all {
-		if kit := &me.kits.all[i]; doall || where(kit) {
+	doall, kits := (where == nil), make([]*Kit, 0, len(me.Kits.all))
+	for i := range me.Kits.all {
+		if kit := &me.Kits.all[i]; doall || where(kit) {
 			kits = append(kits, kit)
 		}
 	}
@@ -45,9 +45,9 @@ func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func([]*Kit)) {
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	kitImpPaths = make([]string, len(me.kits.all))
-	for i := range me.kits.all {
-		kitImpPaths[i] = me.kits.all[i].ImpPath
+	kitImpPaths = make([]string, len(me.Kits.all))
+	for i := range me.Kits.all {
+		kitImpPaths[i] = me.Kits.all[i].ImpPath
 	}
 	me.state.Unlock()
 	return
@@ -71,17 +71,17 @@ func (me *Ctx) initKits() {
 	var handledir func(string, map[string]int)
 	handledir = func(dirfullpath string, modkitdirs map[string]int) {
 		isdirsess := dirfullpath == me.Dirs.Session && !me.Dirs.sessAlreadyInKitsDirs
-		if idx := me.kits.all.indexDirPath(dirfullpath); idx >= 0 {
+		if idx := me.Kits.all.indexDirPath(dirfullpath); idx >= 0 {
 			// dir was previously known as a kit
-			modkitdirs[dirfullpath] = cap(me.kits.all[idx].srcFiles)
+			modkitdirs[dirfullpath] = cap(me.Kits.all[idx].srcFiles)
 		} else if isdirsess {
 			// cur sess dir is a (real or faux) "kit"
 			modkitdirs[dirfullpath] = 1
 		}
 		if !isdirsess {
-			for i := range me.kits.all {
-				if ustr.Pref(me.kits.all[i].DirPath, dirfullpath+string(os.PathSeparator)) {
-					modkitdirs[me.kits.all[i].DirPath] = cap(me.kits.all[i].srcFiles)
+			for i := range me.Kits.all {
+				if ustr.Pref(me.Kits.all[i].DirPath, dirfullpath+string(os.PathSeparator)) {
+					modkitdirs[me.Kits.all[i].DirPath] = cap(me.Kits.all[i].srcFiles)
 				}
 			}
 		}
@@ -115,14 +115,14 @@ func (me *Ctx) initKits() {
 					modkitdirs[dp] = modkitdirs[dp] + 1
 				}
 			}
-			if len(me.kits.all) == 0 && !me.Dirs.sessAlreadyInKitsDirs {
+			if len(me.Kits.all) == 0 && !me.Dirs.sessAlreadyInKitsDirs {
 				modkitdirs[me.Dirs.Session] = 1
 			}
 			if filemodwatchduration = time.Now().UnixNano() - starttime; len(modkitdirs) > 0 {
 				shouldrefresh := make(map[string]bool, len(modkitdirs))
 				// handle new-or-modified kits
 				for kitdirpath, numfilesguess := range modkitdirs {
-					if me.kits.all.indexDirPath(kitdirpath) < 0 {
+					if me.Kits.all.indexDirPath(kitdirpath) < 0 {
 						if numfilesguess < 2 {
 							numfilesguess = 2
 						}
@@ -142,46 +142,46 @@ func (me *Ctx) initKits() {
 								panic(kitdirpath) // should be impossible unless newly introduced bug
 							}
 						}
-						me.kits.all = append(me.kits.all, Kit{DirPath: kitdirpath, ImpPath: kitimppath,
+						me.Kits.all = append(me.Kits.all, Kit{DirPath: kitdirpath, ImpPath: kitimppath,
 							srcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
 					}
 					shouldrefresh[kitdirpath] = true
 				}
 				// remove kits that have vanished from the file-system
 				var numremoved int
-				for i := 0; i < len(me.kits.all); i++ {
-					if kit := &me.kits.all[i]; kit.DirPath != me.Dirs.Session &&
+				for i := 0; i < len(me.Kits.all); i++ {
+					if kit := &me.Kits.all[i]; kit.DirPath != me.Dirs.Session &&
 						((!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
 						delete(shouldrefresh, kit.DirPath)
-						me.kits.all.removeAt(i)
+						me.Kits.all.removeAt(i)
 						i, numremoved = i-1, numremoved+1
 					}
 				}
 				// ensure no duplicate imp-paths
-				for i := len(me.kits.all) - 1; i >= 0; i-- {
-					kit := &me.kits.all[i]
-					if idx := me.kits.all.indexImpPath(kit.ImpPath); idx != i {
+				for i := len(me.Kits.all) - 1; i >= 0; i-- {
+					kit := &me.Kits.all[i]
+					if idx := me.Kits.all.indexImpPath(kit.ImpPath); idx != i {
 						delete(shouldrefresh, kit.DirPath)
-						delete(shouldrefresh, me.kits.all[idx].DirPath)
-						me.bgMsg(true, true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.KitsDirPath(), "and "+me.kits.all[idx].KitsDirPath(), "─── both will not load until fixed")
+						delete(shouldrefresh, me.Kits.all[idx].DirPath)
+						me.bgMsg(true, true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.KitsDirPath(), "and "+me.Kits.all[idx].KitsDirPath(), "─── both will not load until fixed")
 						if idx > i {
-							me.kits.all.removeAt(idx)
-							me.kits.all.removeAt(i)
+							me.Kits.all.removeAt(idx)
+							me.Kits.all.removeAt(i)
 						} else {
-							me.kits.all.removeAt(i)
-							me.kits.all.removeAt(idx)
+							me.Kits.all.removeAt(i)
+							me.Kits.all.removeAt(idx)
 						}
 						i--
 					}
 				}
 				// for stable listings etc.
-				sort.Sort(me.kits.all)
+				sort.Sort(me.Kits.all)
 				// timing until now, before reloads
 				nowtime := time.Now().UnixNano()
 				starttime, filemodwatchduration = nowtime, nowtime-starttime
 				// per-file refresher
 				for kitdirpath := range shouldrefresh {
-					me.kitRefreshFilesAndReloadIfWasLoaded(me.kits.all.indexDirPath(kitdirpath))
+					me.kitRefreshFilesAndReloadIfWasLoaded(me.Kits.all.indexDirPath(kitdirpath))
 				}
 				if me.state.fileModsWatch.emitMsgs {
 					me.bgMsg(true, false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")
@@ -194,7 +194,7 @@ func (me *Ctx) initKits() {
 			me.bgMsg(false, false, "[DBG] note to dev, mods-watch took "+time.Duration(filemodwatchduration).String())
 		}
 	})
-	if modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval, me.OngoingKitsWatch.ShouldNow, func() { _ = modswatcher() }); modswatchstart != nil {
+	if modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval, me.Kits.RecurringBackgroundWatch.ShouldNow, func() { _ = modswatcher() }); modswatchstart != nil {
 		me.state.fileModsWatch.runningAutomaticallyPeriodically, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
 		go modswatchstart()

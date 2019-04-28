@@ -50,7 +50,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 	if me.decoCtxMsgsIfAny(true); showWelcomeMsg {
 		me.decoWelcomeMsgAnim()
 	}
-	me.decoInputStart(false)
+	me.decoInputStart(false, false)
 	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan() && (!me.run.quit); {
 		me.IO.TimeLastInput = time.Now()
 		inputln, numleadingspaces, numleadingtabs := trimAndCountPrefixRunes(readln.Text())
@@ -77,7 +77,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 				}
 			} else if multiln, me.run.indent, inputln = "", 0, ustr.Trim(multiln+inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]); inputln == "" {
 				me.decoInputDone(false)
-				me.decoInputStart(false)
+				me.decoInputStart(false, false)
 				continue
 			}
 		}
@@ -97,7 +97,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 			me.IO.writeLns("")
 			if me.runDirective(ustr.BreakOnFirstOrPref(ustr.Trim(inputln[1:]), " ")); !me.run.quit {
 				me.IO.writeLns("", "")
-				me.decoInputStart(false)
+				me.decoInputStart(false, false)
 			}
 
 		// else, input to be EVAL'd now
@@ -113,7 +113,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 				me.IO.writeLns(out.String())
 			}
 			me.IO.writeLns("", "")
-			me.decoInputStart(false)
+			me.decoInputStart(false, false)
 		}
 	}
 	if !me.run.quit {

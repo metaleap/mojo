@@ -22,7 +22,7 @@ var (
 func mainRepl() {
 	var repl atmorepl.Repl
 	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Kits, repl.Ctx.Dirs.Cache, repl.Ctx.Dirs.Session = replMultiLineSuffix, replDirsAdditionalKits, replDirCache, replDirSession
-	repl.Ctx.OngoingKitsWatch.ShouldNow = func() bool {
+	repl.Ctx.Kits.RecurringBackgroundWatch.ShouldNow = func() bool {
 		return replKitsWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replKitsWatchPauseAfter
 	}
 	if err := repl.Ctx.Init(); err == nil {
