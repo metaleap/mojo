@@ -143,6 +143,24 @@ func (me *AstExprCases) removeAltAt(idx int) {
 	me.Alts = me.Alts[:len(me.Alts)-1]
 }
 
+func (me *AstExprAppl) Claspish() (claspish bool) {
+	if ident, ok := me.Callee.(*AstIdent); ok && ident.IsOpish {
+		claspish = true
+		for i := 0; claspish && i < len(me.Args); i++ {
+			if i >= 2 && i%2 == 0 {
+				if ident, ok = me.Args[i].(*AstIdent); !ok {
+					claspish = false
+				}
+			} else if _, ok = me.Args[i].(IAstExprAtomic); !ok {
+				claspish = false
+			} else if ident, ok = me.Args[i].(*AstIdent); ok && ident.IsOpish {
+				claspish = false
+			}
+		}
+	}
+	return
+}
+
 func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 	/*
 		callee arg0 arg1 arg2

@@ -260,7 +260,7 @@ func (me *Repl) DSrcs(what string) bool {
 			if kit == nil {
 				me.IO.writeLns("Unknown kit: `" + whatkit + "`, see known kits via `:list _`.")
 			} else {
-				defs, pctx := kit.Defs(whatname), atmolang.CtxPrint{OneIndentLevel: "  ", Fmt: &atmolang.PrintFormatterMinimal{},
+				defs, pctx := kit.Defs(whatname), atmolang.CtxPrint{OneIndentLevel: "  ", Fmt: &atmolang.PrintFmtMinimal{},
 					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}}
 				me.IO.writeLns(ustr.Plu(len(defs), "def") + " found in kit `" + kit.ImpPath + "`:")
 				for _, def := range defs {

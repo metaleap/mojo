@@ -30,7 +30,7 @@ func mainFmt() {
 		if showtoks {
 			_, _ = os.Stdout.WriteString(astfile.String())
 		} else {
-			_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFormatterMinimal{}))
+			_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFmtMinimal{}))
 		}
 	}
 }
