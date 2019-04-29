@@ -7,7 +7,7 @@ import (
 )
 
 // IPrintFmt is fully implemented by `PrintFormatterMinimal`, for custom
-// formatters it'll be best to embed this and partially override specifics.
+// formatters it'll be best to embed this and then override specifics.
 type IPrintFmt interface {
 	SetCtxPrint(*CtxPrint)
 	OnTopLevelChunk(*AstFileTopLevelChunk, *AstTopLevel)
@@ -23,6 +23,7 @@ type IPrintFmt interface {
 	OnExprCasesScrutinee(bool, *AstExprCases, IAstExpr)
 	OnExprCasesCond(*AstCase, int, IAstExpr)
 	OnExprCasesBody(*AstCase, IAstExpr)
+	OnComment(*AstComment)
 }
 
 type CtxPrint struct {
@@ -35,6 +36,10 @@ type CtxPrint struct {
 	ustd.BytesWriter
 
 	fmtCtxSet bool
+}
+
+func (me *CtxPrint) Print(node IAstNode) {
+	node.print(me)
 }
 
 func (me *CtxPrint) WriteLineBreaksThenIndent(numLines int) {
@@ -68,13 +73,16 @@ func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
 	p.Fmt.OnTopLevelChunk(me, &me.Ast)
 }
 
-func (me *AstTopLevel) Print(p *CtxPrint) {
+func (me *AstTopLevel) print(p *CtxPrint) {
+	for i := range me.Comments {
+		p.Fmt.OnComment(&me.Comments[i])
+	}
 	if me.Def.Orig != nil {
 		p.Fmt.OnDef(me, me.Def.Orig)
 	}
 }
 
-func (me *AstComment) Print(p *CtxPrint) {
+func (me *AstComment) print(p *CtxPrint) {
 	if me.IsSelfTerminating {
 		p.WriteString("/*")
 		p.WriteString(me.ContentText)
@@ -82,16 +90,16 @@ func (me *AstComment) Print(p *CtxPrint) {
 	} else {
 		p.WriteString("//")
 		p.WriteString(me.ContentText)
-		p.WriteLineBreaksThenIndent(1)
+		p.WriteByte('\n')
 	}
 }
 
-func (me *AstDef) Print(p *CtxPrint) {
+func (me *AstDef) print(p *CtxPrint) {
 	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
 		if p.Fmt.OnDefName(me, &me.Name); me.NameAffix != nil {
 			p.WriteByte(':')
-			me.NameAffix.Print(p)
+			p.Print(me.NameAffix)
 		}
 		for i := range me.Args {
 			p.Fmt.OnDefArg(me, i, &me.Args[i])
@@ -102,7 +110,7 @@ func (me *AstDef) Print(p *CtxPrint) {
 		}
 		if p.Fmt.OnDefName(me, &me.Name); me.NameAffix != nil {
 			p.WriteByte(':')
-			me.NameAffix.Print(p)
+			p.Print(me.NameAffix)
 		}
 		for i := 1; i < len(me.Args); i++ {
 			p.Fmt.OnDefArg(me, i, &me.Args[i])
@@ -113,7 +121,7 @@ func (me *AstDef) Print(p *CtxPrint) {
 		}
 		if p.Fmt.OnDefName(me, &me.Name); me.NameAffix != nil {
 			p.WriteByte(':')
-			me.NameAffix.Print(p)
+			p.Print(me.NameAffix)
 		}
 	}
 	for i := range me.Meta {
@@ -123,54 +131,54 @@ func (me *AstDef) Print(p *CtxPrint) {
 	p.Fmt.OnDefBody(me, me.Body)
 }
 
-func (me *AstDefArg) Print(p *CtxPrint) {
-	if me.NameOrConstVal.Print(p); me.Affix != nil {
+func (me *AstDefArg) print(p *CtxPrint) {
+	if p.Print(me.NameOrConstVal); me.Affix != nil {
 		p.WriteByte(':')
-		me.Affix.Print(p)
+		p.Print(me.Affix)
 	}
 }
 
-func (me *AstIdent) Print(p *CtxPrint) {
+func (me *AstIdent) print(p *CtxPrint) {
 	p.WriteString(me.Val)
 }
 
-func (me *AstExprLitBase) Print(p *CtxPrint) {
+func (me *AstExprLitBase) print(p *CtxPrint) {
 	p.WriteString(me.Tokens[0].Meta.Orig)
 }
 
-func (me *AstExprLitFloat) Print(p *CtxPrint) {
+func (me *AstExprLitFloat) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
-		me.AstExprLitBase.Print(p)
+		p.Print(&me.AstExprLitBase)
 	} else {
 		p.WriteString(strconv.FormatFloat(me.Val, 'g', -1, 64))
 	}
 }
 
-func (me *AstExprLitUint) Print(p *CtxPrint) {
+func (me *AstExprLitUint) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
-		me.AstExprLitBase.Print(p)
+		p.Print(&me.AstExprLitBase)
 	} else {
 		p.WriteString(strconv.FormatUint(me.Val, 10))
 	}
 }
 
-func (me *AstExprLitRune) Print(p *CtxPrint) {
+func (me *AstExprLitRune) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
-		me.AstExprLitBase.Print(p)
+		p.Print(&me.AstExprLitBase)
 	} else {
 		p.WriteString(strconv.QuoteRune(me.Val))
 	}
 }
 
-func (me *AstExprLitStr) Print(p *CtxPrint) {
+func (me *AstExprLitStr) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
-		me.AstExprLitBase.Print(p)
+		p.Print(&me.AstExprLitBase)
 	} else {
 		p.WriteString(strconv.Quote(me.Val))
 	}
 }
 
-func (me *AstExprAppl) Print(p *CtxPrint) {
+func (me *AstExprAppl) print(p *CtxPrint) {
 	istopleveldefsbody := (me == p.CurTopLevel.Ast.Def.Orig.Body)
 	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
@@ -194,7 +202,7 @@ func (me *AstExprAppl) Print(p *CtxPrint) {
 	}
 }
 
-func (me *AstExprLet) Print(p *CtxPrint) {
+func (me *AstExprLet) print(p *CtxPrint) {
 	istopleveldefsbody := (me == p.CurTopLevel.Ast.Def.Orig.Body)
 	p.Fmt.OnExprLetBody(istopleveldefsbody, me, me.Body)
 	for i := range me.Defs {
@@ -203,7 +211,7 @@ func (me *AstExprLet) Print(p *CtxPrint) {
 	}
 }
 
-func (me *AstExprCases) Print(p *CtxPrint) {
+func (me *AstExprCases) print(p *CtxPrint) {
 	istopleveldefsbody := (me == p.CurTopLevel.Ast.Def.Orig.Body)
 	if me.Scrutinee != nil {
 		p.Fmt.OnExprCasesScrutinee(istopleveldefsbody, me, me.Scrutinee)
@@ -213,11 +221,11 @@ func (me *AstExprCases) Print(p *CtxPrint) {
 		if i > 0 {
 			p.WriteByte('|')
 		}
-		me.Alts[i].Print(p)
+		me.Alts[i].print(p)
 	}
 }
 
-func (me *AstCase) Print(p *CtxPrint) {
+func (me *AstCase) print(p *CtxPrint) {
 	for i := range me.Conds {
 		if i > 0 {
 			p.WriteByte('|')
@@ -237,53 +245,51 @@ type PrintFmtMinimal struct {
 
 func (me *PrintFmtMinimal) SetCtxPrint(ctxPrint *CtxPrint) { me.CtxPrint = ctxPrint }
 func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
-	node.Print(me.CtxPrint)
+	me.WriteByte('\n')
+	me.CtxPrint.Print(node)
 	me.WriteByte('\n')
 }
-func (me *PrintFmtMinimal) OnDef(_ *AstTopLevel, node *AstDef)  { node.Print(me.CtxPrint) }
-func (me *PrintFmtMinimal) OnDefName(_ *AstDef, node *AstIdent) { node.Print(me.CtxPrint) }
+func (me *PrintFmtMinimal) OnDef(_ *AstTopLevel, node *AstDef)  { me.CtxPrint.Print(node) }
+func (me *PrintFmtMinimal) OnDefName(_ *AstDef, node *AstIdent) { me.CtxPrint.Print(node) }
 func (me *PrintFmtMinimal) OnDefArg(_ *AstDef, argIdx int, node *AstDefArg) {
 	if me.ApplStyle == APPLSTYLE_VSO || (me.ApplStyle == APPLSTYLE_SVO && argIdx > 0) {
 		me.WriteByte(' ')
 	}
-	node.Print(me.CtxPrint)
+	me.CtxPrint.Print(node)
 	if me.ApplStyle == APPLSTYLE_SOV || (me.ApplStyle == APPLSTYLE_SVO && argIdx == 0) {
 		me.WriteByte(' ')
 	}
 }
 func (me *PrintFmtMinimal) OnDefMeta(_ *AstDef, _ int, node IAstExpr) {
 	me.WriteByte(' ')
-	node.Print(me.CtxPrint)
+	me.CtxPrint.Print(node)
 }
 func (me *PrintFmtMinimal) OnDefBody(def *AstDef, node IAstExpr) {
 	me.WriteString(" := ")
-	node.Print(me.CtxPrint)
+	me.CtxPrint.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprLetBody(_ bool, _ *AstExprLet, node IAstExpr) {
-	node.Print(me.CtxPrint)
+	me.CtxPrint.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprLetDef(_ bool, _ *AstExprLet, _ int, node *AstDef) {
-	node.Print(me.CtxPrint)
+	me.CtxPrint.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprApplName(_ bool, _ *AstExprAppl, node IAstExpr) {
-	node.Print(me.CtxPrint)
+	me.CtxPrint.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprApplArg(_ bool, appl *AstExprAppl, argIdx int, node IAstExpr) {
 	claspish, svo := appl.Claspish(), (me.ApplStyle == APPLSTYLE_SVO)
 	if (!claspish) && (me.ApplStyle == APPLSTYLE_VSO || (svo && argIdx > 0)) {
 		me.WriteByte(' ')
 	}
-	node.Print(me.CtxPrint)
+	me.CtxPrint.Print(node)
 	if (!claspish) && (me.ApplStyle == APPLSTYLE_SOV || (svo && argIdx == 0)) {
 		me.WriteByte(' ')
 	}
 }
 func (me *PrintFmtMinimal) OnExprCasesScrutinee(_ bool, _ *AstExprCases, node IAstExpr) {
-	node.Print(me.CtxPrint)
+	me.CtxPrint.Print(node)
 }
-func (me *PrintFmtMinimal) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr) {
-	node.Print(me.CtxPrint)
-}
-func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr) {
-	node.Print(me.CtxPrint)
-}
+func (me *PrintFmtMinimal) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr) { me.CtxPrint.Print(node) }
+func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr)        { me.CtxPrint.Print(node) }
+func (me *PrintFmtMinimal) OnComment(node *AstComment)                       { me.CtxPrint.Print(node) }
