@@ -65,20 +65,19 @@ func (me *CtxPrint) WriteLineBreaksThenIndent(numLines int) {
 }
 
 func (me *AstFile) Print(fmt IPrintFmt) []byte {
-	ctx := CtxPrint{Fmt: fmt,
+	pctx := CtxPrint{Fmt: fmt,
 		OneIndentLevel: "    ", ApplStyle: me.Options.ApplStyle, fmtCtxSet: true,
 		BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 1024)},
 	}
-	fmt.SetCtxPrint(&ctx)
+	fmt.SetCtxPrint(&pctx)
 	for i := range me.TopLevel {
-		ctx.CurTopLevel = &me.TopLevel[i]
-		ctx.CurTopLevel.Print(&ctx)
+		me.TopLevel[i].Print(&pctx)
 	}
-	return ctx.BytesWriter.Data
+	return pctx.BytesWriter.Data
 }
 
 func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
-	if !p.fmtCtxSet {
+	if p.CurTopLevel = me; !p.fmtCtxSet {
 		p.fmtCtxSet = true
 		p.Fmt.SetCtxPrint(p)
 	}

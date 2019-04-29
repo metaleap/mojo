@@ -299,6 +299,7 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 				if i < len(cases.Alts)-1 {
 					canext := &cases.Alts[i+1]
 					canext.Conds = append(ca.Conds, canext.Conds...)
+					canext.Tokens = allToks.FindSub(ca.Toks(), canext.Toks())
 					cases.removeAltAt(i)
 					i--
 				}
