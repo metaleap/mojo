@@ -106,14 +106,15 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 	if msgs := me.Ctx.BackgroundMessages(true); len(msgs) > 0 {
 		me.IO.writeLns("", "")
 		if !initial {
-			me.IO.writeLns("Also noticed in the meantime:")
-			time.Sleep(567 * time.Millisecond)
+			if me.IO.writeLns("Also noticed in the meantime:"); Ux.AnimsEnabled {
+				time.Sleep(567 * time.Millisecond)
+			}
 		}
 		for i := range msgs {
 			msg := &msgs[i]
 			if lines := msg.Lines; len(lines) > 0 {
 				lines[0] = msg.Time.Format("15:04:05") + ustr.If(msg.Issue, " ══════ ", " ────── ") + lines[0]
-				if me.decoMsgNotice(true, lines...); !initial {
+				if me.decoMsgNotice(true, lines...); (!initial) && Ux.AnimsEnabled {
 					time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
 				}
 			}
