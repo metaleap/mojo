@@ -11,7 +11,7 @@ type IAstNode interface {
 
 type IAstExpr interface {
 	IAstNode
-	astBaseComments() *AstBaseComments
+	Comments() (*AstComments, *AstComments)
 }
 
 type IAstExprAtomic interface {
@@ -25,8 +25,8 @@ type AstBaseTokens struct {
 
 type AstBaseComments struct {
 	Comments struct {
-		Leading  []AstComment
-		Trailing []AstComment
+		Leading  AstComments
+		Trailing AstComments
 	}
 }
 
@@ -40,6 +40,8 @@ type AstTopLevel struct {
 		IsUnexported bool
 	}
 }
+
+type AstComments []AstComment
 
 type AstComment struct {
 	AstBaseTokens
@@ -68,7 +70,9 @@ type AstBaseExpr struct {
 	AstBaseComments
 }
 
-func (me *AstBaseExpr) astBaseComments() *AstBaseComments { return &me.AstBaseComments }
+func (me *AstBaseExpr) Comments() (leading *AstComments, trailing *AstComments) {
+	return &me.AstBaseComments.Comments.Leading, &me.AstBaseComments.Comments.Trailing
+}
 
 type AstBaseExprAtom struct {
 	AstBaseExpr
@@ -133,18 +137,12 @@ type AstCase struct {
 	Body  IAstExpr
 }
 
-func (me *AstBaseComments) initFrom(trailing bool, accumComments []udevlex.Tokens) {
-	if trailing {
-		me.Comments.Trailing = make([]AstComment, len(accumComments))
-		for i := range accumComments {
-			me.Comments.Trailing[i].initFrom(accumComments[i], 0)
-		}
-	} else {
-		me.Comments.Leading = make([]AstComment, len(accumComments))
-		for i := range accumComments {
-			me.Comments.Leading[i].initFrom(accumComments[i], 0)
-		}
+func (me *AstComments) initFrom(accumComments []udevlex.Tokens) {
+	this := make(AstComments, len(accumComments))
+	for i := range accumComments {
+		this[i].initFrom(accumComments[i], 0)
 	}
+	*me = this
 }
 
 func (me *AstComment) initFrom(tokens udevlex.Tokens, at int) {

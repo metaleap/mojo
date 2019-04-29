@@ -209,14 +209,16 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 		}
 		if err == nil && exprcur != nil {
 			if accum = append(accum, exprcur); len(accumcomments) > 0 {
-				exprcur.astBaseComments().initFrom(false, accumcomments)
+				commentsleading, _ := exprcur.Comments()
+				commentsleading.initFrom(accumcomments)
 				accumcomments = accumcomments[0:0]
 			}
 		}
 	}
 	if err == nil {
 		if ret = me.parseExprAppl(accum, alltoks); len(accumcomments) > 0 {
-			ret.astBaseComments().initFrom(true, accumcomments)
+			_, commentstrailing := ret.Comments()
+			commentstrailing.initFrom(accumcomments)
 		}
 	}
 	return
