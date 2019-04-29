@@ -20,7 +20,7 @@ func init() {
 
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	toks := this.Ast.Tokens
-	if this.Ast.Comments, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
+	if this.Ast.Comments.Leading, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
 		if this.Ast.Def.Orig, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil {
 			if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
 				this.Ast.Def.Orig.Name.Val = this.Ast.Def.Orig.Name.Val[1:]
@@ -44,7 +44,7 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []AstComm
 }
 
 func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, err *atmo.Error) {
-	ctx := tldParse{file: me, mtc: make(map[*udevlex.Token][]int), mto: make(map[*udevlex.Token]int), atTopLevelStill: true}
+	ctx := tldParse{file: me, atTopLevelStill: true}
 	var astdef AstDef
 	if err = ctx.parseDef(tokens, &astdef); err == nil {
 		def = &astdef
@@ -52,11 +52,8 @@ func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, err *at
 	return
 }
 
-func (me *tldParse) parseDef(tokens udevlex.Tokens, def *AstDef) (err *atmo.Error) {
-	toks, istopleveldef := tokens, me.atTopLevelStill
-	if istopleveldef {
-		toks = tokens.SansComments(me.mtc, me.mto)
-	}
+func (me *tldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error) {
+	istopleveldef := me.atTopLevelStill
 	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
 		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Position.Column == 1 {
 			err = atmo.ErrSyn(t, "missing: definition body following `:=`")
@@ -68,10 +65,8 @@ func (me *tldParse) parseDef(tokens udevlex.Tokens, def *AstDef) (err *atmo.Erro
 	} else if toksheads := tokshead.Chunked(","); len(toksheads[0]) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else {
-		if istopleveldef {
-			me.curDef, def.Tokens, def.IsTopLevel = def, tokens, true
-		} else {
-			me.setTokensFor(&def.AstBaseTokens, toks)
+		if def.Tokens = toks; istopleveldef {
+			me.curDef, def.IsTopLevel = def, true
 		}
 		if def.Body, err = me.parseExpr(toksbody); err == nil {
 			if len(toksheads) > 1 {
@@ -162,7 +157,8 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 
 	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.ChunkedBySpacing('(', ')')
 	var exprcur IAstExpr
-	for greed, hasgreeds := 0, greeds != nil; err == nil && len(toks) > 0; exprcur, accum = nil, append(accum, exprcur) {
+	var accumcomments []udevlex.Tokens
+	for greed, hasgreeds := 0, greeds != nil; err == nil && len(toks) > 0; exprcur = nil {
 		if hasgreeds {
 			greed = greeds[&toks[0]]
 		}
@@ -171,6 +167,9 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 			toks = toks[greed:]
 		} else {
 			switch tkind := toks[0].Kind(); tkind {
+			case udevlex.TOKEN_COMMENT:
+				accumcomments = append(accumcomments, toks[0:1])
+				toks = toks[1:]
 			case udevlex.TOKEN_SEPISH:
 				if sub, rest, e := me.parseParens(toks); e != nil {
 					err = e
@@ -205,13 +204,20 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 					toks = toks[1:]
 				}
 			default:
-				err = atmo.ErrSyn(&toks[0], "the impossible: unrecognized token (new bug in parser, parseExpr needs updating)")
+				err = atmo.ErrSyn(&toks[0], "the impossible: unrecognized token (new bug in parser, parseExpr needs updating) at "+toks[0].Meta.Position.String()+", `"+toks[0].Meta.Orig+"`")
+			}
+		}
+		if err == nil && exprcur != nil {
+			if accum = append(accum, exprcur); len(accumcomments) > 0 {
+				exprcur.astBaseComments().initFrom(false, accumcomments)
+				accumcomments = accumcomments[0:0]
 			}
 		}
 	}
-
 	if err == nil {
-		ret = me.parseExprAppl(accum, alltoks)
+		if ret = me.parseExprAppl(accum, alltoks); len(accumcomments) > 0 {
+			ret.astBaseComments().initFrom(true, accumcomments)
+		}
 	}
 	return
 }
@@ -223,7 +229,7 @@ func (me *tldParse) parseExprAppl(accum []IAstExpr, allToks udevlex.Tokens) (ret
 		var appl AstExprAppl
 		ret = &appl
 		if allToks != nil {
-			me.setTokensFor(&appl.AstBaseTokens, allToks)
+			appl.Tokens = allToks
 		}
 		args := make([]IAstExpr, 1, len(accum)-1)
 		switch me.file.Options.ApplStyle {
@@ -254,8 +260,7 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 		err = atmo.ErrSyn(&toks[0], "malformed `|?` branching: missing scrutinee expression")
 		return
 	}
-	cases.defaultIndex = -1
-	me.setTokensFor(&cases.AstBaseTokens, allToks)
+	cases.Tokens, cases.defaultIndex = allToks, -1
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 	alts := toks.Chunked("|")
 	cases.Alts = make([]AstCase, len(alts))
@@ -282,7 +287,9 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 				hasmulticonds = true
 			}
 		}
-		if err != nil {
+		if err == nil {
+			cases.Alts[i].Tokens = alts[i]
+		} else {
 			return
 		}
 	}
@@ -325,8 +332,7 @@ func (me *tldParse) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, all
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 	if chunks := toks.Chunked(","); len(chunks) > 0 {
 		var let AstExprLet
-		let.Body, let.Defs = body, make([]AstDef, len(chunks))
-		me.setTokensFor(&let.AstBaseTokens, allToks)
+		let.Tokens, let.Body, let.Defs = allToks, body, make([]AstDef, len(chunks))
 		lasttokforerr := &toks[0]
 		for i := range chunks {
 			if len(chunks[i]) == 0 {
@@ -345,8 +351,7 @@ func (me *tldParse) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, all
 
 func (me *tldParse) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex.Tokens) (ret *AstExprLet, err *atmo.Error) {
 	var let AstExprLet
-	me.setTokensFor(&let.AstBaseTokens, toks)
-	let.Defs = make([]AstDef, len(toksChunked)-1)
+	let.Tokens, let.Defs = toks, make([]AstDef, len(toksChunked)-1)
 	for i := range toksChunked {
 		if i == 0 {
 			let.Body, err = me.parseExpr(toksChunked[i])

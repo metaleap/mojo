@@ -23,7 +23,7 @@ type IPrintFmt interface {
 	OnExprCasesScrutinee(bool, *AstExprCases, IAstExpr)
 	OnExprCasesCond(*AstCase, int, IAstExpr)
 	OnExprCasesBody(*AstCase, IAstExpr)
-	OnComment(*AstComment)
+	OnComment(IAstNode, IAstNode, *AstComment)
 }
 
 type CtxPrint struct {
@@ -74,11 +74,14 @@ func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
 }
 
 func (me *AstTopLevel) print(p *CtxPrint) {
-	for i := range me.Comments {
-		p.Fmt.OnComment(&me.Comments[i])
+	for i := range me.Comments.Leading {
+		p.Fmt.OnComment(me.Def.Orig, nil, &me.Comments.Leading[i])
 	}
 	if me.Def.Orig != nil {
 		p.Fmt.OnDef(me, me.Def.Orig)
+	}
+	for i := range me.Comments.Trailing {
+		p.Fmt.OnComment(nil, me.Def.Orig, &me.Comments.Trailing[i])
 	}
 }
 
@@ -142,13 +145,13 @@ func (me *AstIdent) print(p *CtxPrint) {
 	p.WriteString(me.Val)
 }
 
-func (me *AstExprLitBase) print(p *CtxPrint) {
+func (me *AstBaseExprAtomLit) print(p *CtxPrint) {
 	p.WriteString(me.Tokens[0].Meta.Orig)
 }
 
 func (me *AstExprLitFloat) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
-		p.Print(&me.AstExprLitBase)
+		p.Print(&me.AstBaseExprAtomLit)
 	} else {
 		p.WriteString(strconv.FormatFloat(me.Val, 'g', -1, 64))
 	}
@@ -156,7 +159,7 @@ func (me *AstExprLitFloat) print(p *CtxPrint) {
 
 func (me *AstExprLitUint) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
-		p.Print(&me.AstExprLitBase)
+		p.Print(&me.AstBaseExprAtomLit)
 	} else {
 		p.WriteString(strconv.FormatUint(me.Val, 10))
 	}
@@ -164,7 +167,7 @@ func (me *AstExprLitUint) print(p *CtxPrint) {
 
 func (me *AstExprLitRune) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
-		p.Print(&me.AstExprLitBase)
+		p.Print(&me.AstBaseExprAtomLit)
 	} else {
 		p.WriteString(strconv.QuoteRune(me.Val))
 	}
@@ -172,7 +175,7 @@ func (me *AstExprLitRune) print(p *CtxPrint) {
 
 func (me *AstExprLitStr) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
-		p.Print(&me.AstExprLitBase)
+		p.Print(&me.AstBaseExprAtomLit)
 	} else {
 		p.WriteString(strconv.Quote(me.Val))
 	}
@@ -246,50 +249,50 @@ type PrintFmtMinimal struct {
 func (me *PrintFmtMinimal) SetCtxPrint(ctxPrint *CtxPrint) { me.CtxPrint = ctxPrint }
 func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
 	me.WriteByte('\n')
-	me.CtxPrint.Print(node)
+	me.Print(node)
 	me.WriteByte('\n')
 }
-func (me *PrintFmtMinimal) OnDef(_ *AstTopLevel, node *AstDef)  { me.CtxPrint.Print(node) }
-func (me *PrintFmtMinimal) OnDefName(_ *AstDef, node *AstIdent) { me.CtxPrint.Print(node) }
+func (me *PrintFmtMinimal) OnDef(_ *AstTopLevel, node *AstDef)  { me.Print(node) }
+func (me *PrintFmtMinimal) OnDefName(_ *AstDef, node *AstIdent) { me.Print(node) }
 func (me *PrintFmtMinimal) OnDefArg(_ *AstDef, argIdx int, node *AstDefArg) {
 	if me.ApplStyle == APPLSTYLE_VSO || (me.ApplStyle == APPLSTYLE_SVO && argIdx > 0) {
 		me.WriteByte(' ')
 	}
-	me.CtxPrint.Print(node)
+	me.Print(node)
 	if me.ApplStyle == APPLSTYLE_SOV || (me.ApplStyle == APPLSTYLE_SVO && argIdx == 0) {
 		me.WriteByte(' ')
 	}
 }
 func (me *PrintFmtMinimal) OnDefMeta(_ *AstDef, _ int, node IAstExpr) {
 	me.WriteByte(' ')
-	me.CtxPrint.Print(node)
+	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnDefBody(def *AstDef, node IAstExpr) {
 	me.WriteString(" := ")
-	me.CtxPrint.Print(node)
+	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprLetBody(_ bool, _ *AstExprLet, node IAstExpr) {
-	me.CtxPrint.Print(node)
+	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprLetDef(_ bool, _ *AstExprLet, _ int, node *AstDef) {
-	me.CtxPrint.Print(node)
+	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprApplName(_ bool, _ *AstExprAppl, node IAstExpr) {
-	me.CtxPrint.Print(node)
+	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprApplArg(_ bool, appl *AstExprAppl, argIdx int, node IAstExpr) {
 	claspish, svo := appl.Claspish(), (me.ApplStyle == APPLSTYLE_SVO)
 	if (!claspish) && (me.ApplStyle == APPLSTYLE_VSO || (svo && argIdx > 0)) {
 		me.WriteByte(' ')
 	}
-	me.CtxPrint.Print(node)
+	me.Print(node)
 	if (!claspish) && (me.ApplStyle == APPLSTYLE_SOV || (svo && argIdx == 0)) {
 		me.WriteByte(' ')
 	}
 }
 func (me *PrintFmtMinimal) OnExprCasesScrutinee(_ bool, _ *AstExprCases, node IAstExpr) {
-	me.CtxPrint.Print(node)
+	me.Print(node)
 }
-func (me *PrintFmtMinimal) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr) { me.CtxPrint.Print(node) }
-func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr)        { me.CtxPrint.Print(node) }
-func (me *PrintFmtMinimal) OnComment(node *AstComment)                       { me.CtxPrint.Print(node) }
+func (me *PrintFmtMinimal) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr)   { me.Print(node) }
+func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr)          { me.Print(node) }
+func (me *PrintFmtMinimal) OnComment(_ IAstNode, _ IAstNode, node *AstComment) { me.Print(node) }

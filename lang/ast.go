@@ -11,7 +11,7 @@ type IAstNode interface {
 
 type IAstExpr interface {
 	IAstNode
-	__implements_IAstExpr()
+	astBaseComments() *AstBaseComments
 }
 
 type IAstExprAtomic interface {
@@ -23,12 +23,19 @@ type AstBaseTokens struct {
 	Tokens udevlex.Tokens
 }
 
+type AstBaseComments struct {
+	Comments struct {
+		Leading  []AstComment
+		Trailing []AstComment
+	}
+}
+
 func (me *AstBaseTokens) Toks() udevlex.Tokens { return me.Tokens }
 
 type AstTopLevel struct {
 	AstBaseTokens
-	Comments []AstComment
-	Def      struct {
+	AstBaseComments
+	Def struct {
 		Orig         *AstDef
 		IsUnexported bool
 	}
@@ -56,63 +63,64 @@ type AstDefArg struct {
 	Affix          IAstExpr
 }
 
-type AstExprBase struct {
+type AstBaseExpr struct {
 	AstBaseTokens
+	AstBaseComments
 }
 
-func (*AstExprBase) __implements_IAstExpr() {}
+func (me *AstBaseExpr) astBaseComments() *AstBaseComments { return &me.AstBaseComments }
 
-type AstExprAtomBase struct {
-	AstExprBase
+type AstBaseExprAtom struct {
+	AstBaseExpr
 }
 
-func (*AstExprAtomBase) __implements_IAstExprAtomic() {}
+func (*AstBaseExprAtom) __implements_IAstExprAtomic() {}
 
-type AstExprLitBase struct {
-	AstExprAtomBase
+type AstBaseExprAtomLit struct {
+	AstBaseExprAtom
 }
 
 type AstExprLitUint struct {
-	AstExprLitBase
+	AstBaseExprAtomLit
 	Val uint64
 }
 
 type AstExprLitFloat struct {
-	AstExprLitBase
+	AstBaseExprAtomLit
 	Val float64
 }
 
 type AstExprLitRune struct {
-	AstExprLitBase
+	AstBaseExprAtomLit
 	Val rune
 }
 
 type AstExprLitStr struct {
-	AstExprLitBase
+	AstBaseExprAtomLit
 	Val string
 }
 
 type AstIdent struct {
-	AstExprAtomBase
+	AstBaseExprAtom
 	Val     string
 	IsOpish bool
 	IsTag   bool
 }
 
 type AstExprLet struct {
-	AstExprBase
+	AstBaseExpr
 	Defs []AstDef
 	Body IAstExpr
 }
 
 type AstExprAppl struct {
-	AstExprBase
+	AstBaseExpr
 	Callee IAstExpr
 	Args   []IAstExpr
 }
 
 type AstExprCases struct {
-	AstExprBase
+	AstBaseExpr
 	Scrutinee    IAstExpr
 	Alts         []AstCase
 	Desugared    *AstExprLet
@@ -120,8 +128,23 @@ type AstExprCases struct {
 }
 
 type AstCase struct {
+	AstBaseTokens
 	Conds []IAstExpr
 	Body  IAstExpr
+}
+
+func (me *AstBaseComments) initFrom(trailing bool, accumComments []udevlex.Tokens) {
+	if trailing {
+		me.Comments.Trailing = make([]AstComment, len(accumComments))
+		for i := range accumComments {
+			me.Comments.Trailing[i].initFrom(accumComments[i], 0)
+		}
+	} else {
+		me.Comments.Leading = make([]AstComment, len(accumComments))
+		for i := range accumComments {
+			me.Comments.Leading[i].initFrom(accumComments[i], 0)
+		}
+	}
 }
 
 func (me *AstComment) initFrom(tokens udevlex.Tokens, at int) {
