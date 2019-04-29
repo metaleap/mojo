@@ -5,7 +5,7 @@ import (
 )
 
 type IAstNode interface {
-	print(*CtxPrint)
+	Print(*CtxPrint)
 	Toks() udevlex.Tokens
 }
 
