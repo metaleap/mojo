@@ -39,7 +39,20 @@ type CtxPrint struct {
 }
 
 func (me *CtxPrint) Print(node IAstNode) {
-	node.print(me)
+	var cmnts *astBaseComments
+	if cmnt, _ := node.(IAstComments); cmnt != nil {
+		cmnts = cmnt.Comments()
+	}
+	if cmnts != nil {
+		for i := range cmnts.Leading {
+			me.Print(&cmnts.Leading[i])
+		}
+	}
+	if node.print(me); cmnts != nil {
+		for i := range cmnts.Trailing {
+			me.Print(&cmnts.Trailing[i])
+		}
+	}
 }
 
 func (me *CtxPrint) WriteLineBreaksThenIndent(numLines int) {
@@ -74,14 +87,8 @@ func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
 }
 
 func (me *AstTopLevel) print(p *CtxPrint) {
-	for i := range me.Comments.Leading {
-		p.Fmt.OnComment(me.Def.Orig, nil, &me.Comments.Leading[i])
-	}
 	if me.Def.Orig != nil {
 		p.Fmt.OnDef(me, me.Def.Orig)
-	}
-	for i := range me.Comments.Trailing {
-		p.Fmt.OnComment(nil, me.Def.Orig, &me.Comments.Trailing[i])
 	}
 }
 

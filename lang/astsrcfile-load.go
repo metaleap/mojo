@@ -44,7 +44,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 		me.populateTopLevelChunksFrom(src)
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.srcDirty {
-				this.srcDirty, this.errs.parsing, this.Ast.Def.Orig, this.Ast.Comments.Leading, this.Ast.Comments.Trailing = false, nil, nil, nil, nil
+				this.srcDirty, this.errs.parsing, this.Ast.Def.Orig, this.Ast.comments.Leading, this.Ast.comments.Trailing = false, nil, nil, nil, nil
 				toks, errs := udevlex.Lex(&ustd.BytesReader{Data: this.Src},
 					me.SrcFilePath, this.Offset.Line, this.Offset.Pos, me.LastLoad.TokCountInitialGuess)
 				if this.Ast.Tokens = toks; len(errs) > 0 {

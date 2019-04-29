@@ -9,9 +9,13 @@ type IAstNode interface {
 	Toks() udevlex.Tokens
 }
 
+type IAstComments interface {
+	Comments() *astBaseComments
+}
+
 type IAstExpr interface {
 	IAstNode
-	Comments() (*AstComments, *AstComments)
+	IAstComments
 }
 
 type IAstExprAtomic interface {
@@ -23,14 +27,20 @@ type AstBaseTokens struct {
 	Tokens udevlex.Tokens
 }
 
-type AstBaseComments struct {
-	Comments struct {
-		Leading  AstComments
-		Trailing AstComments
-	}
+func (me *AstBaseTokens) Toks() udevlex.Tokens { return me.Tokens }
+
+type astBaseComments = struct {
+	Leading  AstComments
+	Trailing AstComments
 }
 
-func (me *AstBaseTokens) Toks() udevlex.Tokens { return me.Tokens }
+type AstBaseComments struct {
+	comments astBaseComments
+}
+
+func (me *AstBaseComments) Comments() *astBaseComments {
+	return &me.comments
+}
 
 type AstTopLevel struct {
 	AstBaseTokens
@@ -68,10 +78,6 @@ type AstDefArg struct {
 type AstBaseExpr struct {
 	AstBaseTokens
 	AstBaseComments
-}
-
-func (me *AstBaseExpr) Comments() (leading *AstComments, trailing *AstComments) {
-	return &me.AstBaseComments.Comments.Leading, &me.AstBaseComments.Comments.Trailing
 }
 
 type AstBaseExprAtom struct {

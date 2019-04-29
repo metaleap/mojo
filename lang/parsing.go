@@ -20,7 +20,7 @@ func init() {
 
 func (me *AstFile) parse(this *AstFileTopLevelChunk) {
 	toks := this.Ast.Tokens
-	if this.Ast.Comments.Leading, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
+	if this.Ast.comments.Leading, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
 		if this.Ast.Def.Orig, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil {
 			if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
 				this.Ast.Def.Orig.Name.Val = this.Ast.Def.Orig.Name.Val[1:]
@@ -209,16 +209,14 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 		}
 		if err == nil && exprcur != nil {
 			if accum = append(accum, exprcur); len(accumcomments) > 0 {
-				commentsleading, _ := exprcur.Comments()
-				commentsleading.initFrom(accumcomments)
+				exprcur.Comments().Leading.initFrom(accumcomments)
 				accumcomments = accumcomments[0:0]
 			}
 		}
 	}
 	if err == nil {
 		if ret = me.parseExprAppl(accum, alltoks); len(accumcomments) > 0 {
-			_, commentstrailing := ret.Comments()
-			commentstrailing.initFrom(accumcomments)
+			ret.Comments().Trailing.initFrom(accumcomments)
 		}
 	}
 	return
