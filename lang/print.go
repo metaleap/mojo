@@ -7,36 +7,50 @@ import (
 )
 
 type IPrintFormatter interface {
-	// at some point.. not today
+	SetCtxPrint(*CtxPrint)
+	BeforeTopLevelChunk(*AstFileTopLevelChunk)
+	AfterTopLevelChunk(*AstFileTopLevelChunk)
+	OnDefName(*AstDef, IAstNode)
+	OnDefArg(*AstDef, int, IAstNode)
 }
 
 type CtxPrint struct {
-	IPrintFormatter
+	Fmt            IPrintFormatter
 	ApplStyle      ApplStyle
 	CurTopLevel    *AstFileTopLevelChunk
 	CurIndentLevel int
+	OneIndentLevel string
 
 	ustd.BytesWriter
-}
 
-type PrintFormatterBase struct {
+	fmtCtxSet bool
 }
 
 type PrintFormatterMinimal struct {
-	PrintFormatterBase
+	*CtxPrint
 }
 
-func (me *CtxPrint) writeNewLines(times int) {
-	for i := 0; i < times; i++ {
+func (me *PrintFormatterMinimal) SetCtxPrint(ctxPrint *CtxPrint)            { me.CtxPrint = ctxPrint }
+func (me *PrintFormatterMinimal) BeforeTopLevelChunk(*AstFileTopLevelChunk) { me.WriteByte('\n') }
+func (me *PrintFormatterMinimal) AfterTopLevelChunk(*AstFileTopLevelChunk)  { me.WriteString("\n\n") }
+func (me *PrintFormatterMinimal) OnDefName(_ *AstDef, node IAstNode)        { node.print(me.CtxPrint) }
+func (me *PrintFormatterMinimal) OnDefArg(_ *AstDef, _ int, node IAstNode)  { node.print(me.CtxPrint) }
+
+func (me *CtxPrint) WriteLineBreaksThenIndent(numLines int) {
+	for i := 0; i < numLines; i++ {
 		me.WriteByte('\n')
 	}
 	for i := 0; i < me.CurIndentLevel; i++ {
-		me.WriteString("    ")
+		me.WriteString(me.OneIndentLevel)
 	}
 }
 
-func (me *AstFile) Print(pf IPrintFormatter) []byte {
-	ctx := CtxPrint{ApplStyle: me.Options.ApplStyle, IPrintFormatter: pf, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 1024)}}
+func (me *AstFile) Print(fmt IPrintFormatter) []byte {
+	ctx := CtxPrint{Fmt: fmt,
+		OneIndentLevel: "    ", ApplStyle: me.Options.ApplStyle,
+		BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 1024)},
+	}
+	fmt.SetCtxPrint(&ctx)
 	for i := range me.TopLevel {
 		ctx.CurTopLevel = &me.TopLevel[i]
 		ctx.CurTopLevel.print(&ctx)
@@ -45,16 +59,20 @@ func (me *AstFile) Print(pf IPrintFormatter) []byte {
 }
 
 func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
+	if !p.fmtCtxSet {
+		p.fmtCtxSet = true
+		p.Fmt.SetCtxPrint(p)
+	}
 	me.print(p)
 }
 
 func (me *AstFileTopLevelChunk) print(p *CtxPrint) {
 	p.CurIndentLevel = 0
-	p.WriteByte('\n')
+	p.Fmt.BeforeTopLevelChunk(me)
 	if me.Ast.Def.Orig != nil {
 		me.Ast.Def.Orig.print(p)
 	}
-	p.WriteString("\n\n")
+	p.Fmt.AfterTopLevelChunk(me)
 }
 
 func (me *AstComment) print(p *CtxPrint) {
@@ -65,34 +83,34 @@ func (me *AstComment) print(p *CtxPrint) {
 	} else {
 		p.WriteString("//")
 		p.WriteString(me.ContentText)
-		p.writeNewLines(1)
+		p.WriteLineBreaksThenIndent(1)
 	}
 }
 
 func (me *AstDef) print(p *CtxPrint) {
 	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
-		me.Name.print(p)
+		p.Fmt.OnDefName(me, &me.Name)
 		for i := range me.Args {
-			p.WriteByte(' ')
-			me.Args[i].print(p)
+			// p.WriteByte(' ')
+			p.Fmt.OnDefArg(me, i, &me.Args[i])
 		}
 	case APPLSTYLE_SVO:
 		if len(me.Args) > 0 {
-			me.Args[0].print(p)
-			p.WriteByte(' ')
+			p.Fmt.OnDefArg(me, 0, &me.Args[0])
+			// p.WriteByte(' ')
 		}
-		me.Name.print(p)
+		p.Fmt.OnDefName(me, &me.Name)
 		for i := 1; i < len(me.Args); i++ {
-			p.WriteByte(' ')
-			me.Args[i].print(p)
+			// p.WriteByte(' ')
+			p.Fmt.OnDefArg(me, i, &me.Args[i])
 		}
 	case APPLSTYLE_SOV:
 		for i := range me.Args {
 			me.Args[i].print(p)
 			p.WriteByte(' ')
 		}
-		me.Name.print(p)
+		p.Fmt.OnDefName(me, &me.Name)
 	}
 	for i := range me.Meta {
 		p.WriteString(", ")
@@ -101,7 +119,7 @@ func (me *AstDef) print(p *CtxPrint) {
 	p.WriteString(" :=")
 	if me.IsTopLevel {
 		p.CurIndentLevel++
-		p.writeNewLines(1)
+		p.WriteLineBreaksThenIndent(1)
 	} else {
 		p.WriteByte(' ')
 	}

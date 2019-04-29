@@ -51,6 +51,7 @@ type AstDef struct {
 }
 
 type AstDefArg struct {
+	AstBaseTokens
 	NameOrConstVal IAstExprAtomic
 	Affix          IAstExpr
 }

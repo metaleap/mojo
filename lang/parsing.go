@@ -123,12 +123,13 @@ func (me *tldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (er
 				def.Args = make([]AstDefArg, len(sig.Args))
 				for i := range sig.Args {
 					if atom, ok1 := sig.Args[i].(IAstExprAtomic); ok1 {
-						def.Args[i].NameOrConstVal = atom
+						def.Args[i].Tokens, def.Args[i].NameOrConstVal = atom.Toks(), atom
 					} else {
 						if appl, ok2 := sig.Args[i].(*AstExprAppl); ok2 {
 							if colon, ok3 := appl.Callee.(*AstIdent); ok3 && colon.Val == ":" && len(appl.Args) >= 2 {
 								if atom, ok1 = appl.Args[0].(IAstExprAtomic); ok1 {
-									def.Args[i].NameOrConstVal, def.Args[i].Affix = atom, parseaffix(appl)
+									def.Args[i].Tokens, def.Args[i].NameOrConstVal, def.Args[i].Affix =
+										appl.Tokens, atom, parseaffix(appl)
 								}
 							}
 						}
