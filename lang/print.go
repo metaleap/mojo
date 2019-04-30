@@ -313,12 +313,17 @@ func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr) {
 	me.PrintInParensIf(node, true, false)
 }
 func (me *PrintFmtMinimal) OnComment(leads IAstNode, trails IAstNode, node *AstComment) {
-	_, istoplevelleadingcomment := leads.(*AstTopLevel)
+	tl, istoplevelleadingcomment := leads.(*AstTopLevel)
 	if me.Print(node); !node.IsSelfTerminating {
 		if !istoplevelleadingcomment {
 			me.CurIndentLevel++
 		}
-		me.WriteLineBreaksThenIndent(1)
+		needsnolinebreak :=
+			(tl != nil && tl.Def.Orig == nil && node == &tl.comments.Leading[len(tl.comments.Leading)-1]) ||
+				(leads == nil && trails != nil && node.Tokens.Last(nil) == me.CurTopLevel.Ast.Def.Orig.Tokens.Last(nil))
+		if !needsnolinebreak {
+			me.WriteLineBreaksThenIndent(1)
+		}
 	}
 }
 func (me *PrintFmtMinimal) PrintInParensIf(node IAstNode, ifCases bool, ifNotAtomicOrClaspish bool) {
