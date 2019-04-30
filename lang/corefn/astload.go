@@ -116,9 +116,8 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 	if len(orig.Args) > 1 {
 		errs = me.initFrom(ctx, orig.ToUnary())
 	} else {
-		dynnameappl := ctx.NextName("__appl__")
-		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false, dynnameappl+"_0__")
-		c, e := ctx.ensureAstAtomFrom(orig.Callee, true, dynnameappl)
+		c, e := ctx.ensureAstAtomFrom(orig.Callee, true)
+		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false)
 		me.Callee, errs = c.(IAstIdent), append(errs, e...)
 	}
 	me.Orig = orig
@@ -198,7 +197,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool, dynNa
 	return me.Locals[len(me.Locals)-1].Name
 }
 
-func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool, dynNameIfNeeded string) (ret IAstExprAtomic, errs atmo.Errors) {
+func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool) (ret IAstExprAtomic, errs atmo.Errors) {
 	if (!retMustBeIAstIdent) && orig.IsAtomic() {
 		return me.newAstExprAtomicFrom(orig.(atmolang.IAstExprAtomic))
 	}
@@ -206,8 +205,8 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 		ret, errs = me.newAstIdentFrom(oid)
 	} else {
 		var def AstDefBase
-		def.Name = me.b.IdentName(dynNameIfNeeded)
 		def.Body, errs = me.newAstExprFrom(orig)
+		def.Name = me.b.IdentName(def.Body.DynName())
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
@@ -234,7 +233,7 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs 
 		var ident AstIdentName
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
-	} else if ustr.IsRepeat(orig.Val) {
+	} else if ustr.IsRepeat(orig.Val, '_') {
 		var ident AstIdentUnderscores
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
@@ -286,9 +285,13 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 				me.Locals = append(me.Locals, def)
 			}
 		case *atmolang.AstExprAppl:
-			var appl AstAppl
-			errs = appl.initFrom(me, o)
-			expr = &appl
+			if let := o.ToLetExprIfUnderscores(); let == nil {
+				var appl AstAppl
+				errs = appl.initFrom(me, o)
+				expr = &appl
+			} else {
+				expr, errs = me.newAstExprFrom(let)
+			}
 		case *atmolang.AstExprCases:
 			if o.Desugared == nil {
 				var cases AstCases

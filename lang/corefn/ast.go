@@ -1,6 +1,8 @@
 package atmocorefn
 
 import (
+	"strconv"
+
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
@@ -12,7 +14,7 @@ type IAstNode interface {
 
 type IAstExpr interface {
 	IAstNode
-	__implements_IAstExpr()
+	DynName() string
 }
 
 type IAstExprAtomic interface {
@@ -63,8 +65,6 @@ type AstExprBase struct {
 	AstNodeBase
 }
 
-func (*AstExprBase) __implements_IAstExpr() {}
-
 type AstExprAtomBase struct {
 	AstExprBase
 }
@@ -80,6 +80,7 @@ type AstIdentBase struct {
 
 func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstIdentBase) String() string            { return me.Val }
+func (me *AstIdentBase) DynName() string           { return me.Val }
 
 type AstIdentName struct {
 	AstIdentBase
@@ -119,20 +120,28 @@ type AstLitRune struct {
 	Val rune
 }
 
+func (me *AstLitRune) DynName() string { return strconv.QuoteRune(me.Val) }
+
 type AstLitStr struct {
 	AstLitBase
 	Val string
 }
+
+func (me *AstLitStr) DynName() string { return strconv.Quote(me.Val) }
 
 type AstLitUint struct {
 	AstLitBase
 	Val uint64
 }
 
+func (me *AstLitUint) DynName() string { return strconv.FormatUint(me.Val, 10) }
+
 type AstLitFloat struct {
 	AstLitBase
 	Val float64
 }
+
+func (me *AstLitFloat) DynName() string { return strconv.FormatFloat(me.Val, 'g', -1, 64) }
 
 func (me *AstIdentUnderscores) Num() int { return len(me.Val) }
 
@@ -144,6 +153,7 @@ type AstAppl struct {
 }
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "_" + me.Arg.DynName() }
 
 type AstCases struct {
 	AstExprBase
@@ -153,3 +163,4 @@ type AstCases struct {
 }
 
 func (me *AstCases) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstCases) DynName() string           { panic(me.Origin) }

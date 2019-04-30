@@ -2,6 +2,7 @@ package atmolang
 
 import (
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 )
 
 type IAstNode interface {
@@ -213,6 +214,40 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 			appl.Args = appl.Args[1:]
 		}
 		unary = &appl
+	}
+	return
+}
+
+func (me *AstExprAppl) ToLetExprIfUnderscores() (let *AstExprLet) {
+	lamargs := make(map[IAstExpr]string)
+	if ident, _ := me.Callee.(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
+		lamargs[me.Callee] = "ª" + ustr.Int(len(ident.Val)-1)
+	}
+	for i := range me.Args {
+		if ident, _ := me.Args[i].(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
+			lamargs[me.Args[i]] = "ª" + ustr.Int(len(ident.Val)-1)
+		}
+	}
+	if len(lamargs) > 0 {
+		def := AstDef{Name: AstIdent{Val: "λ"}, Args: make([]AstDefArg, len(lamargs))}
+		for i := range def.Args {
+			def.Args[i].NameOrConstVal = Builder.Ident("ª" + ustr.Int(i))
+		}
+		var appl AstExprAppl
+		appl.Callee, appl.Args = me.Callee, make([]IAstExpr, len(me.Args))
+		if la := lamargs[me.Callee]; la != "" {
+			appl.Callee = Builder.Ident(la)
+		}
+		for i := range appl.Args {
+			if la := lamargs[me.Args[i]]; la != "" {
+				appl.Args[i] = Builder.Ident(la)
+			} else {
+				appl.Args[i] = me.Args[i]
+			}
+		}
+
+		def.Body = &appl
+		let = Builder.Let(&def.Name, def)
 	}
 	return
 }
