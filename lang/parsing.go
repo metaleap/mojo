@@ -143,7 +143,7 @@ func (me *tldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (er
 }
 
 func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
-	indhint := toks[0].Meta.Position.Column
+	indhint := toks[0].Meta.Position.Column - 1
 	if me.indentHintForLet != 0 {
 		indhint, me.indentHintForLet = me.indentHintForLet, 0
 	}
@@ -155,7 +155,7 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 		}
 	}
 
-	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.ChunkedBySpacing('(', ')')
+	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.ChunkedBySpacing('(', ')', ",")
 	var exprcur IAstExpr
 	var accumcomments []udevlex.Tokens
 	for greed, hasgreeds := 0, greeds != nil; err == nil && len(toks) > 0; exprcur = nil {

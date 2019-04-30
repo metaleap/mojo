@@ -360,10 +360,15 @@ func (me *PrintFmtPretty) OnComment(leads IAstNode, trails IAstNode, node *AstCo
 		me.WriteByte(' ')
 	}
 }
-
-// func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
-// 	me.CurIndentLevel++
-// 	me.WriteLineBreaksThenIndent(1)
-// 	me.Print(node)
-// 	me.CurIndentLevel--
-// }
+func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
+	if def.IsTopLevel {
+		me.CurIndentLevel++
+		me.WriteLineBreaksThenIndent(1)
+	} else {
+		me.WriteByte(' ')
+	}
+	me.Print(node)
+	if def.IsTopLevel {
+		me.CurIndentLevel--
+	}
+}
