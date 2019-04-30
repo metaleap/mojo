@@ -4,13 +4,21 @@ import (
 	"github.com/go-leap/str"
 )
 
+var (
+	Builder           AstBuilder
+	builderSingletons struct {
+		identTagTrue  *AstIdentTag
+		identTagFalse *AstIdentTag
+	}
+)
+
 type AstBuilder struct{}
 
-func (*AstBuilder) Appl(callee IAstIdent, arg IAstExprAtomic) *AstAppl {
+func (AstBuilder) Appl(callee IAstIdent, arg IAstExprAtomic) *AstAppl {
 	return &AstAppl{Callee: callee, Arg: arg}
 }
 
-func (*AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) *AstAppl {
+func (AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) *AstAppl {
 	var appl AstAppl
 	for i := range args {
 		if i == 0 {
@@ -22,31 +30,44 @@ func (*AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) 
 	return &appl
 }
 
-func (*AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {
+func (AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {
 	return &AstCases{Ifs: [][]IAstExpr{{ifThis}}, Thens: []IAstExpr{thenThat}}
 }
 
-func (*AstBuilder) IdName(name string) *AstIdentName {
+func (AstBuilder) IdentName(name string) *AstIdentName {
 	return &AstIdentName{AstIdentBase{Val: name}}
 }
-
-func (*AstBuilder) IdEmptyParens() *AstIdentEmptyParens {
+func (AstBuilder) IdentEmptyParens() *AstIdentEmptyParens {
 	return &AstIdentEmptyParens{AstIdentBase{Val: "()"}}
 }
 
-func (*AstBuilder) IdOp(name string) *AstIdentOp {
+func (AstBuilder) IdentOp(name string) *AstIdentOp {
 	return &AstIdentOp{AstIdentBase{Val: name}}
 }
 
-func (*AstBuilder) IdVar(name string) *AstIdentVar {
+func (AstBuilder) IdentVar(name string) *AstIdentVar {
 	return &AstIdentVar{AstIdentBase{Val: name}}
 }
 
-func (*AstBuilder) IdTag(name string) *AstIdentTag {
+func (AstBuilder) IdentTag(name string) *AstIdentTag {
 	return &AstIdentTag{AstIdentBase{Val: name}}
 }
 
-func (*AstBuilder) DefArgs(names ...string) (r []AstDefArg) {
+func (AstBuilder) IdentTagTrue() *AstIdentTag {
+	if builderSingletons.identTagTrue == nil {
+		builderSingletons.identTagTrue = Builder.IdentTag("True")
+	}
+	return builderSingletons.identTagTrue
+}
+
+func (AstBuilder) IdentTagFalse() *AstIdentTag {
+	if builderSingletons.identTagFalse == nil {
+		builderSingletons.identTagFalse = Builder.IdentTag("False")
+	}
+	return builderSingletons.identTagFalse
+}
+
+func (AstBuilder) DefArgs(names ...string) (r []AstDefArg) {
 	r = make([]AstDefArg, len(names))
 	for i := range names {
 		r[i].AstIdentName.Val = names[i]

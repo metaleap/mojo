@@ -7,6 +7,7 @@ import (
 
 type IAstNode interface {
 	Origin() atmolang.IAstNode
+	Print() atmolang.IAstNode
 }
 
 type IAstExpr interface {
@@ -32,8 +33,7 @@ type AstDefBase struct {
 	Orig *atmolang.AstDef
 
 	Name IAstIdent
-	Args []AstDefArg // TODO: remove multi-args and make all defs unary with:
-	Arg  *AstDefArg
+	Args []AstDefArg
 	Body IAstExpr
 }
 

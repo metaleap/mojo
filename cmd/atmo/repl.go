@@ -38,7 +38,7 @@ func mainRepl() {
 			"", "— to see --flags, quit and run `atmo help`",
 		}
 		if atmorepl.Ux.OldSchoolTty = (replRunsVia("login") == "login"); replRunsVia("rlwrap", "rlfe") == "" {
-			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— for smooth line-editing, run the repl", "  via `rlwrap` or `rlfe` or equivalent")
+			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— for sane line-editing, run the repl", "  via `rlwrap` or `rlfe` or equivalent")
 		}
 		if atmorepl.Ux.MoreLines > 0 {
 			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— every "+ustr.Plu(atmorepl.Ux.MoreLines, "line")+", further output is held back", "  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.Ux.MoreLinesPrompt))+"` prompt shown")

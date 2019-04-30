@@ -67,7 +67,7 @@ func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
 
 func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 	if len(me.Orig.Args) > 0 {
-		opeq, args := ctx.b.IdOp("=="), make([]AstDefArg, len(me.Orig.Args))
+		opeq, args := ctx.b.IdentOp("=="), make([]AstDefArg, len(me.Orig.Args))
 		for i := range me.Orig.Args {
 			if errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i)); args[i].coerceValue != nil {
 				me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &args[i].AstIdentName, args[i].coerceValue), me.Body)
@@ -134,9 +134,9 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		scrut, e = ctx.newAstExprFrom(orig.Scrutinee)
 		errs.Add(e)
 	} else {
-		scrut = ctx.b.IdTag("True")
+		scrut = ctx.b.IdentTagTrue()
 	}
-	scrut = ctx.b.Appl(ctx.b.IdOp("=="), ctx.ensureAstAtomFor(scrut, false, "__scrut__"))
+	scrut = ctx.b.Appl(ctx.b.IdentOp("=="), ctx.ensureAstAtomFor(scrut, false, "__scrut__"))
 	scrutid := ctx.ensureAstAtomFor(scrut, true, "__scrut_eq__").(IAstIdent)
 
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
@@ -192,7 +192,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool, dynNa
 		return xid
 	}
 	var def AstDefBase
-	def.Name = me.b.IdName(dynNameIfNeeded)
+	def.Name = me.b.IdentName(dynNameIfNeeded)
 	def.Body = expr
 	me.Locals = append(me.Locals, def)
 	return me.Locals[len(me.Locals)-1].Name
@@ -206,7 +206,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 		ret, errs = me.newAstIdentFrom(oid)
 	} else {
 		var def AstDefBase
-		def.Name = me.b.IdName(dynNameIfNeeded)
+		def.Name = me.b.IdentName(dynNameIfNeeded)
 		def.Body, errs = me.newAstExprFrom(orig)
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name

@@ -77,12 +77,12 @@ func (me *AstFile) Print(fmt IPrintFmt) []byte {
 }
 
 func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
-	if p.CurTopLevel = me; !p.fmtCtxSet {
+	if p.CurIndentLevel, p.CurTopLevel = 0, me; !p.fmtCtxSet {
 		p.fmtCtxSet = true
 		p.Fmt.SetCtxPrint(p)
 	}
-	p.CurIndentLevel = 0
 	p.Fmt.OnTopLevelChunk(me, &me.Ast)
+	p.CurIndentLevel, p.CurTopLevel = 0, nil
 }
 
 func (me *AstTopLevel) print(p *CtxPrint) {
@@ -102,6 +102,8 @@ func (me *AstComment) print(p *CtxPrint) {
 		p.WriteByte('\n')
 	}
 }
+
+func (me *AstDef) Print(ctxp *CtxPrint) { me.print(ctxp) }
 
 func (me *AstDef) print(p *CtxPrint) {
 	switch p.ApplStyle {
@@ -188,7 +190,7 @@ func (me *AstExprLitStr) print(p *CtxPrint) {
 }
 
 func (me *AstExprAppl) print(p *CtxPrint) {
-	istopleveldefsbody := (me == p.CurTopLevel.Ast.Def.Orig.Body)
+	istopleveldefsbody := (p.CurTopLevel != nil && me == p.CurTopLevel.Ast.Def.Orig.Body)
 	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
 		p.Fmt.OnExprApplName(istopleveldefsbody, me, me.Callee)
@@ -212,7 +214,7 @@ func (me *AstExprAppl) print(p *CtxPrint) {
 }
 
 func (me *AstExprLet) print(p *CtxPrint) {
-	istopleveldefsbody := (me == p.CurTopLevel.Ast.Def.Orig.Body)
+	istopleveldefsbody := (p.CurTopLevel != nil && me == p.CurTopLevel.Ast.Def.Orig.Body)
 	p.Fmt.OnExprLetBody(istopleveldefsbody, me, me.Body)
 	for i := range me.Defs {
 		p.WriteByte(',')
@@ -221,7 +223,7 @@ func (me *AstExprLet) print(p *CtxPrint) {
 }
 
 func (me *AstExprCases) print(p *CtxPrint) {
-	istopleveldefsbody := (me == p.CurTopLevel.Ast.Def.Orig.Body)
+	istopleveldefsbody := (p.CurTopLevel != nil && me == p.CurTopLevel.Ast.Def.Orig.Body)
 	if me.Scrutinee != nil {
 		p.Fmt.OnExprCasesScrutinee(istopleveldefsbody, me, me.Scrutinee)
 	}
