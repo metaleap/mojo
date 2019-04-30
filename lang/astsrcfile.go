@@ -30,8 +30,9 @@ type AstFile struct {
 }
 
 type AstFileTopLevelChunk struct {
-	Src    []byte
-	Offset struct {
+	Src     []byte
+	SrcFile *AstFile
+	Offset  struct {
 		Line int
 		Pos  int
 	}

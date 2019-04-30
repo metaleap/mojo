@@ -261,12 +261,14 @@ func (me *Repl) DSrcs(what string) bool {
 				me.IO.writeLns("Unknown kit: `" + whatkit + "`, see known kits via `:list _`.")
 			} else {
 				defs, ctxp := kit.Defs(whatname), atmolang.CtxPrint{OneIndentLevel: "  ", Fmt: &atmolang.PrintFmtMinimal{},
-					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}}
+					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 				me.IO.writeLns(ustr.Plu(len(defs), "def") + " named `" + whatname + "` found in kit `" + kit.ImpPath + ustr.If(len(defs) > 0, "`:", "`."))
 				for _, def := range defs {
 					if def != nil {
+						ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
 						def.TopLevel.Print(&ctxp)
-						ctxp.WriteString("≡\n\n")
+						ctxp.WriteString("\n\n≡ IR:\n\n")
+						ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
 						def.Print().(*atmolang.AstDef).Print(&ctxp)
 					}
 				}

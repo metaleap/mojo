@@ -29,6 +29,7 @@ type IPrintFmt interface {
 type CtxPrint struct {
 	Fmt            IPrintFmt
 	ApplStyle      ApplStyle
+	NoComments     bool
 	CurTopLevel    *AstFileTopLevelChunk
 	CurIndentLevel int
 	OneIndentLevel string
@@ -40,7 +41,7 @@ type CtxPrint struct {
 
 func (me *CtxPrint) Print(node IAstNode) {
 	var cmnts *astBaseComments
-	if cmnt, _ := node.(IAstComments); cmnt != nil {
+	if cmnt, _ := node.(IAstComments); (!me.NoComments) && cmnt != nil {
 		cmnts = cmnt.Comments()
 	}
 	if cmnts != nil {
