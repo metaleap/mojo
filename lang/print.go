@@ -221,7 +221,6 @@ func (me *AstExprLet) print(p *CtxPrint) {
 	istopleveldefsbody := (p.CurTopLevel != nil && me == p.CurTopLevel.Ast.Def.Orig.Body)
 	p.Fmt.OnExprLetBody(istopleveldefsbody, me, me.Body)
 	for i := range me.Defs {
-		p.WriteByte(',')
 		p.Fmt.OnExprLetDef(istopleveldefsbody, me, i, &me.Defs[i])
 	}
 }
@@ -289,9 +288,10 @@ func (me *PrintFmtMinimal) OnDefBody(def *AstDef, node IAstExpr) {
 	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprLetBody(_ bool, _ *AstExprLet, node IAstExpr) {
-	me.Print(node)
+	me.PrintInParensIf(node, true, true)
 }
 func (me *PrintFmtMinimal) OnExprLetDef(_ bool, _ *AstExprLet, _ int, node *AstDef) {
+	me.WriteByte(',')
 	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprApplName(_ bool, _ *AstExprAppl, node IAstExpr) {
@@ -371,4 +371,15 @@ func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
 	if def.IsTopLevel {
 		me.CurIndentLevel--
 	}
+}
+func (me *PrintFmtPretty) OnExprLetBody(isLetTopLevelDefBody bool, _ *AstExprLet, node IAstExpr) {
+	me.Print(node)
+}
+func (me *PrintFmtPretty) OnExprLetDef(isLetTopLevelDefBody bool, _ *AstExprLet, _ int, node *AstDef) {
+	if isLetTopLevelDefBody {
+		me.WriteLineBreaksThenIndent(1)
+	} else {
+		me.WriteString(" , ")
+	}
+	me.Print(node)
 }
