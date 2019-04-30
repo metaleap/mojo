@@ -58,13 +58,16 @@ func (me *tldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error)
 		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Position.Column == 1 {
 			err = atmo.ErrSyn(t, "missing: definition body following `:=`")
 		} else {
-			err = atmo.ErrSyn(t, "at this indent level, expected a def")
+			err = atmo.ErrSyn(t, "at this indentation level, expected a def")
 		}
 	} else if len(tokshead) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `:=`")
 	} else if toksheads := tokshead.Chunked(","); len(toksheads[0]) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else {
+		if me.indentHintForLet = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
+			me.indentHintForLet = toksbody[0].Meta.Position.Column - 1
+		}
 		if def.Tokens = toks; istopleveldef {
 			me.curDef, def.IsTopLevel = def, true
 		}
@@ -75,9 +78,6 @@ func (me *tldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error)
 				}
 			}
 			err = me.parseDefHeadSig(toksheads[0], def)
-			if me.indentHint = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
-				me.indentHint = tokheadbodysep.Meta.Position.Column - 1
-			}
 		}
 	}
 	return
@@ -144,8 +144,8 @@ func (me *tldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (er
 
 func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
 	indhint := toks[0].Meta.Position.Column
-	if me.indentHint != 0 {
-		indhint, me.indentHint = me.indentHint, 0
+	if me.indentHintForLet != 0 {
+		indhint, me.indentHintForLet = me.indentHintForLet, 0
 	}
 	if me.atTopLevelStill {
 		me.atTopLevelStill = false

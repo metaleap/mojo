@@ -45,12 +45,12 @@ func (me *CtxPrint) Print(node IAstNode) {
 	}
 	if cmnts != nil {
 		for i := range cmnts.Leading {
-			me.Print(&cmnts.Leading[i])
+			me.Fmt.OnComment(node, nil, &cmnts.Leading[i])
 		}
 	}
 	if node.print(me); cmnts != nil {
 		for i := range cmnts.Trailing {
-			me.Print(&cmnts.Trailing[i])
+			me.Fmt.OnComment(nil, node, &cmnts.Trailing[i])
 		}
 	}
 }
@@ -94,12 +94,11 @@ func (me *AstTopLevel) print(p *CtxPrint) {
 func (me *AstComment) print(p *CtxPrint) {
 	if me.IsSelfTerminating {
 		p.WriteString("/*")
-		p.WriteString(me.ContentText)
+		p.WriteString(me.Val)
 		p.WriteString("*/")
 	} else {
 		p.WriteString("//")
-		p.WriteString(me.ContentText)
-		p.WriteByte('\n')
+		p.WriteString(me.Val)
 	}
 }
 
@@ -307,7 +306,15 @@ func (me *PrintFmtMinimal) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr) {
 func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr) {
 	me.PrintInParensIf(node, true, false)
 }
-func (me *PrintFmtMinimal) OnComment(_ IAstNode, _ IAstNode, node *AstComment) { me.Print(node) }
+func (me *PrintFmtMinimal) OnComment(leading IAstNode, _ IAstNode, node *AstComment) {
+	_, istoplevelleadingcomment := leading.(*AstTopLevel)
+	if me.Print(node); !node.IsSelfTerminating {
+		if !istoplevelleadingcomment {
+			me.CurIndentLevel++
+		}
+		me.WriteLineBreaksThenIndent(1)
+	}
+}
 func (me *PrintFmtMinimal) PrintInParensIf(node IAstNode, ifCases bool, ifNotAtomicOrClaspish bool) {
 	_, isatomic := node.(IAstExprAtomic)
 	_, iscases := node.(*AstExprCases)

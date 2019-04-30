@@ -7,12 +7,12 @@ import (
 
 type (
 	tldParse struct {
-		file            *AstFile
-		curDef          *AstDef
-		indentHint      int
-		parensLevel     int
-		atTopLevelStill bool
-		b               AstBuilder
+		file             *AstFile
+		curDef           *AstDef
+		indentHintForLet int
+		parensLevel      int
+		atTopLevelStill  bool
+		b                AstBuilder
 	}
 )
 
