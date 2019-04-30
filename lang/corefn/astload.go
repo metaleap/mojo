@@ -135,8 +135,8 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	} else {
 		scrut = ctx.b.IdentTagTrue()
 	}
-	scrut = ctx.b.Appl(ctx.b.IdentOp("=="), ctx.ensureAstAtomFor(scrut, false, "__scrut__"))
-	scrutid := ctx.ensureAstAtomFor(scrut, true, "__scrut_eq__").(IAstIdent)
+	scrut = ctx.b.Appl(ctx.b.IdentOp("=="), ctx.ensureAstAtomFor(scrut, false))
+	scrutid := ctx.ensureAstAtomFor(scrut, true).(IAstIdent)
 
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
 	for i := range orig.Alts {
@@ -150,7 +150,7 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
 		for c, cond := range alt.Conds {
 			me.Ifs[i][c], e = ctx.newAstExprFrom(cond)
-			me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false, "__cond_"+ustr.Int(i)+"_"+ustr.Int(c)+"__"))
+			me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false))
 			errs.Add(e)
 		}
 	}
@@ -181,7 +181,7 @@ func (me *AstLitStr) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 	me.Val = orig.Toks()[0].Str
 }
 
-func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool, dynNameIfNeeded string) IAstExprAtomic {
+func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstExprAtomic {
 	if !retMustBeIAstIdent {
 		if xat, _ := expr.(IAstExprAtomic); xat != nil {
 			return xat
@@ -191,7 +191,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool, dynNa
 		return xid
 	}
 	var def AstDefBase
-	def.Name = me.b.IdentName(dynNameIfNeeded)
+	def.Name = me.b.IdentName(expr.DynName())
 	def.Body = expr
 	me.Locals = append(me.Locals, def)
 	return me.Locals[len(me.Locals)-1].Name

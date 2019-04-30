@@ -44,14 +44,17 @@ func (me *CtxPrint) Print(node IAstNode) {
 	if cmnt, _ := node.(IAstComments); (!me.NoComments) && cmnt != nil {
 		cmnts = cmnt.Comments()
 	}
+	leadstrails := node
 	if cmnts != nil {
 		for i := range cmnts.Leading {
-			me.Fmt.OnComment(node, nil, &cmnts.Leading[i])
+			c := &cmnts.Leading[i]
+			me.Fmt.OnComment(leadstrails, nil, c)
 		}
 	}
 	if node.print(me); cmnts != nil {
 		for i := range cmnts.Trailing {
-			me.Fmt.OnComment(nil, node, &cmnts.Trailing[i])
+			c := &cmnts.Trailing[i]
+			me.Fmt.OnComment(nil, leadstrails, c)
 		}
 	}
 }
@@ -139,6 +142,7 @@ func (me *AstDef) print(p *CtxPrint) {
 		p.WriteByte(',')
 		p.Fmt.OnDefMeta(me, i, me.Meta[i])
 	}
+	p.WriteString(" :=")
 	p.Fmt.OnDefBody(me, me.Body)
 }
 
@@ -250,9 +254,10 @@ func (me *AstCase) print(p *CtxPrint) {
 }
 
 // PrintFmtMinimal implements `IPrintFmt`.
-type PrintFmtMinimal struct {
-	*CtxPrint
-}
+type PrintFmtMinimal struct{ *CtxPrint }
+
+// PrintFmtPretty implements `IPrintFmt`.
+type PrintFmtPretty struct{ PrintFmtMinimal }
 
 func (me *PrintFmtMinimal) SetCtxPrint(ctxPrint *CtxPrint) { me.CtxPrint = ctxPrint }
 func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
@@ -276,7 +281,7 @@ func (me *PrintFmtMinimal) OnDefMeta(_ *AstDef, _ int, node IAstExpr) {
 	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnDefBody(def *AstDef, node IAstExpr) {
-	me.WriteString(" := ")
+	me.WriteByte(' ')
 	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprLetBody(_ bool, _ *AstExprLet, node IAstExpr) {
@@ -307,8 +312,8 @@ func (me *PrintFmtMinimal) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr) {
 func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr) {
 	me.PrintInParensIf(node, true, false)
 }
-func (me *PrintFmtMinimal) OnComment(leading IAstNode, _ IAstNode, node *AstComment) {
-	_, istoplevelleadingcomment := leading.(*AstTopLevel)
+func (me *PrintFmtMinimal) OnComment(leads IAstNode, trails IAstNode, node *AstComment) {
+	_, istoplevelleadingcomment := leads.(*AstTopLevel)
 	if me.Print(node); !node.IsSelfTerminating {
 		if !istoplevelleadingcomment {
 			me.CurIndentLevel++
@@ -331,3 +336,15 @@ func (me *PrintFmtMinimal) PrintInParensIf(node IAstNode, ifCases bool, ifNotAto
 		me.WriteByte(')')
 	}
 }
+
+// func (me *PrintFmtPretty) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
+// 	if me.PrintFmtMinimal.OnTopLevelChunk(tlc, node); node.Def.Orig != nil {
+// 		// me.WriteByte('\n')
+// 	}
+// }
+// func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
+// 	me.CurIndentLevel++
+// 	me.WriteLineBreaksThenIndent(1)
+// 	me.Print(node)
+// 	me.CurIndentLevel--
+// }

@@ -1,9 +1,5 @@
 package atmocorefn
 
-import (
-	"github.com/go-leap/str"
-)
-
 var (
 	Builder           AstBuilder
 	builderSingletons struct {
@@ -24,7 +20,7 @@ func (AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) *
 		if i == 0 {
 			appl.Callee, appl.Arg = callee, args[i]
 		} else {
-			appl = AstAppl{Callee: ctx.ensureAstAtomFor(&appl, true, "__appl_arg_"+ustr.Int(i)+"__").(IAstIdent), Arg: args[i]}
+			appl = AstAppl{Callee: ctx.ensureAstAtomFor(&appl, true).(IAstIdent), Arg: args[i]}
 		}
 	}
 	return &appl

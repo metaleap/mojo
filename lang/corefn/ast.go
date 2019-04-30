@@ -153,7 +153,7 @@ type AstAppl struct {
 }
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "_" + me.Arg.DynName() }
+func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "¯" + me.Arg.DynName() }
 
 type AstCases struct {
 	AstExprBase

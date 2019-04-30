@@ -3,6 +3,7 @@ package atmolang
 import (
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
+	"strconv"
 )
 
 type IAstNode interface {
@@ -22,7 +23,7 @@ type IAstExpr interface {
 
 type IAstExprAtomic interface {
 	IAstExpr
-	__implements_IAstExprAtomic()
+	String() string
 }
 
 type AstBaseTokens struct {
@@ -88,8 +89,7 @@ type AstBaseExprAtom struct {
 	AstBaseExpr
 }
 
-func (*AstBaseExprAtom) IsAtomic() bool               { return true }
-func (*AstBaseExprAtom) __implements_IAstExprAtomic() {}
+func (*AstBaseExprAtom) IsAtomic() bool { return true }
 
 type AstBaseExprAtomLit struct {
 	AstBaseExprAtom
@@ -100,20 +100,28 @@ type AstExprLitUint struct {
 	Val uint64
 }
 
+func (me *AstExprLitUint) String() string { return strconv.FormatUint(me.Val, 10) }
+
 type AstExprLitFloat struct {
 	AstBaseExprAtomLit
 	Val float64
 }
+
+func (me *AstExprLitFloat) String() string { return strconv.FormatFloat(me.Val, 'g', -1, 64) }
 
 type AstExprLitRune struct {
 	AstBaseExprAtomLit
 	Val rune
 }
 
+func (me *AstExprLitRune) String() string { return strconv.QuoteRune(me.Val) }
+
 type AstExprLitStr struct {
 	AstBaseExprAtomLit
 	Val string
 }
+
+func (me *AstExprLitStr) String() string { return strconv.Quote(me.Val) }
 
 type AstIdent struct {
 	AstBaseExprAtom
@@ -121,6 +129,8 @@ type AstIdent struct {
 	IsOpish bool
 	IsTag   bool
 }
+
+func (me *AstIdent) String() string { return me.Val }
 
 type AstExprLet struct {
 	AstBaseExpr
