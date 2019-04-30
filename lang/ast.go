@@ -16,6 +16,7 @@ type IAstComments interface {
 type IAstExpr interface {
 	IAstNode
 	IAstComments
+	IsAtomic() bool
 }
 
 type IAstExprAtomic interface {
@@ -80,10 +81,13 @@ type AstBaseExpr struct {
 	AstBaseComments
 }
 
+func (*AstBaseExpr) IsAtomic() bool { return false }
+
 type AstBaseExprAtom struct {
 	AstBaseExpr
 }
 
+func (*AstBaseExprAtom) IsAtomic() bool               { return true }
 func (*AstBaseExprAtom) __implements_IAstExprAtomic() {}
 
 type AstBaseExprAtomLit struct {
@@ -170,20 +174,28 @@ func (me *AstExprCases) removeAltAt(idx int) {
 	me.Alts = me.Alts[:len(me.Alts)-1]
 }
 
-func (me *AstExprAppl) Claspish() (claspish bool) {
-	if ident, ok := me.Callee.(*AstIdent); ok && ident.IsOpish {
-		claspish = true
-		for i := 0; claspish && i < len(me.Args); i++ {
-			if i >= 2 && i%2 == 0 {
-				if ident, ok = me.Args[i].(*AstIdent); !ok {
-					claspish = false
-				}
-			} else if _, ok = me.Args[i].(IAstExprAtomic); !ok {
-				claspish = false
-			} else if ident, ok = me.Args[i].(*AstIdent); ok && ident.IsOpish {
-				claspish = false
-			}
+func (me *AstExprAppl) ClaspishByTokens() (claspish bool) {
+	return len(me.Tokens) > 0 && !me.Tokens.HasSpaces()
+}
+
+func (me *AstExprAppl) CalleeAndArgsOrdered(applStyle ApplStyle) (ret []IAstExpr) {
+	ret = make([]IAstExpr, 1+len(me.Args))
+	switch applStyle {
+	case APPLSTYLE_VSO:
+		for i := range me.Args {
+			ret[i+1] = me.Args[i]
 		}
+		ret[0] = me.Callee
+	case APPLSTYLE_SOV:
+		for i := range me.Args {
+			ret[i] = me.Args[i]
+		}
+		ret[len(ret)-1] = me.Callee
+	case APPLSTYLE_SVO:
+		for i := range me.Args {
+			ret[i+1] = me.Args[i]
+		}
+		ret[0], ret[1] = me.Args[0], me.Callee
 	}
 	return
 }

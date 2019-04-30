@@ -256,9 +256,6 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 	var cases AstExprCases
 	if len(accum) > 0 {
 		cases.Scrutinee = me.parseExprAppl(accum, allToks.FromUntil(nil, &toks[0], false))
-	} else {
-		err = atmo.ErrSyn(&toks[0], "malformed `|?` branching: missing scrutinee expression")
-		return
 	}
 	cases.Tokens, cases.defaultIndex = allToks, -1
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)

@@ -199,10 +199,8 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool, dynNa
 }
 
 func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool, dynNameIfNeeded string) (ret IAstExprAtomic, errs atmo.Errors) {
-	if !retMustBeIAstIdent {
-		if oat, _ := orig.(atmolang.IAstExprAtomic); oat != nil {
-			return me.newAstExprAtomicFrom(oat)
-		}
+	if (!retMustBeIAstIdent) && orig.IsAtomic() {
+		return me.newAstExprAtomicFrom(orig.(atmolang.IAstExprAtomic))
 	}
 	if oid, _ := orig.(*atmolang.AstIdent); oid != nil {
 		ret, errs = me.newAstIdentFrom(oid)

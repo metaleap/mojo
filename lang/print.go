@@ -224,8 +224,8 @@ func (me *AstExprCases) print(p *CtxPrint) {
 	istopleveldefsbody := (me == p.CurTopLevel.Ast.Def.Orig.Body)
 	if me.Scrutinee != nil {
 		p.Fmt.OnExprCasesScrutinee(istopleveldefsbody, me, me.Scrutinee)
-		p.WriteByte('|')
 	}
+	p.WriteByte('|')
 	for i := range me.Alts {
 		if i > 0 {
 			p.WriteByte('|')
@@ -284,21 +284,40 @@ func (me *PrintFmtMinimal) OnExprLetDef(_ bool, _ *AstExprLet, _ int, node *AstD
 	me.Print(node)
 }
 func (me *PrintFmtMinimal) OnExprApplName(_ bool, _ *AstExprAppl, node IAstExpr) {
-	me.Print(node)
+	me.PrintInParensIf(node, false, true)
 }
 func (me *PrintFmtMinimal) OnExprApplArg(_ bool, appl *AstExprAppl, argIdx int, node IAstExpr) {
-	claspish, svo := appl.Claspish(), (me.ApplStyle == APPLSTYLE_SVO)
+	claspish, svo := appl.ClaspishByTokens(), (me.ApplStyle == APPLSTYLE_SVO)
 	if (!claspish) && (me.ApplStyle == APPLSTYLE_VSO || (svo && argIdx > 0)) {
 		me.WriteByte(' ')
 	}
-	me.Print(node)
+	me.PrintInParensIf(node, false, true)
 	if (!claspish) && (me.ApplStyle == APPLSTYLE_SOV || (svo && argIdx == 0)) {
 		me.WriteByte(' ')
 	}
 }
 func (me *PrintFmtMinimal) OnExprCasesScrutinee(_ bool, _ *AstExprCases, node IAstExpr) {
-	me.Print(node)
+	me.PrintInParensIf(node, true, false)
 }
-func (me *PrintFmtMinimal) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr)   { me.Print(node) }
-func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr)          { me.Print(node) }
+func (me *PrintFmtMinimal) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr) {
+	me.PrintInParensIf(node, true, false)
+}
+func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr) {
+	me.PrintInParensIf(node, true, false)
+}
 func (me *PrintFmtMinimal) OnComment(_ IAstNode, _ IAstNode, node *AstComment) { me.Print(node) }
+func (me *PrintFmtMinimal) PrintInParensIf(node IAstNode, ifCases bool, ifNotAtomicOrClaspish bool) {
+	_, isatomic := node.(IAstExprAtomic)
+	_, iscases := node.(*AstExprCases)
+	if appl, ok := node.(*AstExprAppl); ok && ifNotAtomicOrClaspish {
+		isatomic = appl.ClaspishByTokens()
+	}
+	parens := (ifCases && iscases) || (ifNotAtomicOrClaspish && !isatomic)
+	if parens {
+		me.WriteByte('(')
+	}
+	me.Print(node)
+	if parens {
+		me.WriteByte(')')
+	}
+}
