@@ -186,7 +186,7 @@ func (me *AstExprCases) removeAltAt(idx int) {
 }
 
 func (me *AstExprAppl) ClaspishByTokens() (claspish bool) {
-	return len(me.Tokens) > 0 && !me.Tokens.HasSpaces()
+	return len(me.Tokens) > 0 && (!me.Tokens.HasSpaces()) && !me.Tokens.HasKind(udevlex.TOKEN_COMMENT)
 }
 
 func (me *AstExprAppl) CalleeAndArgsOrdered(applStyle ApplStyle) (ret []IAstExpr) {

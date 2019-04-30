@@ -231,7 +231,9 @@ func (me *AstExprCases) print(p *CtxPrint) {
 	if me.Scrutinee != nil {
 		p.Fmt.OnExprCasesScrutinee(istopleveldefsbody, me, me.Scrutinee)
 	}
-	p.WriteByte('|')
+	if me.Desugared == nil {
+		p.WriteByte('|')
+	}
 	for i := range me.Alts {
 		if i > 0 {
 			p.WriteByte('|')
@@ -261,7 +263,9 @@ type PrintFmtPretty struct{ PrintFmtMinimal }
 
 func (me *PrintFmtMinimal) SetCtxPrint(ctxPrint *CtxPrint) { me.CtxPrint = ctxPrint }
 func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
-	me.WriteByte('\n')
+	if isntfirst := (tlc != &tlc.SrcFile.TopLevel[0]); isntfirst {
+		me.WriteByte('\n')
+	}
 	me.Print(node)
 	me.WriteByte('\n')
 }
@@ -342,11 +346,21 @@ func (me *PrintFmtMinimal) PrintInParensIf(node IAstNode, ifCases bool, ifNotAto
 	}
 }
 
-// func (me *PrintFmtPretty) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
-// 	if me.PrintFmtMinimal.OnTopLevelChunk(tlc, node); node.Def.Orig != nil {
-// 		// me.WriteByte('\n')
-// 	}
-// }
+func (me *PrintFmtPretty) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
+	me.WriteByte('\n')
+	me.Print(node)
+	me.WriteString("\n\n")
+}
+func (me *PrintFmtPretty) OnComment(leads IAstNode, trails IAstNode, node *AstComment) {
+	if trails != nil {
+		me.WriteByte(' ')
+	}
+	me.PrintFmtMinimal.OnComment(leads, trails, node)
+	if tl, _ := leads.(*AstTopLevel); leads != nil && tl == nil {
+		me.WriteByte(' ')
+	}
+}
+
 // func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
 // 	me.CurIndentLevel++
 // 	me.WriteLineBreaksThenIndent(1)
