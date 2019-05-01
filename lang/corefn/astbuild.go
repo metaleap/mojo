@@ -36,10 +36,6 @@ func (AstBuilder) IdentEmptyParens() *AstIdentEmptyParens {
 	return &AstIdentEmptyParens{AstIdentBase{Val: "()"}}
 }
 
-func (AstBuilder) IdentOp(name string) *AstIdentOp {
-	return &AstIdentOp{AstIdentBase{Val: name}}
-}
-
 func (AstBuilder) IdentVar(name string) *AstIdentVar {
 	return &AstIdentVar{AstIdentBase{Val: name}}
 }

@@ -33,6 +33,7 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 	errs.Add(me.initBody(ctx))
 	errs.Add(me.initArgs(ctx))
 	errs.Add(me.initMetas(ctx))
+	ctx.dynNameDrop(me.Orig.Name.Val)
 	return
 }
 
@@ -41,8 +42,6 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name); me.Name != nil {
 		switch name := me.Name.(type) {
 		case *AstIdentName:
-			// all ok
-		case *AstIdentOp:
 			if name.Val == "" || ustr.In(name.Val, langReservedOps...) {
 				errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 			}
@@ -56,8 +55,10 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 			panic(name)
 		}
 	}
-	if me.Orig.NameAffix != nil {
-		errs.AddTodo(&me.Orig.NameAffix.Toks()[0], "def name affixes")
+	if ctx.dynNameAdd(me.Orig.Name.Val); me.Orig.NameAffix != nil {
+		cf, e := ctx.newAstExprFrom(me.Orig.NameAffix)
+		errs.Add(e)
+		me.coerceFunc = cf
 	}
 
 	return
@@ -70,11 +71,14 @@ func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
 
 func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 	if len(me.Orig.Args) > 0 {
-		opeq, args := ctx.b.IdentOp("=="), make([]AstDefArg, len(me.Orig.Args))
+		opeq, args := ctx.b.IdentName("=="), make([]AstDefArg, len(me.Orig.Args))
 		for i := range me.Orig.Args {
 			if errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i)); args[i].coerceValue != nil {
 				me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, args[i].coerceValue, &args[i].AstIdentName), me.Body)
 			}
+			// if args[i].coerceFunc!=nil {
+			// 	me.Body=
+			// }
 		}
 		me.Args = args
 	}
@@ -114,7 +118,11 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 	}
 
 	if orig.Affix != nil {
-		errs.AddTodo(&orig.Affix.Toks()[0], "def arg affixes")
+		ctx.dynNameAdd(me.AstIdentBase.Val)
+		cf, e := ctx.newAstExprFrom(orig.Affix)
+		ctx.dynNameDrop(me.AstIdentBase.Val)
+		errs.Add(e)
+		me.coerceFunc = cf
 	}
 	return
 }
@@ -142,7 +150,7 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	} else {
 		scrut = ctx.b.IdentTagTrue()
 	}
-	scrut = ctx.b.Appl(ctx.b.IdentOp("=="), ctx.ensureAstAtomFor(scrut, false))
+	scrut = ctx.b.Appl(ctx.b.IdentName("=="), ctx.ensureAstAtomFor(scrut, false))
 	scrutid := ctx.ensureAstAtomFor(scrut, true).(IAstIdent)
 
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
@@ -197,7 +205,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	defname := expr.DynName()
+	defname := me.dynName(expr)
 	idx := me.Locals.index(defname)
 	if idx < 0 {
 		idx, me.Locals = len(me.Locals), append(me.Locals,
@@ -215,7 +223,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
-		def.Name = me.b.IdentName(def.Body.DynName())
+		def.Name = me.b.IdentName(me.dynName(def.Body))
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
@@ -229,29 +237,22 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs 
 	} else if t1 != t2 {
 		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing")
 
-	} else if orig.IsOpish {
-		if orig.Val == "()" {
-			var ident AstIdentEmptyParens
-			ret, ident.Val, ident.Orig = &ident, orig.Val, orig
-		} else {
-			var ident AstIdentOp
-			ret, ident.Val, ident.Orig = &ident, orig.Val, orig
-		}
-
-	} else if orig.Val[0] != '_' {
-		var ident AstIdentName
+	} else if orig.IsOpish && orig.Val == "()" {
+		var ident AstIdentEmptyParens
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	} else if ustr.IsRepeat(orig.Val, '_') {
 		var ident AstIdentUnderscores
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
-	} else if orig.Val[1] != '_' {
+	} else if orig.Val[0] == '_' {
 		var ident AstIdentVar
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	} else {
-		errs.AddNaming(&orig.Tokens[0], "invalid identifier: begins with multiple underscores")
+		var ident AstIdentName
+		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+
 	}
 	return
 }
@@ -314,4 +315,19 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 		}
 	}
 	return
+}
+
+func (me *AstDef) dynNameAdd(s string) string {
+	old := me.state.dynNamePrefs
+	me.state.dynNamePrefs += s
+	return old
+}
+
+func (me *AstDef) dynNameDrop(s string) string {
+	me.state.dynNamePrefs = me.state.dynNamePrefs[:len(me.state.dynNamePrefs)-len(s)]
+	return me.state.dynNamePrefs
+}
+
+func (me *AstDef) dynName(expr IAstExpr) string {
+	return me.state.dynNamePrefs + expr.DynName()
 }

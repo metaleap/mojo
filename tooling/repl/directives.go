@@ -270,7 +270,7 @@ func (me *Repl) DSrcs(what string) bool {
 					ctxp.Reset()
 
 					ctxp.CurTopLevel = nil
-					me.decoAddNotice(false, "", true, "internal intermediate language:", "")
+					me.decoAddNotice(false, "", true, "internal representation:", "")
 					def.Print().(*atmolang.AstDef).Print(&ctxp)
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()

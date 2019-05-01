@@ -39,6 +39,8 @@ type AstDefBase struct {
 	Name IAstIdent
 	Args []AstDefArg
 	Body IAstExpr
+
+	coerceFunc IAstExpr
 }
 
 func (me *AstDefBase) refersTo(name string) bool { return me.Body.refersTo(name) }
@@ -52,15 +54,31 @@ type AstDef struct {
 
 	b     AstBuilder
 	state struct {
-		counter int
+		counter        int
+		dynNamePrefs   string
+		nameReferences map[string]bool
 	}
 }
 
 func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstDef) refersTo(name string) (refers bool) {
+	var ok bool
+	if me.state.nameReferences == nil {
+		me.state.nameReferences = make(map[string]bool)
+	} else {
+		refers, ok = me.state.nameReferences[name]
+	}
+	if !ok {
+		refers = me.AstDefBase.refersTo(name)
+		me.state.nameReferences[name] = refers
+	}
+	return
+}
 
 type AstDefArg struct {
 	AstIdentName
 	coerceValue IAstExprAtomic
+	coerceFunc  IAstExpr
 
 	Orig *atmolang.AstDefArg
 }
@@ -91,55 +109,55 @@ type AstIdentName struct {
 	AstIdentBase
 }
 
+func (me AstIdentName) DynName() (s string) {
+	if me.Orig == nil || !me.Orig.IsOpish {
+		s = me.AstIdentBase.DynName()
+	} else {
+		s = "º"
+		switch me.Val {
+		case "==":
+			s += "eq"
+		case "!=", "/=":
+			s += "neq"
+		case "<=":
+			s += "leq"
+		case ">=":
+			s += "geq"
+		case ">":
+			s += "gt"
+		case "<":
+			s += "lt"
+		case "+":
+			s += "add"
+		case "-":
+			s += "sub"
+		case "*":
+			s += "mul"
+		case "/":
+			s += "div"
+		case "%":
+			s += "mod"
+		case "&&":
+			s += "and"
+		case "||":
+			s += "or"
+		default:
+			for _, r := range me.Val {
+				s += strconv.Itoa(int(r))
+			}
+		}
+	}
+	return
+}
+
 type AstIdentVar struct {
 	AstIdentBase
 }
 
-func (me *AstIdentVar) DynName() string { return "v·moo" + me.Val }
+func (me *AstIdentVar) DynName() string { return "˘" + me.Val }
 
 type AstIdentTag struct {
 	AstIdentBase
-}
-
-type AstIdentOp struct {
-	AstIdentBase
-}
-
-func (me *AstIdentOp) DynName() (s string) {
-	s = "º"
-	switch me.Val {
-	case "==":
-		s += "eq"
-	case "!=", "/=":
-		s += "neq"
-	case "<=":
-		s += "leq"
-	case ">=":
-		s += "geq"
-	case ">":
-		s += "gt"
-	case "<":
-		s += "lt"
-	case "+":
-		s += "add"
-	case "-":
-		s += "sub"
-	case "*":
-		s += "mul"
-	case "/":
-		s += "div"
-	case "%":
-		s += "mod"
-	case "&&":
-		s += "and"
-	case "||":
-		s += "or"
-	default:
-		for _, r := range me.Val {
-			s += strconv.Itoa(int(r))
-		}
-	}
-	return
 }
 
 type AstIdentEmptyParens struct {

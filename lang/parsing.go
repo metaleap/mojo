@@ -117,18 +117,18 @@ func (me *tldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (er
 			if err == nil {
 				def.Args = make([]AstDefArg, len(sig.Args))
 				for i := range sig.Args {
-					if atom, ok1 := sig.Args[i].(IAstExprAtomic); ok1 {
+					if atom, okatom := sig.Args[i].(IAstExprAtomic); okatom {
 						def.Args[i].Tokens, def.Args[i].NameOrConstVal = atom.Toks(), atom
 					} else {
-						if appl, ok2 := sig.Args[i].(*AstExprAppl); ok2 {
-							if colon, ok3 := appl.Callee.(*AstIdent); ok3 && colon.Val == ":" && len(appl.Args) >= 2 {
-								if atom, ok1 = appl.Args[0].(IAstExprAtomic); ok1 {
+						if appl, oka := sig.Args[i].(*AstExprAppl); oka {
+							if colon, okc := appl.Callee.(*AstIdent); okc && colon.Val == ":" && len(appl.Args) >= 2 {
+								if atom, okatom = appl.Args[0].(IAstExprAtomic); okatom {
 									def.Args[i].Tokens, def.Args[i].NameOrConstVal, def.Args[i].Affix =
 										appl.Tokens, atom, parseaffix(appl)
 								}
 							}
 						}
-						if !ok1 {
+						if !okatom {
 							err = atmo.ErrSyn(&sig.Args[i].Toks()[0], "invalid def arg: needs to be atomic, or atomic:some-qualifying-expression")
 							return
 						}
@@ -302,11 +302,11 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 				}
 			}
 		}
-		if isunionsugar := len(cases.Alts) == 1 && cases.Alts[0].Body == nil && cases.Scrutinee != nil; isunionsugar {
-			// fix-finish the sugar of simple `foo | bar | baz` form for cleaner desugaring
-			cases.Alts[0].Conds = append([]IAstExpr{cases.Scrutinee}, cases.Alts[0].Conds...)
-			cases.Scrutinee = nil
-
+		if isunionsugar := len(cases.Alts) == 1 && cases.Alts[0].Body == nil; isunionsugar {
+			if cases.Scrutinee != nil { // fix-finish the sugar of simple `foo | bar | baz` form for cleaner desugaring
+				cases.Alts[0].Conds = append([]IAstExpr{cases.Scrutinee}, cases.Alts[0].Conds...)
+				cases.Scrutinee = nil
+			}
 			// now make & keep a desugared version:
 			// turn `foo|bar|baz` into `λ, ª λ := ª | foo | bar | baz ? ª`
 			let := AstExprLet{Defs: make([]AstDef, 1)}
