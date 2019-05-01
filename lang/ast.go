@@ -222,11 +222,6 @@ func (me *AstExprAppl) CalleeAndArgsOrdered(applStyle ApplStyle) (ret []IAstExpr
 }
 
 func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
-	/*
-		callee arg0 arg1 arg2
-		(callee arg0) arg1 arg2
-		((callee arg0) arg1) arg2
-	*/
 	if unary = me; len(me.Args) > 1 {
 		appl := *me
 		for len(appl.Args) > 1 {
@@ -270,4 +265,12 @@ func (me *AstExprAppl) ToLetExprIfUnderscores() (let *AstExprLet) {
 		let = B.Let(&def.Name, def)
 	}
 	return
+}
+
+func (me *AstExprLet) ToCombinators() (let *AstExprLet) {
+	let = &AstExprLet{AstBaseExpr: me.AstBaseExpr, Defs: make([]AstDef, len(me.Defs))}
+	return
+}
+
+func (me *AstDef) ToCombinator(scopes ...map[string]bool) {
 }
