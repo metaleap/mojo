@@ -205,7 +205,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	defname := me.dynName(expr)
+	defname := expr.DynName()
 	idx := me.Locals.index(defname)
 	if idx < 0 {
 		idx, me.Locals = len(me.Locals), append(me.Locals,
@@ -223,7 +223,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
-		def.Name = me.b.IdentName(me.dynName(def.Body))
+		def.Name = me.b.IdentName(def.Body.DynName())
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
@@ -288,6 +288,7 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			lit.initFrom(me, o)
 			expr = &lit
 		case *atmolang.AstExprLet:
+
 			expr, errs = me.newAstExprFrom(o.Body)
 			for i := range o.Defs {
 				var def AstDefBase
