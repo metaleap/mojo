@@ -16,6 +16,15 @@ func (me astDefs) byName(name string) *AstDefBase {
 	return nil
 }
 
+func (me astDefs) index(name string) int {
+	for i := range me {
+		if me[i].Name.String() == name {
+			return i
+		}
+	}
+	return -1
+}
+
 type AstDefs []AstDef
 
 func (me AstDefs) Len() int          { return len(me) }

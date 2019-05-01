@@ -194,11 +194,16 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	var def AstDefBase
-	def.Name = me.b.IdentName(expr.DynName())
-	def.Body = expr
-	me.Locals = append(me.Locals, def)
-	return def.Name
+	defname := expr.DynName()
+	idx := me.Locals.index(defname)
+	if idx < 0 {
+		idx = len(me.Locals)
+		var def AstDefBase
+		def.Name = me.b.IdentName(defname)
+		def.Body = expr
+		me.Locals = append(me.Locals, def)
+	}
+	return me.Locals[idx].Name
 }
 
 func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool) (ret IAstExprAtomic, errs atmo.Errors) {
