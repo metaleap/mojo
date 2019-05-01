@@ -1,6 +1,8 @@
 package atmocorefn
 
 import (
+	"sort"
+
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
@@ -10,6 +12,7 @@ func (me *AstDef) initFrom(orig *atmolang.AstDef) {
 	const caplocals = 6
 	me.Locals = make(astDefs, 0, caplocals)
 	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
+	sort.Sort(me.Locals)
 	if len(me.Locals) > caplocals {
 		println("LOCALDEFS", len(me.Locals))
 	}
@@ -95,7 +98,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 			if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
 				constexpr, me.AstIdentName = nil, *cxn
 			} else if cxu, ok2 := constexpr.(*AstIdentUnderscores); ok2 {
-				if constexpr, me.AstIdentName.Val, me.AstIdentName.Orig = nil, "_", v; cxu.Num() > 1 {
+				if constexpr, me.AstIdentName.Val, me.AstIdentName.Orig = nil, "ª"+ustr.Int(argIdx), v; cxu.Num() > 1 {
 					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
 				}
 			}

@@ -262,16 +262,19 @@ func (me *Repl) DSrcs(what string) bool {
 			} else {
 				defs, ctxp := kit.Defs(whatname), atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
 					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
-				me.IO.writeLns(ustr.Plu(len(defs), "def") + " named `" + whatname + "` found in kit `" + kit.ImpPath + ustr.If(len(defs) > 0, "`:", "`."))
+				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
 				for _, def := range defs {
-					if def != nil {
-						def.TopLevel.Print(&ctxp)
-						ctxp.WriteString("\n≡ IR:\n\n")
-						ctxp.CurTopLevel = nil
-						def.Print().(*atmolang.AstDef).Print(&ctxp)
-					}
+					me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath, "")
+					def.TopLevel.Print(&ctxp)
+					ctxp.WriteTo(me.IO.Stdout)
+					ctxp.Reset()
+
+					ctxp.CurTopLevel = nil
+					me.decoAddNotice(false, "", true, "internal intermediate language:", "")
+					def.Print().(*atmolang.AstDef).Print(&ctxp)
+					ctxp.WriteTo(me.IO.Stdout)
+					ctxp.Reset()
 				}
-				ctxp.BytesWriter.WriteTo(me.IO.Stdout)
 			}
 
 		})

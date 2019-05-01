@@ -25,6 +25,19 @@ func (me astDefs) index(name string) int {
 	return -1
 }
 
+func (me astDefs) Len() int          { return len(me) }
+func (me astDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+func (me astDefs) Less(i int, j int) bool {
+	ni, nj := me[i].Name.String(), me[j].Name.String()
+	if me[i].refersTo(nj) {
+		return true
+	}
+	if me[j].refersTo(ni) {
+		return false
+	}
+	return ni < nj
+}
+
 type AstDefs []AstDef
 
 func (me AstDefs) Len() int          { return len(me) }

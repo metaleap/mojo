@@ -10,6 +10,8 @@ import (
 type IAstNode interface {
 	Origin() atmolang.IAstNode
 	Print() atmolang.IAstNode
+
+	refersTo(string) bool
 }
 
 type IAstExpr interface {
@@ -27,17 +29,19 @@ type IAstIdent interface {
 	String() string
 }
 
-type AstNodeBase struct {
+type astNodeBase struct {
 }
 
 type AstDefBase struct {
-	AstNodeBase
+	astNodeBase
 	Orig *atmolang.AstDef
 
 	Name IAstIdent
 	Args []AstDefArg
 	Body IAstExpr
 }
+
+func (me *AstDefBase) refersTo(name string) bool { return me.Body.refersTo(name) }
 
 type AstDef struct {
 	AstDefBase
@@ -62,7 +66,7 @@ type AstDefArg struct {
 }
 
 type AstExprBase struct {
-	AstNodeBase
+	astNodeBase
 }
 
 type AstExprAtomBase struct {
@@ -78,6 +82,7 @@ type AstIdentBase struct {
 	Orig *atmolang.AstIdent
 }
 
+func (me *AstIdentBase) refersTo(name string) bool { return name == me.Val }
 func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstIdentBase) String() string            { return me.Val }
 func (me *AstIdentBase) DynName() string           { return me.Val }
@@ -150,9 +155,8 @@ type AstLitBase struct {
 	Orig atmolang.IAstExprAtomic
 }
 
-func (me *AstLitBase) Origin() atmolang.IAstNode {
-	return me.Orig
-}
+func (me *AstLitBase) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstLitBase) refersTo(string) bool      { return false }
 
 type AstLitRune struct {
 	AstLitBase
@@ -193,6 +197,9 @@ type AstAppl struct {
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "¯" + me.Arg.DynName() }
+func (me *AstAppl) refersTo(name string) bool {
+	return me.Callee.refersTo(name) || me.Arg.refersTo(name)
+}
 
 type AstCases struct {
 	AstExprBase
@@ -203,3 +210,16 @@ type AstCases struct {
 
 func (me *AstCases) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstCases) DynName() string           { panic(me.Origin) }
+func (me *AstCases) refersTo(name string) bool {
+	for i := range me.Thens {
+		if me.Thens[i].refersTo(name) {
+			return true
+		}
+		for j := range me.Ifs[i] {
+			if me.Ifs[i][j].refersTo(name) {
+				return true
+			}
+		}
+	}
+	return false
+}

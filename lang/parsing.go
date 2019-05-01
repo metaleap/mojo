@@ -308,11 +308,11 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 			cases.Scrutinee = nil
 
 			// now make & keep a desugared version:
-			// turn `foo|bar|baz` into `ˇ, arg ˇ := arg | foo | bar | baz ? arg`
+			// turn `foo|bar|baz` into `λ, ª λ := ª | foo | bar | baz ? ª`
 			let := AstExprLet{Defs: make([]AstDef, 1)}
-			letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "arg"}, Alts: make([]AstCase, 1)}
+			letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "ª"}, Alts: make([]AstCase, 1)}
 			cases.Desugared, let.Body, letcase.Alts[0].Body, letcase.Alts[0].Conds, letdef.Name.Val, letdef.Body, letdef.Args, let.Tokens, letdef.Tokens, letcase.Tokens =
-				&let, &letdef.Name, letcase.Scrutinee, cases.Alts[0].Conds, "ˇ", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, cases.Tokens, cases.Tokens, cases.Tokens
+				&let, &letdef.Name, letcase.Scrutinee, cases.Alts[0].Conds, "λ", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, cases.Tokens, cases.Tokens, cases.Tokens
 		}
 	}
 	ret = &cases

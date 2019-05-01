@@ -374,6 +374,7 @@ func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
 }
 func (me *PrintFmtPretty) OnExprLetBody(isLetTopLevelDefBody bool, _ *AstExprLet, node IAstExpr) {
 	me.Print(node)
+	me.WriteLineBreaksThenIndent(1)
 }
 func (me *PrintFmtPretty) OnExprLetDef(isLetTopLevelDefBody bool, _ *AstExprLet, _ int, node *AstDef) {
 	if isLetTopLevelDefBody {

@@ -65,13 +65,14 @@ func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNotic
 
 func (me *Ctx) initKits() {
 	dirok := func(dirfullpath string, dirname string) bool {
-		return dirfullpath == me.Dirs.Session || ustr.In(dirfullpath, me.Dirs.Kits...) ||
+		return (me.Dirs.Session != "" && dirfullpath == me.Dirs.Session) ||
+			ustr.In(dirfullpath, me.Dirs.Kits...) ||
 			(dirname != "*" && dirname != "#" && dirname != "_" && !ustr.HasAny(dirname, unicode.IsSpace))
 	}
 
 	var handledir func(string, map[string]int)
 	handledir = func(dirfullpath string, modkitdirs map[string]int) {
-		isdirsess := dirfullpath == me.Dirs.Session && !me.Dirs.sessAlreadyInKitsDirs
+		isdirsess := me.Dirs.Session != "" && dirfullpath == me.Dirs.Session && !me.Dirs.sessAlreadyInKitsDirs
 		if idx := me.Kits.all.indexDirPath(dirfullpath); idx >= 0 {
 			// dir was previously known as a kit
 			modkitdirs[dirfullpath] = cap(me.Kits.all[idx].srcFiles)
@@ -100,7 +101,7 @@ func (me *Ctx) initKits() {
 	}
 
 	var watchdirsess []string
-	if !me.Dirs.sessAlreadyInKitsDirs {
+	if me.Dirs.Session != "" && !me.Dirs.sessAlreadyInKitsDirs {
 		watchdirsess = []string{me.Dirs.Session}
 	}
 	modswatcher := ufs.ModificationsWatcher(KitsWatchInterval/2, me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, dirok, func(mods map[string]os.FileInfo, starttime int64) {
@@ -116,7 +117,7 @@ func (me *Ctx) initKits() {
 					modkitdirs[dp] = modkitdirs[dp] + 1
 				}
 			}
-			if len(me.Kits.all) == 0 && !me.Dirs.sessAlreadyInKitsDirs {
+			if len(me.Kits.all) == 0 && me.Dirs.Session != "" && !me.Dirs.sessAlreadyInKitsDirs {
 				modkitdirs[me.Dirs.Session] = 1
 			}
 			if filemodwatchduration = time.Now().UnixNano() - starttime; len(modkitdirs) > 0 {
@@ -137,7 +138,7 @@ func (me *Ctx) initKits() {
 							}
 						}
 						if kitimppath == "" {
-							if kitdirpath == me.Dirs.Session {
+							if me.Dirs.Session != "" && kitdirpath == me.Dirs.Session {
 								kitimppath = "#"
 							} else {
 								panic(kitdirpath) // should be impossible unless newly introduced bug

@@ -61,7 +61,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 func (me *Ctx) Init() (err error) {
 	me.maybeInitPanic(true)
 	dirsession := me.Dirs.Session
-	if me.state.initCalled, me.Kits.all = true, make(Kits, 0, 32); dirsession == "" || dirsession == "." {
+	if me.state.initCalled, me.Kits.all = true, make(Kits, 0, 32); dirsession == "." {
 		dirsession, err = os.Getwd()
 	} else if dirsession[0] == '~' {
 		if len(dirsession) == 1 {
@@ -70,11 +70,13 @@ func (me *Ctx) Init() (err error) {
 			dirsession = filepath.Join(usys.UserHomeDirPath(), dirsession[2:])
 		}
 	}
-	if err == nil {
-		dirsession, err = filepath.Abs(dirsession)
-	}
-	if err == nil && !ufs.IsDir(dirsession) {
-		err = &os.PathError{Path: dirsession, Op: "directory", Err: os.ErrNotExist}
+	if dirsession != "" {
+		if err == nil {
+			dirsession, err = filepath.Abs(dirsession)
+		}
+		if err == nil && !ufs.IsDir(dirsession) {
+			err = &os.PathError{Path: dirsession, Op: "directory", Err: os.ErrNotExist}
+		}
 	}
 	if cachedir := me.Dirs.Cache; err == nil {
 		if cachedir == "" {
@@ -120,10 +122,11 @@ func (me *Ctx) Init() (err error) {
 				}
 			}
 			if err == nil {
-				me.Dirs.sessAlreadyInKitsDirs = false
-				for _, kitsdirpath := range kitsdirs {
-					if me.Dirs.sessAlreadyInKitsDirs = ustr.Pref(dirsession, kitsdirpath+string(os.PathSeparator)); me.Dirs.sessAlreadyInKitsDirs {
-						break
+				if me.Dirs.sessAlreadyInKitsDirs = (dirsession == ""); !me.Dirs.sessAlreadyInKitsDirs {
+					for _, kitsdirpath := range kitsdirs {
+						if me.Dirs.sessAlreadyInKitsDirs = ustr.Pref(dirsession, kitsdirpath+string(os.PathSeparator)); me.Dirs.sessAlreadyInKitsDirs {
+							break
+						}
 					}
 				}
 				me.Dirs.Session, me.Dirs.Cache, me.Dirs.Kits = dirsession, cachedir, kitsdirs
