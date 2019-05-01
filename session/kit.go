@@ -122,9 +122,9 @@ func (me *Kit) HasDefs(name string) bool {
 }
 
 func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDef) {
-	wantall := (name == "")
 	for i := range me.topLevel {
-		if def := &me.topLevel[i]; wantall || def.Name.String() == name {
+		if def := &me.topLevel[i]; def.Orig.Name.Val == name {
+			def.EnsureInitedFromOrig()
 			defs = append(defs, def)
 		}
 	}

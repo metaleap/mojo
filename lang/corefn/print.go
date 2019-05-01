@@ -7,14 +7,14 @@ import (
 func Print(ctxp *atmolang.CtxPrint) {
 }
 
-func (me *AstLitFloat) Print() atmolang.IAstNode  { return atmolang.Builder.LitFloat(me.Val) }
-func (me *AstLitUint) Print() atmolang.IAstNode   { return atmolang.Builder.LitUint(me.Val) }
-func (me *AstLitRune) Print() atmolang.IAstNode   { return atmolang.Builder.LitRune(me.Val) }
-func (me *AstLitStr) Print() atmolang.IAstNode    { return atmolang.Builder.LitStr(me.Val) }
-func (me *AstIdentBase) Print() atmolang.IAstNode { return atmolang.Builder.Ident(me.Val) }
+func (me *AstLitFloat) Print() atmolang.IAstNode  { return atmolang.B.LitFloat(me.Val) }
+func (me *AstLitUint) Print() atmolang.IAstNode   { return atmolang.B.LitUint(me.Val) }
+func (me *AstLitRune) Print() atmolang.IAstNode   { return atmolang.B.LitRune(me.Val) }
+func (me *AstLitStr) Print() atmolang.IAstNode    { return atmolang.B.LitStr(me.Val) }
+func (me *AstIdentBase) Print() atmolang.IAstNode { return atmolang.B.Ident(me.Val) }
 
 func (me *AstAppl) Print() atmolang.IAstNode {
-	return atmolang.Builder.Appl(me.Callee.Print().(atmolang.IAstExpr), me.Arg.Print().(atmolang.IAstExpr))
+	return atmolang.B.Appl(me.Callee.Print().(atmolang.IAstExpr), me.Arg.Print().(atmolang.IAstExpr))
 }
 
 func (me *AstCases) Print() atmolang.IAstNode {
@@ -25,7 +25,7 @@ func (me *AstCases) Print() atmolang.IAstNode {
 			alts[i].Conds[j] = me.Ifs[i][j].Print().(atmolang.IAstExpr)
 		}
 	}
-	return atmolang.Builder.Cases(atmolang.Builder.IdentTrue(), alts...)
+	return atmolang.B.Cases(atmolang.B.IdentTrue(), alts...)
 }
 
 func (me *AstDefBase) Print() atmolang.IAstNode {
@@ -33,7 +33,7 @@ func (me *AstDefBase) Print() atmolang.IAstNode {
 	for i := range argnames {
 		argnames[i] = me.Args[i].AstIdentName.String()
 	}
-	return atmolang.Builder.Def(me.Name.String(), me.Body.Print().(atmolang.IAstExpr), argnames...)
+	return atmolang.B.Def(me.Name.String(), me.Body.Print().(atmolang.IAstExpr), argnames...)
 }
 
 func (me *AstDef) Print() atmolang.IAstNode {
@@ -43,11 +43,11 @@ func (me *AstDef) Print() atmolang.IAstNode {
 		for i := range me.Locals {
 			defs[i] = *(me.Locals[i].Print().(*atmolang.AstDef))
 		}
-		def.Body = atmolang.Builder.Let(def.Body, defs...)
+		def.Body = atmolang.B.Let(def.Body, defs...)
 	}
 	return def
 }
 
 func (me *AstDefArg) Print() atmolang.IAstNode {
-	return atmolang.Builder.Arg(me.AstIdentName.Print().(atmolang.IAstExprAtomic), nil)
+	return atmolang.B.Arg(me.AstIdentName.Print().(atmolang.IAstExprAtomic), nil)
 }

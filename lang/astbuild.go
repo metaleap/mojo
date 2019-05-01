@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	Builder           AstBuilder
+	B                 AstBuilder
 	builderSingletons struct {
 		identTrue  *AstIdent
 		identFalse *AstIdent
@@ -21,14 +21,14 @@ func (AstBuilder) Ident(val string) *AstIdent {
 
 func (AstBuilder) IdentTrue() *AstIdent {
 	if builderSingletons.identTrue == nil {
-		builderSingletons.identTrue = Builder.Ident("True")
+		builderSingletons.identTrue = B.Ident("True")
 	}
 	return builderSingletons.identTrue
 }
 
 func (AstBuilder) IdentFalse() *AstIdent {
 	if builderSingletons.identFalse == nil {
-		builderSingletons.identFalse = Builder.Ident("False")
+		builderSingletons.identFalse = B.Ident("False")
 	}
 	return builderSingletons.identFalse
 }

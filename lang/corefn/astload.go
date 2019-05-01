@@ -1,31 +1,10 @@
 package atmocorefn
 
 import (
-	"sort"
-
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
-
-func (me *AstDef) initFrom(orig *atmolang.AstDef) {
-	const caplocals = 6
-	me.Locals = make(astDefs, 0, caplocals)
-	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
-	sort.Sort(me.Locals)
-	if len(me.Locals) > caplocals {
-		println("LOCALDEFS", len(me.Locals))
-	}
-}
-
-func (me *AstDef) NextName(prefix string) string {
-	return prefix + ustr.Int(me.Next())
-}
-
-func (me *AstDef) Next() (counterIncr int) {
-	counterIncr, me.state.counter = me.state.counter, me.state.counter+1
-	return
-}
 
 func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig
@@ -79,15 +58,12 @@ func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 	if len(me.Orig.Args) > 0 {
 		opeq, args := ctx.b.IdentName("=="), make([]AstDefArg, len(me.Orig.Args))
 		for i := range me.Orig.Args {
-			dna := "ª" + ustr.Int(i)
-			ctx.dynNameAdd(dna)
 			if errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i)); args[i].coerceValue != nil {
 				me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, args[i].coerceValue, &args[i].AstIdentName), me.Body)
 			}
 			// if args[i].coerceFunc!=nil {
 			// 	me.Body=
 			// }
-			ctx.dynNameDrop(dna)
 		}
 		me.Args = args
 	}
@@ -127,9 +103,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 	}
 
 	if orig.Affix != nil {
-		ctx.dynNameAdd("F")
 		cf, e := ctx.newAstExprFrom(orig.Affix)
-		ctx.dynNameDrop("F")
 		errs.Add(e)
 		me.coerceFunc = cf
 	}
@@ -140,12 +114,8 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 	if len(orig.Args) > 1 {
 		errs = me.initFrom(ctx, orig.ToUnary())
 	} else {
-		ctx.dynNameAdd("C")
 		c, e := ctx.ensureAstAtomFrom(orig.Callee, true)
-		ctx.dynNameDrop("C")
-		ctx.dynNameAdd("A")
 		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false)
-		ctx.dynNameDrop("A")
 		me.Callee, errs = c.(IAstIdent), append(errs, e...)
 	}
 	me.Orig = orig
@@ -155,7 +125,6 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atmo.Errors) {
 	me.Orig = orig
 	var e atmo.Errors
-	ctx.dynNameAdd("B")
 
 	var scrut IAstExpr
 	ctx.dynNameAdd("S")
@@ -167,7 +136,6 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	}
 	scrut = ctx.b.Appl(ctx.b.IdentName("=="), ctx.ensureAstAtomFor(scrut, false))
 	scrutid := ctx.ensureAstAtomFor(scrut, true).(IAstIdent)
-	ctx.dynNameDrop("S")
 
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
 	for i := range orig.Alts {
@@ -191,7 +159,6 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		}
 		ctx.dynNameDrop(dna)
 	}
-	ctx.dynNameDrop("B")
 	return
 }
 
@@ -228,7 +195,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	defname := "@" + me.dynName(expr)
+	defname := "¨" + me.dynName(expr)
 	idx := me.Locals.index(defname)
 	if idx < 0 {
 		idx, me.Locals = len(me.Locals), append(me.Locals,
@@ -246,7 +213,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
-		def.Name = me.b.IdentName("@" + me.dynName(def.Body))
+		def.Name = me.b.IdentName("¨" + me.dynName(def.Body))
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
@@ -315,7 +282,6 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			lit.initFrom(me, o)
 			expr = &lit
 		case *atmolang.AstExprLet:
-			me.dynNameAdd("L")
 			renames := make(map[string]string, len(o.Defs))
 			locals := make(astDefs, len(o.Defs))
 			for i := range o.Defs {
@@ -328,7 +294,6 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 				locals[i].Body.renameIdents(renames)
 			}
 			me.Locals = append(me.Locals, locals...)
-			me.dynNameDrop("L")
 		case *atmolang.AstExprAppl:
 			if let := o.ToLetExprIfUnderscores(); let == nil {
 				var appl AstAppl
@@ -338,12 +303,12 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 				expr, errs = me.newAstExprFrom(let)
 			}
 		case *atmolang.AstExprCases:
-			if o.Desugared == nil {
+			if !o.IsSugared {
 				var cases AstCases
 				errs = cases.initFrom(me, o)
 				expr = &cases
 			} else {
-				expr, errs = me.newAstExprFrom(o.Desugared)
+				expr, errs = me.newAstExprFrom(o.Desugared())
 			}
 		default:
 			panic(o)

@@ -93,7 +93,18 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
-		this[i].initFrom(this[i].TopLevel.Ast.Def.Orig)
+		def := &this[i]
+		def.Orig = def.TopLevel.Ast.Def.Orig
+		def.EnsureInitedFromOrig = func() {
+			def.EnsureInitedFromOrig = func() {}
+			const caplocals = 6
+			def.Locals = make(astDefs, 0, caplocals)
+			def.Errs.Add(def.AstDefBase.initFrom(def, def.Orig))
+			sort.Sort(def.Locals)
+			if len(def.Locals) > caplocals {
+				println("LOCALDEFS", len(def.Locals))
+			}
+		}
 	}
 
 	sort.Sort(this)

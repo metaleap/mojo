@@ -148,7 +148,7 @@ type AstExprCases struct {
 	AstBaseExpr
 	Scrutinee    IAstExpr
 	Alts         []AstCase
-	Desugared    *AstExprLet
+	IsSugared    bool
 	defaultIndex int
 }
 
@@ -176,6 +176,16 @@ func (me *AstExprCases) Default() *AstCase {
 		return nil
 	}
 	return &me.Alts[me.defaultIndex]
+}
+
+func (me *AstExprCases) Desugared() (let *AstExprLet) {
+	if me.IsSugared {
+		let = &AstExprLet{Defs: make([]AstDef, 1)}
+		letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "æ"}, Alts: make([]AstCase, 1)}
+		let.Body, letcase.Alts[0].Body, letcase.Alts[0].Conds, letdef.Name.Val, letdef.Body, letdef.Args, let.Tokens, letdef.Tokens, letcase.Tokens =
+			&letdef.Name, letcase.Scrutinee, me.Alts[0].Conds, "λ", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, me.Tokens, me.Tokens, me.Tokens
+	}
+	return
 }
 
 func (me *AstExprCases) removeAltAt(idx int) {
@@ -231,33 +241,33 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 func (me *AstExprAppl) ToLetExprIfUnderscores() (let *AstExprLet) {
 	lamargs := make(map[IAstExpr]string)
 	if ident, _ := me.Callee.(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
-		lamargs[me.Callee] = "ª" + ustr.Int(len(ident.Val)-1)
+		lamargs[me.Callee] = "æ" + ustr.Int(len(ident.Val)-1)
 	}
 	for i := range me.Args {
 		if ident, _ := me.Args[i].(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
-			lamargs[me.Args[i]] = "ª" + ustr.Int(len(ident.Val)-1)
+			lamargs[me.Args[i]] = "æ" + ustr.Int(len(ident.Val)-1)
 		}
 	}
 	if len(lamargs) > 0 {
 		def := AstDef{Name: AstIdent{Val: "λ"}, Args: make([]AstDefArg, len(lamargs))}
 		for i := range def.Args {
-			def.Args[i].NameOrConstVal = Builder.Ident("ª" + ustr.Int(i))
+			def.Args[i].NameOrConstVal = B.Ident("æ" + ustr.Int(i))
 		}
 		var appl AstExprAppl
 		appl.Callee, appl.Args = me.Callee, make([]IAstExpr, len(me.Args))
 		if la := lamargs[me.Callee]; la != "" {
-			appl.Callee = Builder.Ident(la)
+			appl.Callee = B.Ident(la)
 		}
 		for i := range appl.Args {
 			if la := lamargs[me.Args[i]]; la != "" {
-				appl.Args[i] = Builder.Ident(la)
+				appl.Args[i] = B.Ident(la)
 			} else {
 				appl.Args[i] = me.Args[i]
 			}
 		}
 
 		def.Body = &appl
-		let = Builder.Let(&def.Name, def)
+		let = B.Let(&def.Name, def)
 	}
 	return
 }

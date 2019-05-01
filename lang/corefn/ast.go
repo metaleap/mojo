@@ -50,12 +50,12 @@ type AstDef struct {
 	AstDefBase
 	Locals astDefs
 
-	TopLevel *atmolang.AstFileTopLevelChunk
-	Errs     atmo.Errors
+	EnsureInitedFromOrig func()
+	TopLevel             *atmolang.AstFileTopLevelChunk
+	Errs                 atmo.Errors
 
 	b     AstBuilder
 	state struct {
-		counter        int
 		dynNamePrefs   string
 		nameReferences map[string]bool
 	}

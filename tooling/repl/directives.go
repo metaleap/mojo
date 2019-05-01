@@ -264,7 +264,7 @@ func (me *Repl) DSrcs(what string) bool {
 					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
 				for _, def := range defs {
-					me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath, "")
+					me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath)
 					def.TopLevel.Print(&ctxp)
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
@@ -274,6 +274,7 @@ func (me *Repl) DSrcs(what string) bool {
 					def.Print().(*atmolang.AstDef).Print(&ctxp)
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
+					me.IO.writeLns("", "")
 				}
 			}
 
