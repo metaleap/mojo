@@ -368,7 +368,7 @@ func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
 		me.WriteByte(' ')
 	}
 	me.Print(node)
-	if def.IsTopLevel {
+	if me.CurTopLevel == nil || def.IsTopLevel {
 		me.CurIndentLevel--
 	}
 }
