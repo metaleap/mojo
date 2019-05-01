@@ -265,10 +265,9 @@ func (me *Repl) DSrcs(what string) bool {
 				me.IO.writeLns(ustr.Plu(len(defs), "def") + " named `" + whatname + "` found in kit `" + kit.ImpPath + ustr.If(len(defs) > 0, "`:", "`."))
 				for _, def := range defs {
 					if def != nil {
-						ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
 						def.TopLevel.Print(&ctxp)
 						ctxp.WriteString("\n≡ IR:\n\n")
-						ctxp.CurTopLevel, ctxp.ApplStyle = nil, atmolang.APPLSTYLE_VSO
+						ctxp.CurTopLevel = nil
 						def.Print().(*atmolang.AstDef).Print(&ctxp)
 					}
 				}
