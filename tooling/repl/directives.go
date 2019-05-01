@@ -267,8 +267,8 @@ func (me *Repl) DSrcs(what string) bool {
 					if def != nil {
 						ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
 						def.TopLevel.Print(&ctxp)
-						ctxp.WriteString("\n\n≡ IR:\n\n")
-						ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
+						ctxp.WriteString("\n≡ IR:\n\n")
+						ctxp.CurTopLevel, ctxp.ApplStyle = nil, atmolang.APPLSTYLE_VSO
 						def.Print().(*atmolang.AstDef).Print(&ctxp)
 					}
 				}

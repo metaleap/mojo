@@ -218,7 +218,7 @@ func (me *AstExprAppl) print(p *CtxPrint) {
 }
 
 func (me *AstExprLet) print(p *CtxPrint) {
-	istopleveldefsbody := (p.CurTopLevel != nil && me == p.CurTopLevel.Ast.Def.Orig.Body)
+	istopleveldefsbody := (p.CurTopLevel == nil || (p.CurTopLevel.Ast.Def.Orig != nil && me == p.CurTopLevel.Ast.Def.Orig.Body))
 	p.Fmt.OnExprLetBody(istopleveldefsbody, me, me.Body)
 	for i := range me.Defs {
 		p.Fmt.OnExprLetDef(istopleveldefsbody, me, i, &me.Defs[i])
@@ -226,7 +226,7 @@ func (me *AstExprLet) print(p *CtxPrint) {
 }
 
 func (me *AstExprCases) print(p *CtxPrint) {
-	istopleveldefsbody := (p.CurTopLevel != nil && me == p.CurTopLevel.Ast.Def.Orig.Body)
+	istopleveldefsbody := (p.CurTopLevel == nil || (p.CurTopLevel.Ast.Def.Orig != nil && me == p.CurTopLevel.Ast.Def.Orig.Body))
 	if me.Scrutinee != nil {
 		p.Fmt.OnExprCasesScrutinee(istopleveldefsbody, me, me.Scrutinee)
 	}
@@ -361,7 +361,7 @@ func (me *PrintFmtPretty) OnComment(leads IAstNode, trails IAstNode, node *AstCo
 	}
 }
 func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
-	if def.IsTopLevel {
+	if me.CurTopLevel == nil || def.IsTopLevel {
 		me.CurIndentLevel++
 		me.WriteLineBreaksThenIndent(1)
 	} else {
@@ -382,4 +382,18 @@ func (me *PrintFmtPretty) OnExprLetDef(isLetTopLevelDefBody bool, _ *AstExprLet,
 		me.WriteString(" , ")
 	}
 	me.Print(node)
+}
+func (me *PrintFmtPretty) OnExprCasesScrutinee(_ bool, _ *AstExprCases, node IAstExpr) {
+	me.PrintInParensIf(node, true, false)
+	me.WriteByte(' ')
+}
+func (me *PrintFmtPretty) OnExprCasesCond(_ *AstCase, _ int, node IAstExpr) {
+	me.WriteByte(' ')
+	me.PrintInParensIf(node, true, false)
+	me.WriteByte(' ')
+}
+func (me *PrintFmtPretty) OnExprCasesBody(_ *AstCase, node IAstExpr) {
+	me.WriteByte(' ')
+	me.PrintInParensIf(node, true, false)
+	me.WriteByte(' ')
 }

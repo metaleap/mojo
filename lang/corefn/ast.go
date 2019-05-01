@@ -90,12 +90,51 @@ type AstIdentVar struct {
 	AstIdentBase
 }
 
+func (me *AstIdentVar) DynName() string { return "v·moo" + me.Val }
+
 type AstIdentTag struct {
 	AstIdentBase
 }
 
 type AstIdentOp struct {
 	AstIdentBase
+}
+
+func (me *AstIdentOp) DynName() (s string) {
+	s = "°"
+	switch me.Val {
+	case "==":
+		s += "eq"
+	case "!=", "/=":
+		s += "neq"
+	case "<=":
+		s += "leq"
+	case ">=":
+		s += "geq"
+	case ">":
+		s += "gt"
+	case "<":
+		s += "lt"
+	case "+":
+		s += "add"
+	case "-":
+		s += "sub"
+	case "*":
+		s += "mul"
+	case "/":
+		s += "div"
+	case "%":
+		s += "mod"
+	case "&&":
+		s += "and"
+	case "||":
+		s += "or"
+	default:
+		for _, r := range me.Val {
+			s += strconv.Itoa(int(r))
+		}
+	}
+	return
 }
 
 type AstIdentEmptyParens struct {
@@ -153,7 +192,7 @@ type AstAppl struct {
 }
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "¯" + me.Arg.DynName() }
+func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "º" + me.Arg.DynName() }
 
 type AstCases struct {
 	AstExprBase

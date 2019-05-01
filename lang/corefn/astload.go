@@ -7,7 +7,7 @@ import (
 )
 
 func (me *AstDef) initFrom(orig *atmolang.AstDef) {
-	const caplocals = 5
+	const caplocals = 6
 	me.Locals = make(astDefs, 0, caplocals)
 	me.Errs.Add(me.AstDefBase.initFrom(me, orig))
 	if len(me.Locals) > caplocals {
@@ -92,8 +92,12 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
 		if constexpr, errs = ctx.newAstIdentFrom(v); constexpr != nil {
-			if cx, ok := constexpr.(*AstIdentName); ok {
-				constexpr, me.AstIdentName = nil, *cx
+			if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
+				constexpr, me.AstIdentName = nil, *cxn
+			} else if cxu, ok2 := constexpr.(*AstIdentUnderscores); ok2 {
+				if constexpr, me.AstIdentName.Val, me.AstIdentName.Orig = nil, "_", v; cxu.Num() > 1 {
+					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
+				}
 			}
 		}
 	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitRune, *atmolang.AstExprLitStr:
@@ -102,7 +106,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 		panic(v)
 	}
 	if constexpr != nil {
-		me.AstIdentName.Val = "__arg__" + ustr.Int(argIdx)
+		me.AstIdentName.Val = ustr.Int(argIdx) + "ª"
 		me.coerceValue = constexpr
 	}
 
@@ -191,10 +195,10 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 		return xid
 	}
 	var def AstDefBase
-	def.Name = me.b.IdentName(expr.DynName())
+	def.Name = me.b.IdentName("zoo")
 	def.Body = expr
 	me.Locals = append(me.Locals, def)
-	return me.Locals[len(me.Locals)-1].Name
+	return def.Name
 }
 
 func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool) (ret IAstExprAtomic, errs atmo.Errors) {

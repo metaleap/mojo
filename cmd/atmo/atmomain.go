@@ -17,7 +17,7 @@ var (
 )
 
 func main() {
-	ustd.FlagsAddShortNames = true
+	ustd.FlagsAddShortNames, ustd.FlagsOnErr = true, func(_ string, _ string, e error) { panic(e) }
 	replMultiLineSuffix = ustd.FlagOfString("repl-ux-longsuffix", replMultiLineSuffix,
 		"    format: text; sets the line suffix that begins or ends a multi-line input")
 	replDirSession = ustd.FlagOfString("repl-dir-session", replDirSession,
