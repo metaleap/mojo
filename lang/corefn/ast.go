@@ -11,6 +11,7 @@ type IAstNode interface {
 	Origin() atmolang.IAstNode
 	Print() atmolang.IAstNode
 
+	renameIdents(map[string]string)
 	refersTo(string) bool
 }
 
@@ -91,7 +92,8 @@ type AstExprAtomBase struct {
 	AstExprBase
 }
 
-func (*AstExprAtomBase) __implements_IAstExprAtomic() {}
+func (me *AstExprAtomBase) renameIdents(map[string]string) {}
+func (*AstExprAtomBase) __implements_IAstExprAtomic()      {}
 
 type AstIdentBase struct {
 	AstExprAtomBase
@@ -107,6 +109,12 @@ func (me *AstIdentBase) DynName() string           { return me.Val }
 
 type AstIdentName struct {
 	AstIdentBase
+}
+
+func (me *AstIdentName) renameIdents(ren map[string]string) {
+	if nu, ok := ren[me.Val]; ok {
+		me.Val = nu
+	}
 }
 
 func (me AstIdentName) DynName() (s string) {
@@ -215,6 +223,10 @@ type AstAppl struct {
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "¯" + me.Arg.DynName() }
+func (me *AstAppl) renameIdents(ren map[string]string) {
+	me.Callee.renameIdents(ren)
+	me.Arg.renameIdents(ren)
+}
 func (me *AstAppl) refersTo(name string) bool {
 	return me.Callee.refersTo(name) || me.Arg.refersTo(name)
 }
@@ -228,6 +240,14 @@ type AstCases struct {
 
 func (me *AstCases) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstCases) DynName() string           { panic(me.Origin) }
+func (me *AstCases) renameIdents(ren map[string]string) {
+	for i := range me.Thens {
+		me.Thens[i].renameIdents(ren)
+		for j := range me.Ifs[i] {
+			me.Ifs[i][j].renameIdents(ren)
+		}
+	}
+}
 func (me *AstCases) refersTo(name string) bool {
 	for i := range me.Thens {
 		if me.Thens[i].refersTo(name) {

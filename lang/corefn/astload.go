@@ -45,6 +45,7 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 			if name.Val == "" || ustr.In(name.Val, langReservedOps...) {
 				errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 			}
+			name.Val = ctx.state.dynNamePrefs + name.Val
 		case *AstIdentTag:
 			errs.AddNaming(tok, "invalid def name: `"+name.Val+"` is upper-case, this is reserved for tags")
 		case *AstIdentVar:
@@ -131,8 +132,12 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 	if len(orig.Args) > 1 {
 		errs = me.initFrom(ctx, orig.ToUnary())
 	} else {
+		ctx.dynNameAdd("C")
 		c, e := ctx.ensureAstAtomFrom(orig.Callee, true)
+		ctx.dynNameDrop("C")
+		ctx.dynNameAdd("A")
 		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false)
+		ctx.dynNameDrop("A")
 		me.Callee, errs = c.(IAstIdent), append(errs, e...)
 	}
 	me.Orig = orig
@@ -144,6 +149,7 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	var e atmo.Errors
 
 	var scrut IAstExpr
+	ctx.dynNameAdd("S")
 	if orig.Scrutinee != nil {
 		scrut, e = ctx.newAstExprFrom(orig.Scrutinee)
 		errs.Add(e)
@@ -152,9 +158,12 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	}
 	scrut = ctx.b.Appl(ctx.b.IdentName("=="), ctx.ensureAstAtomFor(scrut, false))
 	scrutid := ctx.ensureAstAtomFor(scrut, true).(IAstIdent)
+	ctx.dynNameDrop("S")
 
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
 	for i := range orig.Alts {
+		dna := ustr.Int(i)
+		ctx.dynNameAdd(dna)
 		alt := &orig.Alts[i]
 		if alt.Body == nil {
 			panic("bug in atmo/lang: received an `AstCase` with a `nil` `Body`")
@@ -164,10 +173,14 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		}
 		me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
 		for c, cond := range alt.Conds {
+			dnc := ustr.Int(c)
+			ctx.dynNameAdd(dnc)
 			me.Ifs[i][c], e = ctx.newAstExprFrom(cond)
 			me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false))
 			errs.Add(e)
+			ctx.dynNameDrop(dnc)
 		}
+		ctx.dynNameDrop(dna)
 	}
 	return
 }
@@ -205,7 +218,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	defname := expr.DynName()
+	defname := me.state.dynNamePrefs + expr.DynName()
 	idx := me.Locals.index(defname)
 	if idx < 0 {
 		idx, me.Locals = len(me.Locals), append(me.Locals,
@@ -223,7 +236,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
-		def.Name = me.b.IdentName(def.Body.DynName())
+		def.Name = me.b.IdentName(me.state.dynNamePrefs + def.Body.DynName())
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
@@ -288,13 +301,20 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			lit.initFrom(me, o)
 			expr = &lit
 		case *atmolang.AstExprLet:
-
-			expr, errs = me.newAstExprFrom(o.Body)
+			me.dynNameAdd("L")
+			renames := make(map[string]string, len(o.Defs))
+			locals := make(astDefs, len(o.Defs))
 			for i := range o.Defs {
-				var def AstDefBase
-				errs.Add(def.initFrom(me, &o.Defs[i]))
-				me.Locals = append(me.Locals, def)
+				errs.Add(locals[i].initFrom(me, &o.Defs[i]))
+				renames[o.Defs[i].Name.Val] = locals[i].Name.String()
 			}
+			expr, errs = me.newAstExprFrom(o.Body)
+			expr.renameIdents(renames)
+			for i := range locals {
+				locals[i].Body.renameIdents(renames)
+			}
+			me.Locals = append(me.Locals, locals...)
+			me.dynNameDrop("L")
 		case *atmolang.AstExprAppl:
 			if let := o.ToLetExprIfUnderscores(); let == nil {
 				var appl AstAppl
