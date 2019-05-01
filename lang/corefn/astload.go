@@ -197,11 +197,8 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	defname := expr.DynName()
 	idx := me.Locals.index(defname)
 	if idx < 0 {
-		idx = len(me.Locals)
-		var def AstDefBase
-		def.Name = me.b.IdentName(defname)
-		def.Body = expr
-		me.Locals = append(me.Locals, def)
+		idx, me.Locals = len(me.Locals), append(me.Locals,
+			AstDefBase{Body: expr, Name: me.b.IdentName(defname)})
 	}
 	return me.Locals[idx].Name
 }
