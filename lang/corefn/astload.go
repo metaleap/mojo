@@ -33,7 +33,9 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 	errs.Add(me.initBody(ctx))
 	errs.Add(me.initArgs(ctx))
 	errs.Add(me.initMetas(ctx))
-	ctx.dynNameDrop(me.Orig.Name.Val)
+	if !me.Orig.IsTopLevel {
+		ctx.dynNameDrop(me.Orig.Name.Val)
+	}
 	return
 }
 
@@ -56,7 +58,10 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 			panic(name)
 		}
 	}
-	if ctx.dynNameAdd(me.Orig.Name.Val); me.Orig.NameAffix != nil {
+	if !me.Orig.IsTopLevel {
+		ctx.dynNameAdd(me.Orig.Name.Val)
+	}
+	if me.Orig.NameAffix != nil {
 		cf, e := ctx.newAstExprFrom(me.Orig.NameAffix)
 		errs.Add(e)
 		me.coerceFunc = cf
@@ -74,12 +79,15 @@ func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 	if len(me.Orig.Args) > 0 {
 		opeq, args := ctx.b.IdentName("=="), make([]AstDefArg, len(me.Orig.Args))
 		for i := range me.Orig.Args {
+			dna := "ª" + ustr.Int(i)
+			ctx.dynNameAdd(dna)
 			if errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i)); args[i].coerceValue != nil {
 				me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, args[i].coerceValue, &args[i].AstIdentName), me.Body)
 			}
 			// if args[i].coerceFunc!=nil {
 			// 	me.Body=
 			// }
+			ctx.dynNameDrop(dna)
 		}
 		me.Args = args
 	}
@@ -114,14 +122,14 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 		panic(v)
 	}
 	if constexpr != nil {
-		me.AstIdentName.Val = ustr.Int(argIdx) + "ª"
+		me.AstIdentName.Val = "ª" + ustr.Int(argIdx)
 		me.coerceValue = constexpr
 	}
 
 	if orig.Affix != nil {
-		ctx.dynNameAdd(me.AstIdentBase.Val)
+		ctx.dynNameAdd("F")
 		cf, e := ctx.newAstExprFrom(orig.Affix)
-		ctx.dynNameDrop(me.AstIdentBase.Val)
+		ctx.dynNameDrop("F")
 		errs.Add(e)
 		me.coerceFunc = cf
 	}
@@ -147,6 +155,7 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atmo.Errors) {
 	me.Orig = orig
 	var e atmo.Errors
+	ctx.dynNameAdd("B")
 
 	var scrut IAstExpr
 	ctx.dynNameAdd("S")
@@ -182,6 +191,7 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		}
 		ctx.dynNameDrop(dna)
 	}
+	ctx.dynNameDrop("B")
 	return
 }
 
@@ -218,7 +228,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	defname := me.state.dynNamePrefs + expr.DynName()
+	defname := "@" + me.dynName(expr)
 	idx := me.Locals.index(defname)
 	if idx < 0 {
 		idx, me.Locals = len(me.Locals), append(me.Locals,
@@ -236,7 +246,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
-		def.Name = me.b.IdentName(me.state.dynNamePrefs + def.Body.DynName())
+		def.Name = me.b.IdentName("@" + me.dynName(def.Body))
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
@@ -284,6 +294,10 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 		switch o := orig.(type) {
 		case *atmolang.AstIdent:
 			expr, errs = me.newAstIdentFrom(o)
+			switch expr.(type) {
+			case *AstIdentUnderscores:
+				errs.AddSyn(&o.Tokens[0], "lone placeholder illegal here: only permissible in def args or calls")
+			}
 		case *atmolang.AstExprLitFloat:
 			var lit AstLitFloat
 			lit.initFrom(me, o)

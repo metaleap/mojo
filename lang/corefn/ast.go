@@ -117,47 +117,6 @@ func (me *AstIdentName) renameIdents(ren map[string]string) {
 	}
 }
 
-func (me AstIdentName) DynName() (s string) {
-	if me.Orig == nil || !me.Orig.IsOpish {
-		s = me.AstIdentBase.DynName()
-	} else {
-		s = "º"
-		switch me.Val {
-		case "==":
-			s += "eq"
-		case "!=", "/=":
-			s += "neq"
-		case "<=":
-			s += "leq"
-		case ">=":
-			s += "geq"
-		case ">":
-			s += "gt"
-		case "<":
-			s += "lt"
-		case "+":
-			s += "add"
-		case "-":
-			s += "sub"
-		case "*":
-			s += "mul"
-		case "/":
-			s += "div"
-		case "%":
-			s += "mod"
-		case "&&":
-			s += "and"
-		case "||":
-			s += "or"
-		default:
-			for _, r := range me.Val {
-				s += strconv.Itoa(int(r))
-			}
-		}
-	}
-	return
-}
-
 type AstIdentVar struct {
 	AstIdentBase
 }
