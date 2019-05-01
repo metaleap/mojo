@@ -14,17 +14,15 @@ func (AstBuilder) Appl(callee IAstIdent, arg IAstExprAtomic) *AstAppl {
 	return &AstAppl{Callee: callee, Arg: arg}
 }
 
-func (AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) *AstAppl {
-	var appl AstAppl
+func (AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) (appl *AstAppl) {
 	for i := range args {
 		if i == 0 {
-			appl.Callee, appl.Arg = callee, args[i]
+			appl = &AstAppl{Callee: callee, Arg: args[i]}
 		} else {
-			oldappl := appl // ensure a copy is used
-			appl = AstAppl{Callee: ctx.ensureAstAtomFor(&oldappl, true).(IAstIdent), Arg: args[i]}
+			appl = &AstAppl{Callee: ctx.ensureAstAtomFor(appl, true).(IAstIdent), Arg: args[i]}
 		}
 	}
-	return &appl
+	return
 }
 
 func (AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {

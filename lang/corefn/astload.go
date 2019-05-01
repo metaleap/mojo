@@ -70,7 +70,7 @@ func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 		opeq, args := ctx.b.IdentOp("=="), make([]AstDefArg, len(me.Orig.Args))
 		for i := range me.Orig.Args {
 			if errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i)); args[i].coerceValue != nil {
-				me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &args[i].AstIdentName, args[i].coerceValue), me.Body)
+				me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, args[i].coerceValue, &args[i].AstIdentName), me.Body)
 			}
 		}
 		me.Args = args

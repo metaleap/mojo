@@ -101,7 +101,7 @@ type AstIdentOp struct {
 }
 
 func (me *AstIdentOp) DynName() (s string) {
-	s = "°"
+	s = "º"
 	switch me.Val {
 	case "==":
 		s += "eq"
@@ -192,7 +192,7 @@ type AstAppl struct {
 }
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "º" + me.Arg.DynName() }
+func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "ˇ" + me.Arg.DynName() }
 
 type AstCases struct {
 	AstExprBase
