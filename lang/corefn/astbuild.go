@@ -16,20 +16,12 @@ func (AstBuilder) Appl(callee IAstIdent, arg IAstExprAtomic) *AstAppl {
 
 func (AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) *AstAppl {
 	var appl AstAppl
-	if len(args) == 2 {
-		// 0
-		appl.Callee, appl.Arg = callee, args[0]
-		// 1
-		oldappl := appl
-		appl = AstAppl{Callee: ctx.ensureAstAtomFor(&oldappl, true).(IAstIdent), Arg: args[1]}
-	} else {
-		panic("OY")
-		for i := range args {
-			if i == 0 {
-				appl.Callee, appl.Arg = callee, args[i]
-			} else {
-				appl = AstAppl{Callee: ctx.ensureAstAtomFor(&appl, true).(IAstIdent), Arg: args[i]}
-			}
+	for i := range args {
+		if i == 0 {
+			appl.Callee, appl.Arg = callee, args[i]
+		} else {
+			oldappl := appl // ensure a copy is used
+			appl = AstAppl{Callee: ctx.ensureAstAtomFor(&oldappl, true).(IAstIdent), Arg: args[i]}
 		}
 	}
 	return &appl

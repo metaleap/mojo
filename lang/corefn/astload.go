@@ -195,7 +195,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 		return xid
 	}
 	var def AstDefBase
-	def.Name = me.b.IdentName("zoo")
+	def.Name = me.b.IdentName(expr.DynName())
 	def.Body = expr
 	me.Locals = append(me.Locals, def)
 	return def.Name
