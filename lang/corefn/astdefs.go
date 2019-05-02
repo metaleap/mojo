@@ -98,7 +98,7 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 		def := &this[i]
 		def.Orig, def.Ensure = def.TopLevel.Ast.Def.Orig, func() (errs atmo.Errors) {
 			def.Ensure = func() atmo.Errors { return nil }
-			const caplocals = 6
+			const caplocals = 10
 			def.Locals = make(astDefs, 0, caplocals)
 			errs = def.AstDefBase.initFrom(def, def.Orig)
 			def.Errors.Add(errs)
@@ -112,10 +112,10 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 	}
 
 	sort.Sort(this)
-	names, ndone := make([]string, 0, len(this)), make(map[string]bool, len(this))
+	names, ndone := make([]*atmolang.AstIdent, 0, len(this)), make(map[string]bool, len(this))
 	for i := range this {
-		if name := this[i].Orig.Name.Val; !ndone[name] {
-			ndone[name], names = true, append(names, name)
+		if name := &this[i].Orig.Name; !ndone[name.Val] {
+			ndone[name.Val], names = true, append(names, name)
 		}
 	}
 	for i := range this {

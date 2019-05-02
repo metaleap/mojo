@@ -33,7 +33,7 @@ func (me *Error) Error() (msg string) {
 	case ErrCatParsing:
 		msg += "[syntax] "
 	case ErrCatNaming:
-		msg += "[naming] "
+		msg += "[idents] "
 	default:
 		msg += "[other] "
 	}

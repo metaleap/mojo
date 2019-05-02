@@ -58,7 +58,7 @@ type AstDef struct {
 	state struct {
 		dynNamePrefs   string
 		nameReferences map[string]bool
-		namesInScope   []string
+		namesInScope   []*atmolang.AstIdent
 	}
 }
 

@@ -6,25 +6,45 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-func (me *AstDef) addName(name *atmolang.AstIdent, errs *atmo.Errors) (ok int) {
-	if ustr.In(name.Val, me.state.namesInScope...) {
-		errs.AddNaming(&name.Tokens[0], "already defined in this scope: "+name.Val)
-	} else {
-		ok, me.state.namesInScope = 1, append(me.state.namesInScope, name.Val)
+func (me *AstDef) nameInScope(name *atmolang.AstIdent) *atmolang.AstIdent {
+	for i := range me.state.namesInScope {
+		if me.state.namesInScope[i].Val == name.Val {
+			return me.state.namesInScope[i]
+		}
+	}
+	return nil
+}
+
+func (me *AstDef) namesInScopeAdd(errs *atmo.Errors, names ...*atmolang.AstIdent) (ok int) {
+	ndone := make(map[string]bool, len(names))
+	for i := range names {
+		if ident := me.nameInScope(names[i]); ident != nil {
+			errs.AddNaming(&names[i].Tokens[0], "name `"+names[i].Val+"` already taken by "+ident.Tokens[0].Meta.Position.String())
+			names[i] = nil
+		} else if ndone[names[i].Val] {
+			names[i] = nil
+		} else {
+			ndone[names[i].Val] = true
+		}
+	}
+	for i := range names {
+		if names[i] != nil {
+			ok, me.state.namesInScope = ok+1, append(me.state.namesInScope, names[i])
+		}
 	}
 	return
+}
+
+func (me *AstDef) namesInScopeDrop(num int) {
+	me.state.namesInScope = me.state.namesInScope[:len(me.state.namesInScope)-num]
 }
 
 func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig
 	var numnewnames int
-	addname := func(name *atmolang.AstIdent) { numnewnames += ctx.addName(name, &errs) }
-	if !me.Orig.IsTopLevel {
-		addname(&me.Orig.Name)
-	}
 	for i := range me.Orig.Args {
 		if name, _ := me.Orig.Args[i].NameOrConstVal.(*atmolang.AstIdent); name != nil {
-			addname(name)
+			numnewnames += ctx.namesInScopeAdd(&errs, name)
 		}
 	}
 	errs.Add(me.initName(ctx))
@@ -34,7 +54,7 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 	if !me.Orig.IsTopLevel {
 		ctx.dynNameDrop(me.Orig.Name.Val)
 	}
-	ctx.state.namesInScope = ctx.state.namesInScope[:len(ctx.state.namesInScope)-numnewnames]
+	ctx.namesInScopeDrop(numnewnames)
 	return
 }
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
@@ -273,6 +293,10 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			switch expr.(type) {
 			case *AstIdentUnderscores:
 				errs.AddSyn(&o.Tokens[0], "lone placeholder illegal here: only permissible in def args or calls")
+			case *AstIdentName:
+				if me.nameInScope(o) == nil {
+					errs.AddNaming(&o.Tokens[0], "name unknown: `"+o.Val+"`")
+				}
 			}
 		case *atmolang.AstExprLitFloat:
 			var lit AstLitFloat
@@ -293,16 +317,24 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 		case *atmolang.AstExprLet:
 			renames := make(map[string]string, len(o.Defs))
 			locals := make(astDefs, len(o.Defs))
+			nunames := make([]*atmolang.AstIdent, len(o.Defs))
+			for i := range o.Defs {
+				nunames[i] = &o.Defs[i].Name
+			}
+			numnames := me.namesInScopeAdd(&errs, nunames...)
+
 			for i := range o.Defs {
 				errs.Add(locals[i].initFrom(me, &o.Defs[i]))
 				renames[o.Defs[i].Name.Val] = locals[i].Name.String()
 			}
+
 			expr = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
 			expr.renameIdents(renames)
 			for i := range locals {
 				locals[i].Body.renameIdents(renames)
 			}
 			me.Locals = append(me.Locals, locals...)
+			me.namesInScopeDrop(numnames)
 		case *atmolang.AstExprAppl:
 			if let := o.ToLetExprIfUnderscores(); let == nil {
 				var appl AstAppl
