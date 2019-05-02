@@ -41,9 +41,10 @@ type AstDefBase struct {
 	Args []AstDefArg
 	Body IAstExpr
 
-	coerceFunc IAstExpr
+	nameCoerceFunc IAstExpr
 }
 
+func (me *AstDefBase) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstDefBase) refersTo(name string) bool { return me.Body.refersTo(name) }
 
 type AstDef struct {
@@ -61,7 +62,6 @@ type AstDef struct {
 	}
 }
 
-func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstDef) refersTo(name string) (refers bool) {
 	var ok bool
 	if me.state.nameReferences == nil {

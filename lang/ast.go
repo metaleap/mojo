@@ -132,16 +132,16 @@ type AstIdent struct {
 
 func (me *AstIdent) String() string { return me.Val }
 
-type AstExprLet struct {
-	AstBaseExpr
-	Defs []AstDef
-	Body IAstExpr
-}
-
 type AstExprAppl struct {
 	AstBaseExpr
 	Callee IAstExpr
 	Args   []IAstExpr
+}
+
+type AstExprLet struct {
+	AstBaseExpr
+	Defs []AstDef
+	Body IAstExpr
 }
 
 type AstExprCases struct {
@@ -240,17 +240,17 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 func (me *AstExprAppl) ToLetExprIfUnderscores() (let *AstExprLet) {
 	lamargs := make(map[IAstExpr]string, 0)
 	if ident, _ := me.Callee.(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
-		lamargs[me.Callee] = "æ" + ustr.Int(len(ident.Val)-1)
+		lamargs[me.Callee] = ustr.Int(len(ident.Val)-1) + "æ"
 	}
 	for i := range me.Args {
 		if ident, _ := me.Args[i].(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
-			lamargs[me.Args[i]] = "æ" + ustr.Int(len(ident.Val)-1)
+			lamargs[me.Args[i]] = ustr.Int(len(ident.Val)-1) + "æ"
 		}
 	}
 	if len(lamargs) > 0 {
 		def := AstDef{Name: AstIdent{Val: "λ"}, Args: make([]AstDefArg, len(lamargs))}
 		for i := range def.Args {
-			def.Args[i].NameOrConstVal = B.Ident("æ" + ustr.Int(i))
+			def.Args[i].NameOrConstVal = B.Ident(ustr.Int(i) + "æ")
 		}
 		var appl AstExprAppl
 		appl.Callee, appl.Args = me.Callee, make([]IAstExpr, len(me.Args))

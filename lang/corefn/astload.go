@@ -48,9 +48,9 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 		}
 	}
 	errs.Add(me.initName(ctx))
-	errs.Add(me.initBody(ctx))
 	errs.Add(me.initArgs(ctx))
 	errs.Add(me.initMetas(ctx))
+	errs.Add(me.initBody(ctx))
 	if !me.Orig.IsTopLevel {
 		ctx.dynNameDrop(me.Orig.Name.Val)
 	}
@@ -79,7 +79,7 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 		ctx.dynNameAdd(me.Orig.Name.Val)
 	}
 	if me.Orig.NameAffix != nil {
-		me.coerceFunc = errs.AddVia(ctx.newAstExprFrom(me.Orig.NameAffix)).(IAstExpr)
+		me.nameCoerceFunc = errs.AddVia(ctx.newAstExprFrom(me.Orig.NameAffix)).(IAstExpr)
 	}
 
 	return
@@ -87,19 +87,30 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 
 func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
 	me.Body, errs = ctx.newAstExprFrom(me.Orig.Body)
+
+	opeq := ctx.b.IdentName("==")
+	for i := range me.Args {
+		if me.Args[i].coerceValue != nil {
+			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, me.Args[i].coerceValue), me.Body)
+		}
+		if me.Args[i].coerceFunc != nil {
+			appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.Args[i].coerceFunc, true).(IAstIdent), &me.Args[i].AstIdentName)
+			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, ctx.ensureAstAtomFor(appl, false)), me.Body)
+		}
+	}
+	if me.nameCoerceFunc != nil {
+		appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.nameCoerceFunc, true).(IAstIdent), me.Name)
+		me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, me.Name, ctx.ensureAstAtomFor(appl, false)), me.Body)
+	}
+
 	return
 }
 
 func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 	if len(me.Orig.Args) > 0 {
-		opeq, args := ctx.b.IdentName("=="), make([]AstDefArg, len(me.Orig.Args))
+		args := make([]AstDefArg, len(me.Orig.Args))
 		for i := range me.Orig.Args {
-			if errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i)); args[i].coerceValue != nil {
-				me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, args[i].coerceValue, &args[i].AstIdentName), me.Body)
-			}
-			// if args[i].coerceFunc!=nil {
-			// 	me.Body=
-			// }
+			errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i))
 		}
 		me.Args = args
 	}
@@ -109,6 +120,9 @@ func (me *AstDefBase) initArgs(ctx *AstDef) (errs atmo.Errors) {
 func (me *AstDefBase) initMetas(ctx *AstDef) (errs atmo.Errors) {
 	if len(me.Orig.Meta) > 0 {
 		errs.AddTodo(&me.Orig.Meta[0].Toks()[0], "def metas")
+		for i := range me.Orig.Meta {
+			_ = errs.AddVia(ctx.newAstExprFrom(me.Orig.Meta[i]))
+		}
 	}
 	return
 }
@@ -123,7 +137,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 			if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
 				constexpr, me.AstIdentName = nil, *cxn
 			} else if cxu, ok2 := constexpr.(*AstIdentUnderscores); ok2 {
-				if constexpr, me.AstIdentName.Val, me.AstIdentName.Orig = nil, "ª"+ustr.Int(argIdx), v; cxu.Num() > 1 {
+				if constexpr, me.AstIdentName.Val, me.AstIdentName.Orig = nil, ustr.Int(argIdx)+"ª", v; cxu.Num() > 1 {
 					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
 				}
 			}
@@ -134,7 +148,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 		panic(v)
 	}
 	if constexpr != nil {
-		me.AstIdentName.Val = "ª" + ustr.Int(argIdx)
+		me.AstIdentName.Val = ustr.Int(argIdx) + "ª"
 		me.coerceValue = constexpr
 	}
 
@@ -217,7 +231,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	defname := "ŧ" + me.dynName(expr)
+	defname := /*"ŧ" +*/ me.dynName(expr)
 	idx := me.Locals.index(defname)
 	if idx < 0 {
 		idx, me.Locals = len(me.Locals), append(me.Locals,
@@ -235,7 +249,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
-		def.Name = me.b.IdentName("Ŧ" + me.dynName(def.Body))
+		def.Name = me.b.IdentName( /*"Ŧ" +*/ me.dynName(def.Body))
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
@@ -285,6 +299,9 @@ func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstE
 }
 
 func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
+	if orig == nil {
+		panic(123)
+	}
 	if orig != nil {
 		switch o := orig.(type) {
 		case *atmolang.AstIdent:
