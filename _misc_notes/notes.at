@@ -1,14 +1,21 @@
 
-/*  atoms: float int tags
-    composite:
+/*
+
+the cell model (simplified) of data/type primitives, to be used as a starting point:
+    atoms:
+        float
+        int
+        tags
+    composites:
         tagged foo
         sequence of foo
-            n-ary tuple: fixed-length any-typed sequence
+            n-ary tuple = fixed-length any-typed sequence
             string: tagged list of int32
-        sets:
-            unary: set of foo
-            binary: relations or maybe map or maybe record
-            n-ary: set of n-ary-tuple relations
+        relations:
+            unary: set of foos
+            binary: set of len-2 tuples, and optionally map or record semantics
+            n-ary: set of len-n tuples
+
 
 realworld.io, todomvc.com, or hnpwa.com
 */

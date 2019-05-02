@@ -302,12 +302,9 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 				}
 			}
 		}
-		if isunionsugar := len(cases.Alts) == 1 && cases.Alts[0].Body == nil; isunionsugar {
-			if cases.Scrutinee != nil { // fix-finish the sugar of simple `foo | bar | baz` form for cleaner desugaring
-				cases.Alts[0].Conds = append([]IAstExpr{cases.Scrutinee}, cases.Alts[0].Conds...)
-				cases.Scrutinee = nil
-			}
-			cases.IsSugared = true
+		if cases.Scrutinee != nil && cases.seemsUnionSugar() { // fix-finish the sugar of simple `foo | bar | baz` form for cleaner desugaring
+			cases.Alts[0].Conds = append([]IAstExpr{cases.Scrutinee}, cases.Alts[0].Conds...)
+			cases.Scrutinee = nil
 		}
 	}
 	ret = &cases

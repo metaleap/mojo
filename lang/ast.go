@@ -178,8 +178,12 @@ func (me *AstExprCases) Default() *AstCase {
 	return &me.Alts[me.defaultIndex]
 }
 
-func (me *AstExprCases) Desugared() (let *AstExprLet) {
-	if me.IsSugared {
+func (me *AstExprCases) seemsUnionSugar() bool {
+	return len(me.Alts) == 1 && me.Alts[0].Body == nil
+}
+
+func (me *AstExprCases) ToLetIfUnionSugar() (let *AstExprLet) {
+	if me.Scrutinee == nil && me.seemsUnionSugar() {
 		let = &AstExprLet{Defs: make([]AstDef, 1)}
 		letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "æ"}, Alts: make([]AstCase, 1)}
 		let.Body, letcase.Alts[0].Body, letcase.Alts[0].Conds, letdef.Name.Val, letdef.Body, letdef.Args, let.Tokens, letdef.Tokens, letcase.Tokens =
@@ -234,7 +238,7 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 }
 
 func (me *AstExprAppl) ToLetExprIfUnderscores() (let *AstExprLet) {
-	lamargs := make(map[IAstExpr]string)
+	lamargs := make(map[IAstExpr]string, 0)
 	if ident, _ := me.Callee.(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
 		lamargs[me.Callee] = "æ" + ustr.Int(len(ident.Val)-1)
 	}
@@ -265,12 +269,4 @@ func (me *AstExprAppl) ToLetExprIfUnderscores() (let *AstExprLet) {
 		let = B.Let(&def.Name, def)
 	}
 	return
-}
-
-func (me *AstExprLet) ToCombinators() (let *AstExprLet) {
-	let = &AstExprLet{AstBaseExpr: me.AstBaseExpr, Defs: make([]AstDef, len(me.Defs))}
-	return
-}
-
-func (me *AstDef) ToCombinator(scopes ...map[string]bool) {
 }

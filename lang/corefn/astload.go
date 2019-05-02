@@ -288,9 +288,7 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent, isDecl bool) (ret IAs
 }
 
 func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstExprAtomic, errs atmo.Errors) {
-	if expr, _ = errs.AddVia(me.newAstExprFrom(orig)).(IAstExprAtomic); expr == nil {
-		panic("should-be-impossible bug just occurred in atmo/lang/corefn.AstDefnewAstExprAtomicFrom")
-	}
+	expr = errs.AddVia(me.newAstExprFrom(orig)).(IAstExprAtomic)
 	return
 }
 
@@ -345,12 +343,12 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 				expr, errs = me.newAstExprFrom(let)
 			}
 		case *atmolang.AstExprCases:
-			if !o.IsSugared {
+			if let := o.ToLetIfUnionSugar(); let == nil {
 				var cases AstCases
 				errs = cases.initFrom(me, o)
 				expr = &cases
 			} else {
-				expr, errs = me.newAstExprFrom(o.Desugared())
+				expr, errs = me.newAstExprFrom(let)
 			}
 		default:
 			panic(o)
