@@ -16,6 +16,7 @@ type Kit struct {
 	ImpPath           string
 	DirPath           string
 	WasEverToBeLoaded bool
+	DefNames          []string
 
 	topLevel atmocorefn.AstDefs
 	srcFiles atmolang.AstFiles
@@ -79,7 +80,8 @@ func (me *Ctx) kitForceReload(this *Kit) {
 		sf := &this.srcFiles[i]
 		sf.LexAndParseFile(true, false)
 	}
-	if this.topLevel.Reload(this.srcFiles); !me.Kits.Loading.DeferIndividualDefsUntilManualCallOfEnsure {
+
+	if this.DefNames = this.topLevel.Reload(this.srcFiles); !me.Kits.Loading.DeferIndividualDefsUntilManualCallOfEnsure {
 		for i := range this.topLevel {
 			this.topLevel[i].Ensure()
 		}

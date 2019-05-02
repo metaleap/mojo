@@ -59,7 +59,7 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 }
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 	tok := me.Orig.Name.Tokens.First(nil)
-	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name); me.Name != nil {
+	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name, true); me.Name != nil {
 		switch name := me.Name.(type) {
 		case *AstIdentName:
 			if name.Val == "" || ustr.In(name.Val, langReservedOps...) {
@@ -120,7 +120,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 	var constexpr IAstExprAtomic
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
-		if constexpr, errs = ctx.newAstIdentFrom(v); constexpr != nil {
+		if constexpr, errs = ctx.newAstIdentFrom(v, true); constexpr != nil {
 			if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
 				constexpr, me.AstIdentName = nil, *cxn
 			} else if cxu, ok2 := constexpr.(*AstIdentUnderscores); ok2 {
@@ -149,9 +149,8 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 	if len(orig.Args) > 1 {
 		errs = me.initFrom(ctx, orig.ToUnary())
 	} else {
-		c, e := ctx.ensureAstAtomFrom(orig.Callee, true)
 		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false)
-		me.Callee, errs = c.(IAstIdent), append(errs, e...)
+		me.Callee = errs.AddVia(ctx.ensureAstAtomFrom(orig.Callee, true)).(IAstIdent)
 	}
 	me.Orig = orig
 	return
@@ -240,7 +239,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 		return me.newAstExprAtomicFrom(orig.(atmolang.IAstExprAtomic))
 	}
 	if oid, _ := orig.(*atmolang.AstIdent); oid != nil {
-		ret, errs = me.newAstIdentFrom(oid)
+		ret, errs = me.newAstIdentFrom(oid, false)
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
@@ -251,7 +250,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	return
 }
 
-func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs atmo.Errors) {
+func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent, isDecl bool) (ret IAstIdent, errs atmo.Errors) {
 	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
 		var ident AstIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
@@ -275,6 +274,16 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs 
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	}
+	if !isDecl {
+		switch ret.(type) {
+		case *AstIdentUnderscores:
+			errs.AddSyn(&orig.Tokens[0], "lone placeholder illegal here: only permissible in def args or calls")
+		case *AstIdentName:
+			if me.nameInScope(orig) == nil {
+				errs.AddNaming(&orig.Tokens[0], "name unknown: `"+orig.Val+"`")
+			}
+		}
+	}
 	return
 }
 
@@ -289,15 +298,7 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 	if orig != nil {
 		switch o := orig.(type) {
 		case *atmolang.AstIdent:
-			expr, errs = me.newAstIdentFrom(o)
-			switch expr.(type) {
-			case *AstIdentUnderscores:
-				errs.AddSyn(&o.Tokens[0], "lone placeholder illegal here: only permissible in def args or calls")
-			case *AstIdentName:
-				if me.nameInScope(o) == nil {
-					errs.AddNaming(&o.Tokens[0], "name unknown: `"+o.Val+"`")
-				}
-			}
+			expr, errs = me.newAstIdentFrom(o, false)
 		case *atmolang.AstExprLitFloat:
 			var lit AstLitFloat
 			lit.initFrom(me, o)

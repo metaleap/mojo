@@ -46,7 +46,7 @@ func (me AstDefs) Len() int          { return len(me) }
 func (me AstDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me AstDefs) Less(i int, j int) bool {
 	dis, dat := &me[i].Orig.Tokens[0].Meta, &me[j].Orig.Tokens[0].Meta
-	return (dis.Filename == dat.Filename && dis.Line < dat.Line) || dis.Filename < dat.Filename
+	return (dis.Filename == dat.Filename && dis.Offset < dat.Offset) || dis.Filename < dat.Filename
 }
 
 func (me AstDefs) ByID(id string) *AstDef {
@@ -66,7 +66,7 @@ func (me AstDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
+func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) (defNames []string) {
 	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make([]int, 0, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
@@ -112,16 +112,18 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 	}
 
 	sort.Sort(this)
+	defNames = make([]string, 0, len(this))
 	names, ndone := make([]*atmolang.AstIdent, 0, len(this)), make(map[string]bool, len(this))
 	for i := range this {
 		if name := &this[i].Orig.Name; !ndone[name.Val] {
-			ndone[name.Val], names = true, append(names, name)
+			ndone[name.Val], names, defNames = true, append(names, name), append(defNames, name.Val)
 		}
 	}
 	for i := range this {
 		this[i].state.namesInScope = names
 	}
 	*me = this
+	return
 }
 
 func (me *AstDefs) removeAllExcept(keepIdxs []int) {
