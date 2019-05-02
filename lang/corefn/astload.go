@@ -59,7 +59,7 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 }
 
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
-	tok := &me.Orig.Name.Tokens[0]
+	tok := me.Orig.Name.Tokens.First(nil) // never forget & always remember.. some generated ones don't have toks
 	me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name, true)
 	switch name := me.Name.(type) {
 	case *AstIdentName:
@@ -169,8 +169,6 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
 	for i := range orig.Alts {
-		dna := ustr.Int(i)
-		ctx.dynNameAdd(dna)
 		alt := &orig.Alts[i]
 		if alt.Body == nil {
 			panic("bug in atmo/lang: received an `AstCase` with a `nil` `Body`")
@@ -179,13 +177,9 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		}
 		me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
 		for c, cond := range alt.Conds {
-			dnc := ustr.Int(c)
-			ctx.dynNameAdd(dnc)
 			me.Ifs[i][c] = errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)
 			me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false))
-			ctx.dynNameDrop(dnc)
 		}
-		ctx.dynNameDrop(dna)
 	}
 	return
 }
@@ -223,7 +217,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	defname := "" + me.dynName(expr)
+	defname := "ŧ" + me.dynName(expr)
 	idx := me.Locals.index(defname)
 	if idx < 0 {
 		idx, me.Locals = len(me.Locals), append(me.Locals,
@@ -241,7 +235,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
-		def.Name = me.b.IdentName("" + me.dynName(def.Body))
+		def.Name = me.b.IdentName("Ŧ" + me.dynName(def.Body))
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
