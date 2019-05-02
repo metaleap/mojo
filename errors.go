@@ -48,12 +48,18 @@ func (me *Errors) Add(errs Errors) (anyAdded bool) {
 	return
 }
 
+func (me *Errors) AddVia(v interface{}, errs Errors) interface{} { me.Add(errs); return v }
+
 func ErrAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
 	return &Error{Msg: msg, Pos: *pos, Len: length, Cat: cat}
 }
 
 func ErrLex(pos *scanner.Position, msg string) *Error {
 	return ErrAt(ErrCatLexing, pos, 1, msg)
+}
+
+func ErrNaming(tok *udevlex.Token, msg string) *Error {
+	return ErrAt(ErrCatNaming, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
 
 func ErrSyn(tok *udevlex.Token, msg string) *Error {
@@ -88,4 +94,17 @@ func (me *Errors) AddNaming(tok *udevlex.Token, msg string) {
 
 func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) {
 	me.AddAt(cat, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+}
+
+func (me Errors) Len() int          { return len(me) }
+func (me Errors) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+func (me Errors) Less(i int, j int) bool {
+	ei, ej := &me[i], &me[j]
+	if ei.Pos.Filename == ej.Pos.Filename {
+		if ei.Pos.Offset == ej.Pos.Offset {
+			return ei.Msg < ej.Msg
+		}
+		return ei.Pos.Offset < ej.Pos.Offset
+	}
+	return ei.Pos.Filename < ej.Pos.Filename
 }

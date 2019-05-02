@@ -6,16 +6,19 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
+func (me *AstDef) addName(name *atmolang.AstIdent, errs *atmo.Errors) (ok int) {
+	if ustr.In(name.Val, me.state.namesInScope...) {
+		errs.AddNaming(&name.Tokens[0], "already defined in this scope: "+name.Val)
+	} else {
+		ok, me.state.namesInScope = 1, append(me.state.namesInScope, name.Val)
+	}
+	return
+}
+
 func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig
 	var numnewnames int
-	addname := func(name *atmolang.AstIdent) {
-		if ustr.In(name.Val, ctx.state.namesInScope...) {
-			errs.AddNaming(&name.Tokens[0], "already defined in this scope: "+name.Val)
-		} else {
-			numnewnames, ctx.state.namesInScope = numnewnames+1, append(ctx.state.namesInScope, name.Val)
-		}
-	}
+	addname := func(name *atmolang.AstIdent) { numnewnames += ctx.addName(name, &errs) }
 	if !me.Orig.IsTopLevel {
 		addname(&me.Orig.Name)
 	}
@@ -57,9 +60,7 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 		ctx.dynNameAdd(me.Orig.Name.Val)
 	}
 	if me.Orig.NameAffix != nil {
-		cf, e := ctx.newAstExprFrom(me.Orig.NameAffix)
-		errs.Add(e)
-		me.coerceFunc = cf
+		me.coerceFunc = errs.AddVia(ctx.newAstExprFrom(me.Orig.NameAffix)).(IAstExpr)
 	}
 
 	return
@@ -119,9 +120,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 	}
 
 	if orig.Affix != nil {
-		cf, e := ctx.newAstExprFrom(orig.Affix)
-		errs.Add(e)
-		me.coerceFunc = cf
+		me.coerceFunc = errs.AddVia(ctx.newAstExprFrom(orig.Affix)).(IAstExpr)
 	}
 	return
 }
@@ -140,13 +139,11 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 
 func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atmo.Errors) {
 	me.Orig = orig
-	var e atmo.Errors
 
 	var scrut IAstExpr
 	ctx.dynNameAdd("S")
 	if orig.Scrutinee != nil {
-		scrut, e = ctx.newAstExprFrom(orig.Scrutinee)
-		errs.Add(e)
+		scrut = errs.AddVia(ctx.newAstExprFrom(orig.Scrutinee)).(IAstExpr)
 	} else {
 		scrut = ctx.b.IdentTagTrue()
 	}
@@ -161,16 +158,14 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		if alt.Body == nil {
 			panic("bug in atmo/lang: received an `AstCase` with a `nil` `Body`")
 		} else {
-			me.Thens[i], e = ctx.newAstExprFrom(alt.Body)
-			errs.Add(e)
+			me.Thens[i] = errs.AddVia(ctx.newAstExprFrom(alt.Body)).(IAstExpr)
 		}
 		me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
 		for c, cond := range alt.Conds {
 			dnc := ustr.Int(c)
 			ctx.dynNameAdd(dnc)
-			me.Ifs[i][c], e = ctx.newAstExprFrom(cond)
+			me.Ifs[i][c] = errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)
 			me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false))
-			errs.Add(e)
 			ctx.dynNameDrop(dnc)
 		}
 		ctx.dynNameDrop(dna)
@@ -264,9 +259,7 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstIdent, errs 
 }
 
 func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstExprAtomic, errs atmo.Errors) {
-	x, e := me.newAstExprFrom(orig)
-	errs.Add(e)
-	if expr, _ = x.(IAstExprAtomic); expr == nil {
+	if expr, _ = errs.AddVia(me.newAstExprFrom(orig)).(IAstExprAtomic); expr == nil {
 		panic("should-be-impossible bug just occurred in atmo/lang/corefn.AstDefnewAstExprAtomicFrom")
 	}
 	return
@@ -304,7 +297,7 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 				errs.Add(locals[i].initFrom(me, &o.Defs[i]))
 				renames[o.Defs[i].Name.Val] = locals[i].Name.String()
 			}
-			expr, errs = me.newAstExprFrom(o.Body)
+			expr = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
 			expr.renameIdents(renames)
 			for i := range locals {
 				locals[i].Body.renameIdents(renames)

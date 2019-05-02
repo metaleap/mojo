@@ -102,6 +102,7 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 			def.Locals = make(astDefs, 0, caplocals)
 			errs = def.AstDefBase.initFrom(def, def.Orig)
 			def.Errors.Add(errs)
+			sort.Sort(def.Errors)
 			sort.Sort(def.Locals)
 			if len(def.Locals) > caplocals {
 				println("LOCALDEFS", len(def.Locals))
