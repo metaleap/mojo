@@ -3,7 +3,6 @@ package atmocorefn
 import (
 	"sort"
 
-	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
 
@@ -67,7 +66,7 @@ func (me AstDefs) IndexByID(id string) int {
 }
 
 func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) (defNames []string) {
-	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make([]int, 0, len(*me))
+	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]bool, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
 	for i := range kitSrcFiles {
@@ -76,42 +75,39 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) (defNames []string) {
 				if defidx := this.IndexByID(tl.ID()); defidx < 0 {
 					newdefs = append(newdefs, tl)
 				} else {
-					oldunchangeddefidxs = append(oldunchangeddefidxs, defidx)
+					oldunchangeddefidxs[defidx] = true
 				}
 			}
 		}
 	}
 
-	// gather & drop what's gone
-	this.removeAllExcept(oldunchangeddefidxs)
+	if len(oldunchangeddefidxs) > 0 { // gather & drop what's gone
+		dels := make(map[*atmolang.AstDef]bool, len(this)-len(oldunchangeddefidxs))
+		for i := range this {
+			if !oldunchangeddefidxs[i] {
+				dels[this[i].Orig] = true
+			}
+		}
+		for i := range this {
+			if dels[this[i].Orig] {
+				for j := i; j < len(this)-1; j++ {
+					this[j] = this[j+1]
+				}
+			}
+		}
+		this = this[:len(this)-len(dels)]
+	}
 
 	// add what's new
 	newstartfrom := len(this)
 	for _, tlc := range newdefs {
 		if !tlc.HasErrors() {
-			this = append(this, AstDef{TopLevel: tlc})
+			idx := len(this)
+			this = append(this, AstDef{})
+			this[idx].TopLevel, this[idx].Orig = tlc, tlc.Ast.Def.Orig
 		}
 	}
 
-	// populate new `Def`s from orig AST node
-	for i := newstartfrom; i < len(this); i++ {
-		def := &this[i]
-		def.Orig, def.Ensure = def.TopLevel.Ast.Def.Orig, func() (errs atmo.Errors) {
-			def.Ensure = func() atmo.Errors { return nil }
-			const caplocals = 10
-			def.Locals = make(astDefs, 0, caplocals)
-			errs = def.AstDefBase.initFrom(def, def.Orig)
-			def.Errors.Add(errs)
-			sort.Sort(def.Errors)
-			sort.Sort(def.Locals)
-			if len(def.Locals) > caplocals {
-				println("LOCALDEFS", len(def.Locals))
-			}
-			return
-		}
-	}
-
-	sort.Sort(this)
 	defNames = make([]string, 0, len(this))
 	names, ndone := make([]*atmolang.AstIdent, 0, len(this)), make(map[string]bool, len(this))
 	for i := range this {
@@ -122,18 +118,22 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) (defNames []string) {
 	for i := range this {
 		this[i].state.namesInScope = names
 	}
-	*me = this
-	return
-}
 
-func (me *AstDefs) removeAllExcept(keepIdxs []int) {
-	if this := *me; len(keepIdxs) == 0 {
-		*me = this[:0]
-	} else {
-		nume := make(AstDefs, 0, len(keepIdxs))
-		for _, idx := range keepIdxs {
-			nume = append(nume, this[idx])
+	// populate new `Def`s from orig AST node
+	for i := newstartfrom; i < len(this); i++ {
+		def := &this[i]
+		const caplocals = 10
+		def.Locals = make(astDefs, 0, caplocals)
+		def.Errors.Add(def.AstDefBase.initFrom(def, def.Orig))
+		sort.Sort(def.Errors)
+		sort.Sort(def.Locals)
+		if len(def.Locals) > caplocals {
+			println("LOCALDEFS", len(def.Locals))
 		}
-		*me = nume
 	}
+
+	sort.Sort(this)
+	*me = this
+
+	return
 }

@@ -265,13 +265,17 @@ func (me *Repl) DSrcs(what string) bool {
 				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
 				for _, def := range defs {
 					me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath)
+					ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
 					def.TopLevel.Print(&ctxp)
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
 
 					ctxp.CurTopLevel = nil
 					me.decoAddNotice(false, "", true, "internal representation:", "")
-					def.Print().(*atmolang.AstDef).Print(&ctxp)
+					ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
+					tmp1 := def.Print()
+					tmp2 := tmp1.(*atmolang.AstDef)
+					tmp2.Print(&ctxp)
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
 					me.IO.writeLns("", "")

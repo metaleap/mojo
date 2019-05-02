@@ -30,10 +30,7 @@ type Ctx struct {
 	}
 
 	Kits struct {
-		all     Kits
-		Loading struct {
-			DeferIndividualDefsUntilManualCallOfEnsure bool
-		}
+		all                      Kits
 		RecurringBackgroundWatch struct {
 			ShouldNow func() bool
 		}

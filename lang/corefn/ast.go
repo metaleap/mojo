@@ -50,7 +50,6 @@ type AstDef struct {
 	AstDefBase
 	Locals astDefs
 
-	Ensure   func() atmo.Errors
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errors   atmo.Errors
 

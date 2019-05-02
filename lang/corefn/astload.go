@@ -57,24 +57,25 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 	ctx.namesInScopeDrop(numnewnames)
 	return
 }
+
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 	tok := me.Orig.Name.Tokens.First(nil)
-	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name, true); me.Name != nil {
-		switch name := me.Name.(type) {
-		case *AstIdentName:
-			if name.Val == "" || ustr.In(name.Val, langReservedOps...) {
-				errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
-			}
-			name.Val = ctx.state.dynNamePrefs + name.Val
-		case *AstIdentTag:
-			errs.AddNaming(tok, "invalid def name: `"+name.Val+"` is upper-case, this is reserved for tags")
-		case *AstIdentVar:
-			errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"` (begins with multiple underscores)")
-		case *AstIdentUnderscores:
-			errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`")
-		default:
-			panic(name)
+	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name, true); me.Name == nil {
+		panic(me.Orig.Tokens.String())
+	}
+	switch name := me.Name.(type) {
+	case *AstIdentName:
+		if name.Val == "" || ustr.In(name.Val, langReservedOps...) {
+			errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 		}
+	case *AstIdentTag:
+		errs.AddNaming(tok, "invalid def name: `"+name.Val+"` is upper-case, this is reserved for tags")
+	case *AstIdentVar:
+		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"` (begins with multiple underscores)")
+	case *AstIdentUnderscores:
+		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`")
+	default:
+		panic(name)
 	}
 	if !me.Orig.IsTopLevel {
 		ctx.dynNameAdd(me.Orig.Name.Val)
@@ -160,7 +161,6 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	me.Orig = orig
 
 	var scrut IAstExpr
-	ctx.dynNameAdd("S")
 	if orig.Scrutinee != nil {
 		scrut = errs.AddVia(ctx.newAstExprFrom(orig.Scrutinee)).(IAstExpr)
 	} else {
@@ -225,7 +225,7 @@ func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstE
 	if xid, _ := expr.(IAstIdent); xid != nil {
 		return xid
 	}
-	defname := "¨" + me.dynName(expr)
+	defname := "" + me.dynName(expr)
 	idx := me.Locals.index(defname)
 	if idx < 0 {
 		idx, me.Locals = len(me.Locals), append(me.Locals,
@@ -243,7 +243,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent b
 	} else {
 		var def AstDefBase
 		def.Body, errs = me.newAstExprFrom(orig)
-		def.Name = me.b.IdentName("¨" + me.dynName(def.Body))
+		def.Name = me.b.IdentName("" + me.dynName(def.Body))
 		me.Locals = append(me.Locals, def)
 		ret = me.Locals[len(me.Locals)-1].Name
 	}
@@ -314,24 +314,18 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			lit.initFrom(me, o)
 			expr = &lit
 		case *atmolang.AstExprLet:
-			renames := make(map[string]string, len(o.Defs))
 			locals := make(astDefs, len(o.Defs))
-			nunames := make([]*atmolang.AstIdent, len(o.Defs))
+			newnamesinscope := make([]*atmolang.AstIdent, len(o.Defs))
 			for i := range o.Defs {
-				nunames[i] = &o.Defs[i].Name
+				newnamesinscope[i] = &o.Defs[i].Name
 			}
-			numnames := me.namesInScopeAdd(&errs, nunames...)
+			numnames := me.namesInScopeAdd(&errs, newnamesinscope...)
 
 			for i := range o.Defs {
 				errs.Add(locals[i].initFrom(me, &o.Defs[i]))
-				renames[o.Defs[i].Name.Val] = locals[i].Name.String()
 			}
 
 			expr = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
-			expr.renameIdents(renames)
-			for i := range locals {
-				locals[i].Body.renameIdents(renames)
-			}
 			me.Locals = append(me.Locals, locals...)
 			me.namesInScopeDrop(numnames)
 		case *atmolang.AstExprAppl:

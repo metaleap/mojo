@@ -21,7 +21,7 @@ type Kit struct {
 	topLevel atmocorefn.AstDefs
 	srcFiles atmolang.AstFiles
 	errs     struct {
-		refresh error
+		dirAccessDuringRefresh error
 	}
 }
 
@@ -46,7 +46,7 @@ func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
 	this := &me.Kits.all[idx]
 	var diritems []os.FileInfo
-	if diritems, this.errs.refresh = ufs.Dir(this.DirPath); this.errs.refresh != nil {
+	if diritems, this.errs.dirAccessDuringRefresh = ufs.Dir(this.DirPath); this.errs.dirAccessDuringRefresh != nil {
 		this.srcFiles, this.topLevel = nil, nil
 		return
 	}
@@ -81,17 +81,13 @@ func (me *Ctx) kitForceReload(this *Kit) {
 		sf.LexAndParseFile(true, false)
 	}
 
-	if this.DefNames = this.topLevel.Reload(this.srcFiles); !me.Kits.Loading.DeferIndividualDefsUntilManualCallOfEnsure {
-		for i := range this.topLevel {
-			this.topLevel[i].Ensure()
-		}
-	}
+	this.DefNames = this.topLevel.Reload(this.srcFiles)
 	me.onErrs(this.Errors(), nil)
 }
 
 func (me *Kit) Errors() (errs []error) {
-	if me.errs.refresh != nil {
-		errs = append(errs, me.errs.refresh)
+	if me.errs.dirAccessDuringRefresh != nil {
+		errs = append(errs, me.errs.dirAccessDuringRefresh)
 	}
 	for i := range me.srcFiles {
 		for _, e := range me.srcFiles[i].Errors() {
