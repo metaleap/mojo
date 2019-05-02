@@ -8,6 +8,22 @@ import (
 
 func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig
+	var numnewnames int
+	addname := func(name *atmolang.AstIdent) {
+		if ustr.In(name.Val, ctx.state.namesInScope...) {
+			errs.AddNaming(&name.Tokens[0], "already defined in this scope: "+name.Val)
+		} else {
+			numnewnames, ctx.state.namesInScope = numnewnames+1, append(ctx.state.namesInScope, name.Val)
+		}
+	}
+	if !me.Orig.IsTopLevel {
+		addname(&me.Orig.Name)
+	}
+	for i := range me.Orig.Args {
+		if name, _ := me.Orig.Args[i].NameOrConstVal.(*atmolang.AstIdent); name != nil {
+			addname(name)
+		}
+	}
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initBody(ctx))
 	errs.Add(me.initArgs(ctx))
@@ -15,9 +31,9 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 	if !me.Orig.IsTopLevel {
 		ctx.dynNameDrop(me.Orig.Name.Val)
 	}
+	ctx.state.namesInScope = ctx.state.namesInScope[:len(ctx.state.namesInScope)-numnewnames]
 	return
 }
-
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 	tok := me.Orig.Name.Tokens.First(nil)
 	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name); me.Name != nil {

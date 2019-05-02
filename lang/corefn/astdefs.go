@@ -1,8 +1,10 @@
 package atmocorefn
 
 import (
-	"github.com/metaleap/atmo/lang"
 	"sort"
+
+	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/lang"
 )
 
 type astDefs []AstDefBase
@@ -94,20 +96,30 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
 		def := &this[i]
-		def.Orig = def.TopLevel.Ast.Def.Orig
-		def.EnsureInitedFromOrig = func() {
-			def.EnsureInitedFromOrig = func() {}
+		def.Orig, def.EnsureInitedFromOrig = def.TopLevel.Ast.Def.Orig, func() (errs atmo.Errors) {
+			def.EnsureInitedFromOrig = func() atmo.Errors { return nil }
 			const caplocals = 6
 			def.Locals = make(astDefs, 0, caplocals)
-			def.Errs.Add(def.AstDefBase.initFrom(def, def.Orig))
+			errs = def.AstDefBase.initFrom(def, def.Orig)
+			def.Errors.Add(errs)
 			sort.Sort(def.Locals)
 			if len(def.Locals) > caplocals {
 				println("LOCALDEFS", len(def.Locals))
 			}
+			return
 		}
 	}
 
 	sort.Sort(this)
+	names, ndone := make([]string, 0, len(this)), make(map[string]bool, len(this))
+	for i := range this {
+		if name := this[i].Orig.Name.Val; !ndone[name] {
+			ndone[name], names = true, append(names, name)
+		}
+	}
+	for i := range this {
+		this[i].state.namesInScope = names
+	}
 	*me = this
 }
 

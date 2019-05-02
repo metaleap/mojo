@@ -24,6 +24,16 @@ type Kit struct {
 	}
 }
 
+func (me *Ctx) KitDefs(kit *Kit, name string) (defs []*atmocorefn.AstDef) {
+	for i := range kit.topLevel {
+		if def := &kit.topLevel[i]; def.Orig.Name.Val == name {
+			me.onErrs(nil, def.EnsureInitedFromOrig())
+			defs = append(defs, def)
+		}
+	}
+	return
+}
+
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	if !kit.WasEverToBeLoaded {
 		me.kitForceReload(kit)
@@ -80,11 +90,7 @@ func (me *Ctx) kitForceReload(this *Kit) {
 		sf.LexAndParseFile(true, false)
 	}
 	this.topLevel.Reload(this.srcFiles)
-	if errs := this.Errors(); len(errs) > 0 {
-		for _, e := range errs {
-			me.bgMsg(true, true, e.Error())
-		}
-	}
+	me.onErrs(this.Errors(), nil)
 }
 
 func (me *Kit) Errors() (errs []error) {
@@ -97,8 +103,8 @@ func (me *Kit) Errors() (errs []error) {
 		}
 	}
 	for i := range me.topLevel {
-		for e := range me.topLevel[i].Errs {
-			errs = append(errs, &me.topLevel[i].Errs[e])
+		for e := range me.topLevel[i].Errors {
+			errs = append(errs, &me.topLevel[i].Errors[e])
 		}
 	}
 	return
@@ -119,14 +125,4 @@ func (me *Kit) HasDefs(name string) bool {
 		}
 	}
 	return false
-}
-
-func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDef) {
-	for i := range me.topLevel {
-		if def := &me.topLevel[i]; def.Orig.Name.Val == name {
-			def.EnsureInitedFromOrig()
-			defs = append(defs, def)
-		}
-	}
-	return
 }

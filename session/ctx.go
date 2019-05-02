@@ -184,3 +184,12 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 	me.state.Unlock()
 	return
 }
+
+func (me *Ctx) onErrs(errs []error, errors atmo.Errors) {
+	for _, e := range errs {
+		me.bgMsg(true, true, e.Error())
+	}
+	for i := range errors {
+		me.bgMsg(true, true, errors[i].Error())
+	}
+}
