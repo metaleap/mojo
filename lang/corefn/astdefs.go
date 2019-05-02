@@ -123,9 +123,9 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 		def := &this[i]
 		const caplocals = 10
 		def.Locals = make(astDefs, 0, caplocals)
+		def.state.defsScope = []*astDefs{&def.Locals}
 		def.Errors.Add(def.AstDefBase.initFrom(def, def.Orig))
 		sort.Sort(def.Errors)
-		sort.Sort(def.Locals)
 		if len(def.Locals) > caplocals {
 			println("LOCALDEFS", len(def.Locals))
 		}

@@ -182,12 +182,12 @@ func (me *AstExprCases) seemsUnionSugar() bool {
 	return len(me.Alts) == 1 && me.Alts[0].Body == nil
 }
 
-func (me *AstExprCases) ToLetIfUnionSugar() (let *AstExprLet) {
+func (me *AstExprCases) ToLetIfUnionSugar(prefix int) (let *AstExprLet) {
 	if me.Scrutinee == nil && me.seemsUnionSugar() {
 		let = &AstExprLet{Defs: make([]AstDef, 1)}
 		letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "æ"}, Alts: make([]AstCase, 1)}
 		let.Body, letcase.Alts[0].Body, letcase.Alts[0].Conds, letdef.Name.Val, letdef.Body, letdef.Args, let.Tokens, letdef.Tokens, letcase.Tokens =
-			&letdef.Name, letcase.Scrutinee, me.Alts[0].Conds, "λ", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, me.Tokens, me.Tokens, me.Tokens
+			&letdef.Name, letcase.Scrutinee, me.Alts[0].Conds, ustr.Int(prefix)+"sumt", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, me.Tokens, me.Tokens, me.Tokens
 	}
 	return
 }
@@ -237,7 +237,7 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 	return
 }
 
-func (me *AstExprAppl) ToLetExprIfUnderscores() (let *AstExprLet) {
+func (me *AstExprAppl) ToLetExprIfUnderscores(prefix int) (let *AstExprLet) {
 	lamargs := make(map[IAstExpr]string, 0)
 	if ident, _ := me.Callee.(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
 		lamargs[me.Callee] = ustr.Int(len(ident.Val)-1) + "æ"
@@ -248,7 +248,7 @@ func (me *AstExprAppl) ToLetExprIfUnderscores() (let *AstExprLet) {
 		}
 	}
 	if len(lamargs) > 0 {
-		def := AstDef{Name: AstIdent{Val: "λ"}, Args: make([]AstDefArg, len(lamargs))}
+		def := AstDef{Name: AstIdent{Val: ustr.Int(prefix) + "lamb"}, Args: make([]AstDefArg, len(lamargs))}
 		for i := range def.Args {
 			def.Args[i].NameOrConstVal = B.Ident(ustr.Int(i) + "æ")
 		}

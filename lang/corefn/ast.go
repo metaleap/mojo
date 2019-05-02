@@ -3,6 +3,7 @@ package atmocorefn
 import (
 	"strconv"
 
+	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
@@ -59,6 +60,12 @@ type AstDef struct {
 		dynNamePrefs   string
 		nameReferences map[string]bool
 		namesInScope   []*atmolang.AstIdent
+		defsScope      []*astDefs
+		counters       struct {
+			sumt int
+			lamb int
+			let  int
+		}
 	}
 }
 
@@ -181,13 +188,40 @@ type AstAppl struct {
 }
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "¯" + me.Arg.DynName() }
+func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "«" + me.Arg.DynName() }
 func (me *AstAppl) renameIdents(ren map[string]string) {
 	me.Callee.renameIdents(ren)
 	me.Arg.renameIdents(ren)
 }
 func (me *AstAppl) refersTo(name string) bool {
 	return me.Callee.refersTo(name) || me.Arg.refersTo(name)
+}
+
+type AstLet struct {
+	AstExprBase
+	Orig   *atmolang.AstExprLet
+	Body   IAstExpr
+	Defs   astDefs
+	prefix int
+}
+
+func (me *AstLet) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstLet) DynName() string           { return ustr.Int(me.prefix) + "l" }
+func (me *AstLet) renameIdents(ren map[string]string) {
+	me.Body.renameIdents(ren)
+	for i := range me.Defs {
+		me.Defs[i].Body.renameIdents(ren)
+	}
+}
+func (me *AstLet) refersTo(name string) (refers bool) {
+	if refers = me.Body.refersTo(name); !refers {
+		for i := range me.Defs {
+			if refers = me.Defs[i].refersTo(name); refers {
+				break
+			}
+		}
+	}
+	return
 }
 
 type AstCases struct {
@@ -198,7 +232,7 @@ type AstCases struct {
 }
 
 func (me *AstCases) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstCases) DynName() string           { panic(me.Origin) }
+func (me *AstCases) DynName() string           { panic(me.Orig) }
 func (me *AstCases) renameIdents(ren map[string]string) {
 	for i := range me.Thens {
 		me.Thens[i].renameIdents(ren)

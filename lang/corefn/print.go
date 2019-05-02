@@ -28,6 +28,15 @@ func (me *AstCases) Print() atmolang.IAstNode {
 	return atmolang.B.Cases(atmolang.B.IdentTrue(), alts...)
 }
 
+func (me *AstLet) Print() atmolang.IAstNode {
+	let := atmolang.B.Let(me.Body.Print().(atmolang.IAstExpr))
+	let.Defs = make([]atmolang.AstDef, len(me.Defs))
+	for i := range me.Defs {
+		let.Defs[i] = *me.Defs[i].Print().(*atmolang.AstDef)
+	}
+	return let
+}
+
 func (me *AstDefBase) Print() atmolang.IAstNode {
 	argnames := make([]string, len(me.Args))
 	for i := range argnames {
