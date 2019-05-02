@@ -59,10 +59,8 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 }
 
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
-	tok := me.Orig.Name.Tokens.First(nil)
-	if me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name, true); me.Name == nil {
-		panic(me.Orig.Tokens.String())
-	}
+	tok := &me.Orig.Name.Tokens[0]
+	me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name, true)
 	switch name := me.Name.(type) {
 	case *AstIdentName:
 		if name.Val == "" || ustr.In(name.Val, langReservedOps...) {

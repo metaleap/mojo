@@ -33,10 +33,7 @@ func (me *AstDefBase) Print() atmolang.IAstNode {
 	for i := range argnames {
 		argnames[i] = me.Args[i].AstIdentName.String()
 	}
-	tn := me.Name.String()
-	tbp := me.Body.Print()
-	tbpx := tbp.(atmolang.IAstExpr)
-	return atmolang.B.Def(tn, tbpx, argnames...)
+	return atmolang.B.Def(me.Name.String(), me.Body.Print().(atmolang.IAstExpr), argnames...)
 }
 
 func (me *AstDef) Print() atmolang.IAstNode {

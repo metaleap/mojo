@@ -273,9 +273,7 @@ func (me *Repl) DSrcs(what string) bool {
 					ctxp.CurTopLevel = nil
 					me.decoAddNotice(false, "", true, "internal representation:", "")
 					ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
-					tmp1 := def.Print()
-					tmp2 := tmp1.(*atmolang.AstDef)
-					tmp2.Print(&ctxp)
+					def.Print().(*atmolang.AstDef).Print(&ctxp)
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
 					me.IO.writeLns("", "")

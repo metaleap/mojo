@@ -65,7 +65,7 @@ func (me AstDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) (defNames []string) {
+func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]bool, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
@@ -108,11 +108,10 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) (defNames []string) {
 		}
 	}
 
-	defNames = make([]string, 0, len(this))
 	names, ndone := make([]*atmolang.AstIdent, 0, len(this)), make(map[string]bool, len(this))
 	for i := range this {
 		if name := &this[i].Orig.Name; !ndone[name.Val] {
-			ndone[name.Val], names, defNames = true, append(names, name), append(defNames, name.Val)
+			ndone[name.Val], names = true, append(names, name)
 		}
 	}
 	for i := range this {
