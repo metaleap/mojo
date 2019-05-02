@@ -50,9 +50,9 @@ type AstDef struct {
 	AstDefBase
 	Locals astDefs
 
-	EnsureInitedFromOrig func() atmo.Errors
-	TopLevel             *atmolang.AstFileTopLevelChunk
-	Errors               atmo.Errors
+	Ensure   func() atmo.Errors
+	TopLevel *atmolang.AstFileTopLevelChunk
+	Errors   atmo.Errors
 
 	b     AstBuilder
 	state struct {
