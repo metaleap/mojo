@@ -304,7 +304,7 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 				expr = &appl
 			} else {
 				oldscope, let := me.state.defsScope, AstLet{prefix: me.nextClet(), Body: &appl}
-				if me.state.defsScope = &let.Defs; !atc {
+				if /*me.state.defsScope = &let.Defs;*/ !atc {
 					def := let.Defs.add(errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr))
 					def.Name.Val = ustr.Int(let.prefix) + "c" + def.Body.DynName()
 					appl.Callee = &def.Name

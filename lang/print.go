@@ -30,7 +30,7 @@ type CtxPrint struct {
 	Fmt            IPrintFmt
 	ApplStyle      ApplStyle
 	NoComments     bool
-	CurTopLevel    *AstFileTopLevelChunk
+	CurTopLevel    *AstDef
 	CurIndentLevel int
 	OneIndentLevel string
 
@@ -81,7 +81,7 @@ func (me *AstFile) Print(fmt IPrintFmt) []byte {
 }
 
 func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
-	if p.CurIndentLevel, p.CurTopLevel = 0, me; !p.fmtCtxSet {
+	if p.CurIndentLevel, p.CurTopLevel = 0, me.Ast.Def.Orig; !p.fmtCtxSet {
 		p.fmtCtxSet = true
 		p.Fmt.SetCtxPrint(p)
 	}
@@ -109,6 +109,7 @@ func (me *AstComment) print(p *CtxPrint) {
 func (me *AstDef) Print(ctxp *CtxPrint) { me.print(ctxp) }
 
 func (me *AstDef) print(p *CtxPrint) {
+	p.CurTopLevel = me
 	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
 		if p.Fmt.OnDefName(me, &me.Name); me.NameAffix != nil {
@@ -194,7 +195,7 @@ func (me *AstExprLitStr) print(p *CtxPrint) {
 }
 
 func (me *AstExprAppl) print(p *CtxPrint) {
-	istopleveldefsbody := (p.CurTopLevel != nil && me == p.CurTopLevel.Ast.Def.Orig.Body)
+	istopleveldefsbody := (me == p.CurTopLevel.Body)
 	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
 		p.Fmt.OnExprApplName(istopleveldefsbody, me, me.Callee)
@@ -218,7 +219,7 @@ func (me *AstExprAppl) print(p *CtxPrint) {
 }
 
 func (me *AstExprLet) print(p *CtxPrint) {
-	istopleveldefsbody := (p.CurTopLevel == nil || (p.CurTopLevel.Ast.Def.Orig != nil && me == p.CurTopLevel.Ast.Def.Orig.Body))
+	istopleveldefsbody := (me == p.CurTopLevel.Body)
 	p.Fmt.OnExprLetBody(istopleveldefsbody, me, me.Body)
 	for i := range me.Defs {
 		p.Fmt.OnExprLetDef(istopleveldefsbody, me, i, &me.Defs[i])
@@ -226,7 +227,7 @@ func (me *AstExprLet) print(p *CtxPrint) {
 }
 
 func (me *AstExprCases) print(p *CtxPrint) {
-	istopleveldefsbody := (p.CurTopLevel == nil || (p.CurTopLevel.Ast.Def.Orig != nil && me == p.CurTopLevel.Ast.Def.Orig.Body))
+	istopleveldefsbody := (me == p.CurTopLevel.Body)
 	if me.Scrutinee != nil {
 		p.Fmt.OnExprCasesScrutinee(istopleveldefsbody, me, me.Scrutinee)
 	}
@@ -324,7 +325,7 @@ func (me *PrintFmtMinimal) OnComment(leads IAstNode, trails IAstNode, node *AstC
 		}
 		needsnolinebreak :=
 			(tl != nil && tl.Def.Orig == nil && node == &tl.comments.Leading[len(tl.comments.Leading)-1]) ||
-				(leads == nil && trails != nil && node.Tokens.Last(nil) == me.CurTopLevel.Ast.Def.Orig.Tokens.Last(nil))
+				(leads == nil && trails != nil && node.Tokens.Last(nil) == me.CurTopLevel.Tokens.Last(nil))
 		if !needsnolinebreak {
 			me.WriteLineBreaksThenIndent(1)
 		}
@@ -361,26 +362,28 @@ func (me *PrintFmtPretty) OnComment(leads IAstNode, trails IAstNode, node *AstCo
 	}
 }
 func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
-	if me.CurTopLevel == nil || def.IsTopLevel {
+	if def.IsTopLevel {
 		me.CurIndentLevel++
 		me.WriteLineBreaksThenIndent(1)
 	} else {
 		me.WriteByte(' ')
 	}
 	me.Print(node)
-	if me.CurTopLevel == nil || def.IsTopLevel {
+	if def.IsTopLevel {
 		me.CurIndentLevel--
 	}
 }
 func (me *PrintFmtPretty) OnExprLetBody(isLetTopLevelDefBody bool, _ *AstExprLet, node IAstExpr) {
 	me.Print(node)
-	me.WriteLineBreaksThenIndent(1)
-}
-func (me *PrintFmtPretty) OnExprLetDef(isLetTopLevelDefBody bool, _ *AstExprLet, _ int, node *AstDef) {
 	if isLetTopLevelDefBody {
 		me.WriteLineBreaksThenIndent(1)
-	} else {
+	}
+}
+func (me *PrintFmtPretty) OnExprLetDef(isLetTopLevelDefBody bool, _ *AstExprLet, _ int, node *AstDef) {
+	if !isLetTopLevelDefBody {
 		me.WriteString(" , ")
+	} else {
+		me.WriteLineBreaksThenIndent(1)
 	}
 	me.Print(node)
 }
