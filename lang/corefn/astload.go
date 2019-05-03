@@ -134,7 +134,7 @@ func (me *AstDefArg) initFrom(ctx *AstDef, orig *atmolang.AstDefArg, argIdx int)
 			}
 		}
 	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitRune, *atmolang.AstExprLitStr:
-		constexpr, errs = ctx.newAstExprAtomicFrom(v)
+		constexpr = errs.AddVia(ctx.newAstExprFrom(v)).(IAstExprAtomic)
 	default:
 		panic(v)
 	}
@@ -243,11 +243,6 @@ func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent, isDecl bool) (ret IAs
 			}
 		}
 	}
-	return
-}
-
-func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstExprAtomic, errs atmo.Errors) {
-	expr = errs.AddVia(me.newAstExprFrom(orig)).(IAstExprAtomic)
 	return
 }
 
