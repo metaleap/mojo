@@ -17,6 +17,14 @@ func (me astDefs) byName(name string) *AstDefBase {
 	return nil
 }
 
+func (me *astDefs) add(body IAstExpr) (def *AstDefBase) {
+	this := *me
+	idx := len(this)
+	this = append(this, AstDefBase{Body: body})
+	*me, def = this, &this[idx]
+	return
+}
+
 func (me astDefs) index(name string) int {
 	for i := range me {
 		if me[i].Name.Val == name {
@@ -124,7 +132,7 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 		def := &this[i]
 		const caplocals = 10
 		def.Locals = make(astDefs, 0, caplocals)
-		def.state.defsScope = []*astDefs{&def.Locals}
+		def.state.defsScope = &def.Locals
 		def.Errors.Add(def.AstDefBase.initFrom(def, def.Orig))
 		sort.Sort(def.Errors)
 		if len(def.Locals) > caplocals {

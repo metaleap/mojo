@@ -19,6 +19,7 @@ type IAstNode interface {
 type IAstExpr interface {
 	IAstNode
 	DynName() string
+	IsAtomic() bool
 }
 
 type IAstExprAtomic interface {
@@ -55,7 +56,7 @@ type AstDef struct {
 		dynNamePrefs   string
 		nameReferences map[string]bool
 		namesInScope   []*atmolang.AstIdent
-		defsScope      []*astDefs
+		defsScope      *astDefs
 		counters       struct {
 			sumt int
 			lamb int
@@ -90,10 +91,13 @@ type AstExprBase struct {
 	astNodeBase
 }
 
+func (*AstExprBase) IsAtomic() bool { return false }
+
 type AstExprAtomBase struct {
 	AstExprBase
 }
 
+func (*AstExprAtomBase) IsAtomic() bool                    { return true }
 func (me *AstExprAtomBase) renameIdents(map[string]string) {}
 func (*AstExprAtomBase) __implements_IAstExprAtomic()      {}
 
@@ -132,7 +136,7 @@ type AstIdentEmptyParens struct {
 	AstIdentBase
 }
 
-type AstIdentUnderscores struct {
+type AstIdentPlaceholder struct {
 	AstIdentBase
 }
 
@@ -172,7 +176,7 @@ type AstLitFloat struct {
 
 func (me *AstLitFloat) DynName() string { return strconv.FormatFloat(me.Val, 'g', -1, 64) }
 
-func (me *AstIdentUnderscores) Num() int { return len(me.Val) }
+func (me *AstIdentPlaceholder) Num() int { return len(me.Val) }
 
 type AstAppl struct {
 	AstExprBase

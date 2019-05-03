@@ -184,7 +184,7 @@ func (me *AstExprCases) seemsUnionSugar() bool {
 func (me *AstExprCases) ToLetIfUnionSugar(prefix int) (let *AstExprLet) {
 	if me.Scrutinee == nil && me.seemsUnionSugar() {
 		let = &AstExprLet{Defs: make([]AstDef, 1)}
-		letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "æ"}, Alts: make([]AstCase, 1)}
+		letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "specimen"}, Alts: make([]AstCase, 1)}
 		let.Body, letcase.Alts[0].Body, letcase.Alts[0].Conds, letdef.Name.Val, letdef.Body, letdef.Args, let.Tokens, letdef.Tokens, letcase.Tokens =
 			&letdef.Name, letcase.Scrutinee, me.Alts[0].Conds, ustr.Int(prefix)+"sumt", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, me.Tokens, me.Tokens, me.Tokens
 	}
@@ -236,28 +236,33 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 	return
 }
 
-func (me *AstExprAppl) ToLetExprIfUnderscores(prefix int) (let *AstExprLet) {
-	lamargs := make(map[IAstExpr]string, 0)
+func (me *AstExprAppl) ToLetExprIfPlaceholders(prefix int) (let *AstExprLet) {
+	var num int
+	var lamc string
+	var lama []string
 	if ident, _ := me.Callee.(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
-		lamargs[me.Callee] = ustr.Int(len(ident.Val)-1) + "æ"
+		num, lamc = num+1, ustr.Int(len(ident.Val)-1)+"_"
 	}
 	for i := range me.Args {
 		if ident, _ := me.Args[i].(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
-			lamargs[me.Args[i]] = ustr.Int(len(ident.Val)-1) + "æ"
+			if lama == nil {
+				lama = make([]string, len(me.Args))
+			}
+			num, lama[i] = num+1, ustr.Int(len(ident.Val)-1)+"_"
 		}
 	}
-	if len(lamargs) > 0 {
-		def := AstDef{Name: AstIdent{Val: ustr.Int(prefix) + "lamb"}, Args: make([]AstDefArg, len(lamargs))}
+	if num > 0 {
+		def := AstDef{Name: AstIdent{Val: ustr.Int(prefix) + "lamb"}, Args: make([]AstDefArg, num)}
 		for i := range def.Args {
-			def.Args[i].NameOrConstVal = B.Ident(ustr.Int(i) + "æ")
+			def.Args[i].NameOrConstVal = B.Ident(ustr.Int(i) + "_")
 		}
 		var appl AstExprAppl
 		appl.Callee, appl.Args = me.Callee, make([]IAstExpr, len(me.Args))
-		if la := lamargs[me.Callee]; la != "" {
-			appl.Callee = B.Ident(la)
+		if lamc != "" {
+			appl.Callee = B.Ident(lamc)
 		}
 		for i := range appl.Args {
-			if la := lamargs[me.Args[i]]; la != "" {
+			if la := lama[i]; la != "" {
 				appl.Args[i] = B.Ident(la)
 			} else {
 				appl.Args[i] = me.Args[i]
