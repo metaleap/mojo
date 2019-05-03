@@ -1,6 +1,7 @@
 package atmolang
 
 import (
+	"io"
 	"strconv"
 
 	"github.com/go-leap/std"
@@ -26,6 +27,13 @@ type IPrintFmt interface {
 	OnComment(IAstNode, IAstNode, *AstComment)
 }
 
+func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer) {
+	ctxp := &CtxPrint{NoComments: true, CurTopLevel: curTopLevel}
+	ctxp.Fmt = &PrintFmtMinimal{CtxPrint: ctxp}
+	ctxp.Print(node)
+	out.Write(append(append([]byte("\n\n\n▓▓▓"), ctxp.BytesWriter.Data...), "▓▓▓\n\n\n"...))
+}
+
 type CtxPrint struct {
 	Fmt            IPrintFmt
 	ApplStyle      ApplStyle
@@ -39,7 +47,7 @@ type CtxPrint struct {
 	fmtCtxSet bool
 }
 
-func (me *CtxPrint) Print(node IAstNode) {
+func (me *CtxPrint) Print(node IAstNode) *CtxPrint {
 	var cmnts *astBaseComments
 	if cmnt, _ := node.(IAstComments); (!me.NoComments) && cmnt != nil {
 		cmnts = cmnt.Comments()
@@ -57,6 +65,7 @@ func (me *CtxPrint) Print(node IAstNode) {
 			me.Fmt.OnComment(nil, leadstrails, c)
 		}
 	}
+	return me
 }
 
 func (me *CtxPrint) WriteLineBreaksThenIndent(numLines int) {
@@ -109,7 +118,6 @@ func (me *AstComment) print(p *CtxPrint) {
 func (me *AstDef) Print(ctxp *CtxPrint) { me.print(ctxp) }
 
 func (me *AstDef) print(p *CtxPrint) {
-	p.CurTopLevel = me
 	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
 		if p.Fmt.OnDefName(me, &me.Name); me.NameAffix != nil {

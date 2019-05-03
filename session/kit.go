@@ -131,6 +131,9 @@ func (me *Kit) HasDefs(name string) bool {
 }
 
 func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDef) {
+	if name[0] == '_' {
+		name = name[1:]
+	}
 	for i := range me.topLevel {
 		if def := &me.topLevel[i]; def.Orig.Name.Val == name {
 			defs = append(defs, def)

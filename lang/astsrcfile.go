@@ -65,6 +65,9 @@ func (me *AstFileTopLevelChunk) Errors() []error {
 }
 
 func (me *AstFile) HasDefs(name string) bool {
+	if name[0] == '_' {
+		name = name[1:]
+	}
 	for i := range me.TopLevel {
 		if tld := &me.TopLevel[i]; (!tld.HasErrors()) && tld.Ast.Def.Orig != nil {
 			if tld.Ast.Def.Orig.Name.Val == name {

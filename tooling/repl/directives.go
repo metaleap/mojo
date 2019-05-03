@@ -155,7 +155,7 @@ func (me *Repl) dListDefs(whatKit string) {
 							numdefs++
 							pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
 								"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
-							me.decoAddNotice(false, "", true, ustr.Combine(def.Name.Val, " ─── ", pos))
+							me.decoAddNotice(false, "", true, ustr.Combine(ustr.If(tld.Ast.Def.IsUnexported, "_", "")+def.Name.Val, " ─── ", pos))
 						}
 					}
 				}
@@ -270,9 +270,11 @@ func (me *Repl) DSrcs(what string) bool {
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
 
+					ir2lang := def.Print().(*atmolang.AstDef)
 					me.decoAddNotice(false, "", true, "internal representation:", "")
 					ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
-					def.Print().(*atmolang.AstDef).Print(&ctxp)
+					ctxp.CurTopLevel = ir2lang
+					ir2lang.Print(&ctxp)
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
 					me.IO.writeLns("", "")
