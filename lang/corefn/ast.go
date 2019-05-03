@@ -26,11 +26,6 @@ type IAstExprAtomic interface {
 	__implements_IAstExprAtomic()
 }
 
-type IAstIdent interface {
-	IAstExprAtomic
-	String() string
-}
-
 type astNodeBase struct {
 }
 
@@ -111,7 +106,6 @@ type AstIdentBase struct {
 
 func (me *AstIdentBase) refersTo(name string) bool { return name == me.Val }
 func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstIdentBase) String() string            { return me.Val }
 func (me *AstIdentBase) DynName() string           { return me.Val }
 
 type AstIdentName struct {

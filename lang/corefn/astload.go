@@ -60,22 +60,12 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 	tok := me.Orig.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
-	var ident IAstIdent
+	var ident IAstExprAtomic
 	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name, true)
-	switch name := ident.(type) {
-	case *AstIdentName:
-		me.Name.Orig, me.Name.Val = &me.Orig.Name, name.Val
-		if name.Val == "" /*|| ustr.In(name.Val, langReservedOps...)*/ {
-			errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
-		}
-	case *AstIdentTag:
-		errs.AddNaming(tok, "invalid def name: `"+name.Val+"` is upper-case, this is reserved for tags")
-	case *AstIdentVar:
-		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"` (begins with multiple underscores)")
-	case *AstIdentUnderscores:
-		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`")
-	default:
-		panic(name)
+	if name, _ := ident.(*AstIdentName); name == nil {
+		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or EmptyParens or Underscores etc..
+	} else if me.Name = *name; name.Val == "" /*|| ustr.In(name.Val, langReservedOps...)*/ {
+		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 	}
 	if !me.Orig.IsTopLevel {
 		ctx.dynNameAdd(me.Orig.Name.Val)
@@ -95,12 +85,12 @@ func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
 			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, me.Args[i].coerceValue), me.Body)
 		}
 		if me.Args[i].coerceFunc != nil {
-			appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.Args[i].coerceFunc).(IAstIdent), &me.Args[i].AstIdentName)
+			appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.Args[i].coerceFunc), &me.Args[i].AstIdentName)
 			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, ctx.ensureAstAtomFor(appl)), me.Body)
 		}
 	}
 	if me.nameCoerceFunc != nil {
-		appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.nameCoerceFunc).(IAstIdent), &me.Name)
+		appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.nameCoerceFunc), &me.Name)
 		me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Name, ctx.ensureAstAtomFor(appl)), me.Body)
 	}
 
@@ -164,7 +154,7 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 		errs = me.initFrom(ctx, orig.ToUnary())
 	} else {
 		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0])
-		me.Callee = errs.AddVia(ctx.ensureAstAtomFrom(orig.Callee)).(IAstIdent)
+		me.Callee = errs.AddVia(ctx.ensureAstAtomFrom(orig.Callee)).(IAstExprAtomic)
 	}
 	me.Orig = orig
 	return
@@ -239,7 +229,7 @@ func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr) (ret IAstExprAtomic,
 	return
 }
 
-func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent, isDecl bool) (ret IAstIdent, errs atmo.Errors) {
+func (me *AstDef) newAstIdentFrom(orig *atmolang.AstIdent, isDecl bool) (ret IAstExprAtomic, errs atmo.Errors) {
 	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
 		var ident AstIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig

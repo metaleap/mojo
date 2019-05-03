@@ -40,9 +40,9 @@ func (me *AstLet) Print() atmolang.IAstNode {
 func (me *AstDefBase) Print() atmolang.IAstNode {
 	argnames := make([]string, len(me.Args))
 	for i := range argnames {
-		argnames[i] = me.Args[i].AstIdentName.String()
+		argnames[i] = me.Args[i].AstIdentName.Val
 	}
-	return atmolang.B.Def(me.Name.String(), me.Body.Print().(atmolang.IAstExpr), argnames...)
+	return atmolang.B.Def(me.Name.Val, me.Body.Print().(atmolang.IAstExpr), argnames...)
 }
 
 func (me *AstDef) Print() atmolang.IAstNode {

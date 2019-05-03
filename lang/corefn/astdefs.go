@@ -10,7 +10,7 @@ type astDefs []AstDefBase
 
 func (me astDefs) byName(name string) *AstDefBase {
 	for i := range me {
-		if me[i].Name.String() == name {
+		if me[i].Name.Val == name {
 			return &me[i]
 		}
 	}
@@ -19,7 +19,7 @@ func (me astDefs) byName(name string) *AstDefBase {
 
 func (me astDefs) index(name string) int {
 	for i := range me {
-		if me[i].Name.String() == name {
+		if me[i].Name.Val == name {
 			return i
 		}
 	}
@@ -29,7 +29,7 @@ func (me astDefs) index(name string) int {
 func (me astDefs) Len() int          { return len(me) }
 func (me astDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me astDefs) Less(i int, j int) bool {
-	ni, nj := me[i].Name.String(), me[j].Name.String()
+	ni, nj := me[i].Name.Val, me[j].Name.Val
 	if me[i].refersTo(nj) {
 		return true
 	}
