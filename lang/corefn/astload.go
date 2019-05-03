@@ -362,10 +362,7 @@ func (me *AstDef) nextCsumt() int {
 }
 
 func (me *AstDef) addLocalDefToScope(body IAstExpr, name string) (def *AstDefBase) {
-	locals := *me.state.defsScope
-	locals = append(locals, AstDefBase{Body: body})
-	def = &locals[len(locals)-1]
+	def = me.state.defsScope.add(body)
 	def.Name.Val = name
-	*me.state.defsScope = locals
 	return
 }
