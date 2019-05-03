@@ -3,7 +3,6 @@ package atmocorefn
 import (
 	"strconv"
 
-	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
@@ -57,10 +56,9 @@ type AstDef struct {
 		nameReferences map[string]bool
 		namesInScope   []*atmolang.AstIdent
 		defsScope      *astDefs
-		counters       struct {
-			sumt int
-			lamb int
-			let  int
+		counter        struct {
+			val   byte
+			times int
 		}
 	}
 }
@@ -186,7 +184,7 @@ type AstAppl struct {
 }
 
 func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "«" + me.Arg.DynName() }
+func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "─" + me.Arg.DynName() }
 func (me *AstAppl) renameIdents(ren map[string]string) {
 	me.Callee.renameIdents(ren)
 	me.Arg.renameIdents(ren)
@@ -200,11 +198,11 @@ type AstLet struct {
 	Orig   *atmolang.AstExprLet
 	Body   IAstExpr
 	Defs   astDefs
-	prefix int
+	prefix string
 }
 
 func (me *AstLet) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstLet) DynName() string           { return ustr.Int(me.prefix) + "l" }
+func (me *AstLet) DynName() string           { return me.prefix + "L" }
 func (me *AstLet) renameIdents(ren map[string]string) {
 	me.Body.renameIdents(ren)
 	for i := range me.Defs {

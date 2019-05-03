@@ -268,7 +268,7 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 		expr = &lit
 	case *atmolang.AstExprLet:
 		oldscope, newdefs, newnamesinscope, let :=
-			me.state.defsScope, astDefs{}, make([]*atmolang.AstIdent, len(o.Defs)), AstLet{Orig: o, prefix: me.nextClet(), Defs: make(astDefs, len(o.Defs))}
+			me.state.defsScope, astDefs{}, make([]*atmolang.AstIdent, len(o.Defs)), AstLet{Orig: o, prefix: me.nextPrefix(), Defs: make(astDefs, len(o.Defs))}
 		for i := range o.Defs {
 			newnamesinscope[i] = &o.Defs[i].Name
 		}
@@ -284,7 +284,7 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 		me.namesInScopeDrop(numnames)
 		expr, me.state.defsScope = &let, oldscope
 	case *atmolang.AstExprAppl:
-		if lamb := o.ToLetExprIfPlaceholders(me.nextClamb()); lamb != nil {
+		if lamb := o.ToLetExprIfPlaceholders(me.nextPrefix()); lamb != nil {
 			expr, errs = me.newAstExprFrom(lamb)
 		} else {
 			o = o.ToUnary()
@@ -298,22 +298,22 @@ func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs at
 			if atc && ata {
 				expr = &appl
 			} else {
-				oldscope, let := me.state.defsScope, AstLet{prefix: me.nextClet(), Body: &appl}
+				oldscope, let := me.state.defsScope, AstLet{prefix: me.nextPrefix(), Body: &appl}
 				if /*me.state.defsScope = &let.Defs;*/ !atc {
 					def := let.Defs.add(errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr))
-					def.Name.Val = ustr.Int(let.prefix) + "c" + def.Body.DynName()
+					def.Name.Val = def.Body.DynName()
 					appl.Callee = &def.Name
 				}
 				if !ata {
 					def := let.Defs.add(errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr))
-					def.Name.Val = ustr.Int(let.prefix) + "c" + def.Body.DynName()
+					def.Name.Val = def.Body.DynName()
 					appl.Arg = &def.Name
 				}
 				expr, me.state.defsScope = &let, oldscope
 			}
 		}
 	case *atmolang.AstExprCases:
-		if let := o.ToLetIfUnionSugar(me.nextCsumt()); let == nil {
+		if let := o.ToLetIfUnionSugar(me.nextPrefix()); let == nil {
 			var cases AstCases
 			errs = cases.initFrom(me, o)
 			expr = &cases
@@ -341,19 +341,12 @@ func (me *AstDef) dynName(expr IAstExpr) string {
 	return me.state.dynNamePrefs + expr.DynName()
 }
 
-func (me *AstDef) nextClamb() int {
-	me.state.counters.lamb++
-	return me.state.counters.lamb
-}
-
-func (me *AstDef) nextClet() int {
-	me.state.counters.let++
-	return me.state.counters.let
-}
-
-func (me *AstDef) nextCsumt() int {
-	me.state.counters.sumt++
-	return me.state.counters.sumt
+func (me *AstDef) nextPrefix() string {
+	if me.state.counter.val == 122 || me.state.counter.val == 0 {
+		me.state.counter.val, me.state.counter.times = 96, me.state.counter.times+1
+	}
+	me.state.counter.val++
+	return string(ustr.RepeatB(me.state.counter.val, me.state.counter.times))
 }
 
 func (me *AstDef) addLocalDefToScope(body IAstExpr, name string) (def *AstDefBase) {

@@ -181,12 +181,12 @@ func (me *AstExprCases) seemsUnionSugar() bool {
 	return len(me.Alts) == 1 && me.Alts[0].Body == nil
 }
 
-func (me *AstExprCases) ToLetIfUnionSugar(prefix int) (let *AstExprLet) {
+func (me *AstExprCases) ToLetIfUnionSugar(prefix string) (let *AstExprLet) {
 	if me.Scrutinee == nil && me.seemsUnionSugar() {
 		let = &AstExprLet{Defs: make([]AstDef, 1)}
 		letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "specimen"}, Alts: make([]AstCase, 1)}
 		let.Body, letcase.Alts[0].Body, letcase.Alts[0].Conds, letdef.Name.Val, letdef.Body, letdef.Args, let.Tokens, letdef.Tokens, letcase.Tokens =
-			&letdef.Name, letcase.Scrutinee, me.Alts[0].Conds, ustr.Int(prefix)+"sumt", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, me.Tokens, me.Tokens, me.Tokens
+			&letdef.Name, letcase.Scrutinee, me.Alts[0].Conds, prefix+"S", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, me.Tokens, me.Tokens, me.Tokens
 	}
 	return
 }
@@ -236,7 +236,7 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 	return
 }
 
-func (me *AstExprAppl) ToLetExprIfPlaceholders(prefix int) (let *AstExprLet) {
+func (me *AstExprAppl) ToLetExprIfPlaceholders(prefix string) (let *AstExprLet) {
 	var num int
 	var lamc string
 	var lama []string
@@ -252,7 +252,7 @@ func (me *AstExprAppl) ToLetExprIfPlaceholders(prefix int) (let *AstExprLet) {
 		}
 	}
 	if num > 0 {
-		def := AstDef{Name: AstIdent{Val: ustr.Int(prefix) + "lamb"}, Args: make([]AstDefArg, num)}
+		def := AstDef{Name: AstIdent{Val: prefix + "P"}, Args: make([]AstDefArg, num)}
 		for i := range def.Args {
 			def.Args[i].NameOrConstVal = B.Ident(ustr.Int(i) + "_")
 		}
