@@ -148,7 +148,6 @@ type AstExprCases struct {
 	AstBaseExpr
 	Scrutinee    IAstExpr
 	Alts         []AstCase
-	IsSugared    bool
 	defaultIndex int
 }
 

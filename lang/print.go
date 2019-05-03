@@ -230,7 +230,7 @@ func (me *AstExprCases) print(p *CtxPrint) {
 	if me.Scrutinee != nil {
 		p.Fmt.OnExprCasesScrutinee(istopleveldefsbody, me, me.Scrutinee)
 	}
-	if !me.IsSugared {
+	if !me.seemsUnionSugar() {
 		p.WriteByte('|')
 	}
 	for i := range me.Alts {
