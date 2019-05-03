@@ -202,7 +202,7 @@ type AstLet struct {
 }
 
 func (me *AstLet) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstLet) DynName() string           { return me.prefix + "L" }
+func (me *AstLet) DynName() string           { return me.prefix + "└" }
 func (me *AstLet) renameIdents(ren map[string]string) {
 	me.Body.renameIdents(ren)
 	for i := range me.Defs {
