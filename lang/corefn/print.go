@@ -20,12 +20,10 @@ func (me *AstAppl) Print() atmolang.IAstNode {
 func (me *AstCases) Print() atmolang.IAstNode {
 	alts := make([]atmolang.AstCase, len(me.Ifs))
 	for i := range alts {
-		alts[i].Body, alts[i].Conds = me.Thens[i].Print().(atmolang.IAstExpr), make([]atmolang.IAstExpr, len(me.Ifs[i]))
-		for j := range alts[i].Conds {
-			alts[i].Conds[j] = me.Ifs[i][j].Print().(atmolang.IAstExpr)
-		}
+		alts[i].Body = me.Thens[i].Print().(atmolang.IAstExpr)
+		alts[i].Conds = []atmolang.IAstExpr{me.Ifs[i].Print().(atmolang.IAstExpr)}
 	}
-	return atmolang.B.Cases(atmolang.B.IdentTrue(), alts...)
+	return atmolang.B.Cases(nil, alts...)
 }
 
 func (me *AstLet) Print() atmolang.IAstNode {

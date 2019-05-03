@@ -79,19 +79,19 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
 	me.Body, errs = ctx.newAstExprFrom(me.Orig.Body)
 
-	opeq := ctx.b.IdentName("==")
+	opeq := B.IdentName("==")
 	for i := range me.Args {
 		if me.Args[i].coerceValue != nil {
-			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, me.Args[i].coerceValue), me.Body)
+			me.Body = B.Case(B.Appls(ctx, opeq, &me.Args[i].AstIdentName, me.Args[i].coerceValue), me.Body)
 		}
 		if me.Args[i].coerceFunc != nil {
-			appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.Args[i].coerceFunc), &me.Args[i].AstIdentName)
-			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, ctx.ensureAstAtomFor(appl)), me.Body)
+			appl := B.Appl(ctx.ensureAstAtomFor(me.Args[i].coerceFunc), &me.Args[i].AstIdentName)
+			me.Body = B.Case(B.Appls(ctx, opeq, &me.Args[i].AstIdentName, ctx.ensureAstAtomFor(appl)), me.Body)
 		}
 	}
 	if me.nameCoerceFunc != nil {
-		appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.nameCoerceFunc), &me.Name)
-		me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Name, ctx.ensureAstAtomFor(appl)), me.Body)
+		appl := B.Appl(ctx.ensureAstAtomFor(me.nameCoerceFunc), &me.Name)
+		me.Body = B.Case(B.Appls(ctx, opeq, &me.Name, ctx.ensureAstAtomFor(appl)), me.Body)
 	}
 
 	return
@@ -156,12 +156,12 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	if orig.Scrutinee != nil {
 		scrut = errs.AddVia(ctx.newAstExprFrom(orig.Scrutinee)).(IAstExpr)
 	} else {
-		scrut = ctx.b.IdentTagTrue()
+		scrut = B.IdentTagTrue()
 	}
-	scrut = ctx.b.Appl(ctx.b.IdentName("=="), ctx.ensureAstAtomFor(scrut))
-	scrutatomic := ctx.ensureAstAtomFor(scrut).(IAstExprAtomic)
+	scrut = B.Appl(B.IdentName("=="), ctx.ensureAstAtomFor(scrut))
+	scrutatomic, opeq := ctx.ensureAstAtomFor(scrut), B.IdentName("||")
 
-	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
+	me.Ifs, me.Thens = make([]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
 	for i := range orig.Alts {
 		alt := &orig.Alts[i]
 		if alt.Body == nil {
@@ -169,10 +169,13 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		} else {
 			me.Thens[i] = errs.AddVia(ctx.newAstExprFrom(alt.Body)).(IAstExpr)
 		}
-		me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
 		for c, cond := range alt.Conds {
-			me.Ifs[i][c] = errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)
-			me.Ifs[i][c] = ctx.b.Appl(scrutatomic, ctx.ensureAstAtomFor(me.Ifs[i][c]))
+			if c == 0 {
+				me.Ifs[i] = B.Appl(scrutatomic, ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)))
+			} else {
+				me.Ifs[i] = B.Appls(ctx, opeq, ctx.ensureAstAtomFor(me.Ifs[i]), ctx.ensureAstAtomFor(
+					B.Appl(scrutatomic, ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)))))
+			}
 		}
 	}
 	return

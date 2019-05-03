@@ -26,7 +26,7 @@ func (AstBuilder) Appls(ctx *AstDef, callee IAstExprAtomic, args ...IAstExprAtom
 }
 
 func (AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {
-	return &AstCases{Ifs: [][]IAstExpr{{ifThis}}, Thens: []IAstExpr{thenThat}}
+	return &AstCases{Ifs: []IAstExpr{ifThis}, Thens: []IAstExpr{thenThat}}
 }
 
 func (AstBuilder) IdentName(name string) *AstIdentName {

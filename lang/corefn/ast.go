@@ -50,7 +50,6 @@ type AstDef struct {
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errors   atmo.Errors
 
-	b     AstBuilder
 	state struct {
 		dynNamePrefs   string
 		nameReferences map[string]bool
@@ -223,7 +222,7 @@ func (me *AstLet) refersTo(name string) (refers bool) {
 type AstCases struct {
 	AstExprBase
 	Orig  *atmolang.AstExprCases
-	Ifs   [][]IAstExpr
+	Ifs   []IAstExpr
 	Thens []IAstExpr
 }
 
@@ -232,9 +231,7 @@ func (me *AstCases) DynName() string           { panic(me.Orig) }
 func (me *AstCases) renameIdents(ren map[string]string) {
 	for i := range me.Thens {
 		me.Thens[i].renameIdents(ren)
-		for j := range me.Ifs[i] {
-			me.Ifs[i][j].renameIdents(ren)
-		}
+		me.Ifs[i].renameIdents(ren)
 	}
 }
 func (me *AstCases) refersTo(name string) bool {
@@ -242,10 +239,8 @@ func (me *AstCases) refersTo(name string) bool {
 		if me.Thens[i].refersTo(name) {
 			return true
 		}
-		for j := range me.Ifs[i] {
-			if me.Ifs[i][j].refersTo(name) {
-				return true
-			}
+		if me.Ifs[i].refersTo(name) {
+			return true
 		}
 	}
 	return false
