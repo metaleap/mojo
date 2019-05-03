@@ -21,8 +21,6 @@ var (
 	}
 )
 
-func init() { Ux.AnimsEnabled, Ux.MoreLinesPrompt = true, []byte("     ¶¶¶") }
-
 type Repl struct {
 	Ctx             atmosess.Ctx
 	KnownDirectives directives
@@ -44,6 +42,8 @@ type Repl struct {
 		multiLnInputHadLeadingTabs bool
 	}
 }
+
+func init() { Ux.AnimsEnabled, Ux.MoreLinesPrompt = true, []byte("     ¶¶¶") }
 
 func (me *Repl) Run(showWelcomeMsg bool) {
 	me.init()
@@ -107,11 +107,7 @@ func (me *Repl) Run(showWelcomeMsg bool) {
 				me.decoAddNotice(false, "", false, "multi-line input had leading tabs,note", "that repl auto-indent is based on spaces")
 			}
 			me.IO.writeLns("")
-			if out, err := me.Ctx.ReadEvalPrint(inputln); err != nil {
-				me.IO.printLns(err.Error())
-			} else {
-				me.IO.writeLns(out.String())
-			}
+			me.IO.writeLns("TODO: eval of" + inputln)
 			me.IO.writeLns("", "")
 			me.decoInputStart(false, false)
 		}

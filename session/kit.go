@@ -12,9 +12,11 @@ import (
 	"github.com/metaleap/atmo/lang/corefn"
 )
 
+// Kit is a pile of atmo source files residing in the same directory and
+// being interpreted or compiled all together as a unit.
 type Kit struct {
-	ImpPath           string
 	DirPath           string
+	ImpPath           string
 	WasEverToBeLoaded bool
 
 	topLevel atmocorefn.AstDefs
@@ -24,12 +26,17 @@ type Kit struct {
 	}
 }
 
+// KitEnsureLoaded forces (re)loading the `kit` only if it never was.
+// (Primarily for interactive load-on-demand scenarios like REPLs or editor language servers.))
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	if !kit.WasEverToBeLoaded {
 		me.kitForceReload(kit)
 	}
 }
 
+// WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
+// The `Kit` must not be written to. While `do` runs, the `Kit` is blocked
+// for updates triggered by file modifications etc.
 func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
@@ -84,6 +91,8 @@ func (me *Ctx) kitForceReload(this *Kit) {
 	me.onErrs(this.Errors(), nil)
 }
 
+// Errors collects whatever issues exist in any of the `Kit`'s source files
+// (file-system errors, lexing/parsing errors, semantic errors etc).
 func (me *Kit) Errors() (errs []error) {
 	if me.errs.dirAccessDuringRefresh != nil {
 		errs = append(errs, me.errs.dirAccessDuringRefresh)
@@ -101,14 +110,17 @@ func (me *Kit) Errors() (errs []error) {
 	return
 }
 
-func (me *Kit) KitsDirPath() string {
-	return KitsDirPathFrom(me.DirPath, me.ImpPath)
+func (me *Kit) kitsDirPath() string {
+	return kitsDirPathFrom(me.DirPath, me.ImpPath)
 }
 
+// SrcFiles returns all source files belonging to the `Kit`.
+// The slice or its contents must not be written to.
 func (me *Kit) SrcFiles() atmolang.AstFiles {
 	return me.srcFiles
 }
 
+// HasDefs returns whether any of the `Kit`'s source files define `name`.
 func (me *Kit) HasDefs(name string) bool {
 	for i := range me.srcFiles {
 		if me.srcFiles[i].HasDefs(name) {

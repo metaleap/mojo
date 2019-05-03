@@ -25,7 +25,7 @@ func mainRepl() {
 	repl.Ctx.Kits.RecurringBackgroundWatch.ShouldNow = func() bool {
 		return replKitsWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replKitsWatchPauseAfter
 	}
-	if err := repl.Ctx.Init(); err == nil {
+	if err := repl.Ctx.Init(false); err == nil {
 		usys.OnSigint(func() {
 			repl.QuitNonDirectiveInitiated(true)
 			repl.Ctx.Dispose()

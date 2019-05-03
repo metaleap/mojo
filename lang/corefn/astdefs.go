@@ -56,6 +56,7 @@ func (me AstDefs) ByID(id string) *AstDef {
 	}
 	return nil
 }
+
 func (me AstDefs) IndexByID(id string) int {
 	for i := range me {
 		if me[i].TopLevel.ID() == id {

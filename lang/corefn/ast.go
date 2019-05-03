@@ -38,7 +38,7 @@ type AstDefBase struct {
 	astNodeBase
 	Orig *atmolang.AstDef
 
-	Name IAstIdent
+	Name AstIdentName
 	Args []AstDefArg
 	Body IAstExpr
 
@@ -183,7 +183,7 @@ func (me *AstIdentUnderscores) Num() int { return len(me.Val) }
 type AstAppl struct {
 	AstExprBase
 	Orig   *atmolang.AstExprAppl
-	Callee IAstIdent
+	Callee IAstExprAtomic
 	Arg    IAstExprAtomic
 }
 

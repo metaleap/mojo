@@ -59,11 +59,13 @@ func (me *AstDefBase) initFrom(ctx *AstDef, orig *atmolang.AstDef) (errs atmo.Er
 }
 
 func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
-	tok := me.Orig.Name.Tokens.First(nil) // never forget & always remember.. some generated ones don't have toks
-	me.Name, errs = ctx.newAstIdentFrom(&me.Orig.Name, true)
-	switch name := me.Name.(type) {
+	tok := me.Orig.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
+	var ident IAstIdent
+	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name, true)
+	switch name := ident.(type) {
 	case *AstIdentName:
-		if name.Val == "" || ustr.In(name.Val, langReservedOps...) {
+		me.Name.Orig, me.Name.Val = &me.Orig.Name, name.Val
+		if name.Val == "" /*|| ustr.In(name.Val, langReservedOps...)*/ {
 			errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 		}
 	case *AstIdentTag:
@@ -81,7 +83,6 @@ func (me *AstDefBase) initName(ctx *AstDef) (errs atmo.Errors) {
 	if me.Orig.NameAffix != nil {
 		me.nameCoerceFunc = errs.AddVia(ctx.newAstExprFrom(me.Orig.NameAffix)).(IAstExpr)
 	}
-
 	return
 }
 
@@ -94,13 +95,13 @@ func (me *AstDefBase) initBody(ctx *AstDef) (errs atmo.Errors) {
 			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, me.Args[i].coerceValue), me.Body)
 		}
 		if me.Args[i].coerceFunc != nil {
-			appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.Args[i].coerceFunc, true).(IAstIdent), &me.Args[i].AstIdentName)
-			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, ctx.ensureAstAtomFor(appl, false)), me.Body)
+			appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.Args[i].coerceFunc).(IAstIdent), &me.Args[i].AstIdentName)
+			me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Args[i].AstIdentName, ctx.ensureAstAtomFor(appl)), me.Body)
 		}
 	}
 	if me.nameCoerceFunc != nil {
-		appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.nameCoerceFunc, true).(IAstIdent), me.Name)
-		me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, me.Name, ctx.ensureAstAtomFor(appl, false)), me.Body)
+		appl := ctx.b.Appl(ctx.ensureAstAtomFor(me.nameCoerceFunc).(IAstIdent), &me.Name)
+		me.Body = ctx.b.Case(ctx.b.Appls(ctx, opeq, &me.Name, ctx.ensureAstAtomFor(appl)), me.Body)
 	}
 
 	return
@@ -162,8 +163,8 @@ func (me *AstAppl) initFrom(ctx *AstDef, orig *atmolang.AstExprAppl) (errs atmo.
 	if len(orig.Args) > 1 {
 		errs = me.initFrom(ctx, orig.ToUnary())
 	} else {
-		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0], false)
-		me.Callee = errs.AddVia(ctx.ensureAstAtomFrom(orig.Callee, true)).(IAstIdent)
+		me.Arg, errs = ctx.ensureAstAtomFrom(orig.Args[0])
+		me.Callee = errs.AddVia(ctx.ensureAstAtomFrom(orig.Callee)).(IAstIdent)
 	}
 	me.Orig = orig
 	return
@@ -178,8 +179,8 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 	} else {
 		scrut = ctx.b.IdentTagTrue()
 	}
-	scrut = ctx.b.Appl(ctx.b.IdentName("=="), ctx.ensureAstAtomFor(scrut, false))
-	scrutid := ctx.ensureAstAtomFor(scrut, true).(IAstIdent)
+	scrut = ctx.b.Appl(ctx.b.IdentName("=="), ctx.ensureAstAtomFor(scrut))
+	scrutatomic := ctx.ensureAstAtomFor(scrut).(IAstExprAtomic)
 
 	me.Ifs, me.Thens = make([][]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
 	for i := range orig.Alts {
@@ -192,7 +193,7 @@ func (me *AstCases) initFrom(ctx *AstDef, orig *atmolang.AstExprCases) (errs atm
 		me.Ifs[i] = make([]IAstExpr, len(alt.Conds))
 		for c, cond := range alt.Conds {
 			me.Ifs[i][c] = errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)
-			me.Ifs[i][c] = ctx.b.Appl(scrutid, ctx.ensureAstAtomFor(me.Ifs[i][c], false))
+			me.Ifs[i][c] = ctx.b.Appl(scrutatomic, ctx.ensureAstAtomFor(me.Ifs[i][c]))
 		}
 	}
 	return
@@ -222,28 +223,19 @@ func (me *AstLitStr) initFrom(ctx *AstDef, orig atmolang.IAstExprAtomic) {
 	me.Val = orig.Toks()[0].Str
 }
 
-func (me *AstDef) ensureAstAtomFor(expr IAstExpr, retMustBeIAstIdent bool) IAstExprAtomic {
-	if !retMustBeIAstIdent {
-		if xat, _ := expr.(IAstExprAtomic); xat != nil {
-			return xat
-		}
+func (me *AstDef) ensureAstAtomFor(expr IAstExpr) IAstExprAtomic {
+	if xat, _ := expr.(IAstExprAtomic); xat != nil {
+		return xat
 	}
-	if xid, _ := expr.(IAstIdent); xid != nil {
-		return xid
-	}
-	return me.addLocalDefToScope(expr, me.b.IdentName(me.dynName(expr))).Name
+	return &me.addLocalDefToScope(expr, me.dynName(expr)).Name
 }
 
-func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr, retMustBeIAstIdent bool) (ret IAstExprAtomic, errs atmo.Errors) {
-	if (!retMustBeIAstIdent) && orig.IsAtomic() {
+func (me *AstDef) ensureAstAtomFrom(orig atmolang.IAstExpr) (ret IAstExprAtomic, errs atmo.Errors) {
+	if orig.IsAtomic() {
 		return me.newAstExprAtomicFrom(orig.(atmolang.IAstExprAtomic))
 	}
-	if oid, _ := orig.(*atmolang.AstIdent); oid != nil {
-		ret, errs = me.newAstIdentFrom(oid, false)
-	} else {
-		body := errs.AddVia(me.newAstExprFrom(orig)).(IAstExpr)
-		ret = me.addLocalDefToScope(body, me.b.IdentName(me.dynName(body))).Name
-	}
+	body := errs.AddVia(me.newAstExprFrom(orig)).(IAstExpr)
+	ret = &me.addLocalDefToScope(body, me.dynName(body)).Name
 	return
 }
 
@@ -290,65 +282,60 @@ func (me *AstDef) newAstExprAtomicFrom(orig atmolang.IAstExprAtomic) (expr IAstE
 }
 
 func (me *AstDef) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
-	if orig == nil {
-		panic(123)
-	}
-	if orig != nil {
-		switch o := orig.(type) {
-		case *atmolang.AstIdent:
-			expr, errs = me.newAstIdentFrom(o, false)
-		case *atmolang.AstExprLitFloat:
-			var lit AstLitFloat
-			lit.initFrom(me, o)
-			expr = &lit
-		case *atmolang.AstExprLitUint:
-			var lit AstLitUint
-			lit.initFrom(me, o)
-			expr = &lit
-		case *atmolang.AstExprLitRune:
-			var lit AstLitRune
-			lit.initFrom(me, o)
-			expr = &lit
-		case *atmolang.AstExprLitStr:
-			var lit AstLitStr
-			lit.initFrom(me, o)
-			expr = &lit
-		case *atmolang.AstExprLet:
-			newdefs, let := astDefs{}, AstLet{Orig: o, prefix: me.nextClet(), Defs: make(astDefs, len(o.Defs))}
-			newnamesinscope := make([]*atmolang.AstIdent, len(o.Defs))
-			for i := range o.Defs {
-				newnamesinscope[i] = &o.Defs[i].Name
-			}
-			numnames := me.namesInScopeAdd(&errs, newnamesinscope...)
-
-			me.state.defsScope = append(me.state.defsScope, &newdefs)
-			for i := range o.Defs {
-				errs.Add(let.Defs[i].initFrom(me, &o.Defs[i]))
-			}
-
-			let.Body = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
-			let.Defs = append(let.Defs, newdefs...)
-			me.namesInScopeDrop(numnames)
-			expr, me.state.defsScope = &let, me.state.defsScope[:len(me.state.defsScope)-1]
-		case *atmolang.AstExprAppl:
-			if let := o.ToLetExprIfUnderscores(me.nextClamb()); let == nil {
-				var appl AstAppl
-				errs = appl.initFrom(me, o)
-				expr = &appl
-			} else {
-				expr, errs = me.newAstExprFrom(let)
-			}
-		case *atmolang.AstExprCases:
-			if let := o.ToLetIfUnionSugar(me.nextCsumt()); let == nil {
-				var cases AstCases
-				errs = cases.initFrom(me, o)
-				expr = &cases
-			} else {
-				expr, errs = me.newAstExprFrom(let)
-			}
-		default:
-			panic(o)
+	switch o := orig.(type) {
+	case *atmolang.AstIdent:
+		expr, errs = me.newAstIdentFrom(o, false)
+	case *atmolang.AstExprLitFloat:
+		var lit AstLitFloat
+		lit.initFrom(me, o)
+		expr = &lit
+	case *atmolang.AstExprLitUint:
+		var lit AstLitUint
+		lit.initFrom(me, o)
+		expr = &lit
+	case *atmolang.AstExprLitRune:
+		var lit AstLitRune
+		lit.initFrom(me, o)
+		expr = &lit
+	case *atmolang.AstExprLitStr:
+		var lit AstLitStr
+		lit.initFrom(me, o)
+		expr = &lit
+	case *atmolang.AstExprLet:
+		newdefs, let := astDefs{}, AstLet{Orig: o, prefix: me.nextClet(), Defs: make(astDefs, len(o.Defs))}
+		newnamesinscope := make([]*atmolang.AstIdent, len(o.Defs))
+		for i := range o.Defs {
+			newnamesinscope[i] = &o.Defs[i].Name
 		}
+		numnames := me.namesInScopeAdd(&errs, newnamesinscope...)
+
+		me.state.defsScope = append(me.state.defsScope, &newdefs)
+		for i := range o.Defs {
+			errs.Add(let.Defs[i].initFrom(me, &o.Defs[i]))
+		}
+
+		let.Body = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
+		let.Defs = append(let.Defs, newdefs...)
+		me.namesInScopeDrop(numnames)
+		expr, me.state.defsScope = &let, me.state.defsScope[:len(me.state.defsScope)-1]
+	case *atmolang.AstExprAppl:
+		if let := o.ToLetExprIfUnderscores(me.nextClamb()); let == nil {
+			var appl AstAppl
+			errs = appl.initFrom(me, o)
+			expr = &appl
+		} else {
+			expr, errs = me.newAstExprFrom(let)
+		}
+	case *atmolang.AstExprCases:
+		if let := o.ToLetIfUnionSugar(me.nextCsumt()); let == nil {
+			var cases AstCases
+			errs = cases.initFrom(me, o)
+			expr = &cases
+		} else {
+			expr, errs = me.newAstExprFrom(let)
+		}
+	default:
+		panic(o)
 	}
 	return
 }
@@ -383,10 +370,11 @@ func (me *AstDef) nextCsumt() int {
 	return me.state.counters.sumt
 }
 
-func (me *AstDef) addLocalDefToScope(body IAstExpr, name IAstIdent, args ...AstDefArg) (def *AstDefBase) {
+func (me *AstDef) addLocalDefToScope(body IAstExpr, name string, args ...AstDefArg) (def *AstDefBase) {
 	locals := *me.state.defsScope[len(me.state.defsScope)-1]
-	locals = append(locals, AstDefBase{Body: body, Name: name, Args: args})
+	locals = append(locals, AstDefBase{Body: body, Args: args})
 	def = &locals[len(locals)-1]
+	def.Name.Val = name
 	*me.state.defsScope[len(me.state.defsScope)-1] = locals
 	return
 }

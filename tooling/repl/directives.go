@@ -10,6 +10,15 @@ import (
 	"github.com/metaleap/atmo/session"
 )
 
+type directives []directive
+
+type directive struct {
+	Desc   string
+	Help   []string
+	Run    func(string) bool
+	Hidden bool
+}
+
 func (me *Repl) initEnsureDefaultDirectives() {
 	kd := me.KnownDirectives.ensure
 	kd("list ‹kit›", me.DList,
@@ -36,16 +45,7 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	kd("reload", me.DReload).Hidden = (atmosess.KitsWatchInterval > 0)
 }
 
-type directive struct {
-	Desc   string
-	Help   []string
-	Run    func(string) bool
-	Hidden bool
-}
-
 func (me *directive) Name() string { return ustr.Until(me.Desc, " ") }
-
-type directives []directive
 
 func (me *directives) ensure(desc string, run func(string) bool, help ...string) (ret *directive) {
 	if ret = me.By(desc); ret != nil {

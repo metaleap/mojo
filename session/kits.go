@@ -14,12 +14,18 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type Kits []Kit
-
+// KitsWatchInterval is the default file-watching interval that is picked up
+// by each `Ctx.Init` call and then used throughout the `Ctx`'s life time.
 var KitsWatchInterval time.Duration
+
+// Kits is a slice of values of (not pointers to) `Kit`s.
+type Kits []Kit
 
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
+// WithKnownKits runs `do` with all currently-known (loaded or not) `Kit`s
+// passed to it. The `Kits` slice or its contents must not be written to. While
+// `do` runs, the slice is blocked for updates triggered by file modifications etc.
 func (me *Ctx) WithKnownKits(do func(Kits)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
@@ -28,6 +34,7 @@ func (me *Ctx) WithKnownKits(do func(Kits)) {
 	return
 }
 
+// WithKnownKitsWhere works like `WithKnownKits` but with pre-filtering via `where`.
 func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func([]*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
@@ -42,6 +49,7 @@ func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func([]*Kit)) {
 	return
 }
 
+// KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
@@ -53,6 +61,9 @@ func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
 	return
 }
 
+// ReloadModifiedKitsUnlessAlreadyWatching returns -1 if file-watching is
+// enabled, otherwise it scans all currently-known kits-dirs for modifications
+// and refreshes the `Ctx`'s internal represenation of `Kits` if any were noted.
 func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int) {
 	me.maybeInitPanic(false)
 	if me.state.fileModsWatch.doManually == nil {
@@ -104,7 +115,7 @@ func (me *Ctx) initKits() {
 	if me.Dirs.Session != "" && !me.Dirs.sessAlreadyInKitsDirs {
 		watchdirsess = []string{me.Dirs.Session}
 	}
-	modswatcher := ufs.ModificationsWatcher(KitsWatchInterval/2, me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, dirok, func(mods map[string]os.FileInfo, starttime int64) {
+	modswatcher := ufs.ModificationsWatcher(me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, dirok, 0, func(mods map[string]os.FileInfo, starttime int64) {
 		var filemodwatchduration int64
 		if len(mods) > 0 {
 			me.state.Lock()
@@ -165,7 +176,7 @@ func (me *Ctx) initKits() {
 					if idx := me.Kits.all.indexImpPath(kit.ImpPath); idx != i {
 						delete(shouldrefresh, kit.DirPath)
 						delete(shouldrefresh, me.Kits.all[idx].DirPath)
-						me.bgMsg(true, true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.KitsDirPath(), "and "+me.Kits.all[idx].KitsDirPath(), "─── both will not load until fixed")
+						me.bgMsg(true, true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.kitsDirPath(), "and "+me.Kits.all[idx].kitsDirPath(), "─── both will not load until fixed")
 						if idx > i {
 							me.Kits.all.removeAt(idx)
 							me.Kits.all.removeAt(i)
@@ -205,8 +216,13 @@ func (me *Ctx) initKits() {
 	}
 }
 
-func (me Kits) Len() int          { return len(me) }
+// Len implements Go's standard `sort.Interface`.
+func (me Kits) Len() int { return len(me) }
+
+// Swap implements Go's standard `sort.Interface`.
 func (me Kits) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+
+// Less implements Go's standard `sort.Interface`.
 func (me Kits) Less(i int, j int) bool {
 	pi, pj := &me[i], &me[j]
 	if pi.DirPath != pj.DirPath {
@@ -244,10 +260,11 @@ func (me Kits) indexImpPath(impPath string) int {
 	return -1
 }
 
-func KitsDirPathFrom(kitDirPath string, kitImpPath string) string {
+func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {
 	return filepath.Clean(kitDirPath[:len(kitDirPath)-len(kitImpPath)])
 }
 
+// ByImpPath finds the `Kit` in `Kits` with the given import-path.
 func (me Kits) ByImpPath(kitImpPath string) *Kit {
 	if idx := me.indexImpPath(kitImpPath); idx >= 0 {
 		return &me[idx]

@@ -2,7 +2,6 @@ package atmosess
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -21,8 +20,7 @@ type CtxBgMsg struct {
 }
 
 type Ctx struct {
-	ClearCacheDir bool
-	Dirs          struct {
+	Dirs struct {
 		Session               string
 		Cache                 string
 		Kits                  []string
@@ -48,6 +46,9 @@ type Ctx struct {
 	}
 }
 
+// CtxDefaultCacheDirPath returns the default used by `Ctx.Init` if `Ctx.Dirs.Cache`
+// was left empty. It returns a platform-specific dir path such as `~/.cache/atmo`,
+// `~/.config/atmo` etc. or in the worst case the current user's home directory.
 func CtxDefaultCacheDirPath() string {
 	return filepath.Join(usys.UserDataDirPath(true), "atmo")
 }
@@ -58,7 +59,10 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 	}
 }
 
-func (me *Ctx) Init() (err error) {
+// Init validates the `Ctx.Dirs` fields currently set, then builds up its
+// `Kits` reflective of the structures found in the various `me.Dirs.Kits`
+// search paths and from now on in sync with live modifications to those.
+func (me *Ctx) Init(clearCacheDir bool) (err error) {
 	me.maybeInitPanic(true)
 	dirsession := me.Dirs.Session
 	if me.state.initCalled, me.Kits.all = true, make(Kits, 0, 32); dirsession == "." {
@@ -84,7 +88,7 @@ func (me *Ctx) Init() (err error) {
 		}
 		if !ufs.IsDir(cachedir) {
 			err = ufs.EnsureDir(cachedir)
-		} else if me.ClearCacheDir {
+		} else if clearCacheDir {
 			err = ufs.Del(cachedir)
 		}
 		if kitsdirs := me.Dirs.Kits; err == nil {
@@ -140,12 +144,7 @@ func (me *Ctx) Init() (err error) {
 	return
 }
 
-func (me *Ctx) ReadEvalPrint(in string) (out fmt.Stringer, err error) {
-	me.maybeInitPanic(false)
-	err = fmt.Errorf("to-do: evaluation of %q", in)
-	return
-}
-
+// Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 func (me *Ctx) Dispose() {
 	me.maybeInitPanic(false)
 	for _, cleanup := range me.state.cleanUps {

@@ -10,16 +10,16 @@ var (
 
 type AstBuilder struct{}
 
-func (AstBuilder) Appl(callee IAstIdent, arg IAstExprAtomic) *AstAppl {
+func (AstBuilder) Appl(callee IAstExprAtomic, arg IAstExprAtomic) *AstAppl {
 	return &AstAppl{Callee: callee, Arg: arg}
 }
 
-func (AstBuilder) Appls(ctx *AstDef, callee IAstIdent, args ...IAstExprAtomic) (appl *AstAppl) {
+func (AstBuilder) Appls(ctx *AstDef, callee IAstExprAtomic, args ...IAstExprAtomic) (appl *AstAppl) {
 	for i := range args {
 		if i == 0 {
 			appl = &AstAppl{Callee: callee, Arg: args[i]}
 		} else {
-			appl = &AstAppl{Callee: ctx.ensureAstAtomFor(appl, true).(IAstIdent), Arg: args[i]}
+			appl = &AstAppl{Callee: ctx.ensureAstAtomFor(appl), Arg: args[i]}
 		}
 	}
 	return
@@ -32,6 +32,7 @@ func (AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {
 func (AstBuilder) IdentName(name string) *AstIdentName {
 	return &AstIdentName{AstIdentBase{Val: name}}
 }
+
 func (AstBuilder) IdentEmptyParens() *AstIdentEmptyParens {
 	return &AstIdentEmptyParens{AstIdentBase{Val: "()"}}
 }
