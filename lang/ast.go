@@ -274,3 +274,22 @@ func (me *AstExprAppl) ToLetExprIfPlaceholders(prefix string) (let *AstExprLet) 
 	}
 	return
 }
+
+func (me *AstDef) makeUnary(origName string) {
+	subname, let := ustr.Int(len(me.Args)-1)+origName, AstExprLet{Defs: []AstDef{{Body: me.Body, AstBaseTokens: me.AstBaseTokens}}}
+	subdef := &let.Defs[0]
+	let.AstBaseTokens, let.comments, me.Body, me.Args, subdef.Args, subdef.Name.Val =
+		me.AstBaseTokens, *me.Body.Comments(), &subdef.Name, me.Args[:1], me.Args[1:], subname
+	if len(subdef.Args) > 1 {
+		subdef.makeUnary(origName)
+	}
+}
+
+func (me *AstDef) ToUnary() *AstDef {
+	if len(me.Args) == 1 {
+		return me
+	}
+	def := *me
+	def.makeUnary(me.Name.Val)
+	return &def
+}
