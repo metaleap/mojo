@@ -3,7 +3,6 @@ package atmosess
 import (
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 	"unicode"
 
@@ -191,9 +190,7 @@ func (me *Ctx) initKits() {
 				nowtime := time.Now().UnixNano()
 				starttime, filemodwatchduration = nowtime, nowtime-starttime
 				// for stable listings etc.
-				if atmo.Options.Sorts {
-					sort.Sort(me.Kits.all)
-				}
+				atmo.SortMaybe(me.Kits.all)
 				// per-file refresher
 				for kitdirpath := range shouldrefresh {
 					me.kitRefreshFilesAndReloadIfWasLoaded(me.Kits.all.indexDirPath(kitdirpath))

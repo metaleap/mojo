@@ -3,7 +3,6 @@ package atmosess
 import (
 	"os"
 	"path/filepath"
-	"sort"
 
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
@@ -73,23 +72,21 @@ func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
 			}
 		}
 	}
-	if atmo.Options.Sorts {
-		sort.Sort(this.srcFiles)
-	}
-	if this.WasEverToBeLoaded {
+	if atmo.SortMaybe(this.srcFiles); this.WasEverToBeLoaded {
 		me.kitForceReload(this)
 	}
 }
 
-func (me *Ctx) kitForceReload(this *Kit) {
-	this.WasEverToBeLoaded = true
-	for i := range this.srcFiles {
-		sf := &this.srcFiles[i]
-		sf.LexAndParseFile(true, false)
+func (me *Ctx) kitForceReload(kit *Kit) {
+	kit.WasEverToBeLoaded = true
+	var fresherrs []error
+	for i := range kit.srcFiles {
+		sf := &kit.srcFiles[i]
+		fresherrs = append(fresherrs, sf.LexAndParseFile(true, false)...)
 	}
 
-	this.topLevel.ReInitFrom(this.srcFiles)
-	me.onErrs(this.Errors(), nil)
+	fresherrs = append(fresherrs, kit.topLevel.ReInitFrom(kit.srcFiles)...)
+	me.onErrs(fresherrs, nil)
 }
 
 // Errors collects whatever issues exist in any of the `Kit`'s source files

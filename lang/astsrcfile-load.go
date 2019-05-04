@@ -10,7 +10,7 @@ import (
 	"github.com/go-leap/std"
 )
 
-func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) {
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) (freshErrs []error) {
 	if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
 			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
@@ -25,18 +25,23 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
 		if srcfile, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
 			defer srcfile.Close()
+		} else {
+			freshErrs = append(freshErrs, me.errs.loading)
 		}
 	} else if stdinIfNoSrcFilePathSet {
 		srcfile = os.Stdin
 	}
 	if me.errs.loading == nil && srcfile != nil {
-		me.LexAndParseSrc(srcfile)
+		freshErrs = append(freshErrs, me.LexAndParseSrc(srcfile)...)
 	}
+	return
 }
 
-func (me *AstFile) LexAndParseSrc(r io.Reader) {
+func (me *AstFile) LexAndParseSrc(r io.Reader) (freshErrs []error) {
 	var src []byte
-	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading == nil {
+	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading != nil {
+		freshErrs = append(freshErrs, me.errs.loading)
+	} else {
 		if me.LastLoad.Size = int64(len(src)); bytes.Equal(src, me.LastLoad.Src) {
 			return
 		}
@@ -44,19 +49,21 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) {
 		me.populateTopLevelChunksFrom(src)
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.srcDirty {
-				this.srcDirty, this.errs.parsing, this.Ast.Def.Orig, this.Ast.comments.Leading, this.Ast.comments.Trailing = false, nil, nil, nil, nil
+				this.srcDirty, this.errs.parsing, this.errs.lexing, this.Ast.Def.Orig, this.Ast.comments.Leading, this.Ast.comments.Trailing = false, nil, nil, nil, nil, nil
 				toks, errs := udevlex.Lex(&ustd.BytesReader{Data: this.Src},
 					me.SrcFilePath, this.Offset.Line, this.Offset.Pos, me.LastLoad.TokCountInitialGuess)
 				if this.Ast.Tokens = toks; len(errs) > 0 {
 					for _, e := range errs {
 						this.errs.lexing.AddLex(&e.Pos, e.Msg)
+						freshErrs = append(freshErrs, e)
 					}
 				} else {
-					me.parse(this)
+					freshErrs = append(freshErrs, me.parse(this)...)
 				}
 			}
 		}
 	}
+	return
 }
 
 func (me *AstFile) populateTopLevelChunksFrom(src []byte) {

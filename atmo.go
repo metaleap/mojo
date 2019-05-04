@@ -1,5 +1,9 @@
 package atmo
 
+import (
+	"sort"
+)
+
 const (
 	EnvVarKitsDirs = "ATMO_KITS_DIRS"
 	NameAutoKit    = "omni"
@@ -11,4 +15,10 @@ var Options struct {
 	// should be enabled for consistency in user-facing tools such as REPLs or language servers.
 	// could remain off for mere script runners, transpilers etc.
 	Sorts bool
+}
+
+func SortMaybe(s sort.Interface) {
+	if Options.Sorts {
+		sort.Sort(s)
+	}
 }

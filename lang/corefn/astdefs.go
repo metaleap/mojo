@@ -1,8 +1,6 @@
 package atmocorefn
 
 import (
-	"sort"
-
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
@@ -75,7 +73,7 @@ func (me AstDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) {
+func (me *AstDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (freshErrs []error) {
 	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]bool, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
@@ -131,17 +129,17 @@ func (me *AstDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) {
 		var ctxastinit ctxAstInit
 		var let AstLet
 		ctxastinit.namesInScope, ctxastinit.defsScope = names, &let.Defs
-		def.Errors.Add(def.AstDefBase.initFrom(&ctxastinit, def.Orig))
+		if errsinit := def.AstDefBase.initFrom(&ctxastinit, def.Orig); def.Errors.Add(errsinit) {
+			for e := range errsinit {
+				freshErrs = append(freshErrs, &errsinit[e])
+			}
+		}
 		if len(let.Defs) > 0 {
 			let.Body, def.AstDefBase.Body = def.AstDefBase.Body, &let
 		}
-		if atmo.Options.Sorts {
-			sort.Sort(def.Errors)
-		}
+		atmo.SortMaybe(def.Errors)
 	}
-	if atmo.Options.Sorts {
-		sort.Sort(this)
-	}
+	atmo.SortMaybe(this)
 	*me = this
 	return
 }

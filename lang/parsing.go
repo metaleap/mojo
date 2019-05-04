@@ -18,15 +18,16 @@ func init() {
 		[]string{"(", ")"}, "([{}])", true, true
 }
 
-func (me *AstFile) parse(this *AstFileTopLevelChunk) {
+func (me *AstFile) parse(this *AstFileTopLevelChunk) (freshErrs []error) {
 	toks := this.Ast.Tokens
 	if this.Ast.comments.Leading, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		if this.Ast.Def.Orig, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing == nil {
-			if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
-				this.Ast.Def.Orig.Name.Val = this.Ast.Def.Orig.Name.Val[1:]
-			}
+		if this.Ast.Def.Orig, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing != nil {
+			freshErrs = append(freshErrs, this.errs.parsing)
+		} else if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
+			this.Ast.Def.Orig.Name.Val = this.Ast.Def.Orig.Name.Val[1:]
 		}
 	}
+	return
 }
 
 func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []AstComment, rest udevlex.Tokens) {
