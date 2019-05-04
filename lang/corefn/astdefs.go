@@ -104,25 +104,16 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (freshErrs []err
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
 		def := &this[i]
-		var ctxastinit ctxAstInit
 		var let AstExprLetBase
-		ctxastinit.namesInScope, ctxastinit.defsScope = names, &let.letDefs
-		errsinit := def.AstDef.initFrom(&ctxastinit, def.Orig)
+		var ctxastinit ctxAstInit
+		ctxastinit.namesInScope, ctxastinit.defsScope, ctxastinit.curTopLevel = names, &let.letDefs, def.Orig
+		errs := def.AstDef.initFrom(&ctxastinit, def.Orig)
 		if len(let.letDefs) > 0 {
-			switch body := def.AstDef.Body.(type) {
-			case *AstIdentName:
-				body.AstExprLetBase = let
-			case *AstAppl:
-				body.AstExprLetBase = let
-			case *AstCases:
-				body.AstExprLetBase = let
-			default:
-				errsinit.AddSyn(&def.Orig.Body.Toks()[0], "atomic expression cannot have defs (unless it's a name)")
-			}
+			errs.Add(ctxastinit.addLetDefsToNode(def.Orig.Body, def.AstDef.Body, &let))
 		}
-		if def.Errors.Add(errsinit) {
-			for e := range errsinit {
-				freshErrs = append(freshErrs, &errsinit[e])
+		if def.Errors.Add(errs) {
+			for e := range errs {
+				freshErrs = append(freshErrs, &errs[e])
 			}
 		}
 		atmo.SortMaybe(def.Errors)

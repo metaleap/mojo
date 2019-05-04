@@ -17,7 +17,7 @@ var (
 	replDirSession          = "."
 	replDirCache            = atmosess.CtxDefaultCacheDirPath()
 	replDirsAdditionalKits  []string
-	replKitsWatchPauseAfter = 123 * time.Second
+	replKitsWatchPauseAfter = 242 * time.Second
 )
 
 func mainRepl() {

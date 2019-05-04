@@ -9,6 +9,7 @@ import (
 )
 
 type ctxAstInit struct {
+	curTopLevel    *atmolang.AstDef
 	dynNamePrefs   string
 	nameReferences map[string]bool
 	namesInScope   []*atmolang.AstIdent
@@ -84,17 +85,17 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 		lit.initFrom(me, o)
 		expr = &lit
 	case *atmolang.AstExprLet:
-		oldscope, newdefs, let :=
-			me.defsScope, AstDefs{}, AstLet{Orig: o, prefix: me.nextPrefix(), Defs: make(AstDefs, len(o.Defs))}
+		oldscope, sidedefs, let :=
+			me.defsScope, AstDefs{}, AstExprLetBase{letOrig: o, letPrefix: me.nextPrefix(), letDefs: make(AstDefs, len(o.Defs))}
 
-		me.defsScope = &newdefs
+		me.defsScope = &sidedefs
 		for i := range o.Defs {
-			errs.Add(let.Defs[i].initFrom(me, &o.Defs[i]))
+			errs.Add(let.letDefs[i].initFrom(me, &o.Defs[i]))
 		}
-
-		let.Body = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
-		let.Defs = append(let.Defs, newdefs...)
-		expr, me.defsScope = &let, oldscope
+		expr = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
+		let.letDefs = append(let.letDefs, sidedefs...)
+		errs.Add(me.addLetDefsToNode(o.Body, expr, &let))
+		me.defsScope = oldscope
 	case *atmolang.AstExprAppl:
 		if lamb := o.ToLetExprIfPlaceholders(me.nextPrefix()); lamb != nil {
 			expr, errs = me.newAstExprFrom(lamb)
@@ -107,24 +108,20 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 			if ata {
 				appl.AtomicArg = errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr)
 			}
-			if atc && ata {
-				expr = &appl
-			} else {
-				// oldscope := me.defsScope
-				let := AstLet{prefix: me.nextPrefix(), Body: &appl}
-				// me.defsScope = &let.Defs
+			if expr = &appl; !(atc && ata) {
+				oldscope := me.defsScope
+				me.defsScope = &appl.letDefs
 				if !atc {
-					def := let.Defs.add(errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr))
+					def := appl.letDefs.add(errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr))
 					def.Name.Val = def.Body.dynName()
 					appl.AtomicCallee = &def.Name
 				}
 				if !ata {
-					def := let.Defs.add(errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr))
+					def := appl.letDefs.add(errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr))
 					def.Name.Val = def.Body.dynName()
 					appl.AtomicArg = &def.Name
 				}
-				expr = &let
-				// me.defsScope = oldscope
+				me.defsScope = oldscope
 			}
 		}
 	case *atmolang.AstExprCases:
@@ -162,6 +159,24 @@ func (me *ctxAstInit) nextPrefix() string {
 	}
 	me.counter.val++
 	return string(ustr.RepeatB(me.counter.val, me.counter.times))
+}
+
+func (*ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, letDefs *AstExprLetBase) (errs atmo.Errors) {
+	var dst *AstExprLetBase
+	switch body := letBody.(type) {
+	case *AstIdentName:
+		dst = &body.AstExprLetBase
+	case *AstAppl:
+		dst = &body.AstExprLetBase
+	case *AstCases:
+		dst = &body.AstExprLetBase
+	}
+	if dst == nil {
+		errs.AddSyn(&origBody.Toks()[0], "cannot declare local defs for `"+origBody.Toks()[0].Meta.Orig+"`")
+	} else if dst.letDefs = append(dst.letDefs, letDefs.letDefs...); dst.letOrig == nil {
+		dst.letOrig = letDefs.letOrig
+	}
+	return
 }
 
 func (me *ctxAstInit) addLocalDefToScope(body IAstExpr, name string) (def *AstDef) {
