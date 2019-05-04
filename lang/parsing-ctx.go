@@ -17,10 +17,12 @@ type (
 
 func (me *ctxTldParse) parseExprIdent(toks udevlex.Tokens) *AstIdent {
 	var this AstIdent
-	this.Tokens, this.Val, this.IsOpish, this.IsTag =
-		toks[0:1], toks[0].Str, toks[0].Kind() == udevlex.TOKEN_OPISH, ustr.BeginsUpper(toks[0].Str)
-	if this.Val == "()" {
-		this.IsOpish = true
+	if len(toks) > 1 { // empty-parens case as of now
+		this.Tokens, this.Val, this.IsOpish, this.IsTag =
+			toks, toks[0].Meta.Orig+toks[1].Meta.Orig, true, false
+	} else {
+		this.Tokens, this.Val, this.IsOpish, this.IsTag =
+			toks[0:1], toks[0].Str, toks[0].Kind() == udevlex.TOKEN_OPISH, ustr.BeginsUpper(toks[0].Str)
 	}
 	return &this
 }
