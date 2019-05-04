@@ -1,4 +1,4 @@
-package atmocorefn
+package atmolang_irfun
 
 import (
 	"github.com/go-leap/str"

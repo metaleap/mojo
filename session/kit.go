@@ -8,7 +8,7 @@ import (
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
-	"github.com/metaleap/atmo/lang/corefn"
+	"github.com/metaleap/atmo/lang/irfun"
 )
 
 // Kit is a pile of atmo source files residing in the same directory and
@@ -18,7 +18,7 @@ type Kit struct {
 	ImpPath           string
 	WasEverToBeLoaded bool
 
-	topLevel atmocorefn.AstTopDefs
+	topLevel atmolang_irfun.AstTopDefs
 	srcFiles atmolang.AstFiles
 	errs     struct {
 		dirAccessDuringRefresh error
@@ -128,7 +128,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return false
 }
 
-func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDefTop) {
+func (me *Kit) Defs(name string) (defs []*atmolang_irfun.AstDefTop) {
 	if name[0] == '_' {
 		name = name[1:]
 	}
