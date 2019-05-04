@@ -17,8 +17,8 @@ type IPrintFmt interface {
 	OnDefArg(*AstDef, int, *AstDefArg)
 	OnDefMeta(*AstDef, int, IAstExpr)
 	OnDefBody(*AstDef, IAstExpr)
-	OnExprLetBody(bool, *AstExprLet, IAstExpr)
-	OnExprLetDef(bool, *AstExprLet, int, *AstDef)
+	OnExprLetBody(*AstExprLet, IAstExpr)
+	OnExprLetDef(*AstExprLet, int, *AstDef)
 	OnExprApplName(bool, *AstExprAppl, IAstExpr)
 	OnExprApplArg(bool, *AstExprAppl, int, IAstExpr)
 	OnExprCasesScrutinee(bool, *AstExprCases, IAstExpr)
@@ -29,7 +29,8 @@ type IPrintFmt interface {
 
 func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer) {
 	ctxp := &CtxPrint{NoComments: true, CurTopLevel: curTopLevel}
-	ctxp.Fmt = &PrintFmtMinimal{CtxPrint: ctxp}
+	ctxp.Fmt = &PrintFmtMinimal{}
+	ctxp.Fmt.SetCtxPrint(ctxp)
 	ctxp.Print(node)
 	out.Write(append(append([]byte("\n\n\n▓▓▓"), ctxp.BytesWriter.Data...), "▓▓▓\n\n\n"...))
 }
@@ -227,10 +228,9 @@ func (me *AstExprAppl) print(p *CtxPrint) {
 }
 
 func (me *AstExprLet) print(p *CtxPrint) {
-	istopleveldefsbody := (me == p.CurTopLevel.Body)
-	p.Fmt.OnExprLetBody(istopleveldefsbody, me, me.Body)
+	p.Fmt.OnExprLetBody(me, me.Body)
 	for i := range me.Defs {
-		p.Fmt.OnExprLetDef(istopleveldefsbody, me, i, &me.Defs[i])
+		p.Fmt.OnExprLetDef(me, i, &me.Defs[i])
 	}
 }
 
@@ -296,10 +296,10 @@ func (me *PrintFmtMinimal) OnDefBody(def *AstDef, node IAstExpr) {
 	me.WriteByte(' ')
 	me.Print(node)
 }
-func (me *PrintFmtMinimal) OnExprLetBody(_ bool, _ *AstExprLet, node IAstExpr) {
+func (me *PrintFmtMinimal) OnExprLetBody(_ *AstExprLet, node IAstExpr) {
 	me.PrintInParensIf(node, true, true)
 }
-func (me *PrintFmtMinimal) OnExprLetDef(_ bool, _ *AstExprLet, _ int, node *AstDef) {
+func (me *PrintFmtMinimal) OnExprLetDef(_ *AstExprLet, _ int, node *AstDef) {
 	me.WriteByte(',')
 	me.Print(node)
 }
@@ -381,19 +381,18 @@ func (me *PrintFmtPretty) OnDefBody(def *AstDef, node IAstExpr) {
 		me.CurIndentLevel--
 	}
 }
-func (me *PrintFmtPretty) OnExprLetBody(isLetTopLevelDefBody bool, _ *AstExprLet, node IAstExpr) {
+func (me *PrintFmtPretty) OnExprLetBody(_ *AstExprLet, node IAstExpr) {
 	me.Print(node)
-	if isLetTopLevelDefBody {
-		me.WriteLineBreaksThenIndent(1)
-	}
+	me.CurIndentLevel++
+	me.WriteLineBreaksThenIndent(1)
 }
-func (me *PrintFmtPretty) OnExprLetDef(isLetTopLevelDefBody bool, _ *AstExprLet, _ int, node *AstDef) {
-	if !isLetTopLevelDefBody {
-		me.WriteString(" , ")
-	} else {
-		me.WriteLineBreaksThenIndent(1)
-	}
+func (me *PrintFmtPretty) OnExprLetDef(let *AstExprLet, idx int, node *AstDef) {
+	me.WriteString(", ")
 	me.Print(node)
+	if idx == len(let.Defs)-1 {
+		me.CurIndentLevel--
+	}
+	me.WriteLineBreaksThenIndent(1)
 }
 func (me *PrintFmtPretty) OnExprCasesScrutinee(_ bool, _ *AstExprCases, node IAstExpr) {
 	me.PrintInParensIf(node, true, false)

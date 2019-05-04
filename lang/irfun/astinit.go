@@ -7,12 +7,12 @@ import (
 )
 
 func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
-	me.Orig = orig
+	me.Orig = orig.ToUnary()
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initArgs(ctx))
 	errs.Add(me.initMetas(ctx))
 	errs.Add(me.initBody(ctx))
-	if !me.Orig.IsTopLevel {
+	if me.Orig = orig; !me.Orig.IsTopLevel {
 		ctx.dynNameDrop(me.Orig.Name.Val)
 	}
 	return
