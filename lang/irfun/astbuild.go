@@ -70,11 +70,3 @@ func (AstBuilder) IdentTagFalse() *AstIdentTag {
 	}
 	return builderSingletons.identTagFalse
 }
-
-func (AstBuilder) DefArgs(names ...string) (r []AstDefArg) {
-	r = make([]AstDefArg, len(names))
-	for i := range names {
-		r[i].AstIdentName.Val = names[i]
-	}
-	return
-}

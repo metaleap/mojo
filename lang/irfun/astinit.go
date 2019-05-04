@@ -9,7 +9,7 @@ import (
 func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig.ToUnary()
 	errs.Add(me.initName(ctx))
-	errs.Add(me.initArgs(ctx))
+	errs.Add(me.initArg(ctx))
 	errs.Add(me.initMetas(ctx))
 	errs.Add(me.initBody(ctx))
 	if me.Orig = orig; !me.Orig.IsTopLevel {
@@ -41,10 +41,10 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 
 	opeq := B.IdentName("==")
 	if len(ctx.coerceFuncs) > 0 {
-		for i := range me.Args {
-			if coerce := ctx.coerceFuncs[&me.Args[i]]; coerce != nil {
-				appl := B.Appl(ctx.ensureAstAtomFor(coerce), &me.Args[i].AstIdentName)
-				me.Body = B.Case(B.Appls(ctx, opeq, &me.Args[i].AstIdentName, ctx.ensureAstAtomFor(appl)), me.Body)
+		if me.Arg != nil {
+			if coerce := ctx.coerceFuncs[me.Arg]; coerce != nil {
+				appl := B.Appl(ctx.ensureAstAtomFor(coerce), &me.Arg.AstIdentName)
+				me.Body = B.Case(B.Appls(ctx, opeq, &me.Arg.AstIdentName, ctx.ensureAstAtomFor(appl)), me.Body)
 			}
 		}
 		if coerce := ctx.coerceFuncs[&me.Name]; coerce != nil {
@@ -55,13 +55,13 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *AstDef) initArgs(ctx *ctxAstInit) (errs atmo.Errors) {
-	if len(me.Orig.Args) > 0 {
-		args := make([]AstDefArg, len(me.Orig.Args))
-		for i := range me.Orig.Args {
-			errs.Add(args[i].initFrom(ctx, &me.Orig.Args[i], i))
-		}
-		me.Args = args
+func (me *AstDef) initArg(ctx *ctxAstInit) (errs atmo.Errors) {
+	if len(me.Orig.Args) > 1 {
+		panic(len(me.Orig.Args))
+	} else if len(me.Orig.Args) == 1 {
+		var arg AstDefArg
+		arg.initFrom(ctx, &me.Orig.Args[0])
+		me.Arg = &arg
 	}
 	return
 }
@@ -76,7 +76,7 @@ func (me *AstDef) initMetas(ctx *ctxAstInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg, argIdx int) (errs atmo.Errors) {
+func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs atmo.Errors) {
 	me.Orig = orig
 
 	var isconstexpr bool
@@ -84,7 +84,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg, argIdx 
 	case *atmolang.AstIdent:
 		if isconstexpr = true; !(v.IsTag || v.Val == "()" || ( /*AstIdentVar*/ v.Val[0] == '_' && len(v.Val) > 1 && v.Val[1] != '_')) {
 			if ustr.IsRepeat(v.Val, '_') {
-				if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, ustr.Int(argIdx)+"ª", v; len(v.Val) > 1 {
+				if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, "0"+ctx.nextPrefix(), v; len(v.Val) > 1 {
 					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
 				}
 			} else if constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExpr); constexpr != nil {
@@ -100,7 +100,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg, argIdx 
 		errs.AddSyn(&orig.Affix.Toks()[0], "def-arg affix illegal where the arg is itself a constant value")
 	}
 	if isconstexpr {
-		me.AstIdentName.Val = ustr.Int(argIdx) + "ª"
+		me.AstIdentName.Val = "0" + ctx.nextPrefix()
 		coerce := atmolang.B.Cases(nil, atmolang.AstCase{Conds: []atmolang.IAstExpr{orig.NameOrConstVal}})
 		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(coerce.ToLetIfUnionSugar(ctx.nextPrefix()))).(IAstExpr))
 	}

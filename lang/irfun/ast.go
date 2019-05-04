@@ -29,29 +29,21 @@ type AstDef struct {
 	Orig *atmolang.AstDef
 
 	Name AstIdentName
-	Args []AstDefArg
+	Arg  *AstDefArg
 	Body IAstExpr
 }
 
 func (me *AstDef) refersTo(name string) bool { return me.Body.refersTo(name) }
 func (me *AstDef) renameIdents(ren map[string]string) {
 	me.Name.renameIdents(ren)
-	for i := range me.Args {
-		me.Args[i].renameIdents(ren)
+	if me.Arg != nil {
+		me.Arg.renameIdents(ren)
 	}
 	me.Body.renameIdents(ren)
 }
 func (me *AstDef) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
-	if cmp != nil && cmp.Name.equivTo(&me.Name) && len(cmp.Args) == len(me.Args) && cmp.Body.equivTo(me.Body) {
-		for i := range cmp.Args {
-			if !cmp.Args[i].equivTo(&me.Args[i]) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
+	return cmp != nil && cmp.Name.equivTo(&me.Name) && cmp.Arg.isEquivTo(me.Arg) && cmp.Body.equivTo(me.Body)
 }
 
 type AstDefTop struct {
@@ -65,6 +57,10 @@ type AstDefArg struct {
 	AstIdentName
 
 	Orig *atmolang.AstDefArg
+}
+
+func (me *AstDefArg) isEquivTo(cmp *AstDefArg) bool {
+	return ((me == nil) == (cmp == nil)) && (me == nil || me.AstIdentName.equivTo(&cmp.AstIdentName))
 }
 
 type AstExprBase struct {
