@@ -159,7 +159,7 @@ func (me *AstExprLetBase) letDefsRenameIdents(ren map[string]string) {
 		me.letDefs[i].Body.renameIdents(ren)
 	}
 }
-func (me *AstExprLetBase) letDefsRefersTo(name string) (refers bool) {
+func (me *AstExprLetBase) letDefsReferTo(name string) (refers bool) {
 	for i := range me.letDefs {
 		if refers = me.letDefs[i].refersTo(name); refers {
 			break
@@ -183,19 +183,19 @@ type AstIdentName struct {
 	AstExprLetBase
 }
 
-func (me *AstIdentName) dynName() string { return me.AstExprLetBase.letDynName() + me.Val }
+func (me *AstIdentName) dynName() string { return me.letDynName() + me.Val }
 func (me *AstIdentName) refersTo(name string) bool {
-	return me.Val == name || me.AstExprLetBase.letDefsRefersTo(name)
+	return me.Val == name || me.letDefsReferTo(name)
 }
 func (me *AstIdentName) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentName)
-	return cmp != nil && cmp.Val == me.Val && cmp.AstExprLetBase.letDefsEquivTo(&me.AstExprLetBase)
+	return cmp != nil && cmp.Val == me.Val && cmp.letDefsEquivTo(&me.AstExprLetBase)
 }
 func (me *AstIdentName) renameIdents(ren map[string]string) {
 	if nu, ok := ren[me.Val]; ok {
 		me.Val = nu
 	}
-	me.AstExprLetBase.letDefsRenameIdents(ren)
+	me.letDefsRenameIdents(ren)
 }
 
 type AstIdentVar struct {
@@ -244,17 +244,20 @@ type AstAppl struct {
 	AtomicArg    IAstExpr
 }
 
-func (me *AstAppl) dynName() string { return me.AtomicCallee.dynName() + "─" + me.AtomicArg.dynName() }
+func (me *AstAppl) dynName() string {
+	return me.letDynName() + me.AtomicCallee.dynName() + "─" + me.AtomicArg.dynName()
+}
 func (me *AstAppl) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstAppl)
-	return cmp != nil && cmp.AtomicCallee.equivTo(me.AtomicCallee) && cmp.AtomicArg.equivTo(me.AtomicArg)
+	return cmp != nil && cmp.AtomicCallee.equivTo(me.AtomicCallee) && cmp.AtomicArg.equivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.AstExprLetBase)
 }
 func (me *AstAppl) renameIdents(ren map[string]string) {
 	me.AtomicCallee.renameIdents(ren)
 	me.AtomicArg.renameIdents(ren)
+	me.letDefsRenameIdents(ren)
 }
 func (me *AstAppl) refersTo(name string) bool {
-	return me.AtomicCallee.refersTo(name) || me.AtomicArg.refersTo(name)
+	return me.AtomicCallee.refersTo(name) || me.AtomicArg.refersTo(name) || me.letDefsReferTo(name)
 }
 
 type AstLet struct {
@@ -297,6 +300,7 @@ func (me *AstLet) refersTo(name string) (refers bool) {
 
 type AstCases struct {
 	AstExprBase
+	AstExprLetBase
 	Orig  *atmolang.AstExprCases
 	Ifs   []IAstExpr
 	Thens []IAstExpr
@@ -316,7 +320,7 @@ func (me *AstCases) equivTo(node IAstNode) bool {
 				return false
 			}
 		}
-		return true
+		return cmp.letDefsEquivTo(&me.AstExprLetBase)
 	}
 	return false
 }
@@ -325,6 +329,7 @@ func (me *AstCases) renameIdents(ren map[string]string) {
 		me.Thens[i].renameIdents(ren)
 		me.Ifs[i].renameIdents(ren)
 	}
+	me.letDefsRenameIdents(ren)
 }
 func (me *AstCases) refersTo(name string) bool {
 	for i := range me.Thens {
@@ -335,5 +340,5 @@ func (me *AstCases) refersTo(name string) bool {
 			return true
 		}
 	}
-	return false
+	return me.letDefsReferTo(name)
 }

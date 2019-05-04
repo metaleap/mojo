@@ -82,13 +82,14 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg, argIdx 
 	var isconstexpr bool
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
-		constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExpr)
-		if isconstexpr = true; constexpr != nil {
-			if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
-				isconstexpr, me.AstIdentName = false, *cxn
-			} else if cxu, ok2 := constexpr.(*AstIdentPlaceholder); ok2 {
-				if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, ustr.Int(argIdx)+"ª", v; cxu.Num() > 1 {
-					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
+		if isconstexpr = true; !(v.IsTag || v.Val == "()" || ( /*AstIdentVar*/ v.Val[0] == '_' && len(v.Val) > 1 && v.Val[1] != '_')) {
+			if constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExpr); constexpr != nil {
+				if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
+					isconstexpr, me.AstIdentName = false, *cxn
+				} else if cxu, ok2 := constexpr.(*AstIdentPlaceholder); ok2 {
+					if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, ustr.Int(argIdx)+"ª", v; cxu.Num() > 1 {
+						errs.AddNaming(&v.Tokens[0], "invalid def arg name")
+					}
 				}
 			}
 		}
