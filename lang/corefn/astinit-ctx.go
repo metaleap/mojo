@@ -28,39 +28,6 @@ func (me *ctxAstInit) addCoercion(on IAstNode, coerce IAstExpr) {
 	}
 }
 
-func (me *ctxAstInit) nameInScope(name *atmolang.AstIdent) *atmolang.AstIdent {
-	for i := range me.namesInScope {
-		if me.namesInScope[i].Val == name.Val {
-			return me.namesInScope[i]
-		}
-	}
-	return nil
-}
-
-func (me *ctxAstInit) namesInScopeAdd(errs *atmo.Errors, names ...*atmolang.AstIdent) (ok int) {
-	ndone := make(map[string]bool, len(names))
-	for i := range names {
-		if ident := me.nameInScope(names[i]); ident != nil {
-			errs.AddNaming(&names[i].Tokens[0], "name `"+names[i].Val+"` already taken by "+ident.Tokens[0].Meta.Position.String())
-			names[i] = nil
-		} else if ndone[names[i].Val] {
-			names[i] = nil
-		} else {
-			ndone[names[i].Val] = true
-		}
-	}
-	for i := range names {
-		if names[i] != nil {
-			ok, me.namesInScope = ok+1, append(me.namesInScope, names[i])
-		}
-	}
-	return
-}
-
-func (me *ctxAstInit) namesInScopeDrop(num int) {
-	me.namesInScope = me.namesInScope[:len(me.namesInScope)-num]
-}
-
 func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExprAtomic {
 	if xat, _ := expr.(IAstExprAtomic); xat != nil {
 		return xat
@@ -68,7 +35,7 @@ func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExprAtomic {
 	return &me.addLocalDefToScope(expr, me.dynName(expr)).Name
 }
 
-func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent, isDecl bool) (ret IAstExprAtomic, errs atmo.Errors) {
+func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExprAtomic, errs atmo.Errors) {
 	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
 		var ident AstIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
@@ -92,23 +59,13 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent, isDecl bool) (ret
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	}
-	if !isDecl {
-		switch ret.(type) {
-		case *AstIdentPlaceholder:
-			errs.AddSyn(&orig.Tokens[0], "lone placeholder illegal here: only permissible in def args or calls")
-		case *AstIdentName:
-			if me.nameInScope(orig) == nil {
-				errs.AddNaming(&orig.Tokens[0], "name unknown: `"+orig.Val+"`")
-			}
-		}
-	}
 	return
 }
 
 func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
 	switch o := orig.(type) {
 	case *atmolang.AstIdent:
-		expr, errs = me.newAstIdentFrom(o, false)
+		expr, errs = me.newAstIdentFrom(o)
 	case *atmolang.AstExprLitFloat:
 		var lit AstLitFloat
 		lit.initFrom(me, o)
@@ -126,12 +83,8 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 		lit.initFrom(me, o)
 		expr = &lit
 	case *atmolang.AstExprLet:
-		oldscope, newdefs, newnamesinscope, let :=
-			me.defsScope, astDefs{}, make([]*atmolang.AstIdent, len(o.Defs)), AstLet{Orig: o, prefix: me.nextPrefix(), Defs: make(astDefs, len(o.Defs))}
-		for i := range o.Defs {
-			newnamesinscope[i] = &o.Defs[i].Name
-		}
-		numnames := me.namesInScopeAdd(&errs, newnamesinscope...)
+		oldscope, newdefs, let :=
+			me.defsScope, astDefs{}, AstLet{Orig: o, prefix: me.nextPrefix(), Defs: make(astDefs, len(o.Defs))}
 
 		me.defsScope = &newdefs
 		for i := range o.Defs {
@@ -140,7 +93,6 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 
 		let.Body = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
 		let.Defs = append(let.Defs, newdefs...)
-		me.namesInScopeDrop(numnames)
 		expr, me.defsScope = &let, oldscope
 	case *atmolang.AstExprAppl:
 		if lamb := o.ToLetExprIfPlaceholders(me.nextPrefix()); lamb != nil {

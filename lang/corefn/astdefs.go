@@ -55,18 +55,9 @@ func (me AstDefs) Less(i int, j int) bool {
 	return (dis.Filename == dat.Filename && dis.Offset < dat.Offset) || dis.Filename < dat.Filename
 }
 
-func (me AstDefs) ByID(id string) *AstDef {
-	for i := range me {
-		if me[i].TopLevel.ID() == id {
-			return &me[i]
-		}
-	}
-	return nil
-}
-
 func (me AstDefs) IndexByID(id string) int {
 	for i := range me {
-		if me[i].TopLevel.ID() == id {
+		if len(me[i].TopLevels) == 1 && me[i].TopLevels[0].ID() == id {
 			return i
 		}
 	}
@@ -112,7 +103,7 @@ func (me *AstDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (freshErrs []error)
 		if !tlc.HasErrors() {
 			idx := len(this)
 			this = append(this, AstDef{})
-			this[idx].TopLevel, this[idx].Orig = tlc, tlc.Ast.Def.Orig
+			this[idx].TopLevels, this[idx].Orig = append(this[idx].TopLevels, tlc), tlc.Ast.Def.Orig
 		}
 	}
 

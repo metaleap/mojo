@@ -233,7 +233,8 @@ func (me *ctxTldParse) parseExprAppl(accum []IAstExpr, allToks udevlex.Tokens) (
 			appl.Tokens = allToks
 		}
 		args := make([]IAstExpr, 1, len(accum)-1)
-		switch me.file.Options.ApplStyle {
+		applstyle := me.file.Options.ApplStyle // TODO: change it depending on op-appl
+		switch applstyle {
 		case APPLSTYLE_VSO:
 			appl.Callee, args[0] = accum[0], accum[1]
 			appl.Args = append(args, accum[2:]...)

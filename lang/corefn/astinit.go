@@ -8,12 +8,6 @@ import (
 
 func (me *AstDefBase) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig
-	var numnewnames int
-	for i := range me.Orig.Args {
-		if name, _ := me.Orig.Args[i].NameOrConstVal.(*atmolang.AstIdent); name != nil {
-			numnewnames += ctx.namesInScopeAdd(&errs, name)
-		}
-	}
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initArgs(ctx))
 	errs.Add(me.initMetas(ctx))
@@ -21,14 +15,13 @@ func (me *AstDefBase) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atm
 	if !me.Orig.IsTopLevel {
 		ctx.dynNameDrop(me.Orig.Name.Val)
 	}
-	ctx.namesInScopeDrop(numnewnames)
 	return
 }
 
 func (me *AstDefBase) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	tok := me.Orig.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
 	var ident IAstExprAtomic
-	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name, true)
+	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name)
 	if name, _ := ident.(*AstIdentName); name == nil {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or EmptyParens or Placeholder etc..
 	} else if me.Name = *name; name.Val == "" /*|| ustr.In(name.Val, langReservedOps...)*/ {
@@ -89,7 +82,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg, argIdx 
 	var isconstexpr bool
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
-		constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v, true)).(IAstExprAtomic)
+		constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExprAtomic)
 		if isconstexpr = true; constexpr != nil {
 			if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
 				isconstexpr, me.AstIdentName = false, *cxn

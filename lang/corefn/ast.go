@@ -8,7 +8,6 @@ import (
 )
 
 type IAstNode interface {
-	Origin() atmolang.IAstNode
 	Print() atmolang.IAstNode
 
 	equivTo(IAstNode) bool
@@ -39,7 +38,6 @@ type AstDefBase struct {
 	Body IAstExpr
 }
 
-func (me *AstDefBase) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstDefBase) refersTo(name string) bool { return me.Body.refersTo(name) }
 func (me *AstDefBase) renameIdents(ren map[string]string) {
 	me.Name.renameIdents(ren)
@@ -64,8 +62,8 @@ func (me *AstDefBase) equivTo(node IAstNode) bool {
 type AstDef struct {
 	AstDefBase
 
-	TopLevel *atmolang.AstFileTopLevelChunk
-	Errors   atmo.Errors
+	TopLevels []*atmolang.AstFileTopLevelChunk
+	Errors    atmo.Errors
 }
 
 type AstDefArg struct {
@@ -96,7 +94,6 @@ type AstIdentBase struct {
 }
 
 func (me *AstIdentBase) refersTo(name string) bool { return name == me.Val }
-func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstIdentBase) DynName() string           { return me.Val }
 
 type AstIdentName struct {
@@ -156,8 +153,7 @@ type AstLitBase struct {
 	Orig atmolang.IAstExprAtomic
 }
 
-func (me *AstLitBase) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstLitBase) refersTo(string) bool      { return false }
+func (me *AstLitBase) refersTo(string) bool { return false }
 
 type AstLitRune struct {
 	AstLitBase
@@ -210,8 +206,7 @@ type AstAppl struct {
 	Arg    IAstExprAtomic
 }
 
-func (me *AstAppl) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstAppl) DynName() string           { return me.Callee.DynName() + "─" + me.Arg.DynName() }
+func (me *AstAppl) DynName() string { return me.Callee.DynName() + "─" + me.Arg.DynName() }
 func (me *AstAppl) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstAppl)
 	return cmp != nil && cmp.Callee.equivTo(me.Callee) && cmp.Arg.equivTo(me.Arg)
@@ -232,8 +227,7 @@ type AstLet struct {
 	prefix string
 }
 
-func (me *AstLet) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstLet) DynName() string           { return me.prefix + "└" }
+func (me *AstLet) DynName() string { return me.prefix + "└" }
 func (me *AstLet) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLet)
 	if cmp != nil && cmp.Body.equivTo(me.Body) && len(cmp.Defs) == len(me.Defs) {
@@ -270,8 +264,7 @@ type AstCases struct {
 	Thens []IAstExpr
 }
 
-func (me *AstCases) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstCases) DynName() string           { panic(me.Orig) }
+func (me *AstCases) DynName() string { panic(me.Orig) }
 func (me *AstCases) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstCases)
 	if cmp != nil && len(cmp.Ifs) == len(me.Ifs) && len(cmp.Thens) == len(me.Thens) {
