@@ -84,13 +84,11 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	case *atmolang.AstIdent:
 		if isconstexpr = true; !(v.IsTag || v.Val == "()" || ( /*AstIdentVar*/ v.Val[0] == '_' && len(v.Val) > 1 && v.Val[1] != '_')) {
 			if ustr.IsRepeat(v.Val, '_') {
-				if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, "0"+ctx.nextPrefix(), v; len(v.Val) > 1 {
+				if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v; len(v.Val) > 1 {
 					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
 				}
-			} else if constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExpr); constexpr != nil {
-				if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
-					isconstexpr, me.AstIdentName = false, *cxn
-				}
+			} else if cxn, ok1 := errs.AddVia(ctx.newAstIdentFrom(v)).(*AstIdentName); ok1 {
+				isconstexpr, me.AstIdentName = false, *cxn
 			}
 		}
 	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitRune, *atmolang.AstExprLitStr:
@@ -100,7 +98,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 		errs.AddSyn(&orig.Affix.Toks()[0], "def-arg affix illegal where the arg is itself a constant value")
 	}
 	if isconstexpr {
-		me.AstIdentName.Val = "0" + ctx.nextPrefix()
+		me.AstIdentName.Val = "42" + ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
 		coerce := atmolang.B.Cases(nil, atmolang.AstCase{Conds: []atmolang.IAstExpr{orig.NameOrConstVal}})
 		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(coerce.ToLetIfUnionSugar(ctx.nextPrefix()))).(IAstExpr))
 	}
