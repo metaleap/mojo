@@ -226,16 +226,6 @@ func (me *AstIdentEmptyParens) equivTo(node IAstNode) bool {
 	return cmp != nil
 }
 
-type AstIdentPlaceholder struct {
-	AstIdentBase
-}
-
-func (me *AstIdentPlaceholder) Num() int { return len(me.Val) }
-func (me *AstIdentPlaceholder) equivTo(node IAstNode) bool {
-	cmp, _ := node.(*AstIdentPlaceholder)
-	return cmp != nil && cmp.Val == me.Val
-}
-
 type AstAppl struct {
 	AstExprBase
 	AstExprLetBase

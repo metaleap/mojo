@@ -47,7 +47,8 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, er
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	} else if ustr.IsRepeat(orig.Val, '_') {
-		var ident AstIdentPlaceholder
+		var ident AstIdentVar // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be found as well
+		errs.AddSyn(&orig.Tokens[0], "illegal placeholder placement: valid in def-args or call expressions")
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	} else if orig.Val[0] == '_' {
@@ -127,12 +128,12 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 			}
 		}
 	case *atmolang.AstExprCases:
-		if let := o.ToLetIfUnionSugar(me.nextPrefix()); let == nil {
+		if lamb := o.ToLetIfUnionSugar(me.nextPrefix()); lamb != nil {
+			expr, errs = me.newAstExprFrom(lamb)
+		} else {
 			var cases AstCases
 			errs = cases.initFrom(me, o)
 			expr = &cases
-		} else {
-			expr, errs = me.newAstExprFrom(let)
 		}
 	default:
 		panic(o)

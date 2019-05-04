@@ -23,7 +23,7 @@ func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	var ident IAstExpr
 	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name)
 	if name, _ := ident.(*AstIdentName); name == nil {
-		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or EmptyParens or Placeholder etc..
+		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or EmptyParens or placeholder etc..
 	} else if me.Name = *name; name.Val == "" /*|| ustr.In(name.Val, langReservedOps...)*/ {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 	}
@@ -83,13 +83,13 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg, argIdx 
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
 		if isconstexpr = true; !(v.IsTag || v.Val == "()" || ( /*AstIdentVar*/ v.Val[0] == '_' && len(v.Val) > 1 && v.Val[1] != '_')) {
-			if constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExpr); constexpr != nil {
+			if ustr.IsRepeat(v.Val, '_') {
+				if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, ustr.Int(argIdx)+"ª", v; len(v.Val) > 1 {
+					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
+				}
+			} else if constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExpr); constexpr != nil {
 				if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
 					isconstexpr, me.AstIdentName = false, *cxn
-				} else if cxu, ok2 := constexpr.(*AstIdentPlaceholder); ok2 {
-					if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, ustr.Int(argIdx)+"ª", v; cxu.Num() > 1 {
-						errs.AddNaming(&v.Tokens[0], "invalid def arg name")
-					}
 				}
 			}
 		}
