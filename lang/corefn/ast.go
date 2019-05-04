@@ -37,8 +37,6 @@ type AstDefBase struct {
 	Name AstIdentName
 	Args []AstDefArg
 	Body IAstExpr
-
-	nameCoerceFunc IAstExpr
 }
 
 func (me *AstDefBase) Origin() atmolang.IAstNode { return me.Orig }
@@ -72,8 +70,6 @@ type AstDef struct {
 
 type AstDefArg struct {
 	AstIdentName
-	coerceValue IAstExprAtomic
-	coerceFunc  IAstExpr
 
 	Orig *atmolang.AstDefArg
 }

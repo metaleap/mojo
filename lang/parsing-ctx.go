@@ -15,9 +15,9 @@ type (
 	}
 )
 
-func (me *ctxTldParse) parseExprIdent(toks udevlex.Tokens) *AstIdent {
+func (me *ctxTldParse) parseExprIdent(toks udevlex.Tokens, emptySeps bool) *AstIdent {
 	var this AstIdent
-	if len(toks) > 1 { // empty-parens case as of now
+	if emptySeps {
 		this.Tokens, this.Val, this.IsOpish, this.IsTag =
 			toks, toks[0].Meta.Orig+toks[1].Meta.Orig, true, false
 	} else {

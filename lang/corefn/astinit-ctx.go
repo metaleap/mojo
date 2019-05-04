@@ -1,6 +1,8 @@
 package atmocorefn
 
 import (
+	"strconv"
+
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
@@ -11,9 +13,18 @@ type ctxAstInit struct {
 	nameReferences map[string]bool
 	namesInScope   []*atmolang.AstIdent
 	defsScope      *astDefs
+	coerceFuncs    map[IAstNode]IAstExpr
 	counter        struct {
 		val   byte
 		times int
+	}
+}
+
+func (me *ctxAstInit) addCoercion(on IAstNode, coerce IAstExpr) {
+	if me.coerceFuncs == nil {
+		me.coerceFuncs = map[IAstNode]IAstExpr{on: coerce}
+	} else {
+		me.coerceFuncs[on] = coerce
 	}
 }
 
@@ -62,7 +73,7 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent, isDecl bool) (ret
 		var ident AstIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 	} else if t1 != t2 {
-		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing")
+		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + ustr.If(len(orig.Tokens) == 0, "<dyn>", orig.Tokens[0].Meta.Position.String()) + ")")
 
 	} else if orig.IsOpish && orig.Val == "()" {
 		var ident AstIdentEmptyParens

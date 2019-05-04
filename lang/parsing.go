@@ -175,7 +175,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				if sub, rest, e := me.parseParens(toks); e != nil {
 					err = e
 				} else if len(sub) == 0 { // empty parens are otherwise useless so we'll use it as some builtin ident
-					exprcur = me.parseExprIdent(toks[:2])
+					exprcur = me.parseExprIdent(toks[:2], true)
 					toks = rest
 				} else if exprcur, err = me.parseExprInParens(sub); err == nil {
 					toks = rest
@@ -201,7 +201,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
 				default:
-					exprcur = me.parseExprIdent(toks)
+					exprcur = me.parseExprIdent(toks, false)
 					toks = toks[1:]
 				}
 			default:
@@ -303,7 +303,7 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 				}
 			}
 		}
-		if cases.Scrutinee != nil && cases.seemsUnionSugar() { // fix-finish the sugar of simple `foo | bar | baz` form for cleaner desugaring
+		if cases.Scrutinee != nil && cases.SeemsUnionSugar() { // fix-finish the sugar of simple `foo | bar | baz` form for cleaner desugaring
 			cases.Alts[0].Conds = append([]IAstExpr{cases.Scrutinee}, cases.Alts[0].Conds...)
 			cases.Scrutinee = nil
 		}
