@@ -44,7 +44,7 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []AstComm
 }
 
 func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, err *atmo.Error) {
-	ctx := tldParse{file: me, atTopLevelStill: true}
+	ctx := ctxTldParse{file: me, atTopLevelStill: true}
 	var astdef AstDef
 	if err = ctx.parseDef(tokens, &astdef); err == nil {
 		def = &astdef
@@ -52,7 +52,7 @@ func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, err *at
 	return
 }
 
-func (me *tldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error) {
+func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error) {
 	istopleveldef := me.atTopLevelStill
 	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
 		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Position.Column == 1 {
@@ -83,7 +83,7 @@ func (me *tldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error)
 	return
 }
 
-func (me *tldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (err *atmo.Error) {
+func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (err *atmo.Error) {
 	parseaffix := func(appl *AstExprAppl) IAstExpr {
 		var tsub udevlex.Tokens
 		if len(appl.Args) > 2 {
@@ -142,7 +142,7 @@ func (me *tldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (er
 	return
 }
 
-func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
+func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
 	indhint := toks[0].Meta.Position.Column - 1
 	if me.indentHintForLet != 0 {
 		indhint, me.indentHintForLet = me.indentHintForLet, 0
@@ -222,7 +222,7 @@ func (me *tldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Erro
 	return
 }
 
-func (me *tldParse) parseExprAppl(accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr) {
+func (me *ctxTldParse) parseExprAppl(accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr) {
 	if len(accum) == 1 {
 		ret = accum[0]
 	} else {
@@ -248,7 +248,7 @@ func (me *tldParse) parseExprAppl(accum []IAstExpr, allToks udevlex.Tokens) (ret
 	return
 }
 
-func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
+func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
 	if len(toks) == 1 {
 		err = atmo.ErrSyn(&toks[0], "missing expressions following `|` branching")
 		return
@@ -311,7 +311,7 @@ func (me *tldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allToks
 	return
 }
 
-func (me *tldParse) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
+func (me *ctxTldParse) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
 	const errmsg = "missing definitions following `,` comma"
 	if len(toks) == 1 {
 		err = atmo.ErrSyn(&toks[0], errmsg)
@@ -339,7 +339,7 @@ func (me *tldParse) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, all
 	return
 }
 
-func (me *tldParse) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex.Tokens) (ret *AstExprLet, err *atmo.Error) {
+func (me *ctxTldParse) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex.Tokens) (ret *AstExprLet, err *atmo.Error) {
 	var let AstExprLet
 	let.Tokens, let.Defs = toks, make([]AstDef, len(toksChunked)-1)
 	for i := range toksChunked {
@@ -356,14 +356,14 @@ func (me *tldParse) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udevlex
 	return
 }
 
-func (me *tldParse) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
+func (me *ctxTldParse) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
 	me.parensLevel++
 	ret, err = me.parseExpr(toks)
 	me.parensLevel--
 	return
 }
 
-func (me *tldParse) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, rest udevlex.Tokens, err *atmo.Error) {
+func (me *ctxTldParse) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, rest udevlex.Tokens, err *atmo.Error) {
 	var numunclosed int
 	if toks[0].Str == ")" {
 		err = atmo.ErrSyn(&toks[0], "closing parenthesis without matching opening")
@@ -373,7 +373,7 @@ func (me *tldParse) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, rest u
 	return
 }
 
-func (me *tldParse) parseMetas(chunks []udevlex.Tokens) (metas []IAstExpr, err *atmo.Error) {
+func (me *ctxTldParse) parseMetas(chunks []udevlex.Tokens) (metas []IAstExpr, err *atmo.Error) {
 	metas = make([]IAstExpr, 0, len(chunks))
 	var meta IAstExpr
 	for i := range chunks {

@@ -14,7 +14,7 @@ func (AstBuilder) Appl(callee IAstExprAtomic, arg IAstExprAtomic) *AstAppl {
 	return &AstAppl{Callee: callee, Arg: arg}
 }
 
-func (AstBuilder) Appls(ctx *AstDef, callee IAstExprAtomic, args ...IAstExprAtomic) (appl *AstAppl) {
+func (AstBuilder) Appls(ctx *ctxAstInit, callee IAstExprAtomic, args ...IAstExprAtomic) (appl *AstAppl) {
 	for i := range args {
 		if i == 0 {
 			appl = &AstAppl{Callee: callee, Arg: args[i]}

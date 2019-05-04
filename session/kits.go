@@ -187,11 +187,13 @@ func (me *Ctx) initKits() {
 						i--
 					}
 				}
-				// for stable listings etc.
-				sort.Sort(me.Kits.all)
 				// timing until now, before reloads
 				nowtime := time.Now().UnixNano()
 				starttime, filemodwatchduration = nowtime, nowtime-starttime
+				// for stable listings etc.
+				if atmo.Options.Sorts {
+					sort.Sort(me.Kits.all)
+				}
 				// per-file refresher
 				for kitdirpath := range shouldrefresh {
 					me.kitRefreshFilesAndReloadIfWasLoaded(me.Kits.all.indexDirPath(kitdirpath))

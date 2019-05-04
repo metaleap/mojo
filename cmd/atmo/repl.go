@@ -7,6 +7,7 @@ import (
 	"github.com/go-forks/go-ps"
 	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/session"
 	"github.com/metaleap/atmo/tooling/repl"
 )
@@ -16,10 +17,11 @@ var (
 	replDirSession          = "."
 	replDirCache            = atmosess.CtxDefaultCacheDirPath()
 	replDirsAdditionalKits  []string
-	replKitsWatchPauseAfter = 83 * time.Second
+	replKitsWatchPauseAfter = 123 * time.Second
 )
 
 func mainRepl() {
+	atmo.Options.Sorts = true
 	var repl atmorepl.Repl
 	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Kits, repl.Ctx.Dirs.Cache, repl.Ctx.Dirs.Session = replMultiLineSuffix, replDirsAdditionalKits, replDirCache, replDirSession
 	repl.Ctx.Kits.RecurringBackgroundWatch.ShouldNow = func() bool {

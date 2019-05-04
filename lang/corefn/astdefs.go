@@ -3,6 +3,7 @@ package atmocorefn
 import (
 	"sort"
 
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
 
@@ -74,7 +75,7 @@ func (me AstDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
+func (me *AstDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) {
 	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]bool, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
@@ -123,25 +124,24 @@ func (me *AstDefs) Reload(kitSrcFiles atmolang.AstFiles) {
 			ndone[name.Val], names = true, append(names, name)
 		}
 	}
-	for i := range this {
-		this[i].state.namesInScope = names
-	}
 
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
 		def := &this[i]
-		const caplocals = 10
-		def.Locals = make(astDefs, 0, caplocals)
-		def.state.defsScope = &def.Locals
-		def.Errors.Add(def.AstDefBase.initFrom(def, def.Orig))
-		sort.Sort(def.Errors)
-		if len(def.Locals) > caplocals {
-			println("LOCALDEFS", len(def.Locals))
+		var ctxastinit ctxAstInit
+		var let AstLet
+		ctxastinit.namesInScope, ctxastinit.defsScope = names, &let.Defs
+		def.Errors.Add(def.AstDefBase.initFrom(&ctxastinit, def.Orig))
+		if len(let.Defs) > 0 {
+			let.Body, def.AstDefBase.Body = def.AstDefBase.Body, &let
+		}
+		if atmo.Options.Sorts {
+			sort.Sort(def.Errors)
 		}
 	}
-
-	sort.Sort(this)
+	if atmo.Options.Sorts {
+		sort.Sort(this)
+	}
 	*me = this
-
 	return
 }

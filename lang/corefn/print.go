@@ -45,13 +45,7 @@ func (me *AstDefBase) Print() atmolang.IAstNode {
 
 func (me *AstDef) Print() atmolang.IAstNode {
 	def := me.AstDefBase.Print().(*atmolang.AstDef)
-	if def.IsTopLevel = true; len(me.Locals) > 0 {
-		defs := make([]atmolang.AstDef, len(me.Locals))
-		for i := range me.Locals {
-			defs[i] = *(me.Locals[i].Print().(*atmolang.AstDef))
-		}
-		def.Body = atmolang.B.Let(def.Body, defs...)
-	}
+	def.IsTopLevel = true
 	return def
 }
 

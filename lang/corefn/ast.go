@@ -45,35 +45,9 @@ func (me *AstDefBase) refersTo(name string) bool { return me.Body.refersTo(name)
 
 type AstDef struct {
 	AstDefBase
-	Locals astDefs
 
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errors   atmo.Errors
-
-	state struct {
-		dynNamePrefs   string
-		nameReferences map[string]bool
-		namesInScope   []*atmolang.AstIdent
-		defsScope      *astDefs
-		counter        struct {
-			val   byte
-			times int
-		}
-	}
-}
-
-func (me *AstDef) refersTo(name string) (refers bool) {
-	var ok bool
-	if me.state.nameReferences == nil {
-		me.state.nameReferences = make(map[string]bool)
-	} else {
-		refers, ok = me.state.nameReferences[name]
-	}
-	if !ok {
-		refers = me.AstDefBase.refersTo(name)
-		me.state.nameReferences[name] = refers
-	}
-	return
 }
 
 type AstDefArg struct {

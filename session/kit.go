@@ -73,8 +73,9 @@ func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
 			}
 		}
 	}
-	sort.Sort(this.srcFiles)
-
+	if atmo.Options.Sorts {
+		sort.Sort(this.srcFiles)
+	}
 	if this.WasEverToBeLoaded {
 		me.kitForceReload(this)
 	}
@@ -87,7 +88,7 @@ func (me *Ctx) kitForceReload(this *Kit) {
 		sf.LexAndParseFile(true, false)
 	}
 
-	this.topLevel.Reload(this.srcFiles)
+	this.topLevel.ReInitFrom(this.srcFiles)
 	me.onErrs(this.Errors(), nil)
 }
 
