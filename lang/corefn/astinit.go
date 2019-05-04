@@ -20,7 +20,7 @@ func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Er
 
 func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	tok := me.Orig.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
-	var ident IAstExprAtomic
+	var ident IAstExpr
 	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name)
 	if name, _ := ident.(*AstIdentName); name == nil {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or EmptyParens or Placeholder etc..
@@ -82,7 +82,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg, argIdx 
 	var isconstexpr bool
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
-		constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExprAtomic)
+		constexpr, _ := errs.AddVia(ctx.newAstIdentFrom(v)).(IAstExpr)
 		if isconstexpr = true; constexpr != nil {
 			if cxn, ok1 := constexpr.(*AstIdentName); ok1 {
 				isconstexpr, me.AstIdentName = false, *cxn

@@ -14,7 +14,7 @@ func (me *AstLitStr) Print() atmolang.IAstNode    { return atmolang.B.LitStr(me.
 func (me *AstIdentBase) Print() atmolang.IAstNode { return atmolang.B.Ident(me.Val) }
 
 func (me *AstAppl) Print() atmolang.IAstNode {
-	return atmolang.B.Appl(me.Callee.Print().(atmolang.IAstExpr), me.Arg.Print().(atmolang.IAstExpr))
+	return atmolang.B.Appl(me.AtomicCallee.Print().(atmolang.IAstExpr), me.AtomicArg.Print().(atmolang.IAstExpr))
 }
 
 func (me *AstCases) Print() atmolang.IAstNode {

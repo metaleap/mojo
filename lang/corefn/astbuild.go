@@ -10,16 +10,28 @@ var (
 
 type AstBuilder struct{}
 
-func (AstBuilder) Appl(callee IAstExprAtomic, arg IAstExprAtomic) *AstAppl {
-	return &AstAppl{Callee: callee, Arg: arg}
+func (AstBuilder) Appl(callee IAstExpr, arg IAstExpr) *AstAppl {
+	if !callee.IsAtomic() {
+		panic(callee)
+	}
+	if !arg.IsAtomic() {
+		panic(arg)
+	}
+	return &AstAppl{AtomicCallee: callee, AtomicArg: arg}
 }
 
-func (AstBuilder) Appls(ctx *ctxAstInit, callee IAstExprAtomic, args ...IAstExprAtomic) (appl *AstAppl) {
+func (AstBuilder) Appls(ctx *ctxAstInit, callee IAstExpr, args ...IAstExpr) (appl *AstAppl) {
+	if !callee.IsAtomic() {
+		panic(callee)
+	}
 	for i := range args {
+		if !args[i].IsAtomic() {
+			panic(args[i])
+		}
 		if i == 0 {
-			appl = &AstAppl{Callee: callee, Arg: args[i]}
+			appl = &AstAppl{AtomicCallee: callee, AtomicArg: args[i]}
 		} else {
-			appl = &AstAppl{Callee: ctx.ensureAstAtomFor(appl), Arg: args[i]}
+			appl = &AstAppl{AtomicCallee: ctx.ensureAstAtomFor(appl), AtomicArg: args[i]}
 		}
 	}
 	return
@@ -30,7 +42,7 @@ func (AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {
 }
 
 func (AstBuilder) IdentName(name string) *AstIdentName {
-	return &AstIdentName{AstIdentBase{Val: name}}
+	return &AstIdentName{AstIdentBase{Val: name}, AstExprLetBase{}}
 }
 
 func (AstBuilder) IdentEmptyParens() *AstIdentEmptyParens {

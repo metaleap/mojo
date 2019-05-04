@@ -28,14 +28,14 @@ func (me *ctxAstInit) addCoercion(on IAstNode, coerce IAstExpr) {
 	}
 }
 
-func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExprAtomic {
-	if xat, _ := expr.(IAstExprAtomic); xat != nil {
-		return xat
+func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExpr {
+	if expr.IsAtomic() {
+		return expr
 	}
 	return &me.addLocalDefToScope(expr, me.dynName(expr)).Name
 }
 
-func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExprAtomic, errs atmo.Errors) {
+func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, errs atmo.Errors) {
 	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
 		var ident AstIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
@@ -101,10 +101,10 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 			o = o.ToUnary()
 			appl, atc, ata := AstAppl{Orig: o}, o.Callee.IsAtomic(), o.Args[0].IsAtomic()
 			if atc {
-				appl.Callee = errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExprAtomic)
+				appl.AtomicCallee = errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr)
 			}
 			if ata {
-				appl.Arg = errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExprAtomic)
+				appl.AtomicArg = errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr)
 			}
 			if atc && ata {
 				expr = &appl
@@ -114,13 +114,13 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 				// me.defsScope = &let.Defs
 				if !atc {
 					def := let.Defs.add(errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr))
-					def.Name.Val = def.Body.DynName()
-					appl.Callee = &def.Name
+					def.Name.Val = def.Body.dynName()
+					appl.AtomicCallee = &def.Name
 				}
 				if !ata {
 					def := let.Defs.add(errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr))
-					def.Name.Val = def.Body.DynName()
-					appl.Arg = &def.Name
+					def.Name.Val = def.Body.dynName()
+					appl.AtomicArg = &def.Name
 				}
 				expr = &let
 				// me.defsScope = oldscope
@@ -152,7 +152,7 @@ func (me *ctxAstInit) dynNameDrop(s string) string {
 }
 
 func (me *ctxAstInit) dynName(expr IAstExpr) string {
-	return me.dynNamePrefs + expr.DynName()
+	return me.dynNamePrefs + expr.dynName()
 }
 
 func (me *ctxAstInit) nextPrefix() string {
