@@ -35,7 +35,7 @@ func (me *AstLet) Print() atmolang.IAstNode {
 	return let
 }
 
-func (me *AstDefBase) Print() atmolang.IAstNode {
+func (me *AstDef) Print() atmolang.IAstNode {
 	argnames := make([]string, len(me.Args))
 	for i := range argnames {
 		argnames[i] = me.Args[i].AstIdentName.Val
@@ -43,8 +43,8 @@ func (me *AstDefBase) Print() atmolang.IAstNode {
 	return atmolang.B.Def(me.Name.Val, me.Body.Print().(atmolang.IAstExpr), argnames...)
 }
 
-func (me *AstDef) Print() atmolang.IAstNode {
-	def := me.AstDefBase.Print().(*atmolang.AstDef)
+func (me *AstDefTop) Print() atmolang.IAstNode {
+	def := me.AstDef.Print().(*atmolang.AstDef)
 	def.IsTopLevel = true
 	return def
 }

@@ -29,7 +29,7 @@ type IAstExprAtomic interface {
 type astNodeBase struct {
 }
 
-type AstDefBase struct {
+type AstDef struct {
 	astNodeBase
 	Orig *atmolang.AstDef
 
@@ -38,16 +38,16 @@ type AstDefBase struct {
 	Body IAstExpr
 }
 
-func (me *AstDefBase) refersTo(name string) bool { return me.Body.refersTo(name) }
-func (me *AstDefBase) renameIdents(ren map[string]string) {
+func (me *AstDef) refersTo(name string) bool { return me.Body.refersTo(name) }
+func (me *AstDef) renameIdents(ren map[string]string) {
 	me.Name.renameIdents(ren)
 	for i := range me.Args {
 		me.Args[i].renameIdents(ren)
 	}
 	me.Body.renameIdents(ren)
 }
-func (me *AstDefBase) equivTo(node IAstNode) bool {
-	cmp, _ := node.(*AstDefBase)
+func (me *AstDef) equivTo(node IAstNode) bool {
+	cmp, _ := node.(*AstDef)
 	if cmp != nil && cmp.Name.equivTo(&me.Name) && len(cmp.Args) == len(me.Args) && cmp.Body.equivTo(me.Body) {
 		for i := range cmp.Args {
 			if !cmp.Args[i].equivTo(&me.Args[i]) {
@@ -59,8 +59,8 @@ func (me *AstDefBase) equivTo(node IAstNode) bool {
 	return false
 }
 
-type AstDef struct {
-	AstDefBase
+type AstDefTop struct {
+	AstDef
 
 	TopLevels []*atmolang.AstFileTopLevelChunk
 	Errors    atmo.Errors
@@ -223,7 +223,7 @@ type AstLet struct {
 	AstExprBase
 	Orig   *atmolang.AstExprLet
 	Body   IAstExpr
-	Defs   astDefs
+	Defs   AstDefs
 	prefix string
 }
 

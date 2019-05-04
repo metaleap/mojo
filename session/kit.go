@@ -18,7 +18,7 @@ type Kit struct {
 	ImpPath           string
 	WasEverToBeLoaded bool
 
-	topLevel atmocorefn.AstDefs
+	topLevel atmocorefn.AstTopDefs
 	srcFiles atmolang.AstFiles
 	errs     struct {
 		dirAccessDuringRefresh error
@@ -128,7 +128,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return false
 }
 
-func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDef) {
+func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDefTop) {
 	if name[0] == '_' {
 		name = name[1:]
 	}

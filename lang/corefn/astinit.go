@@ -6,7 +6,7 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-func (me *AstDefBase) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
+func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initArgs(ctx))
@@ -18,7 +18,7 @@ func (me *AstDefBase) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atm
 	return
 }
 
-func (me *AstDefBase) initName(ctx *ctxAstInit) (errs atmo.Errors) {
+func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	tok := me.Orig.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
 	var ident IAstExprAtomic
 	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name)
@@ -36,7 +36,7 @@ func (me *AstDefBase) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *AstDefBase) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
+func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 	me.Body, errs = ctx.newAstExprFrom(me.Orig.Body)
 
 	opeq := B.IdentName("==")
@@ -55,7 +55,7 @@ func (me *AstDefBase) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *AstDefBase) initArgs(ctx *ctxAstInit) (errs atmo.Errors) {
+func (me *AstDef) initArgs(ctx *ctxAstInit) (errs atmo.Errors) {
 	if len(me.Orig.Args) > 0 {
 		args := make([]AstDefArg, len(me.Orig.Args))
 		for i := range me.Orig.Args {
@@ -66,7 +66,7 @@ func (me *AstDefBase) initArgs(ctx *ctxAstInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *AstDefBase) initMetas(ctx *ctxAstInit) (errs atmo.Errors) {
+func (me *AstDef) initMetas(ctx *ctxAstInit) (errs atmo.Errors) {
 	if len(me.Orig.Meta) > 0 {
 		errs.AddTodo(&me.Orig.Meta[0].Toks()[0], "def metas")
 		for i := range me.Orig.Meta {

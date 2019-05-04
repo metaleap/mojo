@@ -12,7 +12,7 @@ type ctxAstInit struct {
 	dynNamePrefs   string
 	nameReferences map[string]bool
 	namesInScope   []*atmolang.AstIdent
-	defsScope      *astDefs
+	defsScope      *AstDefs
 	coerceFuncs    map[IAstNode]IAstExpr
 	counter        struct {
 		val   byte
@@ -84,7 +84,7 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 		expr = &lit
 	case *atmolang.AstExprLet:
 		oldscope, newdefs, let :=
-			me.defsScope, astDefs{}, AstLet{Orig: o, prefix: me.nextPrefix(), Defs: make(astDefs, len(o.Defs))}
+			me.defsScope, AstDefs{}, AstLet{Orig: o, prefix: me.nextPrefix(), Defs: make(AstDefs, len(o.Defs))}
 
 		me.defsScope = &newdefs
 		for i := range o.Defs {
@@ -163,7 +163,7 @@ func (me *ctxAstInit) nextPrefix() string {
 	return string(ustr.RepeatB(me.counter.val, me.counter.times))
 }
 
-func (me *ctxAstInit) addLocalDefToScope(body IAstExpr, name string) (def *AstDefBase) {
+func (me *ctxAstInit) addLocalDefToScope(body IAstExpr, name string) (def *AstDef) {
 	def = me.defsScope.add(body)
 	def.Name.Val = name
 	return

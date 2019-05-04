@@ -146,7 +146,7 @@ interpreted or compiled all together as a unit.
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDef)
+func (me *Kit) Defs(name string) (defs []*atmocorefn.AstDefTop)
 ```
 
 #### func (*Kit) Errors
