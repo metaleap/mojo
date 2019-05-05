@@ -135,13 +135,9 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 			}
 		}
 	case *atmolang.AstExprCases:
-		if lamb := o.ToLetIfUnionSugar(me.nextPrefix); lamb != nil {
-			expr, errs = me.newAstExprFrom(lamb)
-		} else {
-			var cases AstCases
-			errs = cases.initFrom(me, o)
-			expr = &cases
-		}
+		var cases AstCases
+		errs = cases.initFrom(me, o)
+		expr = &cases
 	default:
 		panic(o)
 	}

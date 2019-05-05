@@ -177,20 +177,6 @@ func (me *AstExprCases) Default() *AstCase {
 	return &me.Alts[me.defaultIndex]
 }
 
-func (me *AstExprCases) SeemsUnionSugar() bool {
-	return len(me.Alts) == 1 && me.Alts[0].Body == nil
-}
-
-func (me *AstExprCases) ToLetIfUnionSugar(prefix func() string) (let *AstExprLet) {
-	if me.Scrutinee == nil && me.SeemsUnionSugar() {
-		let = &AstExprLet{Defs: make([]AstDef, 1)}
-		letdef, letcase := &let.Defs[0], &AstExprCases{defaultIndex: -1, Scrutinee: &AstIdent{Val: "specimen"}, Alts: make([]AstCase, 1)}
-		let.Body, letcase.Alts[0].Body, letcase.Alts[0].Conds, letdef.Name.Val, letdef.Body, letdef.Args, let.Tokens, letdef.Tokens, letcase.Tokens =
-			&letdef.Name, letcase.Scrutinee, me.Alts[0].Conds, prefix()+"┬", letcase, []AstDefArg{{NameOrConstVal: letcase.Scrutinee.(IAstExprAtomic)}}, me.Tokens, me.Tokens, me.Tokens
-	}
-	return
-}
-
 func (me *AstExprCases) removeAltAt(idx int) {
 	for i := idx; i < len(me.Alts)-1; i++ {
 		me.Alts[i] = me.Alts[i+1]

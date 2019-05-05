@@ -99,8 +99,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	}
 	if isconstexpr {
 		me.AstIdentName.Val = "42" + ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
-		coerce := atmolang.B.Cases(nil, atmolang.AstCase{Conds: []atmolang.IAstExpr{orig.NameOrConstVal}})
-		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(coerce.ToLetIfUnionSugar(ctx.nextPrefix))).(IAstExpr))
+		ctx.addCoercion(me, B.Appl(B.IdentName("must"), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr))))
 	}
 	if orig.Affix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(orig.Affix)).(IAstExpr))
