@@ -94,19 +94,12 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (freshErrs []err
 		}
 	}
 
-	names, ndone := make([]*atmolang.AstIdent, 0, len(this)), make(map[string]bool, len(this))
-	for i := range this {
-		if name := &this[i].Orig.Name; !ndone[name.Val] {
-			ndone[name.Val], names = true, append(names, name)
-		}
-	}
-
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
 		def := &this[i]
 		var let AstExprLetBase
 		var ctxastinit ctxAstInit
-		ctxastinit.namesInScope, ctxastinit.defsScope, ctxastinit.curTopLevel = names, &let.letDefs, def.Orig
+		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevel = ctxastinit.nextPrefix(), &let.letDefs, def.Orig
 		errs := def.initFrom(&ctxastinit, def.Orig)
 		if len(let.letDefs) > 0 {
 			errs.Add(ctxastinit.addLetDefsToNode(def.Orig.Body, def.AstDef.Body, &let))

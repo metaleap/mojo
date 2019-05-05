@@ -12,7 +12,6 @@ type ctxAstInit struct {
 	curTopLevel    *atmolang.AstDef
 	dynNamePrefs   string
 	nameReferences map[string]bool
-	namesInScope   []*atmolang.AstIdent
 	defsScope      *AstDefs
 	coerceFuncs    map[IAstNode]IAstExpr
 	counter        struct {
@@ -87,7 +86,6 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 	case *atmolang.AstExprLet:
 		oldscope, sidedefs, let :=
 			me.defsScope, AstDefs{}, AstExprLetBase{letOrig: o, letPrefix: me.nextPrefix(), letDefs: make(AstDefs, len(o.Defs))}
-
 		me.defsScope = &sidedefs
 		for i := range o.Defs {
 			errs.Add(let.letDefs[i].initFrom(me, &o.Defs[i]))
@@ -110,15 +108,15 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 			}
 			if expr = &appl; !(atc && ata) {
 				oldscope := me.defsScope
-				me.defsScope = &appl.letDefs
+				me.defsScope, appl.letPrefix = &appl.letDefs, me.nextPrefix()
 				if !atc {
 					def := appl.letDefs.add(errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr))
-					def.Name.Val = def.Body.dynName()
+					def.Name.Val = appl.letPrefix + def.Body.dynName()
 					appl.AtomicCallee = &def.Name
 				}
 				if !ata {
 					def := appl.letDefs.add(errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr))
-					def.Name.Val = def.Body.dynName()
+					def.Name.Val = appl.letPrefix + def.Body.dynName()
 					appl.AtomicArg = &def.Name
 				}
 				me.defsScope = oldscope
@@ -161,7 +159,7 @@ func (me *ctxAstInit) nextPrefix() string {
 	return string(ustr.RepeatB(me.counter.val, me.counter.times))
 }
 
-func (*ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, letDefs *AstExprLetBase) (errs atmo.Errors) {
+func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, letDefs *AstExprLetBase) (errs atmo.Errors) {
 	var dst *AstExprLetBase
 	switch body := letBody.(type) {
 	case *AstIdentName:
@@ -173,8 +171,13 @@ func (*ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr
 	}
 	if dst == nil {
 		errs.AddSyn(&origBody.Toks()[0], "cannot declare local defs for `"+origBody.Toks()[0].Meta.Orig+"`")
-	} else if dst.letDefs = append(dst.letDefs, letDefs.letDefs...); dst.letOrig == nil {
-		dst.letOrig = letDefs.letOrig
+	} else {
+		if dst.letPrefix == "" {
+			dst.letPrefix = me.nextPrefix()
+		}
+		if dst.letDefs = append(dst.letDefs, letDefs.letDefs...); dst.letOrig == nil {
+			dst.letOrig = letDefs.letOrig
+		}
 	}
 	return
 }
