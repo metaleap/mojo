@@ -2,6 +2,7 @@ package atmolang_irfun
 
 import (
 	"strconv"
+	"text/scanner"
 
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
@@ -9,15 +10,23 @@ import (
 )
 
 type ctxAstInit struct {
-	curTopLevel    *atmolang.AstDef
-	dynNamePrefs   string
-	nameReferences map[string]bool
-	defsScope      *AstDefs
-	coerceFuncs    map[IAstNode]IAstExpr
-	counter        struct {
+	curTopLevel     *atmolang.AstDef
+	dynNamePrefs    string
+	namesInScopeOld map[string]atmolang.IAstNode
+	namesInScope    []astNameInScope
+	nameReferences  map[string]bool
+	defsScope       *AstDefs
+	coerceFuncs     map[IAstNode]IAstExpr
+	counter         struct {
 		val   byte
 		times int
 	}
+}
+
+type astNameInScope struct {
+	name  string
+	pos   scanner.Position
+	arity bool
 }
 
 func (me *ctxAstInit) addCoercion(on IAstNode, coerce IAstExpr) {
@@ -84,9 +93,12 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 		lit.initFrom(me, o)
 		expr = &lit
 	case *atmolang.AstExprLet:
-		oldscope, sidedefs, let :=
-			me.defsScope, AstDefs{}, AstExprLetBase{letOrig: o, letPrefix: me.nextPrefix(), letDefs: make(AstDefs, len(o.Defs))}
+		numnames, oldscope, sidedefs, let :=
+			0, me.defsScope, AstDefs{}, AstExprLetBase{letOrig: o, letPrefix: me.nextPrefix(), letDefs: make(AstDefs, len(o.Defs))}
 		me.defsScope = &sidedefs
+		for i := range o.Defs {
+			numnames += me.namesInScopeAdd(&errs, &o.Defs[i])
+		}
 		for i := range o.Defs {
 			errs.Add(let.letDefs[i].initFrom(me, &o.Defs[i]))
 		}
@@ -94,8 +106,9 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 		let.letDefs = append(let.letDefs, sidedefs...)
 		errs.Add(me.addLetDefsToNode(o.Body, expr, &let))
 		me.defsScope = oldscope
+		me.namesInScopeDrop(numnames)
 	case *atmolang.AstExprAppl:
-		if lamb := o.ToLetExprIfPlaceholders(me.nextPrefix()); lamb != nil {
+		if lamb := o.ToLetExprIfPlaceholders(me.nextPrefix); lamb != nil {
 			expr, errs = me.newAstExprFrom(lamb)
 		} else {
 			o = o.ToUnary()
@@ -107,23 +120,22 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 				appl.AtomicArg = errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr)
 			}
 			if expr = &appl; !(atc && ata) {
-				oldscope := me.defsScope
+				oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IAstExpr {
+					body := errs.AddVia(me.newAstExprFrom(from)).(IAstExpr)
+					return &me.addLocalDefToScope(body, appl.letPrefix+body.dynName()).Name
+				}
 				me.defsScope, appl.letPrefix = &appl.letDefs, me.nextPrefix()
 				if !atc {
-					def := appl.letDefs.add(errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr))
-					def.Name.Val = appl.letPrefix + def.Body.dynName()
-					appl.AtomicCallee = &def.Name
+					appl.AtomicCallee = toatomic(o.Callee)
 				}
 				if !ata {
-					def := appl.letDefs.add(errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr))
-					def.Name.Val = appl.letPrefix + def.Body.dynName()
-					appl.AtomicArg = &def.Name
+					appl.AtomicArg = toatomic(o.Args[0])
 				}
 				me.defsScope = oldscope
 			}
 		}
 	case *atmolang.AstExprCases:
-		if lamb := o.ToLetIfUnionSugar(me.nextPrefix()); lamb != nil {
+		if lamb := o.ToLetIfUnionSugar(me.nextPrefix); lamb != nil {
 			expr, errs = me.newAstExprFrom(lamb)
 		} else {
 			var cases AstCases
@@ -186,4 +198,38 @@ func (me *ctxAstInit) addLocalDefToScope(body IAstExpr, name string) (def *AstDe
 	def = me.defsScope.add(body)
 	def.Name.Val = name
 	return
+}
+
+func (me *ctxAstInit) nameInScope(name *atmolang.AstIdent) *astNameInScope {
+	for i := range me.namesInScope {
+		if me.namesInScope[i].name == name.Val {
+			return &me.namesInScope[i]
+		}
+	}
+	return nil
+}
+
+func (me *ctxAstInit) namesInScopeAdd(errs *atmo.Errors, names ...atmolang.IAstNode) (ok int) {
+	for i := range names {
+		if len(names[i].Toks()) > 0 {
+			var arity bool
+			name, _ := names[i].(*atmolang.AstIdent)
+			if name == nil {
+				def := names[i].(*atmolang.AstDef)
+				name, arity = &def.Name, len(def.Args) > 0
+			}
+			if len(name.Tokens) > 0 { // could have been def so different than seemingly-same above check
+				if existing := me.nameInScope(name); existing != nil && !(arity && existing.arity) {
+					errs.AddNaming(&name.Tokens[0], "name `"+name.Val+"` already taken by "+existing.pos.String())
+				} else {
+					ok, me.namesInScope = ok+1, append(me.namesInScope, astNameInScope{name.Val, name.Tokens[0].Meta.Position, arity})
+				}
+			}
+		}
+	}
+	return
+}
+
+func (me *ctxAstInit) namesInScopeDrop(num int) {
+	me.namesInScope = me.namesInScope[:len(me.namesInScope)-num]
 }

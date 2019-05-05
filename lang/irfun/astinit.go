@@ -100,7 +100,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	if isconstexpr {
 		me.AstIdentName.Val = "42" + ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
 		coerce := atmolang.B.Cases(nil, atmolang.AstCase{Conds: []atmolang.IAstExpr{orig.NameOrConstVal}})
-		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(coerce.ToLetIfUnionSugar(ctx.nextPrefix()))).(IAstExpr))
+		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(coerce.ToLetIfUnionSugar(ctx.nextPrefix))).(IAstExpr))
 	}
 	if orig.Affix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(orig.Affix)).(IAstExpr))
@@ -124,7 +124,7 @@ func (me *AstCases) initFrom(ctx *ctxAstInit, orig *atmolang.AstExprCases) (errs
 	for i := range orig.Alts {
 		alt := &orig.Alts[i]
 		if alt.Body == nil {
-			panic("bug in atmo/lang: received an `AstCase` with a `nil` `Body`")
+			errs.AddSyn(&alt.Tokens[0], "malformed `|?` branching: case has no result expression (or multiple `|?` branchings should be nested but weren't)")
 		} else {
 			me.Thens[i] = errs.AddVia(ctx.newAstExprFrom(alt.Body)).(IAstExpr)
 		}
