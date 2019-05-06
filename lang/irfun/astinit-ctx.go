@@ -210,8 +210,11 @@ func (me *ctxAstInit) namesInScopeAdd(errs *atmo.Errors, names ...atmolang.IAstN
 			var arity bool
 			name, _ := names[i].(*atmolang.AstIdent)
 			if name == nil {
-				def := names[i].(*atmolang.AstDef)
-				name, arity = &def.Name, len(def.Args) > 0
+				if def, _ := names[i].(*atmolang.AstDef); def == nil {
+					return
+				} else {
+					name, arity = &def.Name, len(def.Args) > 0
+				}
 			}
 			if len(name.Tokens) > 0 { // could have been def so different than seemingly-same above check
 				if existing := me.nameInScope(name); existing != nil && !(arity && existing.arity) {

@@ -8,12 +8,20 @@ import (
 
 func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig.ToUnary()
+	argname := len(me.Orig.Args) > 0
+	if argname {
+		argname = ctx.namesInScopeAdd(&errs, me.Orig.Args[0].NameOrConstVal) > 0
+	}
+
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initArg(ctx))
 	errs.Add(me.initMetas(ctx))
 	errs.Add(me.initBody(ctx))
 	if me.Orig = orig; !me.Orig.IsTopLevel {
 		ctx.dynNameDrop(me.Orig.Name.Val)
+	}
+	if argname {
+		ctx.namesInScopeDrop(1)
 	}
 	return
 }
@@ -56,9 +64,7 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 }
 
 func (me *AstDef) initArg(ctx *ctxAstInit) (errs atmo.Errors) {
-	if len(me.Orig.Args) > 1 {
-		panic(len(me.Orig.Args))
-	} else if len(me.Orig.Args) == 1 {
+	if len(me.Orig.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
 		var arg AstDefArg
 		arg.initFrom(ctx, &me.Orig.Args[0])
 		me.Arg = &arg
