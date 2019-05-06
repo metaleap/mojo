@@ -44,7 +44,7 @@ func (me AstTopDefs) Less(i int, j int) bool {
 
 func (me AstTopDefs) IndexByID(id string) int {
 	for i := range me {
-		if len(me[i].TopLevels) == 1 && me[i].TopLevels[0].ID() == id {
+		if me[i].TopLevel.ID() == id {
 			return i
 		}
 	}
@@ -90,7 +90,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (freshErrs []err
 		if !tlc.HasErrors() {
 			idx := len(this)
 			this = append(this, AstDefTop{})
-			this[idx].TopLevels, this[idx].Orig = append(this[idx].TopLevels, tlc), tlc.Ast.Def.Orig
+			this[idx].TopLevel, this[idx].Orig = tlc, tlc.Ast.Def.Orig
 		}
 	}
 

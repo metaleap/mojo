@@ -75,14 +75,15 @@ func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNotic
 
 func (me *Ctx) initKits() {
 	dirok := func(dirfullpath string, dirname string) bool {
-		return (me.Dirs.Session != "" && dirfullpath == me.Dirs.Session) ||
-			ustr.In(dirfullpath, me.Dirs.Kits...) ||
-			(dirname != "*" && dirname != "#" && dirname != "_" && !ustr.HasAny(dirname, unicode.IsSpace))
+		_, isdirsess := me.Dirs.sess[dirfullpath]
+		return isdirsess || ustr.In(dirfullpath, me.Dirs.Kits...) ||
+			(dirname != "*" && dirname != "." && dirname != "_" && !ustr.HasAny(dirname, unicode.IsSpace))
 	}
 
 	var handledir func(string, map[string]int)
 	handledir = func(dirfullpath string, modkitdirs map[string]int) {
-		isdirsess := me.Dirs.Session != "" && dirfullpath == me.Dirs.Session && !me.Dirs.sessAlreadyInKitsDirs
+		isalreadyinkitsdirs, isdirsess := me.Dirs.sess[dirfullpath]
+		isdirsess = isdirsess && !isalreadyinkitsdirs // seems odd but is what's wanted here
 		if idx := me.Kits.all.indexDirPath(dirfullpath); idx >= 0 {
 			// dir was previously known as a kit
 			modkitdirs[dirfullpath] = cap(me.Kits.all[idx].srcFiles)
@@ -111,8 +112,10 @@ func (me *Ctx) initKits() {
 	}
 
 	var watchdirsess []string
-	if me.Dirs.Session != "" && !me.Dirs.sessAlreadyInKitsDirs {
-		watchdirsess = []string{me.Dirs.Session}
+	for dirsess, isalreadyinkitsdirs := range me.Dirs.sess {
+		if !isalreadyinkitsdirs {
+			watchdirsess = append(watchdirsess, dirsess)
+		}
 	}
 	modswatcher := ufs.ModificationsWatcher(me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, dirok, 0, func(mods map[string]os.FileInfo, starttime int64) {
 		var filemodwatchduration int64
@@ -127,8 +130,12 @@ func (me *Ctx) initKits() {
 					modkitdirs[dp] = modkitdirs[dp] + 1
 				}
 			}
-			if len(me.Kits.all) == 0 && me.Dirs.Session != "" && !me.Dirs.sessAlreadyInKitsDirs {
-				modkitdirs[me.Dirs.Session] = 1
+			if len(me.Kits.all) == 0 {
+				for dirsess, isalreadyinkitsdirs := range me.Dirs.sess {
+					if !isalreadyinkitsdirs {
+						modkitdirs[dirsess] = 1
+					}
+				}
 			}
 			if filemodwatchduration = time.Now().UnixNano() - starttime; len(modkitdirs) > 0 {
 				shouldrefresh := make(map[string]bool, len(modkitdirs))
@@ -148,10 +155,11 @@ func (me *Ctx) initKits() {
 							}
 						}
 						if kitimppath == "" {
-							if me.Dirs.Session != "" && kitdirpath == me.Dirs.Session {
-								kitimppath = "#"
-							} else {
-								panic(kitdirpath) // should be impossible unless newly introduced bug
+							for dirsess := range me.Dirs.sess {
+								if dirsess == kitdirpath {
+									kitimppath = ustr.ReplB(kitdirpath, '/', '~')
+									break
+								}
 							}
 						}
 						me.Kits.all = append(me.Kits.all, Kit{DirPath: kitdirpath, ImpPath: kitimppath,
@@ -162,7 +170,8 @@ func (me *Ctx) initKits() {
 				// remove kits that have vanished from the file-system
 				var numremoved int
 				for i := 0; i < len(me.Kits.all); i++ {
-					if kit := &me.Kits.all[i]; kit.DirPath != me.Dirs.Session &&
+					kit := &me.Kits.all[i]
+					if _, isdirsess := me.Dirs.sess[kit.DirPath]; !isdirsess &&
 						((!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
 						delete(shouldrefresh, kit.DirPath)
 						me.Kits.all.removeAt(i)

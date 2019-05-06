@@ -26,9 +26,8 @@ home directory.
 ```go
 type Ctx struct {
 	Dirs struct {
-		Session string
-		Cache   string
-		Kits    []string
+		Cache string
+		Kits  []string
 	}
 
 	Kits struct {
@@ -39,6 +38,12 @@ type Ctx struct {
 }
 ```
 
+
+#### func (*Ctx) AddFauxKit
+
+```go
+func (me *Ctx) AddFauxKit(dirPath string) (err error)
+```
 
 #### func (*Ctx) BackgroundMessages
 
@@ -62,7 +67,7 @@ Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 #### func (*Ctx) Init
 
 ```go
-func (me *Ctx) Init(clearCacheDir bool) (err error)
+func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error)
 ```
 Init validates the `Ctx.Dirs` fields currently set, then builds up its `Kits`
 reflective of the structures found in the various `me.Dirs.Kits` search paths

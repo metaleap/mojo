@@ -23,11 +23,11 @@ var (
 func mainRepl() {
 	atmo.Options.Sorts = true
 	var repl atmorepl.Repl
-	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Kits, repl.Ctx.Dirs.Cache, repl.Ctx.Dirs.Session = replMultiLineSuffix, replDirsAdditionalKits, replDirCache, replDirSession
+	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Kits, repl.Ctx.Dirs.Cache = replMultiLineSuffix, replDirsAdditionalKits, replDirCache
 	repl.Ctx.Kits.RecurringBackgroundWatch.ShouldNow = func() bool {
 		return replKitsWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replKitsWatchPauseAfter
 	}
-	if err := repl.Ctx.Init(false); err == nil {
+	if err := repl.Ctx.Init(false, replDirSession); err == nil {
 		usys.OnSigint(func() {
 			repl.QuitNonDirectiveInitiated(true)
 			repl.Ctx.Dispose()

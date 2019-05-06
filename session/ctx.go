@@ -21,10 +21,9 @@ type CtxBgMsg struct {
 
 type Ctx struct {
 	Dirs struct {
-		Session               string
-		Cache                 string
-		Kits                  []string
-		sessAlreadyInKitsDirs bool
+		sess  map[string]bool
+		Cache string
+		Kits  []string
 	}
 
 	Kits struct {
@@ -62,84 +61,91 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 // Init validates the `Ctx.Dirs` fields currently set, then builds up its
 // `Kits` reflective of the structures found in the various `me.Dirs.Kits`
 // search paths and from now on in sync with live modifications to those.
-func (me *Ctx) Init(clearCacheDir bool) (err error) {
+func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
 	me.maybeInitPanic(true)
-	dirsession := me.Dirs.Session
-	if me.state.initCalled, me.Kits.all = true, make(Kits, 0, 32); dirsession == "." {
-		dirsession, err = os.Getwd()
-	} else if dirsession[0] == '~' {
-		if len(dirsession) == 1 {
-			dirsession = usys.UserHomeDirPath()
-		} else if dirsession[1] == filepath.Separator {
-			dirsession = filepath.Join(usys.UserHomeDirPath(), dirsession[2:])
-		}
+	me.state.initCalled, me.Kits.all, me.Dirs.sess = true, make(Kits, 0, 32), map[string]bool{}
+	cachedir := me.Dirs.Cache
+	if cachedir == "" {
+		cachedir = CtxDefaultCacheDirPath()
 	}
-	if dirsession != "" {
-		if err == nil {
-			dirsession, err = filepath.Abs(dirsession)
-		}
-		if err == nil && !ufs.IsDir(dirsession) {
-			err = &os.PathError{Path: dirsession, Op: "directory", Err: os.ErrNotExist}
-		}
+	if !ufs.IsDir(cachedir) {
+		err = ufs.EnsureDir(cachedir)
+	} else if clearCacheDir {
+		err = ufs.Del(cachedir)
 	}
-	if cachedir := me.Dirs.Cache; err == nil {
-		if cachedir == "" {
-			cachedir = CtxDefaultCacheDirPath()
+	if kitsdirs := me.Dirs.Kits; err == nil {
+		kitsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarKitsDirs), string(os.PathListSeparator))
+		for i := range kitsdirsenv {
+			kitsdirsenv[i] = filepath.Clean(kitsdirsenv[i])
 		}
-		if !ufs.IsDir(cachedir) {
-			err = ufs.EnsureDir(cachedir)
-		} else if clearCacheDir {
-			err = ufs.Del(cachedir)
+		for i := range kitsdirs {
+			kitsdirs[i] = filepath.Clean(kitsdirs[i])
 		}
-		if kitsdirs := me.Dirs.Kits; err == nil {
-			kitsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarKitsDirs), string(os.PathListSeparator))
-			for i := range kitsdirsenv {
-				kitsdirsenv[i] = filepath.Clean(kitsdirsenv[i])
+		kitsdirsorig := kitsdirs
+		kitsdirs = ustr.Merge(kitsdirsenv, kitsdirs, func(ldp string) bool {
+			if ldp != "" && !ufs.IsDir(ldp) {
+				me.bgMsg(true, true, "kits-dir "+ldp+" not found")
+				return true
 			}
-			for i := range kitsdirs {
-				kitsdirs[i] = filepath.Clean(kitsdirs[i])
-			}
-			kitsdirsorig := kitsdirs
-			kitsdirs = ustr.Merge(kitsdirsenv, kitsdirs, func(ldp string) bool {
-				if ldp != "" && !ufs.IsDir(ldp) {
-					me.bgMsg(true, true, "kits-dir "+ldp+" not found")
-					return true
-				}
-				return ldp == ""
-			})
-			for i := range kitsdirs {
-				for j := range kitsdirs {
-					if iinj, jini := ustr.Pref(kitsdirs[i], kitsdirs[j]), ustr.Pref(kitsdirs[j], kitsdirs[i]); i != j && (iinj || jini) {
-						err = errors.New("conflicting kits-dirs: " + kitsdirs[i] + " vs. " + kitsdirs[j])
-						break
-					}
-				}
-				if err != nil {
+			return ldp == ""
+		})
+		for i := range kitsdirs {
+			for j := range kitsdirs {
+				if iinj, jini := ustr.Pref(kitsdirs[i], kitsdirs[j]), ustr.Pref(kitsdirs[j], kitsdirs[i]); i != j && (iinj || jini) {
+					err = errors.New("conflicting kits-dirs: " + kitsdirs[i] + " vs. " + kitsdirs[j])
 					break
 				}
 			}
-			if err == nil && len(kitsdirs) == 0 {
-				if kitsdirstried := append(kitsdirsenv, kitsdirsorig...); len(kitsdirstried) == 0 {
-					err = errors.New("no kits-dirs were specified, neither via env-var " + atmo.EnvVarKitsDirs + " nor via command-line flags")
-				} else {
-					err = errors.New("none of the specified kits-dirs were found:\n    " + ustr.Join(kitsdirstried, "\n    "))
-				}
+			if err != nil {
+				break
 			}
-			if err == nil {
-				if me.Dirs.sessAlreadyInKitsDirs = (dirsession == ""); !me.Dirs.sessAlreadyInKitsDirs {
-					for _, kitsdirpath := range kitsdirs {
-						if me.Dirs.sessAlreadyInKitsDirs = ustr.Pref(dirsession, kitsdirpath+string(os.PathSeparator)); me.Dirs.sessAlreadyInKitsDirs {
-							break
-						}
-					}
-				}
-				me.Dirs.Session, me.Dirs.Cache, me.Dirs.Kits = dirsession, cachedir, kitsdirs
+		}
+		if err == nil && len(kitsdirs) == 0 {
+			if kitsdirstried := append(kitsdirsenv, kitsdirsorig...); len(kitsdirstried) == 0 {
+				err = errors.New("no kits-dirs were specified, neither via env-var " + atmo.EnvVarKitsDirs + " nor via command-line flags")
+			} else {
+				err = errors.New("none of the specified kits-dirs were found:\n    " + ustr.Join(kitsdirstried, "\n    "))
+			}
+		}
+		if err == nil {
+			me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs
+			if err = me.AddFauxKit(sessionDir); err == nil {
 				me.initKits()
 			}
 		}
 	}
 	if err != nil {
 		me.state.initCalled = false
+	}
+	return
+}
+
+func (me *Ctx) AddFauxKit(dirPath string) (err error) {
+	if dirPath == "." {
+		dirPath, err = os.Getwd()
+	} else if dirPath[0] == '~' {
+		if len(dirPath) == 1 {
+			dirPath = usys.UserHomeDirPath()
+		} else if dirPath[1] == filepath.Separator {
+			dirPath = filepath.Join(usys.UserHomeDirPath(), dirPath[2:])
+		}
+	}
+	if dirPath != "" {
+		if err == nil {
+			dirPath, err = filepath.Abs(dirPath)
+		}
+		if err == nil && !ufs.IsDir(dirPath) {
+			err = &os.PathError{Path: dirPath, Op: "directory", Err: os.ErrNotExist}
+		}
+		if err == nil {
+			var in bool
+			for _, kitsdirpath := range me.Dirs.Kits {
+				if in = ustr.Pref(dirPath, kitsdirpath+string(os.PathSeparator)); in {
+					break
+				}
+			}
+			me.Dirs.sess[dirPath] = in
+		}
 	}
 	return
 }

@@ -39,7 +39,15 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	if idx := me.Kits.all.indexImpPath(impPath); idx < 0 {
+	idx := me.Kits.all.indexImpPath(impPath)
+	if idx < 0 && impPath == "." {
+		for dirsess := range me.Dirs.sess {
+			if idx = me.Kits.all.indexDirPath(dirsess); idx >= 0 {
+				break
+			}
+		}
+	}
+	if idx < 0 {
 		do(nil)
 	} else {
 		do(&me.Kits.all[idx])

@@ -94,7 +94,7 @@ func (me *Repl) runDirective(name string, args string) {
 				me.IO.writeLns("    :" + me.KnownDirectives[i].Desc)
 			}
 		}
-		me.IO.writeLns("", "(For usage details on a complex", "command, invoke it without args.)")
+		me.IO.writeLns("", "(For usage details on an arg-ful", "command, invoke it without args.)")
 	}
 }
 
@@ -264,11 +264,9 @@ func (me *Repl) DSrcs(what string) bool {
 					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
 				for _, def := range defs {
-					for _, tlc := range def.TopLevels {
-						me.decoAddNotice(false, "", true, tlc.SrcFile.SrcFilePath)
-						ctxp.ApplStyle = tlc.SrcFile.Options.ApplStyle
-						tlc.Print(&ctxp)
-					}
+					me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath)
+					ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
+					def.TopLevel.Print(&ctxp)
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
 

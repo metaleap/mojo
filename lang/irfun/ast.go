@@ -50,8 +50,8 @@ func (me *AstDef) equivTo(node IAstNode) bool {
 type AstDefTop struct {
 	AstDef
 
-	TopLevels []*atmolang.AstFileTopLevelChunk
-	Errors    atmo.Errors
+	TopLevel *atmolang.AstFileTopLevelChunk
+	Errors   atmo.Errors
 }
 
 type AstDefArg struct {
