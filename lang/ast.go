@@ -137,8 +137,9 @@ func (me *AstIdent) String() string { return me.Val }
 
 type AstExprAppl struct {
 	AstBaseExpr
-	Callee IAstExpr
-	Args   []IAstExpr
+	Callee          IAstExpr
+	Args            []IAstExpr
+	HasPlaceholders bool
 }
 
 type AstExprLet struct {
