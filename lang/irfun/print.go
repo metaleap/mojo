@@ -24,7 +24,9 @@ func (me *AstCases) Print() atmolang.IAstNode {
 	alts := make([]atmolang.AstCase, len(me.Ifs))
 	for i := range alts {
 		alts[i].Body = me.Thens[i].Print().(atmolang.IAstExpr)
-		alts[i].Conds = []atmolang.IAstExpr{me.Ifs[i].Print().(atmolang.IAstExpr)}
+		if me.Ifs[i] != nil {
+			alts[i].Conds = []atmolang.IAstExpr{me.Ifs[i].Print().(atmolang.IAstExpr)}
+		}
 	}
 	return me.AstExprLetBase.print(atmolang.B.Cases(nil, alts...))
 }

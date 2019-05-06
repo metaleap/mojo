@@ -133,7 +133,7 @@ func (me *Kit) Defs(name string) (defs []*atmolang_irfun.AstDefTop) {
 		name = name[1:]
 	}
 	for i := range me.topLevel {
-		if def := &me.topLevel[i]; def.Orig.Name.Val == name {
+		if def := &me.topLevel[i]; def.Orig.Name.Val == name && len(def.Errors) == 0 {
 			defs = append(defs, def)
 		}
 	}

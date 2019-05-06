@@ -123,9 +123,12 @@ func (me *AstCases) initFrom(ctx *ctxAstInit, orig *atmolang.AstExprCases) (errs
 	for i := range orig.Alts {
 		alt := &orig.Alts[i]
 		if alt.Body == nil {
-			errs.AddSyn(&alt.Tokens[0], "malformed `|?` branching: case has no result expression (or multiple `|?` branchings should be nested but weren't)")
+			errs.AddSyn(&alt.Tokens[0], "malformed branching: case has no result expression (or nested branchings should be parenthesized)")
 		} else {
 			me.Thens[i] = errs.AddVia(ctx.newAstExprFrom(alt.Body)).(IAstExpr)
+		}
+		if len(alt.Conds) == 0 {
+			errs.AddTodo(&alt.Tokens[0], "deriving of default case")
 		}
 		for c, cond := range alt.Conds {
 			if c == 0 {

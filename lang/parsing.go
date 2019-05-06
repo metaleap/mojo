@@ -64,7 +64,7 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 		}
 	} else if len(tokshead) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `:=`")
-	} else if toksheads := tokshead.Chunked(","); len(toksheads[0]) == 0 {
+	} else if toksheads := tokshead.Chunked(",", ""); len(toksheads[0]) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else {
 		if me.indentHintForLet = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
@@ -276,14 +276,14 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	}
 	cases.Tokens, cases.defaultIndex = allToks, -1
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
-	alts := toks.Chunked("|")
+	alts := toks.Chunked("|", "?")
 	cases.Alts = make([]AstCase, len(alts))
 	var cond IAstExpr
 	var hasmulticonds bool
 	for i := range alts {
 		if len(alts[i]) == 0 {
 			err = atmo.ErrSyn(&toks[0], "malformed branching: empty case")
-		} else if ifthen := alts[i].Chunked("->"); len(ifthen) > 2 {
+		} else if ifthen := alts[i].Chunked("->", "?"); len(ifthen) > 2 {
 			err = atmo.ErrSyn(&alts[i][0], "malformed branching: case has more than one result expression")
 		} else if len(ifthen) > 1 && len(ifthen[1]) == 0 {
 			err = atmo.ErrSyn(&alts[i][0], "malformed branching: case has no result expression")
@@ -327,7 +327,7 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
 	tokcomma, precomma := &toks[0], me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
-	numdefs, chunks := 0, toks.Chunked(",")
+	numdefs, chunks := 0, toks.Chunked(",", "")
 	if len(chunks[len(chunks)-1]) == 0 { // allow trailing comma
 		chunks = chunks[:len(chunks)-1]
 	}
