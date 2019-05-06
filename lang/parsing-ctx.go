@@ -7,11 +7,12 @@ import (
 
 type (
 	ctxTldParse struct {
-		file             *AstFile
-		curDef           *AstDef
-		indentHintForLet int
-		parensLevel      int
-		atTopLevelStill  bool
+		file                *AstFile
+		curDef              *AstDef
+		indentHintForLet    int
+		parensLevel         int
+		atTopLevelStill     bool
+		exprShouldBeDefBody bool
 	}
 )
 

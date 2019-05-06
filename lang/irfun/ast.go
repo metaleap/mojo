@@ -3,6 +3,7 @@ package atmolang_irfun
 import (
 	"strconv"
 
+	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
@@ -255,7 +256,7 @@ type AstCases struct {
 	Thens []IAstExpr
 }
 
-func (me *AstCases) dynName() string { panic(me.Orig) }
+func (me *AstCases) dynName() string { return ustr.Int(len(me.Ifs)) + "┬" }
 func (me *AstCases) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstCases)
 	if cmp != nil && len(cmp.Ifs) == len(me.Ifs) && len(cmp.Thens) == len(me.Thens) {

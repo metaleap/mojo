@@ -72,6 +72,7 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 		if def.Tokens = toks; istopleveldef {
 			me.curDef, def.IsTopLevel = def, true
 		}
+		me.exprShouldBeDefBody = true
 		if def.Body, err = me.parseExpr(toksbody); err == nil {
 			if len(toksheads) > 1 {
 				if def.Meta, err = me.parseMetas(toksheads[1:]); err != nil {
@@ -90,7 +91,7 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 		if len(appl.Args) > 2 {
 			tsub = toksHeadSig.FindSub(appl.Args[1].Toks(), appl.Args[len(appl.Args)-1].Toks())
 		}
-		return me.parseExprAppl(appl.Args[1:], tsub)
+		return me.parseExprApplOrIdent(appl.Args[1:], tsub)
 	}
 
 	var exprsig IAstExpr
@@ -150,6 +151,9 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 	}
 	if me.atTopLevelStill {
 		me.atTopLevelStill = false
+	}
+	if me.exprShouldBeDefBody {
+		me.exprShouldBeDefBody = false
 		if chunks := toks.IndentBasedChunks(indhint); len(chunks) > 1 {
 			ret, err = me.parseExprLetOuter(toks, chunks)
 			return
@@ -195,7 +199,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
 				switch toks[0].Str {
 				case ",":
-					exprcur, toks, err = me.parseExprLetInner(toks, accum, alltoks)
+					exprcur, toks, err = me.parseCommaSeparated(toks, accum, alltoks)
 					accum = accum[:0]
 				case "?":
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
@@ -216,14 +220,14 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 		}
 	}
 	if err == nil {
-		if ret = me.parseExprAppl(accum, alltoks); len(accumcomments) > 0 {
+		if ret = me.parseExprApplOrIdent(accum, alltoks); len(accumcomments) > 0 {
 			ret.Comments().Trailing.initFrom(accumcomments)
 		}
 	}
 	return
 }
 
-func (me *ctxTldParse) parseExprAppl(accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr) {
+func (me *ctxTldParse) parseExprApplOrIdent(accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr) {
 	if len(accum) == 1 {
 		ret = accum[0]
 	} else {
@@ -257,7 +261,7 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	}
 	var cases AstExprCases
 	if len(accum) > 0 {
-		cases.Scrutinee = me.parseExprAppl(accum, allToks.FromUntil(nil, &toks[0], false))
+		cases.Scrutinee = me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
 	}
 	cases.Tokens, cases.defaultIndex = allToks, -1
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
@@ -309,31 +313,43 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	return
 }
 
-func (me *ctxTldParse) parseExprLetInner(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
-	const errmsg = "missing definitions following `,` comma"
-	if len(toks) == 1 {
-		err = atmo.ErrSyn(&toks[0], errmsg)
-		return
-	}
-	var body IAstExpr
-	body = me.parseExprAppl(accum, allToks.FromUntil(nil, &toks[0], false))
+func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
+	tokcomma, precomma := &toks[0], me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
-	if chunks := toks.Chunked(","); len(chunks) > 0 {
-		var let AstExprLet
-		let.Tokens, let.Body, let.Defs = allToks, body, make([]AstDef, len(chunks))
-		lasttokforerr := &toks[0]
+	numdefs, chunks := 0, toks.Chunked(",")
+	for i := range chunks {
+		if chunks[i].Has(":=") {
+			numdefs++
+		}
+	}
+	if numdefs == len(chunks) && numdefs > 0 {
+		ret, err = me.parseExprLetInner(precomma, chunks, allToks)
+	} else if numdefs != 0 {
+		err = atmo.ErrSyn(tokcomma, "ambiguous comma-separated grouping: mix of expressions and defs (parenthesize to disambiguate)")
+	} else { // for now, a comma-sep'd grouping is an appl with callee `,` and all items as args --- to be further desugared down to meaning contextually in irfun
+		appl := AstExprAppl{Callee: me.parseExprIdent(allToks.FromUntil(tokcomma, tokcomma, true), false), Args: make([]IAstExpr, 1, 1+len(chunks))}
+		appl.Args[0], appl.Tokens = precomma, allToks
 		for i := range chunks {
-			if len(chunks[i]) == 0 {
-				err = atmo.ErrSyn(lasttokforerr, errmsg)
-			} else if err = me.parseDef(chunks[i], &let.Defs[i]); err == nil {
-				lasttokforerr = chunks[i].Last(nil)
-			}
-			if err != nil {
+			var arg IAstExpr
+			if arg, err = me.parseExpr(chunks[i]); err != nil {
 				return
 			}
+			appl.Args = append(appl.Args, arg)
 		}
-		ret = &let
+		ret = &appl
 	}
+	return
+}
+
+func (me *ctxTldParse) parseExprLetInner(body IAstExpr, chunks []udevlex.Tokens, allToks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
+	var let AstExprLet
+	let.Tokens, let.Body, let.Defs = allToks, body, make([]AstDef, len(chunks))
+	for i := range chunks {
+		if err = me.parseDef(chunks[i], &let.Defs[i]); err != nil {
+			return
+		}
+	}
+	ret = &let
 	return
 }
 
