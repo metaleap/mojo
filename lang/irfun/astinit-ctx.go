@@ -73,6 +73,9 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, er
 }
 
 func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
+	for des := orig.Desugared(me.nextPrefix); des != nil; des = orig.Desugared(me.nextPrefix) {
+		orig = des
+	}
 	switch o := orig.(type) {
 	case *atmolang.AstIdent:
 		expr, errs = me.newAstIdentFrom(o)
@@ -108,31 +111,27 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 		me.defsScope = oldscope
 		me.namesInScopeDrop(numnames)
 	case *atmolang.AstExprAppl:
-		if lamb := o.ToLetExprIfPlaceholders(me.nextPrefix); lamb != nil {
-			expr, errs = me.newAstExprFrom(lamb)
-		} else {
-			o = o.ToUnary()
-			appl, atc, ata := AstAppl{Orig: o}, o.Callee.IsAtomic(), o.Args[0].IsAtomic()
-			if atc {
-				appl.AtomicCallee = errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr)
+		o = o.ToUnary()
+		appl, atc, ata := AstAppl{Orig: o}, o.Callee.IsAtomic(), o.Args[0].IsAtomic()
+		if atc {
+			appl.AtomicCallee = errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr)
+		}
+		if ata {
+			appl.AtomicArg = errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr)
+		}
+		if expr = &appl; !(atc && ata) {
+			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IAstExpr {
+				body := errs.AddVia(me.newAstExprFrom(from)).(IAstExpr)
+				return &me.addLocalDefToScope(body, appl.letPrefix+body.dynName()).Name
 			}
-			if ata {
-				appl.AtomicArg = errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr)
+			me.defsScope, appl.letPrefix = &appl.letDefs, me.nextPrefix()
+			if !atc {
+				appl.AtomicCallee = toatomic(o.Callee)
 			}
-			if expr = &appl; !(atc && ata) {
-				oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IAstExpr {
-					body := errs.AddVia(me.newAstExprFrom(from)).(IAstExpr)
-					return &me.addLocalDefToScope(body, appl.letPrefix+body.dynName()).Name
-				}
-				me.defsScope, appl.letPrefix = &appl.letDefs, me.nextPrefix()
-				if !atc {
-					appl.AtomicCallee = toatomic(o.Callee)
-				}
-				if !ata {
-					appl.AtomicArg = toatomic(o.Args[0])
-				}
-				me.defsScope = oldscope
+			if !ata {
+				appl.AtomicArg = toatomic(o.Args[0])
 			}
+			me.defsScope = oldscope
 		}
 	case *atmolang.AstExprCases:
 		var cases AstCases
