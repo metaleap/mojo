@@ -128,12 +128,17 @@ func (me *Kit) HasDefs(name string) bool {
 	return false
 }
 
-func (me *Kit) Defs(name string) (defs []*atmolang_irfun.AstDefTop) {
+func (me *Kit) Defs(name string, resolveNakedAliases bool) (defs []*atmolang_irfun.AstDefTop) {
 	if name[0] == '_' {
 		name = name[1:]
 	}
+start:
 	for i := range me.topLevel {
-		if def := &me.topLevel[i]; def.Orig.Name.Val == name && len(def.Errors) == 0 {
+		if def := &me.topLevel[i]; def.Orig.Name.Val == name {
+			if def.Orig.IsNakedAliasTo != "" {
+				name = def.Orig.IsNakedAliasTo
+				goto start
+			}
 			defs = append(defs, def)
 		}
 	}

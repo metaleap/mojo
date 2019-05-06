@@ -146,7 +146,7 @@ interpreted or compiled all together as a unit.
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string) (defs []*atmolang_irfun.AstDefTop)
+func (me *Kit) Defs(name string, resolveNakedAliases bool) (defs []*atmolang_irfun.AstDefTop)
 ```
 
 #### func (*Kit) Errors

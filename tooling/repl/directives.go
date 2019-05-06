@@ -260,9 +260,9 @@ func (me *Repl) DSrcs(what string) bool {
 			if kit == nil {
 				me.IO.writeLns("Unknown kit: `" + whatkit + "`, see known kits via `:list _`.")
 			} else {
-				defs, ctxp := kit.Defs(whatname), atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
+				defs, ctxp := kit.Defs(whatname, true), atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
 					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
-				me.IO.writeLns(ustr.Plu(len(defs), "error-free def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
+				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
 				for _, def := range defs {
 					for _, tlc := range def.TopLevels {
 						me.decoAddNotice(false, "", true, tlc.SrcFile.SrcFilePath)
@@ -272,14 +272,16 @@ func (me *Repl) DSrcs(what string) bool {
 					ctxp.WriteTo(me.IO.Stdout)
 					ctxp.Reset()
 
-					ir2lang := def.Print().(*atmolang.AstDef)
-					me.decoAddNotice(false, "", true, "internal representation:", "")
-					ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
-					ctxp.CurTopLevel = ir2lang
-					ir2lang.Print(&ctxp)
-					ctxp.WriteTo(me.IO.Stdout)
-					ctxp.Reset()
-					me.IO.writeLns("", "")
+					if len(def.Errors) == 0 {
+						ir2lang := def.Print().(*atmolang.AstDef)
+						me.decoAddNotice(false, "", true, "internal representation:", "")
+						ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
+						ctxp.CurTopLevel = ir2lang
+						ir2lang.Print(&ctxp)
+						ctxp.WriteTo(me.IO.Stdout)
+						ctxp.Reset()
+						me.IO.writeLns("", "")
+					}
 				}
 			}
 		})
