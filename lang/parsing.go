@@ -317,6 +317,9 @@ func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr
 	tokcomma, precomma := &toks[0], me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 	numdefs, chunks := 0, toks.Chunked(",")
+	if len(chunks[len(chunks)-1]) == 0 { // allow trailing comma
+		chunks = chunks[:len(chunks)-1]
+	}
 	for i := range chunks {
 		if chunks[i].Has(":=") {
 			numdefs++
@@ -327,14 +330,16 @@ func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr
 	} else if numdefs != 0 {
 		err = atmo.ErrSyn(tokcomma, "ambiguous comma-separated grouping: mix of expressions and defs (parenthesize to disambiguate)")
 	} else { // for now, a comma-sep'd grouping is an appl with callee `,` and all items as args --- to be further desugared down to meaning contextually in irfun
-		appl := AstExprAppl{Callee: me.parseExprIdent(allToks.FromUntil(tokcomma, tokcomma, true), false), Args: make([]IAstExpr, 1, 1+len(chunks))}
+		lasttok, appl := tokcomma, AstExprAppl{Callee: me.parseExprIdent(allToks.FromUntil(tokcomma, tokcomma, true), false), Args: make([]IAstExpr, 1, 1+len(chunks))}
 		appl.Args[0], appl.Tokens = precomma, allToks
 		for i := range chunks {
 			var arg IAstExpr
-			if arg, err = me.parseExpr(chunks[i]); err != nil {
+			if len(chunks[i]) == 0 {
+				err = atmo.ErrSyn(lasttok, "missing expression between commas")
+			} else if arg, err = me.parseExpr(chunks[i]); err != nil {
 				return
 			}
-			appl.Args = append(appl.Args, arg)
+			lasttok, appl.Args = chunks[i].Last(nil), append(appl.Args, arg)
 		}
 		ret = &appl
 	}
