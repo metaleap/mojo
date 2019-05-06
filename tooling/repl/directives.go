@@ -229,9 +229,15 @@ func (me *Repl) DSrcs(what string) bool {
 	if whatkit, whatname := me.what2KitAndName(what); whatkit != "" && whatname != "" {
 		me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
 			var kit *atmosess.Kit
-			if searchloaded, searchall := whatkit == "_", whatkit == "*"; !(searchall || searchloaded) {
-				kit = kits.ByImpPath(whatkit)
-				me.kitEnsureLoaded(kit)
+			if searchloaded, searchall := (whatkit == "_"), (whatkit == "*"); !(searchall || searchloaded) {
+				if kit = kits.ByImpPath(whatkit); kit == nil && whatkit == "." {
+					for i := range kits {
+						if _, isdirsessfauxkit := me.Ctx.KitIsSessionDirFauxKit(&kits[i]); isdirsessfauxkit {
+							kit = &kits[i]
+							break
+						}
+					}
+				}
 			} else {
 				var finds []*atmosess.Kit
 				for i := range kits {
@@ -260,6 +266,7 @@ func (me *Repl) DSrcs(what string) bool {
 			if kit == nil {
 				me.IO.writeLns("Unknown kit: `" + whatkit + "`, see known kits via `:list _`.")
 			} else {
+				me.kitEnsureLoaded(kit)
 				defs, ctxp := kit.Defs(whatname, true), atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
 					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")

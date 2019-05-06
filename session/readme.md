@@ -82,6 +82,12 @@ KitEnsureLoaded forces (re)loading the `kit` only if it never was. (Primarily
 for interactive load-on-demand scenarios like REPLs or editor language
 servers.))
 
+#### func (*Ctx) KitIsSessionDirFauxKit
+
+```go
+func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) (isAlreadyInKitsDirs bool, isSessionDirFauxKit bool)
+```
+
 #### func (*Ctx) KnownKitImpPaths
 
 ```go

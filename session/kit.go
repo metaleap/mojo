@@ -33,6 +33,11 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	}
 }
 
+func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) (isAlreadyInKitsDirs bool, isSessionDirFauxKit bool) {
+	isAlreadyInKitsDirs, isSessionDirFauxKit = me.Dirs.sess[kit.DirPath]
+	return
+}
+
 // WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
 // The `Kit` must not be written to. While `do` runs, the `Kit` is blocked
 // for updates triggered by file modifications etc.

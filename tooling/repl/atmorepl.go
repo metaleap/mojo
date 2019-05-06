@@ -45,11 +45,28 @@ type Repl struct {
 
 func init() { Ux.AnimsEnabled, Ux.MoreLinesPrompt = true, []byte("     ¶¶¶") }
 
-func (me *Repl) Run(showWelcomeMsg bool) {
+func (me *Repl) Run(showWelcomeMsg bool, loadAutoKit bool, loadSessDirFauxKits bool, loadKitsByImpPaths ...string) {
 	me.init()
 	if me.decoCtxMsgsIfAny(true); showWelcomeMsg {
 		me.decoWelcomeMsgAnim()
 	}
+
+	if loadAutoKit {
+		me.Ctx.WithKit("omni", func(kit *atmosess.Kit) {
+			me.Ctx.KitEnsureLoaded(kit)
+		})
+	}
+	if loadSessDirFauxKits || len(loadKitsByImpPaths) > 0 {
+		me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
+			for i := range kits {
+				kit := &kits[i]
+				if _, isdirsessfauxkit := me.Ctx.KitIsSessionDirFauxKit(kit); (isdirsessfauxkit && loadSessDirFauxKits) || ustr.In(kit.ImpPath, loadKitsByImpPaths...) {
+					me.kitEnsureLoaded(kit)
+				}
+			}
+		})
+	}
+
 	me.decoInputStart(false, false)
 	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan() && (!me.run.quit); {
 		me.IO.TimeLastInput = time.Now()
