@@ -8,8 +8,8 @@ import (
 
 func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig.ToUnary()
-	argname := len(me.Orig.Args) > 0
-	if argname {
+	var argname bool
+	if len(me.Orig.Args) > 0 {
 		argname = ctx.namesInScopeAdd(&errs, me.Orig.Args[0].NameOrConstVal) > 0
 	}
 

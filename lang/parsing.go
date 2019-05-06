@@ -67,13 +67,13 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 	} else if toksheads := tokshead.Chunked(",", ""); len(toksheads[0]) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else {
+		me.exprWillBeDefBody, toksbody = toksbody.BreakOnLeadingComments()
 		if me.indentHintForLet = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
 			me.indentHintForLet = toksbody[0].Meta.Position.Column - 1
 		}
 		if def.Tokens = toks; istopleveldef {
 			me.curDef, def.IsTopLevel = def, true
 		}
-		me.exprShouldBeDefBody = true
 		if def.Body, err = me.parseExpr(toksbody); err == nil {
 			if len(toksheads) > 1 {
 				if def.Meta, err = me.parseMetas(toksheads[1:]); err != nil {
@@ -153,8 +153,8 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 	if me.atTopLevelStill {
 		me.atTopLevelStill = false
 	}
-	if me.exprShouldBeDefBody {
-		me.exprShouldBeDefBody = false
+	if me.exprWillBeDefBody != nil {
+		me.exprWillBeDefBody = nil
 		if chunks := toks.IndentBasedChunks(indhint); len(chunks) > 1 {
 			ret, err = me.parseExprLetOuter(toks, chunks)
 			return
@@ -283,12 +283,12 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	for i := range alts {
 		if len(alts[i]) == 0 {
 			err = atmo.ErrSyn(&toks[0], "malformed branching: empty case")
-		} else if ifthen := alts[i].Chunked("->", "?"); len(ifthen) > 2 {
+		} else if ifthen := alts[i].Chunked("|=", "?"); len(ifthen) > 2 {
 			err = atmo.ErrSyn(&alts[i][0], "malformed branching: case has more than one result expression")
 		} else if len(ifthen) > 1 && len(ifthen[1]) == 0 {
 			err = atmo.ErrSyn(&alts[i][0], "malformed branching: case has no result expression")
 		} else if len(ifthen[0]) == 0 {
-			// the branching's "default" case (empty between `|` and `->`)
+			// the branching's "default" case (empty between `|` and `|=`)
 			if cases.Alts[i].Body, err = me.parseExpr(ifthen[1]); err == nil && cases.defaultIndex >= 0 {
 				err = atmo.ErrSyn(&alts[i][0], "malformed branching: encountered a second default case, only at most one is permissible")
 			} else {

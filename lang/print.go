@@ -256,7 +256,7 @@ func (me *AstCase) print(p *CtxPrint) {
 		p.Fmt.OnExprCasesCond(me, i, me.Conds[i])
 	}
 	if me.Body != nil {
-		p.WriteString("->")
+		p.WriteString("|=")
 		p.Fmt.OnExprCasesBody(me, me.Body)
 	}
 }
