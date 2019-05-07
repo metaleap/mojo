@@ -27,12 +27,16 @@ type IPrintFmt interface {
 	OnComment(IAstNode, IAstNode, *AstComment)
 }
 
-func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer) {
+func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebugPurposes bool) {
 	ctxp := &CtxPrint{NoComments: true, CurTopLevel: curTopLevel}
 	ctxp.Fmt = &PrintFmtMinimal{}
 	ctxp.Fmt.SetCtxPrint(ctxp)
 	ctxp.Print(node)
-	out.Write(append(append([]byte("\n\n\n▓▓▓"), ctxp.BytesWriter.Data...), "▓▓▓\n\n\n"...))
+	data := ctxp.BytesWriter.Data
+	if prominentForDebugPurposes {
+		data = append(append([]byte("\n\n\n▓▓▓"), data...), "▓▓▓\n\n\n"...)
+	}
+	out.Write(data)
 }
 
 type CtxPrint struct {
@@ -204,7 +208,7 @@ func (me *AstExprLitStr) print(p *CtxPrint) {
 }
 
 func (me *AstExprAppl) print(p *CtxPrint) {
-	istopleveldefsbody := (me == p.CurTopLevel.Body)
+	istopleveldefsbody := (p.CurTopLevel == nil || me == p.CurTopLevel.Body)
 	switch p.ApplStyle {
 	case APPLSTYLE_VSO:
 		p.Fmt.OnExprApplName(istopleveldefsbody, me, me.Callee)
@@ -235,7 +239,7 @@ func (me *AstExprLet) print(p *CtxPrint) {
 }
 
 func (me *AstExprCases) print(p *CtxPrint) {
-	istopleveldefsbody := (me == p.CurTopLevel.Body)
+	istopleveldefsbody := (p.CurTopLevel == nil || me == p.CurTopLevel.Body)
 	if me.Scrutinee != nil {
 		p.Fmt.OnExprCasesScrutinee(istopleveldefsbody, me, me.Scrutinee)
 	}
@@ -331,7 +335,7 @@ func (me *PrintFmtMinimal) OnComment(leads IAstNode, trails IAstNode, node *AstC
 		}
 		needsnolinebreak :=
 			(tl != nil && tl.Def.Orig == nil && node == &tl.comments.Leading[len(tl.comments.Leading)-1]) ||
-				(leads == nil && trails != nil && node.Tokens.Last(nil) == me.CurTopLevel.Tokens.Last(nil))
+				(leads == nil && trails != nil && me.CurTopLevel != nil && node.Tokens.Last(nil) == me.CurTopLevel.Tokens.Last(nil))
 		if !needsnolinebreak {
 			me.WriteLineBreaksThenIndent(1)
 		}

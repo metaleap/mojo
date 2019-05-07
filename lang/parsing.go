@@ -6,6 +6,8 @@ import (
 	"github.com/metaleap/atmo"
 )
 
+const ErrMsgDefNotExpr = "unexpected `:=` in expression, only permissible for defs (missed a comma?)"
+
 type ApplStyle int
 
 const (
@@ -211,6 +213,8 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				case "?":
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
+				case ":=":
+					err = atmo.ErrSyn(&toks[0], ErrMsgDefNotExpr)
 				default:
 					exprcur = me.parseExprIdent(toks, false)
 					toks = toks[1:]
@@ -244,7 +248,10 @@ func (me *ctxTldParse) parseExprApplOrIdent(accum []IAstExpr, allToks udevlex.To
 			appl.Tokens = allToks
 		}
 		args := make([]IAstExpr, 1, len(accum)-1)
-		applstyle := me.file.Options.ApplStyle
+		var applstyle ApplStyle
+		if me.file != nil {
+			applstyle = me.file.Options.ApplStyle
+		}
 		switch applstyle {
 		case APPLSTYLE_VSO:
 			appl.Callee, args[0] = accum[0], accum[1]

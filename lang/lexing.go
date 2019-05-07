@@ -37,6 +37,19 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	return
 }
 
+func LexAndParseExpr(src []byte) (IAstExpr, error) {
+	toks, errs := udevlex.Lex(&ustd.BytesReader{Data: src}, "‹repl›", 0, 0, 64)
+	for _, e := range errs {
+		return nil, e
+	}
+
+	if expr, err := (&ctxTldParse{}).parseExpr(toks); err != nil { // need this..
+		return nil, err // ..explicit branch because else a `nil`..
+	} else { // ..`*Error` would turn into a non-nil `error`..
+		return expr, nil // ..interface with inner `nil` value *sigh!*
+	}
+}
+
 func (me *AstFile) LexAndParseSrc(r io.Reader) (freshErrs []error) {
 	var src []byte
 	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading != nil {
