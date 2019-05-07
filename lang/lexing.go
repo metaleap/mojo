@@ -141,6 +141,18 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 		}
 	}
 
+	for newidx := range tlchunks { // trim-right \n bytes really helps with not reloading more than necessary
+		var numn int
+		for j := len(tlchunks[newidx].src) - 1; j > 0; j-- {
+			if tlchunks[newidx].src[j] == '\n' {
+				numn++
+			} else {
+				break
+			}
+		}
+		tlchunks[newidx].src = tlchunks[newidx].src[:len(tlchunks[newidx].src)-numn]
+	}
+
 	// stage TWO: compare gathered `tlchunks` to existing `AstFileTopLevelChunk`s in `me.TopLevel`,
 	// dropping those that are gone, adding those that are new, and repositioning others as needed
 

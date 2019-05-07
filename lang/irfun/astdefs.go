@@ -51,7 +51,7 @@ func (me AstTopDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (freshErrs []error) {
+func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIDs []string, newTopLevelDefs []*AstDefTop, freshErrs []error) {
 	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]bool, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
@@ -67,30 +67,33 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (freshErrs []err
 		}
 	}
 
-	if len(oldunchangeddefidxs) > 0 { // gather & drop what's gone
+	if len(oldunchangeddefidxs) > 0 && len(oldunchangeddefidxs) < len(this) { // gather & drop what's gone
 		dels := make(map[*atmolang.AstDef]bool, len(this)-len(oldunchangeddefidxs))
+		droppedTopLevelDefIDs = make([]string, 0, len(this)-len(oldunchangeddefidxs))
 		for i := range this {
 			if !oldunchangeddefidxs[i] {
 				dels[this[i].Orig] = true
+				droppedTopLevelDefIDs = append(droppedTopLevelDefIDs, this[i].TopLevel.ID())
 			}
 		}
+		thisnew := make(AstTopDefs, 0, len(this)) // nasty way to delete but they're all nasty
 		for i := range this {
-			if dels[this[i].Orig] {
-				for j := i; j < len(this)-1; j++ {
-					this[j] = this[j+1]
-				}
+			if !dels[this[i].Orig] {
+				thisnew = append(thisnew, this[i])
 			}
 		}
-		this = this[:len(this)-len(dels)]
+		this = thisnew
 	}
 
 	// add what's new
 	newstartfrom := len(this)
+	newTopLevelDefs = make([]*AstDefTop, 0, len(newdefs))
 	for _, tlc := range newdefs {
 		if !tlc.HasErrors() {
 			idx := len(this)
-			this = append(this, AstDefTop{})
-			this[idx].TopLevel, this[idx].Orig = tlc, tlc.Ast.Def.Orig
+			this = append(this, AstDefTop{TopLevel: tlc})
+			this[idx].Orig = tlc.Ast.Def.Orig
+			newTopLevelDefs = append(newTopLevelDefs, &this[idx])
 		}
 	}
 

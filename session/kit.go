@@ -18,9 +18,10 @@ type Kit struct {
 	ImpPath           string
 	WasEverToBeLoaded bool
 
-	topLevel atmolang_irfun.AstTopDefs
-	srcFiles atmolang.AstFiles
-	errs     struct {
+	topLevel   atmolang_irfun.AstTopDefs
+	srcFiles   atmolang.AstFiles
+	tlDefNames map[string][]*atmolang_irfun.AstDefTop
+	errs       struct {
 		dirAccessDuringRefresh error
 	}
 }
@@ -93,7 +94,16 @@ func (me *Ctx) kitForceReload(kit *Kit) {
 		fresherrs = append(fresherrs, sf.LexAndParseFile(true, false)...)
 	}
 
-	fresherrs = append(fresherrs, kit.topLevel.ReInitFrom(kit.srcFiles)...)
+	tldgone, tldnew, fe := kit.topLevel.ReInitFrom(kit.srcFiles)
+	println(len(tldgone), "gone,", len(tldnew), "new")
+
+	fresherrs = append(fresherrs, fe...)
+	kit.tlDefNames = make(map[string][]*atmolang_irfun.AstDefTop, len(kit.topLevel))
+	for i := range kit.topLevel {
+		tldef := &kit.topLevel[i]
+		kit.tlDefNames[tldef.Name.Val] = append(kit.tlDefNames[tldef.Name.Val], tldef)
+	}
+
 	me.onErrs(fresherrs, nil)
 }
 
