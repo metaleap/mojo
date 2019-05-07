@@ -142,7 +142,7 @@ func (me *Repl) dListDefs(whatKit string) {
 		if kit == nil {
 			me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
 		} else {
-			me.kitEnsureLoaded(kit)
+			me.Ctx.KitEnsureLoaded(kit)
 			me.IO.writeLns("LIST of defs in kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
 			kitsrcfiles, numdefs := kit.SrcFiles(), 0
 			for i := range kitsrcfiles {
@@ -196,7 +196,7 @@ func (me *Repl) dInfoKit(whatKit string) {
 		if kit == nil {
 			me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
 		} else {
-			me.kitEnsureLoaded(kit)
+			me.Ctx.KitEnsureLoaded(kit)
 			me.IO.writeLns("INFO summary on kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
 			kitsrcfiles := kit.SrcFiles()
 			me.IO.writeLns("", ustr.Plu(len(kitsrcfiles), "source file")+" in kit `"+whatKit+"`:")
@@ -231,7 +231,7 @@ func (me *Repl) DSrcs(what string) bool {
 		me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
 			var kit *atmosess.Kit
 			if searchloaded, searchall := (whatkit == "_"), (whatkit == "*"); !(searchall || searchloaded) {
-				if kit = kits.ByImpPath(whatkit); kit == nil && whatkit == "." {
+				if kit = kits.ByImpPath(whatkit); kit == nil && (whatkit == "." || whatkit == "~") {
 					for i := range kits {
 						if me.Ctx.KitIsSessionDirFauxKit(kits[i]) {
 							kit = kits[i]
@@ -243,7 +243,7 @@ func (me *Repl) DSrcs(what string) bool {
 				var finds atmosess.Kits
 				for _, k := range kits {
 					if searchall {
-						me.kitEnsureLoaded(k)
+						me.Ctx.KitEnsureLoaded(k)
 					}
 					if k.HasDefs(whatname) {
 						finds = append(finds, k)
@@ -266,7 +266,7 @@ func (me *Repl) DSrcs(what string) bool {
 			if kit == nil {
 				me.IO.writeLns("Unknown kit: `" + whatkit + "`, see known kits via `:list _`.")
 			} else {
-				me.kitEnsureLoaded(kit)
+				me.Ctx.KitEnsureLoaded(kit)
 				defs, ctxp := kit.Defs(whatname, true), atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
 					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")

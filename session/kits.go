@@ -75,7 +75,7 @@ func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNotic
 func (me *Ctx) initKits() {
 	dirok := func(dirfullpath string, dirname string) bool {
 		return ustr.In(dirfullpath, me.Dirs.sess...) || ustr.In(dirfullpath, me.Dirs.Kits...) ||
-			(dirname != "*" && dirname != "." && dirname != "_" && !ustr.HasAny(dirname, unicode.IsSpace))
+			((!ustr.HasAnyOf(dirname, '*', '.', '_', '~')) && !ustr.HasAny(dirname, unicode.IsSpace))
 	}
 
 	var handledir func(string, map[string]int)
@@ -193,6 +193,7 @@ func (me *Ctx) initKits() {
 				for kitdirpath := range shouldrefresh {
 					me.kitRefreshFilesAndReloadIfWasLoaded(me.Kits.all.indexDirPath(kitdirpath))
 				}
+				me.renewAndRevalidateAffectedIRsIfAnyKitsReloaded()
 				if me.state.fileModsWatch.emitMsgsIfManual {
 					me.bgMsg(true, false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")
 				}

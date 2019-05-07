@@ -38,7 +38,27 @@ type Kit struct {
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	if !kit.WasEverToBeLoaded {
 		me.kitForceReload(kit)
+		me.renewAndRevalidateAffectedIRsIfAnyKitsReloaded()
 	}
+}
+
+func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
+	me.maybeInitPanic(false)
+	me.state.Lock()
+	if plusSessDirFauxKits {
+		for _, dirsess := range me.Dirs.sess {
+			if idx := me.Kits.all.indexDirPath(dirsess); idx >= 0 {
+				kitImpPaths = append(kitImpPaths, me.Kits.all[idx].ImpPath)
+			}
+		}
+	}
+	for _, kip := range kitImpPaths {
+		if kit := me.Kits.all.ByImpPath(kip); kit != nil {
+			me.kitForceReload(kit)
+		}
+	}
+	me.renewAndRevalidateAffectedIRsIfAnyKitsReloaded()
+	me.state.Unlock()
 }
 
 func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
@@ -52,7 +72,7 @@ func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
 	idx := me.Kits.all.indexImpPath(impPath)
-	if idx < 0 && (impPath == "" || impPath == ".") && len(me.Dirs.sess) == 1 {
+	if idx < 0 && (impPath == "" || impPath == "." || impPath == "~") && len(me.Dirs.sess) == 1 {
 		idx = me.Kits.all.indexDirPath(me.Dirs.sess[0])
 	}
 	if idx < 0 {

@@ -53,17 +53,8 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 		me.decoWelcomeMsgAnim()
 	}
 
-	loadKitsByImpPaths = append([]string{atmo.NameAutoKit}, ustr.Sans(loadKitsByImpPaths, atmo.NameAutoKit)...)
-	if len(loadKitsByImpPaths) > 0 || loadSessDirFauxKit {
-		me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
-			for i := range kits {
-				if kit := kits[i]; ustr.In(kit.ImpPath, loadKitsByImpPaths...) ||
-					(loadSessDirFauxKit && me.Ctx.KitIsSessionDirFauxKit(kit)) {
-					me.kitEnsureLoaded(kit)
-				}
-			}
-		})
-	}
+	me.Ctx.KitsEnsureLoaded(loadSessDirFauxKit, append([]string{atmo.NameAutoKit},
+		ustr.Sans(loadKitsByImpPaths, atmo.NameAutoKit)...)...)
 
 	me.decoInputStart(false, false)
 	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan() && (!me.run.quit); {

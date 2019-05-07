@@ -8,7 +8,6 @@ import (
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/session"
 )
 
 const (
@@ -154,10 +153,6 @@ func (me *Repl) decoWelcomeMsgAnim() {
 	me.IO.writeLns("")
 	me.DIntro("")
 	me.IO.writeLns("", "")
-}
-
-func (me *Repl) kitEnsureLoaded(kit *atmosess.Kit) {
-	me.Ctx.KitEnsureLoaded(kit)
 }
 
 func (me *Repl) uxMore(restartIfTrueElseSuspend bool) {

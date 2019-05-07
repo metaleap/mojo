@@ -94,6 +94,12 @@ servers.))
 func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool
 ```
 
+#### func (*Ctx) KitsEnsureLoaded
+
+```go
+func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
+```
+
 #### func (*Ctx) KnownKitImpPaths
 
 ```go
