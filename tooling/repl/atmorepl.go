@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/session"
 )
 
@@ -52,7 +53,7 @@ func (me *Repl) Run(showWelcomeMsg bool, loadAutoKit bool, loadSessDirFauxKits b
 	}
 
 	if loadAutoKit {
-		me.Ctx.WithKit("omni", func(kit *atmosess.Kit) {
+		me.Ctx.WithKit(atmo.NameAutoKit, func(kit *atmosess.Kit) {
 			me.Ctx.KitEnsureLoaded(kit)
 		})
 	}
@@ -124,7 +125,11 @@ func (me *Repl) Run(showWelcomeMsg bool, loadAutoKit bool, loadSessDirFauxKits b
 				me.decoAddNotice(false, "", false, "multi-line input had leading tabs,note", "that repl auto-indent is based on spaces")
 			}
 			me.IO.writeLns("")
-			me.IO.writeLns("TODO: eval of" + inputln)
+			me.Ctx.WithKit("", func(kit *atmosess.Kit) {
+				for _, err := range me.Ctx.Eval(kit, inputln) {
+					me.decoMsgNotice(false, err.Error())
+				}
+			})
 			me.IO.writeLns("", "")
 			me.decoInputStart(false, false)
 		}

@@ -154,7 +154,7 @@ func (me *Ctx) initKits() {
 							}
 						}
 						me.Kits.all = append(me.Kits.all, Kit{DirPath: kitdirpath, ImpPath: kitimppath,
-							srcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
+							srcFiles: make(atmolang.AstFiles, 1, numfilesguess)})
 					}
 					shouldrefresh[kitdirpath] = true
 				}
@@ -251,9 +251,11 @@ func (me Kits) indexDirPath(dirPath string) int {
 }
 
 func (me Kits) indexImpPath(impPath string) int {
-	for i := range me {
-		if me[i].ImpPath == impPath {
-			return i
+	if impPath != "" {
+		for i := range me {
+			if me[i].ImpPath == impPath {
+				return i
+			}
 		}
 	}
 	return -1

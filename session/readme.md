@@ -64,6 +64,12 @@ func (me *Ctx) Dispose()
 ```
 Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 
+#### func (*Ctx) Eval
+
+```go
+func (me *Ctx) Eval(kit *Kit, src string) (errs []error)
+```
+
 #### func (*Ctx) Init
 
 ```go

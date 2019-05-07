@@ -44,7 +44,7 @@ func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
 	idx := me.Kits.all.indexImpPath(impPath)
-	if idx < 0 && impPath == "." && len(me.Dirs.sess) == 1 {
+	if idx < 0 && (impPath == "" || impPath == ".") && len(me.Dirs.sess) == 1 {
 		idx = me.Kits.all.indexDirPath(me.Dirs.sess[0])
 	}
 	if idx < 0 {
@@ -66,7 +66,7 @@ func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
 
 	// any deleted files get forgotten now
 	for i := 0; i < len(this.srcFiles); i++ {
-		if !ufs.IsFile(this.srcFiles[i].SrcFilePath) {
+		if this.srcFiles[i].SrcFilePath != "" && !ufs.IsFile(this.srcFiles[i].SrcFilePath) {
 			this.srcFiles.RemoveAt(i)
 			i--
 		}

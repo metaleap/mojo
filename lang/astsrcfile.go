@@ -147,9 +147,17 @@ func (me *AstFileTopLevelChunk) ID() string {
 	return me._id
 }
 
-func (me AstFiles) Len() int               { return len(me) }
-func (me AstFiles) Swap(i int, j int)      { me[i], me[j] = me[j], me[i] }
-func (me AstFiles) Less(i int, j int) bool { return me[i].SrcFilePath < me[j].SrcFilePath }
+func (me AstFiles) Len() int          { return len(me) }
+func (me AstFiles) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+func (me AstFiles) Less(i int, j int) bool {
+	if me[i].SrcFilePath == "" {
+		return false
+	}
+	if me[j].SrcFilePath == "" {
+		return true
+	}
+	return me[i].SrcFilePath < me[j].SrcFilePath
+}
 
 func (me AstFiles) Index(srcFilePath string) int {
 	for i := range me {

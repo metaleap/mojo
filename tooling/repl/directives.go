@@ -147,15 +147,16 @@ func (me *Repl) dListDefs(whatKit string) {
 			kitsrcfiles, numdefs := kit.SrcFiles(), 0
 			for i := range kitsrcfiles {
 				sf := &kitsrcfiles[i]
-				nd, _ := sf.CountTopLevelDefs(true)
-				me.IO.writeLns("", filepath.Base(sf.SrcFilePath)+": "+ustr.Plu(nd, "top-level def"))
-				for d := range sf.TopLevel {
-					if tld := &sf.TopLevel[d]; !tld.HasErrors() {
-						if def := tld.Ast.Def.Orig; def != nil {
-							numdefs++
-							pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
-								"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
-							me.decoAddNotice(false, "", true, ustr.Combine(ustr.If(tld.Ast.Def.IsUnexported, "_", "")+def.Name.Val, " ─── ", pos))
+				if nd, _ := sf.CountTopLevelDefs(true); nd > 0 {
+					me.IO.writeLns("", ustr.If(sf.SrcFilePath == "", "‹repl›", filepath.Base(sf.SrcFilePath))+": "+ustr.Plu(nd, "top-level def"))
+					for d := range sf.TopLevel {
+						if tld := &sf.TopLevel[d]; !tld.HasErrors() {
+							if def := tld.Ast.Def.Orig; def != nil {
+								numdefs++
+								pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
+									"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
+								me.decoAddNotice(false, "", true, ustr.Combine(ustr.If(tld.Ast.Def.IsUnexported, "_", "")+def.Name.Val, " ─── ", pos))
+							}
 						}
 					}
 				}
@@ -205,7 +206,7 @@ func (me *Repl) dInfoKit(whatKit string) {
 				nd, ndi := sf.CountTopLevelDefs(true)
 				sloc := sf.CountNetLinesOfCode(true)
 				numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
-				me.decoAddNotice(false, "", true, filepath.Base(sf.SrcFilePath), ustr.Plu(sf.LastLoad.NumLines, "line")+" ("+ustr.Int(sloc)+" sloc), "+ustr.Plu(nd, "top-level def")+", "+ustr.Int(nd-ndi)+" exported")
+				me.decoAddNotice(false, "", true, ustr.If(sf.SrcFilePath == "", "‹repl›", filepath.Base(sf.SrcFilePath)), ustr.Plu(sf.LastLoad.NumLines, "line")+" ("+ustr.Int(sloc)+" sloc), "+ustr.Plu(nd, "top-level def")+", "+ustr.Int(nd-ndi)+" exported")
 			}
 			me.IO.writeLns("Total:", "    "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
 				"    (Counts exclude failed-to-parse defs, if any.)")
