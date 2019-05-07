@@ -33,9 +33,8 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	}
 }
 
-func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) (isAlreadyInKitsDirs bool, isSessionDirFauxKit bool) {
-	isAlreadyInKitsDirs, isSessionDirFauxKit = me.Dirs.sess[kit.DirPath]
-	return
+func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
+	return ustr.In(kit.DirPath, me.Dirs.sess...)
 }
 
 // WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
@@ -45,12 +44,8 @@ func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
 	idx := me.Kits.all.indexImpPath(impPath)
-	if idx < 0 && impPath == "." {
-		for dirsess := range me.Dirs.sess {
-			if idx = me.Kits.all.indexDirPath(dirsess); idx >= 0 {
-				break
-			}
-		}
+	if idx < 0 && impPath == "." && len(me.Dirs.sess) == 1 {
+		idx = me.Kits.all.indexDirPath(me.Dirs.sess[0])
 	}
 	if idx < 0 {
 		do(nil)

@@ -232,7 +232,7 @@ func (me *Repl) DSrcs(what string) bool {
 			if searchloaded, searchall := (whatkit == "_"), (whatkit == "*"); !(searchall || searchloaded) {
 				if kit = kits.ByImpPath(whatkit); kit == nil && whatkit == "." {
 					for i := range kits {
-						if _, isdirsessfauxkit := me.Ctx.KitIsSessionDirFauxKit(&kits[i]); isdirsessfauxkit {
+						if me.Ctx.KitIsSessionDirFauxKit(&kits[i]) {
 							kit = &kits[i]
 							break
 						}

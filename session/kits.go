@@ -75,15 +75,13 @@ func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNotic
 
 func (me *Ctx) initKits() {
 	dirok := func(dirfullpath string, dirname string) bool {
-		_, isdirsess := me.Dirs.sess[dirfullpath]
-		return isdirsess || ustr.In(dirfullpath, me.Dirs.Kits...) ||
+		return ustr.In(dirfullpath, me.Dirs.sess...) || ustr.In(dirfullpath, me.Dirs.Kits...) ||
 			(dirname != "*" && dirname != "." && dirname != "_" && !ustr.HasAny(dirname, unicode.IsSpace))
 	}
 
 	var handledir func(string, map[string]int)
 	handledir = func(dirfullpath string, modkitdirs map[string]int) {
-		isalreadyinkitsdirs, isdirsess := me.Dirs.sess[dirfullpath]
-		isdirsess = isdirsess && !isalreadyinkitsdirs // seems odd but is what's wanted here
+		isdirsess := ustr.In(dirfullpath, me.Dirs.sess...)
 		if idx := me.Kits.all.indexDirPath(dirfullpath); idx >= 0 {
 			// dir was previously known as a kit
 			modkitdirs[dirfullpath] = cap(me.Kits.all[idx].srcFiles)
@@ -111,12 +109,7 @@ func (me *Ctx) initKits() {
 		}
 	}
 
-	var watchdirsess []string
-	for dirsess, isalreadyinkitsdirs := range me.Dirs.sess {
-		if !isalreadyinkitsdirs {
-			watchdirsess = append(watchdirsess, dirsess)
-		}
-	}
+	watchdirsess := func() []string { return me.Dirs.sess }
 	modswatcher := ufs.ModificationsWatcher(me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, dirok, 0, func(mods map[string]os.FileInfo, starttime int64) {
 		var filemodwatchduration int64
 		if len(mods) > 0 {
@@ -131,10 +124,8 @@ func (me *Ctx) initKits() {
 				}
 			}
 			if len(me.Kits.all) == 0 {
-				for dirsess, isalreadyinkitsdirs := range me.Dirs.sess {
-					if !isalreadyinkitsdirs {
-						modkitdirs[dirsess] = 1
-					}
+				for _, dirsess := range me.Dirs.sess {
+					modkitdirs[dirsess] = 1
 				}
 			}
 			if filemodwatchduration = time.Now().UnixNano() - starttime; len(modkitdirs) > 0 {
@@ -155,7 +146,7 @@ func (me *Ctx) initKits() {
 							}
 						}
 						if kitimppath == "" {
-							for dirsess := range me.Dirs.sess {
+							for _, dirsess := range me.Dirs.sess {
 								if dirsess == kitdirpath {
 									kitimppath = ustr.ReplB(kitdirpath, '/', '~')
 									break
@@ -171,7 +162,7 @@ func (me *Ctx) initKits() {
 				var numremoved int
 				for i := 0; i < len(me.Kits.all); i++ {
 					kit := &me.Kits.all[i]
-					if _, isdirsess := me.Dirs.sess[kit.DirPath]; !isdirsess &&
+					if !ustr.In(kit.DirPath, me.Dirs.sess...) &&
 						((!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
 						delete(shouldrefresh, kit.DirPath)
 						me.Kits.all.removeAt(i)

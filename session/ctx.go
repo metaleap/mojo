@@ -21,7 +21,7 @@ type CtxBgMsg struct {
 
 type Ctx struct {
 	Dirs struct {
-		sess  map[string]bool
+		sess  []string
 		Cache string
 		Kits  []string
 	}
@@ -63,7 +63,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 // search paths and from now on in sync with live modifications to those.
 func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
 	me.maybeInitPanic(true)
-	me.state.initCalled, me.Kits.all, me.Dirs.sess = true, make(Kits, 0, 32), map[string]bool{}
+	me.state.initCalled, me.Kits.all = true, make(Kits, 0, 32)
 	cachedir := me.Dirs.Cache
 	if cachedir == "" {
 		cachedir = CtxDefaultCacheDirPath()
@@ -144,7 +144,16 @@ func (me *Ctx) AddFauxKit(dirPath string) (err error) {
 					break
 				}
 			}
-			me.Dirs.sess[dirPath] = in
+			if !in {
+				for _, dp := range me.Dirs.sess {
+					if in = (dp == dirPath); in {
+						break
+					}
+				}
+			}
+			if !in {
+				me.Dirs.sess = append(me.Dirs.sess, dirPath)
+			}
 		}
 	}
 	return

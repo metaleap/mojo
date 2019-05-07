@@ -85,7 +85,7 @@ servers.))
 #### func (*Ctx) KitIsSessionDirFauxKit
 
 ```go
-func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) (isAlreadyInKitsDirs bool, isSessionDirFauxKit bool)
+func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool
 ```
 
 #### func (*Ctx) KnownKitImpPaths

@@ -60,7 +60,7 @@ func (me *Repl) Run(showWelcomeMsg bool, loadAutoKit bool, loadSessDirFauxKits b
 		me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
 			for i := range kits {
 				kit := &kits[i]
-				if _, isdirsessfauxkit := me.Ctx.KitIsSessionDirFauxKit(kit); (isdirsessfauxkit && loadSessDirFauxKits) || ustr.In(kit.ImpPath, loadKitsByImpPaths...) {
+				if (loadSessDirFauxKits && me.Ctx.KitIsSessionDirFauxKit(kit)) || ustr.In(kit.ImpPath, loadKitsByImpPaths...) {
 					me.kitEnsureLoaded(kit)
 				}
 			}
