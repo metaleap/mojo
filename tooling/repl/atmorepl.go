@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"text/scanner"
 	"time"
 
 	"github.com/go-leap/str"
@@ -127,10 +128,10 @@ func (me *Repl) Run(showWelcomeMsg bool, loadAutoKit bool, loadSessDirFauxKits b
 			me.Ctx.WithKit("", func(kit *atmosess.Kit) {
 				loc, errs := false, me.Ctx.Eval(kit, inputln)
 				if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
-					if e, _ := errs[0].(*atmo.Error); e != nil && e.Pos.Line == 1 && e.Pos.Column > 2 {
+					if e, _ := errs[0].(interface{ At() *scanner.Position }); e != nil && e.At().Line == 1 && e.At().Column > 1 {
 						loc = true
 						me.IO.write(" ╔", 1)
-						me.IO.write("═", e.Pos.Column-2)
+						me.IO.write("═", e.At().Column-2)
 						me.IO.writeLns("╝")
 					}
 				}

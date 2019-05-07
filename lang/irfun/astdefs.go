@@ -94,23 +94,12 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (freshErrs []err
 		}
 	}
 
-	// gather all def names, they then come into scope for each def
-	names, ndone := make([]astNameInScope, 0, len(this)), make(map[string]int, len(this))
-	for i := range this {
-		name, arity := &this[i].Orig.Name, len(this[i].Orig.Args) > 0
-		if idx, ok := ndone[name.Val]; !ok {
-			ndone[name.Val], names = len(names), append(names, astNameInScope{name.Val, name.Tokens[0].Meta.Position, arity})
-		} else if n := &names[idx]; i >= newstartfrom && !(arity && n.arity) {
-			this[i].Errors.AddNaming(&name.Tokens[0], "name `"+name.Val+"` already taken by "+n.pos.String())
-		}
-	}
-
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
 		def := &this[i]
 		var let AstExprLetBase
 		var ctxastinit ctxAstInit
-		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevel, ctxastinit.namesInScope = ctxastinit.nextPrefix(), &let.letDefs, def.Orig, append(ctxastinit.namesInScope, names...)
+		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevel = ctxastinit.nextPrefix(), &let.letDefs, def.Orig
 		def.Errors.Add(def.initFrom(&ctxastinit, def.Orig))
 		if len(let.letDefs) > 0 {
 			def.Errors.Add(ctxastinit.addLetDefsToNode(def.Orig.Body, def.AstDef.Body, &let))

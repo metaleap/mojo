@@ -4,9 +4,6 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-func Print(ctxp *atmolang.CtxPrint) {
-}
-
 func (me *AstLitFloat) Print() atmolang.IAstNode  { return atmolang.B.LitFloat(me.Val) }
 func (me *AstLitUint) Print() atmolang.IAstNode   { return atmolang.B.LitUint(me.Val) }
 func (me *AstLitRune) Print() atmolang.IAstNode   { return atmolang.B.LitRune(me.Val) }

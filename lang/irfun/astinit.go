@@ -8,21 +8,11 @@ import (
 
 func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig.ToUnary()
-	var argname bool
-	if len(me.Orig.Args) > 0 {
-		argname = ctx.namesInScopeAdd(&errs, me.Orig.Args[0].NameOrConstVal) > 0
-	}
-
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initArg(ctx))
 	errs.Add(me.initMetas(ctx))
 	errs.Add(me.initBody(ctx))
-	if me.Orig = orig; !me.Orig.IsTopLevel {
-		ctx.dynNameDrop(me.Orig.Name.Val)
-	}
-	if argname {
-		ctx.namesInScopeDrop(1)
-	}
+	me.Orig = orig
 	return
 }
 
@@ -30,13 +20,13 @@ func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	tok := me.Orig.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
 	var ident IAstExpr
 	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name)
-	if name, _ := ident.(*AstIdentName); name == nil {
+	if name, _ := ident.(*AstIdentName); name == nil && tok != nil /* else, it's dyn. gen. stuff */ {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or EmptyParens or placeholder etc..
-	} else if me.Name = *name; name.Val == "" /*|| ustr.In(name.Val, langReservedOps...)*/ {
+	} else if me.Name = *name; name.Val == "" && tok != nil {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 	}
 	if !me.Orig.IsTopLevel {
-		ctx.dynNameAdd(me.Orig.Name.Val)
+		// ctx.dynNameAdd(me.Orig.Name.Val)
 	}
 	if me.Orig.NameAffix != nil {
 		ctx.addCoercion(&me.Name, errs.AddVia(ctx.newAstExprFrom(me.Orig.NameAffix)).(IAstExpr))
@@ -104,7 +94,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 		errs.AddSyn(&orig.Affix.Toks()[0], "def-arg affix illegal where the arg is itself a constant value")
 	}
 	if isconstexpr {
-		me.AstIdentName.Val = "42" + ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
+		me.AstIdentName.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
 		ctx.addCoercion(me, B.Appl(B.IdentName("must"), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr))))
 	}
 	if orig.Affix != nil {

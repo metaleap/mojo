@@ -37,8 +37,8 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	return
 }
 
-func LexAndParseExpr(src []byte) (IAstExpr, error) {
-	toks, errs := udevlex.Lex(&ustd.BytesReader{Data: src}, "‹repl›", 0, 0, 64)
+func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, error) {
+	toks, errs := udevlex.Lex(&ustd.BytesReader{Data: src}, fauxSrcFileNameForErrs, 0, 0, 64)
 	for _, e := range errs {
 		return nil, e
 	}

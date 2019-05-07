@@ -23,6 +23,11 @@ type Error struct {
 	Cat ErrorCategory
 }
 
+// At ensures that `Error` shares an interface with `udevlex.Error`.
+func (me *Error) At() *scanner.Position {
+	return &me.Pos
+}
+
 func (me *Error) Error() (msg string) {
 	msg = me.Pos.String() + ": "
 	switch me.Cat {

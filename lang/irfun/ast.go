@@ -1,9 +1,6 @@
 package atmolang_irfun
 
 import (
-	"strconv"
-
-	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
@@ -18,7 +15,6 @@ type IAstNode interface {
 
 type IAstExpr interface {
 	IAstNode
-	dynName() string
 	IsAtomic() bool
 }
 
@@ -93,7 +89,6 @@ func (me *AstLitRune) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitRune)
 	return cmp != nil && cmp.Val == me.Val
 }
-func (me *AstLitRune) dynName() string { return strconv.QuoteRune(me.Val) }
 
 type AstLitStr struct {
 	AstLitBase
@@ -104,7 +99,6 @@ func (me *AstLitStr) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitStr)
 	return cmp != nil && cmp.Val == me.Val
 }
-func (me *AstLitStr) dynName() string { return strconv.Quote(me.Val) }
 
 type AstLitUint struct {
 	AstLitBase
@@ -115,7 +109,6 @@ func (me *AstLitUint) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitUint)
 	return cmp != nil && cmp.Val == me.Val
 }
-func (me *AstLitUint) dynName() string { return strconv.FormatUint(me.Val, 10) }
 
 type AstLitFloat struct {
 	AstLitBase
@@ -126,7 +119,6 @@ func (me *AstLitFloat) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitFloat)
 	return cmp != nil && cmp.Val == me.Val
 }
-func (me *AstLitFloat) dynName() string { return strconv.FormatFloat(me.Val, 'g', -1, 64) }
 
 type AstExprLetBase struct {
 	letOrig   *atmolang.AstExprLet
@@ -134,12 +126,6 @@ type AstExprLetBase struct {
 	letPrefix string
 }
 
-func (me *AstExprLetBase) letDynName() string {
-	if len(me.letDefs) == 0 {
-		return ""
-	}
-	return me.letPrefix + "└"
-}
 func (me *AstExprLetBase) letDefsEquivTo(cmp *AstExprLetBase) bool {
 	if len(me.letDefs) == len(cmp.letDefs) {
 		for i := range me.letDefs {
@@ -173,15 +159,13 @@ type AstIdentBase struct {
 }
 
 func (me *AstIdentBase) refersTo(name string) bool { return name == me.Val }
-func (me *AstIdentBase) dynName() string           { return me.Val }
 
 type AstIdentName struct {
 	AstIdentBase
 	AstExprLetBase
 }
 
-func (me *AstIdentName) IsAtomic() bool  { return len(me.letDefs) == 0 }
-func (me *AstIdentName) dynName() string { return me.letDynName() + me.Val }
+func (me *AstIdentName) IsAtomic() bool { return len(me.letDefs) == 0 }
 func (me *AstIdentName) refersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
 }
@@ -204,7 +188,6 @@ func (me *AstIdentVar) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentVar)
 	return cmp != nil && cmp.Val == me.Val
 }
-func (me *AstIdentVar) dynName() string { return "˘" + me.Val }
 
 type AstIdentTag struct {
 	AstIdentBase
@@ -232,9 +215,6 @@ type AstAppl struct {
 	AtomicArg    IAstExpr
 }
 
-func (me *AstAppl) dynName() string {
-	return me.letDynName() + me.AtomicCallee.dynName() + "─" + me.AtomicArg.dynName()
-}
 func (me *AstAppl) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstAppl)
 	return cmp != nil && cmp.AtomicCallee.equivTo(me.AtomicCallee) && cmp.AtomicArg.equivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.AstExprLetBase)
@@ -256,7 +236,6 @@ type AstCases struct {
 	Thens []IAstExpr
 }
 
-func (me *AstCases) dynName() string { return ustr.Int(len(me.Ifs)) + "┬" }
 func (me *AstCases) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstCases)
 	if cmp != nil && len(cmp.Ifs) == len(me.Ifs) && len(cmp.Thens) == len(me.Thens) {
