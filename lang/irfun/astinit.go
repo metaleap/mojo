@@ -35,8 +35,12 @@ func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 }
 
 func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
-	me.Body, errs = ctx.newAstExprFrom(me.Orig.Body)
-
+	// fast-track special case: "func signature expression" aka body-less def acts as notation for a func type
+	if toks := me.Orig.Body.Toks(); len(toks) == 1 && toks[0].Meta.Orig == "_" {
+		// no-op: me.Body remains `nil`, this is preserved also in any `Case`s from the below coerce-propagations, if any
+	} else {
+		me.Body, errs = ctx.newAstExprFrom(me.Orig.Body)
+	}
 	opeq := B.IdentName("==")
 	if len(ctx.coerceFuncs) > 0 {
 		if me.Arg != nil {

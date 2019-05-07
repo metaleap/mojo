@@ -127,6 +127,7 @@ type AstExprLetBase struct {
 	letPrefix string
 }
 
+func (me *AstExprLetBase) astExprLetBase() *AstExprLetBase { return me }
 func (me *AstExprLetBase) letDefsEquivTo(cmp *AstExprLetBase) bool {
 	if len(me.letDefs) == len(cmp.letDefs) {
 		for i := range me.letDefs {
@@ -166,7 +167,6 @@ type AstIdentName struct {
 	AstExprLetBase
 }
 
-func (me *AstIdentName) IsAtomic() bool { return len(me.letDefs) == 0 }
 func (me *AstIdentName) refersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
 }
