@@ -122,11 +122,22 @@ func (me *Repl) Run(showWelcomeMsg bool, loadAutoKit bool, loadSessDirFauxKits b
 		default:
 			me.decoInputDone(false)
 			if me.run.multiLnInputHadLeadingTabs {
-				me.decoAddNotice(false, "", false, "multi-line input had leading tabs,note", "that repl auto-indent is based on spaces")
+				me.decoAddNotice(false, "", false, "multi-line input had leading tabs, note", "that repl auto-indent is based on spaces")
 			}
-			me.IO.writeLns("")
 			me.Ctx.WithKit("", func(kit *atmosess.Kit) {
-				for _, err := range me.Ctx.Eval(kit, inputln) {
+				loc, errs := false, me.Ctx.Eval(kit, inputln)
+				if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
+					if e, _ := errs[0].(*atmo.Error); e != nil && e.Pos.Line == 1 && e.Pos.Column > 2 {
+						loc = true
+						me.IO.write(" ╔", 1)
+						me.IO.write("═", e.Pos.Column-2)
+						me.IO.writeLns("╝")
+					}
+				}
+				if !loc {
+					me.IO.writeLns("")
+				}
+				for _, err := range errs {
 					me.decoMsgNotice(false, err.Error())
 				}
 			})
