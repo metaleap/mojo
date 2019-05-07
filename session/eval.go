@@ -7,7 +7,7 @@ import (
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
-func (me *Ctx) Eval(kit *Kit, src string) (errs []error) {
+func (me *Ctx) Eval(kit *Kit, src string) (tmp func(), errs []error) {
 	expr, err := atmolang.LexAndParseExpr("‹repl›", []byte(src))
 	if err != nil {
 		errs = append(errs, err)
@@ -17,7 +17,7 @@ func (me *Ctx) Eval(kit *Kit, src string) (errs []error) {
 			errs = append(errs, &errors[e])
 		}
 		if irx != nil {
-			atmolang.PrintTo(nil, irx.Print(), os.Stdout, false)
+			tmp = func() { atmolang.PrintTo(nil, irx.Print(), os.Stdout, false) }
 		}
 	}
 	return

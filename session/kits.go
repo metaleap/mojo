@@ -17,8 +17,7 @@ import (
 // by each `Ctx.Init` call and then used throughout the `Ctx`'s life time.
 var KitsWatchInterval time.Duration
 
-// Kits is a slice of values of (not pointers to) `Kit`s.
-type Kits []Kit
+type Kits []*Kit
 
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
@@ -34,12 +33,12 @@ func (me *Ctx) WithKnownKits(do func(Kits)) {
 }
 
 // WithKnownKitsWhere works like `WithKnownKits` but with pre-filtering via `where`.
-func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func([]*Kit)) {
+func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func(Kits)) {
 	me.maybeInitPanic(false)
 	me.state.Lock()
-	doall, kits := (where == nil), make([]*Kit, 0, len(me.Kits.all))
+	doall, kits := (where == nil), make(Kits, 0, len(me.Kits.all))
 	for i := range me.Kits.all {
-		if kit := &me.Kits.all[i]; doall || where(kit) {
+		if kit := me.Kits.all[i]; doall || where(kit) {
 			kits = append(kits, kit)
 		}
 	}
@@ -153,7 +152,7 @@ func (me *Ctx) initKits() {
 								}
 							}
 						}
-						me.Kits.all = append(me.Kits.all, Kit{DirPath: kitdirpath, ImpPath: kitimppath,
+						me.Kits.all = append(me.Kits.all, &Kit{DirPath: kitdirpath, ImpPath: kitimppath,
 							srcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
 					}
 					shouldrefresh[kitdirpath] = true
@@ -161,8 +160,7 @@ func (me *Ctx) initKits() {
 				// remove kits that have vanished from the file-system
 				var numremoved int
 				for i := 0; i < len(me.Kits.all); i++ {
-					kit := &me.Kits.all[i]
-					if !ustr.In(kit.DirPath, me.Dirs.sess...) &&
+					if kit := me.Kits.all[i]; !ustr.In(kit.DirPath, me.Dirs.sess...) &&
 						((!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
 						delete(shouldrefresh, kit.DirPath)
 						me.Kits.all.removeAt(i)
@@ -171,7 +169,7 @@ func (me *Ctx) initKits() {
 				}
 				// ensure no duplicate imp-paths
 				for i := len(me.Kits.all) - 1; i >= 0; i-- {
-					kit := &me.Kits.all[i]
+					kit := me.Kits.all[i]
 					if idx := me.Kits.all.indexImpPath(kit.ImpPath); idx != i {
 						delete(shouldrefresh, kit.DirPath)
 						delete(shouldrefresh, me.Kits.all[idx].DirPath)
@@ -195,7 +193,7 @@ func (me *Ctx) initKits() {
 				for kitdirpath := range shouldrefresh {
 					me.kitRefreshFilesAndReloadIfWasLoaded(me.Kits.all.indexDirPath(kitdirpath))
 				}
-				if me.state.fileModsWatch.emitMsgs {
+				if me.state.fileModsWatch.emitMsgsIfManual {
 					me.bgMsg(true, false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")
 				}
 			}
@@ -211,7 +209,7 @@ func (me *Ctx) initKits() {
 			true, append(me.state.cleanUps, modswatchcancel)
 		go modswatchstart()
 	} else {
-		me.state.fileModsWatch.emitMsgs, me.state.fileModsWatch.doManually = true, modswatcher
+		me.state.fileModsWatch.emitMsgsIfManual, me.state.fileModsWatch.doManually = true, modswatcher
 	}
 }
 
@@ -223,10 +221,13 @@ func (me Kits) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 
 // Less implements Go's standard `sort.Interface`.
 func (me Kits) Less(i int, j int) bool {
-	pi, pj := &me[i], &me[j]
+	pi, pj := me[i], me[j]
 	if pi.DirPath != pj.DirPath {
-		if piau, pjau := (pi.ImpPath == atmo.NameAutoKit), (pj.ImpPath == atmo.NameAutoKit); piau || pjau {
-			return piau || !pjau
+		if pi.ImpPath == atmo.NameAutoKit {
+			return true
+		}
+		if pj.ImpPath == atmo.NameAutoKit {
+			return false
 		}
 	}
 	return pi.DirPath < pj.DirPath
@@ -268,7 +269,7 @@ func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {
 // ByImpPath finds the `Kit` in `Kits` with the given import-path.
 func (me Kits) ByImpPath(kitImpPath string) *Kit {
 	if idx := me.indexImpPath(kitImpPath); idx >= 0 {
-		return &me[idx]
+		return me[idx]
 	}
 	return nil
 }

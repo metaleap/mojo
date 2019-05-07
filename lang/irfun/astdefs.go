@@ -44,7 +44,7 @@ func (me AstTopDefs) Less(i int, j int) bool {
 
 func (me AstTopDefs) IndexByID(id string) int {
 	for i := range me {
-		if me[i].TopLevel.ID() == id {
+		if me[i].ID == id {
 			return i
 		}
 	}
@@ -61,7 +61,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 				if defidx := this.IndexByID(tl.ID()); defidx < 0 {
 					newdefs = append(newdefs, tl)
 				} else {
-					oldunchangeddefidxs[defidx] = true
+					oldunchangeddefidxs[defidx], this[defidx].TopLevel, this[defidx].Orig = true, tl, tl.Ast.Def.Orig
 				}
 			}
 		}
@@ -73,7 +73,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 		for i := range this {
 			if !oldunchangeddefidxs[i] {
 				dels[this[i].Orig] = true
-				droppedTopLevelDefIDs = append(droppedTopLevelDefIDs, this[i].TopLevel.ID())
+				droppedTopLevelDefIDs = append(droppedTopLevelDefIDs, this[i].ID)
 			}
 		}
 		thisnew := make(AstTopDefs, 0, len(this)) // nasty way to delete but they're all nasty
@@ -91,9 +91,9 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 	for _, tlc := range newdefs {
 		if !tlc.HasErrors() {
 			idx := len(this)
-			this = append(this, AstDefTop{TopLevel: tlc})
+			this = append(this, AstDefTop{TopLevel: tlc, ID: tlc.ID()})
 			this[idx].Orig = tlc.Ast.Def.Orig
-			newTopLevelDefIDs = append(newTopLevelDefIDs, this[idx].TopLevel.ID())
+			newTopLevelDefIDs = append(newTopLevelDefIDs, this[idx].ID)
 		}
 	}
 

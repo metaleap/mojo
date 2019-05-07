@@ -34,14 +34,15 @@ type Ctx struct {
 	}
 	state struct {
 		sync.Mutex
-		initCalled    bool
 		cleanUps      []func()
 		bgMsgs        []CtxBgMsg
 		fileModsWatch struct {
-			runningAutomaticallyPeriodically bool
 			doManually                       func() int
-			emitMsgs                         bool
+			runningAutomaticallyPeriodically bool
+			emitMsgsIfManual                 bool
 		}
+		someKitsReloaded bool
+		initCalled       bool
 	}
 }
 
@@ -105,6 +106,17 @@ func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
 				err = errors.New("no kits-dirs were specified, neither via env-var " + atmo.EnvVarKitsDirs + " nor via command-line flags")
 			} else {
 				err = errors.New("none of the specified kits-dirs were found:\n    " + ustr.Join(kitsdirstried, "\n    "))
+			}
+		}
+		if err == nil {
+			var autokitexists bool
+			for _, kd := range kitsdirs {
+				if autokitexists = ufs.IsDir(filepath.Join(kd, atmo.NameAutoKit)); autokitexists {
+					break
+				}
+			}
+			if !autokitexists {
+				err = errors.New("Standard auto-imported kit `" + atmo.NameAutoKit + "` not found in any of:\n    " + ustr.Join(kitsdirs, "\n    "))
 			}
 		}
 		if err == nil {

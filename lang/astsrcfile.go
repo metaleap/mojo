@@ -36,7 +36,7 @@ type AstFileTopLevelChunk struct {
 		Line int
 		Pos  int
 	}
-	id       [4]uint64
+	id       [3]uint64
 	_id      string
 	_errs    []error
 	srcDirty bool

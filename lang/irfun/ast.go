@@ -46,6 +46,7 @@ func (me *AstDef) equivTo(node IAstNode) bool {
 type AstDefTop struct {
 	AstDef
 
+	ID       string
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errors   atmo.Errors
 }

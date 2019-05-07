@@ -233,16 +233,15 @@ func (me *Repl) DSrcs(what string) bool {
 			if searchloaded, searchall := (whatkit == "_"), (whatkit == "*"); !(searchall || searchloaded) {
 				if kit = kits.ByImpPath(whatkit); kit == nil && whatkit == "." {
 					for i := range kits {
-						if me.Ctx.KitIsSessionDirFauxKit(&kits[i]) {
-							kit = &kits[i]
+						if me.Ctx.KitIsSessionDirFauxKit(kits[i]) {
+							kit = kits[i]
 							break
 						}
 					}
 				}
 			} else {
-				var finds []*atmosess.Kit
-				for i := range kits {
-					k := &kits[i]
+				var finds atmosess.Kits
+				for _, k := range kits {
 					if searchall {
 						me.kitEnsureLoaded(k)
 					}

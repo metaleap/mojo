@@ -62,9 +62,20 @@ func (me *Repl) decoInputStart(altStyle bool, msgsSummaryOnly bool) {
 }
 
 func (me *Repl) decoInputDone(altStyle bool) {
-	me.IO.writeLns(ustr.If(altStyle, "╚", "└") + sepLine)
+	me.decoInputDoneBut(altStyle, true, 0)
+}
+
+func (me *Repl) decoInputDoneBut(altStyle bool, checkMsgs bool, caretPos int) {
+	sepline := sepLine
+	if l := len("─"); caretPos > 0 {
+		caretPos = caretPos * l
+		sepline = sepline[l:caretPos] + "╬" + sepline[caretPos:]
+	}
+	me.IO.writeLns(ustr.If(altStyle, "╚", "└") + sepline)
 	me.uxMore(true)
-	me.decoCtxMsgsIfAny(false)
+	if checkMsgs {
+		me.decoCtxMsgsIfAny(false)
+	}
 }
 
 func (me *Repl) decoInputBeginLine(altStyle bool, andThen string) {
@@ -97,8 +108,8 @@ func (me *Repl) decoMsgNotice(bg bool, lines ...string) {
 		}
 	}
 	me.decoAddNotice(false, ustr.If(bg,
-		ustr.If(Ux.OldSchoolTty, "≡«≡ ", "▓▒░ "),
-		ustr.If(Ux.OldSchoolTty, "≡»≡ ", "░▒▓ "),
+		ustr.If(Ux.OldSchoolTty, "≡«≡ ", "░▒▓ "),
+		ustr.If(Ux.OldSchoolTty, "≡»≡ ", "▓▒░ "),
 	), true, lines...)
 }
 

@@ -47,22 +47,18 @@ type Repl struct {
 
 func init() { Ux.AnimsEnabled, Ux.MoreLinesPrompt = true, []byte("     ¶¶¶") }
 
-func (me *Repl) Run(showWelcomeMsg bool, loadAutoKit bool, loadSessDirFauxKits bool, loadKitsByImpPaths ...string) {
+func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 	me.init()
 	if me.decoCtxMsgsIfAny(true); showWelcomeMsg {
 		me.decoWelcomeMsgAnim()
 	}
 
-	if loadAutoKit {
-		me.Ctx.WithKit(atmo.NameAutoKit, func(kit *atmosess.Kit) {
-			me.Ctx.KitEnsureLoaded(kit)
-		})
-	}
-	if loadSessDirFauxKits || len(loadKitsByImpPaths) > 0 {
+	loadKitsByImpPaths = append([]string{atmo.NameAutoKit}, ustr.Sans(loadKitsByImpPaths, atmo.NameAutoKit)...)
+	if len(loadKitsByImpPaths) > 0 || loadSessDirFauxKit {
 		me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
 			for i := range kits {
-				kit := &kits[i]
-				if (loadSessDirFauxKits && me.Ctx.KitIsSessionDirFauxKit(kit)) || ustr.In(kit.ImpPath, loadKitsByImpPaths...) {
+				if kit := kits[i]; ustr.In(kit.ImpPath, loadKitsByImpPaths...) ||
+					(loadSessDirFauxKit && me.Ctx.KitIsSessionDirFauxKit(kit)) {
 					me.kitEnsureLoaded(kit)
 				}
 			}
@@ -121,25 +117,30 @@ func (me *Repl) Run(showWelcomeMsg bool, loadAutoKit bool, loadSessDirFauxKits b
 
 		// else, input to be EVAL'd now
 		default:
-			me.decoInputDone(false)
-			if me.run.multiLnInputHadLeadingTabs {
-				me.decoAddNotice(false, "", false, "multi-line input had leading tabs, note", "that repl auto-indent is based on spaces")
-			}
 			me.Ctx.WithKit("", func(kit *atmosess.Kit) {
-				loc, errs := false, me.Ctx.Eval(kit, inputln)
+				var caretpos int
+				tmpdo, errs := me.Ctx.Eval(kit, inputln)
 				if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
-					if e, _ := errs[0].(interface{ At() *scanner.Position }); e != nil && e.At().Line == 1 && e.At().Column > 1 {
-						loc = true
-						me.IO.write(" ╔", 1)
-						me.IO.write("═", e.At().Column-2)
-						me.IO.writeLns("╝")
+					if e, _ := errs[0].(interface{ At() *scanner.Position }); e != nil && e.At().Line == 1 {
+						caretpos = e.At().Column + numleadingspaces
 					}
 				}
-				if !loc {
+				me.decoInputDoneBut(false, false, caretpos)
+				if caretpos == 0 {
 					me.IO.writeLns("")
+				} else {
+					me.IO.write("╔", 1)
+					me.IO.write("═", caretpos-1)
+					me.IO.writeLns("╝")
 				}
-				for _, err := range errs {
-					me.decoMsgNotice(false, err.Error())
+				for _, e := range errs {
+					me.decoMsgNotice(false, e.Error())
+				}
+				if me.run.multiLnInputHadLeadingTabs {
+					me.decoAddNotice(false, "", false, "multi-line input had leading tabs, note", "that repl auto-indent is based on spaces")
+				}
+				if tmpdo != nil {
+					tmpdo()
 				}
 			})
 			me.IO.writeLns("", "")

@@ -67,7 +67,7 @@ Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 #### func (*Ctx) Eval
 
 ```go
-func (me *Ctx) Eval(kit *Kit, src string) (errs []error)
+func (me *Ctx) Eval(kit *Kit, src string) (tmp func(), errs []error)
 ```
 
 #### func (*Ctx) Init
@@ -131,7 +131,7 @@ the slice is blocked for updates triggered by file modifications etc.
 #### func (*Ctx) WithKnownKitsWhere
 
 ```go
-func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func([]*Kit))
+func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func(Kits))
 ```
 WithKnownKitsWhere works like `WithKnownKits` but with pre-filtering via
 `where`.
@@ -192,10 +192,9 @@ contents must not be written to.
 #### type Kits
 
 ```go
-type Kits []Kit
+type Kits []*Kit
 ```
 
-Kits is a slice of values of (not pointers to) `Kit`s.
 
 #### func (Kits) ByImpPath
 

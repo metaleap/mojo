@@ -18,10 +18,17 @@ type Kit struct {
 	ImpPath           string
 	WasEverToBeLoaded bool
 
-	topLevel   atmolang_irfun.AstTopDefs
-	srcFiles   atmolang.AstFiles
-	tlDefNames map[string][]*atmolang_irfun.AstDefTop
-	errs       struct {
+	topLevel atmolang_irfun.AstTopDefs
+	srcFiles atmolang.AstFiles
+	state    struct {
+		defsGone []string
+		defsNew  []string
+	}
+	lookups struct {
+		tlDefsByID     map[string]*atmolang_irfun.AstDefTop
+		tlDefIDsByName map[string][]string
+	}
+	errs struct {
 		dirAccessDuringRefresh error
 	}
 }
@@ -51,14 +58,14 @@ func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	if idx < 0 {
 		do(nil)
 	} else {
-		do(&me.Kits.all[idx])
+		do(me.Kits.all[idx])
 	}
 	me.state.Unlock()
 	return
 }
 
 func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
-	this := &me.Kits.all[idx]
+	this := me.Kits.all[idx]
 	var diritems []os.FileInfo
 	if diritems, this.errs.dirAccessDuringRefresh = ufs.Dir(this.DirPath); this.errs.dirAccessDuringRefresh != nil {
 		this.srcFiles, this.topLevel = nil, nil
@@ -89,19 +96,23 @@ func (me *Ctx) kitRefreshFilesAndReloadIfWasLoaded(idx int) {
 func (me *Ctx) kitForceReload(kit *Kit) {
 	kit.WasEverToBeLoaded = true
 	var fresherrs []error
+
 	for i := range kit.srcFiles {
 		sf := &kit.srcFiles[i]
 		fresherrs = append(fresherrs, sf.LexAndParseFile(true, false)...)
 	}
-
-	tldgone, tldnew, fe := kit.topLevel.ReInitFrom(kit.srcFiles)
-	println(len(tldgone), "gone,", len(tldnew), "new")
-
-	fresherrs = append(fresherrs, fe...)
-	kit.tlDefNames = make(map[string][]*atmolang_irfun.AstDefTop, len(kit.topLevel))
+	{
+		od, nd, fe := kit.topLevel.ReInitFrom(kit.srcFiles)
+		kit.state.defsGone, kit.state.defsNew, fresherrs = od, nd, append(fresherrs, fe...)
+		if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
+			me.state.someKitsReloaded = true
+		}
+	}
+	kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevel)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevel))
 	for i := range kit.topLevel {
 		tldef := &kit.topLevel[i]
-		kit.tlDefNames[tldef.Name.Val] = append(kit.tlDefNames[tldef.Name.Val], tldef)
+		kit.lookups.tlDefsByID[tldef.ID] = tldef
+		kit.lookups.tlDefIDsByName[tldef.Name.Val] = append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.ID)
 	}
 
 	me.onErrs(fresherrs, nil)
@@ -138,26 +149,23 @@ func (me *Kit) SrcFiles() atmolang.AstFiles {
 
 // HasDefs returns whether any of the `Kit`'s source files define `name`.
 func (me *Kit) HasDefs(name string) bool {
-	for i := range me.srcFiles {
-		if me.srcFiles[i].HasDefs(name) {
-			return true
-		}
-	}
-	return false
+	return len(me.lookups.tlDefIDsByName[name]) > 0
 }
 
 func (me *Kit) Defs(name string, resolveNakedAliases bool) (defs []*atmolang_irfun.AstDefTop) {
-	if name[0] == '_' {
+	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}
 start:
-	for i := range me.topLevel {
-		if def := &me.topLevel[i]; def.Orig.Name.Val == name {
-			if def.Orig.IsNakedAliasTo != "" {
-				name = def.Orig.IsNakedAliasTo
-				goto start
+	if len(name) > 0 {
+		for _, id := range me.lookups.tlDefIDsByName[name] {
+			if def := me.lookups.tlDefsByID[id]; def != nil {
+				if def.Orig.IsNakedAliasTo != "" {
+					name = def.Orig.IsNakedAliasTo
+					goto start
+				}
+				defs = append(defs, def)
 			}
-			defs = append(defs, def)
 		}
 	}
 	return
