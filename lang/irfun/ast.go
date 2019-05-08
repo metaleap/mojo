@@ -18,6 +18,11 @@ type IAstExpr interface {
 	IsAtomic() bool
 }
 
+type IAstExprWithLetDefs interface {
+	astExprLetBase() *AstExprLetBase
+	LetDefs() AstDefs
+}
+
 type astNodeBase struct {
 }
 
@@ -128,6 +133,7 @@ type AstExprLetBase struct {
 }
 
 func (me *AstExprLetBase) astExprLetBase() *AstExprLetBase { return me }
+func (me *AstExprLetBase) LetDefs() AstDefs                { return me.letDefs }
 func (me *AstExprLetBase) letDefsEquivTo(cmp *AstExprLetBase) bool {
 	if len(me.letDefs) == len(cmp.letDefs) {
 		for i := range me.letDefs {
@@ -271,4 +277,60 @@ func (me *AstCases) refersTo(name string) bool {
 		}
 	}
 	return me.letDefsReferTo(name)
+}
+
+func (me *AstExprLetBase) walk(on func(IAstNode)) {
+	for i := range me.letDefs {
+		me.letDefs[i].Walk(on)
+	}
+}
+
+func (me *AstIdentName) walk(on func(IAstNode)) {
+	me.AstExprLetBase.walk(on)
+	on(me)
+}
+
+func (me *AstAppl) walk(on func(IAstNode)) {
+	me.AstExprLetBase.walk(on)
+	on(me)
+	type iwalk interface{ walk(func(IAstNode)) }
+	if c, _ := me.AtomicCallee.(iwalk); c != nil {
+		c.walk(on)
+	} else {
+		on(me.AtomicCallee)
+	}
+	if a, _ := me.AtomicArg.(iwalk); a != nil {
+		a.walk(on)
+	} else {
+		on(me.AtomicArg)
+	}
+}
+
+func (me *AstCases) walk(on func(IAstNode)) {
+	me.AstExprLetBase.walk(on)
+	on(me)
+	type iwalk interface{ walk(func(IAstNode)) }
+	for i := range me.Ifs {
+		if c, _ := me.Ifs[i].(iwalk); c != nil {
+			c.walk(on)
+		} else {
+			on(me.Ifs[i])
+		}
+		if t, _ := me.Thens[i].(iwalk); t != nil {
+			t.walk(on)
+		} else {
+			on(me.Thens[i])
+		}
+	}
+}
+
+func (me *AstDef) Walk(on func(IAstNode)) { me.walk(on) }
+func (me *AstDef) walk(on func(IAstNode)) {
+	on(me)
+	type iwalk interface{ walk(func(IAstNode)) }
+	if b, _ := me.Body.(iwalk); b != nil {
+		b.walk(on)
+	} else {
+		on(me.Body)
+	}
 }

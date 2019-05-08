@@ -149,7 +149,7 @@ func (me *ctxAstInit) nextPrefix() string {
 }
 
 func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, letDefs *AstExprLetBase) (errs atmo.Errors) {
-	if letbase, _ := letBody.(interface{ astExprLetBase() *AstExprLetBase }); letbase == nil {
+	if letbase, _ := letBody.(IAstExprWithLetDefs); letbase == nil {
 		errs.AddSyn(&origBody.Toks()[0], "cannot declare local defs for `"+origBody.Toks()[0].Meta.Orig+"`")
 	} else {
 		dst := letbase.astExprLetBase()
