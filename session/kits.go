@@ -193,7 +193,7 @@ func (me *Ctx) initKits() {
 				for kitdirpath := range shouldrefresh {
 					me.kitRefreshFilesAndReloadIfWasLoaded(me.Kits.all.indexDirPath(kitdirpath))
 				}
-				me.renewAndRevalidateAffectedIRsIfAnyKitsReloaded()
+				me.reReduceAffectedIRsIfAnyKitsReloaded()
 				if me.state.fileModsWatch.emitMsgsIfManual {
 					me.bgMsg(true, false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")
 				}

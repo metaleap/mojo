@@ -38,7 +38,7 @@ type Kit struct {
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	if !kit.WasEverToBeLoaded {
 		me.kitForceReload(kit)
-		me.renewAndRevalidateAffectedIRsIfAnyKitsReloaded()
+		me.reReduceAffectedIRsIfAnyKitsReloaded()
 	}
 }
 
@@ -57,10 +57,9 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 			me.kitForceReload(kit)
 		}
 	}
-	me.renewAndRevalidateAffectedIRsIfAnyKitsReloaded()
+	me.reReduceAffectedIRsIfAnyKitsReloaded()
 	me.state.Unlock()
 }
-
 func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
 	return ustr.In(kit.DirPath, me.Dirs.sess...)
 }
