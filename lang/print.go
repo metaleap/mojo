@@ -27,9 +27,10 @@ type IPrintFmt interface {
 	OnComment(IAstNode, IAstNode, *AstComment)
 }
 
-func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebugPurposes bool) {
+func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebugPurposes bool, applStyle ApplStyle) {
 	ctxp := &CtxPrint{NoComments: true, CurTopLevel: curTopLevel}
-	ctxp.Fmt = &PrintFmtMinimal{}
+	ctxp.Fmt = &PrintFmtPretty{}
+	ctxp.ApplStyle = applStyle
 	ctxp.Fmt.SetCtxPrint(ctxp)
 	ctxp.Print(node)
 	data := ctxp.BytesWriter.Data

@@ -169,7 +169,12 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 		}
 	}
 
-	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.ChunkedBySpacing('(', ')', ",")
+	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.ChunkedBySpacing('(', ')', func(i int) (isbreaker bool) {
+		if isbreaker = (toks[i].Meta.Orig == ","); (!isbreaker) && toks[i].Meta.Orig == ":" {
+			return i < len(toks)-1 && toks[i+1].Meta.Offset > toks[i].Meta.Offset+1
+		}
+		return
+	})
 	var exprcur IAstExpr
 	var accumcomments []udevlex.Tokens
 	for greed, hasgreeds := 0, greeds != nil; err == nil && len(toks) > 0; exprcur = nil {

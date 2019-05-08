@@ -17,7 +17,7 @@ func (me *Ctx) Eval(kit *Kit, src string) (tmp func(), errs []error) {
 			errs = append(errs, &errors[e])
 		}
 		if irx != nil {
-			tmp = func() { atmolang.PrintTo(nil, irx.Print(), os.Stdout, false) }
+			tmp = func() { atmolang.PrintTo(nil, irx.Print(), os.Stdout, false, atmolang.APPLSTYLE_VSO) }
 		}
 	}
 	return
