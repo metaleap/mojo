@@ -134,6 +134,9 @@ type AstIdent struct {
 	IsTag   bool
 }
 
+func (me *AstIdent) IsName(opishOk bool) bool {
+	return ((!me.IsOpish) || opishOk) && (!me.IsTag) && me.Val[0] != '_'
+}
 func (me *AstIdent) String() string { return me.Val }
 
 type AstExprAppl struct {

@@ -170,7 +170,8 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 	}
 
 	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.ChunkedBySpacing('(', ')', func(i int) (isbreaker bool) {
-		if isbreaker = (toks[i].Meta.Orig == ","); (!isbreaker) && toks[i].Meta.Orig == ":" {
+		isbreaker = (toks[i].Meta.Orig == ",")
+		if (!isbreaker) && toks[i].Meta.Orig == ":" { /* special exception for ergonomic `fn: arg arg` --- suspends language integrity but if (fn:) was really wanted as standalone expression (hardly ever), can still parenthesize */
 			return i < len(toks)-1 && toks[i+1].Meta.Offset > toks[i].Meta.Offset+1
 		}
 		return
