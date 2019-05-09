@@ -111,7 +111,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
 		if err == nil {
 			var autokitexists bool
 			for _, kd := range kitsdirs {
-				if autokitexists = ufs.IsDir(filepath.Join(kd, atmo.NameAutoKit)); autokitexists {
+				if autokitexists = ufs.HasFilesWithSuffix(filepath.Join(kd, atmo.NameAutoKit), atmo.SrcFileExt); autokitexists {
 					break
 				}
 			}

@@ -20,6 +20,7 @@ type IAstExpr interface {
 
 type IAstExprWithLetDefs interface {
 	astExprLetBase() *AstExprLetBase
+	LetDef(string) *AstDef
 	LetDefs() AstDefs
 }
 
@@ -133,7 +134,15 @@ type AstExprLetBase struct {
 }
 
 func (me *AstExprLetBase) astExprLetBase() *AstExprLetBase { return me }
-func (me *AstExprLetBase) LetDefs() AstDefs                { return me.letDefs }
+func (me *AstExprLetBase) LetDef(name string) *AstDef {
+	for i := range me.letDefs {
+		if me.letDefs[i].Name.Val == name {
+			return &me.letDefs[i]
+		}
+	}
+	return nil
+}
+func (me *AstExprLetBase) LetDefs() AstDefs { return me.letDefs }
 func (me *AstExprLetBase) letDefsEquivTo(cmp *AstExprLetBase) bool {
 	if len(me.letDefs) == len(cmp.letDefs) {
 		for i := range me.letDefs {

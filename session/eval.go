@@ -1,13 +1,11 @@
 package atmosess
 
 import (
-	"os"
-
 	"github.com/metaleap/atmo/lang"
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
-func (me *Ctx) Eval(kit *Kit, src string) (tmp func(), errs []error) {
+func (me *Ctx) Eval(kit *Kit, src string) (str string, errs []error) {
 	expr, err := atmolang.LexAndParseExpr("‹repl›", []byte(src))
 	if err != nil {
 		errs = append(errs, err)
@@ -16,8 +14,12 @@ func (me *Ctx) Eval(kit *Kit, src string) (tmp func(), errs []error) {
 		for e := range errors {
 			errs = append(errs, &errors[e])
 		}
-		if irx != nil {
-			tmp = func() { atmolang.PrintTo(nil, irx.Print(), os.Stdout, false, atmolang.APPLSTYLE_VSO) }
+		if len(errs) == 0 && irx != nil {
+			if _, retdesc, err := me.reduceExpr(me.Kits.all.byDirPath(me.Dirs.sess[0]), irx); err != nil {
+				errs = append(errs, err)
+			} else {
+				str = retdesc.String()
+			}
 		}
 	}
 	return

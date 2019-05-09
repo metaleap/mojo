@@ -51,7 +51,7 @@ func (me AstTopDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIDs []string, newTopLevelDefIDs []string, freshErrs []error) {
+func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIDsAndNames map[string]string, newTopLevelDefIDs []string, freshErrs []error) {
 	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]bool, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
@@ -69,11 +69,11 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 
 	if len(oldunchangeddefidxs) > 0 && len(oldunchangeddefidxs) < len(this) { // gather & drop what's gone
 		dels := make(map[*atmolang.AstDef]bool, len(this)-len(oldunchangeddefidxs))
-		droppedTopLevelDefIDs = make([]string, 0, len(this)-len(oldunchangeddefidxs))
+		droppedTopLevelDefIDsAndNames = make(map[string]string, len(this)-len(oldunchangeddefidxs))
 		for i := range this {
 			if !oldunchangeddefidxs[i] {
 				dels[this[i].Orig] = true
-				droppedTopLevelDefIDs = append(droppedTopLevelDefIDs, this[i].ID)
+				droppedTopLevelDefIDsAndNames[this[i].ID] = this[i].Name.Val
 			}
 		}
 		thisnew := make(AstTopDefs, 0, len(this)) // nasty way to delete but they're all nasty

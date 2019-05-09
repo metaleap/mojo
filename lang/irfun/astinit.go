@@ -34,9 +34,6 @@ func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	} else if me.Name = *name; name.Val == "" && tok != nil {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 	}
-	if !me.Orig.IsTopLevel {
-		// ctx.dynNameAdd(me.Orig.Name.Val)
-	}
 	if me.Orig.NameAffix != nil {
 		ctx.addCoercion(&me.Name, errs.AddVia(ctx.newAstExprFrom(me.Orig.NameAffix)).(IAstExpr))
 	}
@@ -69,7 +66,7 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 func (me *AstDef) initArg(ctx *ctxAstInit) (errs atmo.Errors) {
 	if len(me.Orig.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
 		var arg AstDefArg
-		arg.initFrom(ctx, &me.Orig.Args[0])
+		errs.Add(arg.initFrom(ctx, &me.Orig.Args[0]))
 		me.Arg = &arg
 	}
 	return
@@ -103,12 +100,13 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitRune, *atmolang.AstExprLitStr:
 		isconstexpr = true
 	}
+
 	if isconstexpr && orig.Affix != nil {
 		errs.AddSyn(&orig.Affix.Toks()[0], "def-arg affix illegal where the arg is itself a constant value")
 	}
 	if isconstexpr {
 		me.AstIdentName.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
-		ctx.addCoercion(me, B.Appl(B.IdentName("must"), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr))))
+		ctx.addCoercion(me, B.Appl(B.IdentName("§"), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr))))
 	}
 	if orig.Affix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(orig.Affix)).(IAstExpr))

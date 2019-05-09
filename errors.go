@@ -14,6 +14,7 @@ const (
 	ErrCatLexing
 	ErrCatParsing
 	ErrCatNaming
+	ErrCatReducing
 )
 
 type Error struct {
@@ -38,7 +39,9 @@ func (me *Error) Error() (msg string) {
 	case ErrCatParsing:
 		msg += "[syntax] "
 	case ErrCatNaming:
-		msg += "[idents] "
+		msg += "[identifiers] "
+	case ErrCatReducing:
+		msg += "[validation] "
 	default:
 		msg += "[other] "
 	}
@@ -65,6 +68,10 @@ func ErrLex(pos *scanner.Position, msg string) *Error {
 
 func ErrNaming(tok *udevlex.Token, msg string) *Error {
 	return ErrAt(ErrCatNaming, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+}
+
+func ErrReducing(tok *udevlex.Token, msg string) *Error {
+	return ErrAt(ErrCatReducing, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
 
 func ErrSyn(tok *udevlex.Token, msg string) *Error {
@@ -95,6 +102,10 @@ func (me *Errors) AddTodo(tok *udevlex.Token, msg string) {
 
 func (me *Errors) AddNaming(tok *udevlex.Token, msg string) {
 	me.AddFrom(ErrCatNaming, tok, msg)
+}
+
+func (me *Errors) AddReducing(tok *udevlex.Token, msg string) {
+	me.AddFrom(ErrCatReducing, tok, msg)
 }
 
 func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) {

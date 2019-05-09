@@ -1,8 +1,18 @@
 package atmolang_irfun
 
 import (
+	"os"
+
+	"github.com/go-leap/str"
 	"github.com/metaleap/atmo/lang"
 )
+
+func DbgPrintToStderr(node IAstNode) { atmolang.PrintTo(nil, node.Print(), os.Stderr, true, 1) }
+func DbgPrintToString(node IAstNode) string {
+	var buf ustr.Buf
+	atmolang.PrintTo(nil, node.Print(), &buf.BytesWriter, false, 1)
+	return buf.String()
+}
 
 func (me *AstLitFloat) Print() atmolang.IAstNode  { return atmolang.B.LitFloat(me.Val) }
 func (me *AstLitUint) Print() atmolang.IAstNode   { return atmolang.B.LitUint(me.Val) }

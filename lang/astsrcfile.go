@@ -6,7 +6,7 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-type AstFiles []AstFile
+type AstFiles []*AstFile
 
 type AstFile struct {
 	TopLevel []AstFileTopLevelChunk

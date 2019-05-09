@@ -145,8 +145,7 @@ func (me *Repl) dListDefs(whatKit string) {
 			me.Ctx.KitEnsureLoaded(kit)
 			me.IO.writeLns("LIST of defs in kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
 			kitsrcfiles, numdefs := kit.SrcFiles(), 0
-			for i := range kitsrcfiles {
-				sf := &kitsrcfiles[i]
+			for _, sf := range kitsrcfiles {
 				if nd, _ := sf.CountTopLevelDefs(true); nd > 0 {
 					me.IO.writeLns("", ustr.If(sf.SrcFilePath == "", "‹repl›", filepath.Base(sf.SrcFilePath))+": "+ustr.Plu(nd, "top-level def"))
 					for d := range sf.TopLevel {
@@ -201,8 +200,7 @@ func (me *Repl) dInfoKit(whatKit string) {
 			kitsrcfiles := kit.SrcFiles()
 			me.IO.writeLns("", ustr.Plu(len(kitsrcfiles), "source file")+" in kit `"+whatKit+"`:")
 			numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
-			for i := range kitsrcfiles {
-				sf := &kitsrcfiles[i]
+			for _, sf := range kitsrcfiles {
 				nd, ndi := sf.CountTopLevelDefs(true)
 				sloc := sf.CountNetLinesOfCode(true)
 				numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi

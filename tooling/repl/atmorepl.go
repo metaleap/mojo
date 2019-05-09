@@ -53,7 +53,7 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 		me.decoWelcomeMsgAnim()
 	}
 
-	me.Ctx.KitsEnsureLoaded(loadSessDirFauxKit, append([]string{atmo.NameAutoKit},
+	me.Ctx.KitsEnsureLoaded(loadSessDirFauxKit, append([]string{ /*atmo.NameAutoKit*/ },
 		ustr.Sans(loadKitsByImpPaths, atmo.NameAutoKit)...)...)
 
 	me.decoInputStart(false, false)
@@ -110,7 +110,7 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 		default:
 			me.Ctx.WithKit("", func(kit *atmosess.Kit) {
 				var caretpos int
-				tmpdo, errs := me.Ctx.Eval(kit, inputln)
+				str, errs := me.Ctx.Eval(kit, inputln)
 				if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
 					if e, _ := errs[0].(interface{ At() *scanner.Position }); e != nil && e.At().Line == 1 {
 						caretpos = e.At().Column + numleadingspaces
@@ -130,9 +130,7 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 				if me.run.multiLnInputHadLeadingTabs {
 					me.decoAddNotice(false, "", false, "multi-line input had leading tabs, note", "that repl auto-indent is based on spaces")
 				}
-				if tmpdo != nil {
-					tmpdo()
-				}
+				me.IO.writeLns(str)
 			})
 			me.IO.writeLns("", "")
 			me.decoInputStart(false, false)

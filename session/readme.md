@@ -67,7 +67,7 @@ Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 #### func (*Ctx) Eval
 
 ```go
-func (me *Ctx) Eval(kit *Kit, src string) (tmp func(), errs []error)
+func (me *Ctx) Eval(kit *Kit, src string) (str string, errs []error)
 ```
 
 #### func (*Ctx) Init
@@ -160,6 +160,7 @@ type Kit struct {
 	DirPath           string
 	ImpPath           string
 	WasEverToBeLoaded bool
+	Imports           []string
 }
 ```
 

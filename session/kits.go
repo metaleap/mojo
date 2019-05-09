@@ -102,7 +102,7 @@ func (me *Ctx) initKits() {
 				// continue next one
 			} else if isdir && dirok(fp, fileinfo.Name()) {
 				handledir(fp, modkitdirs)
-			} else if (!isdir) && (!added) && ustr.Suff(fileinfo.Name(), atmo.SrcFileExt) {
+			} else if (!isdir) && (!added) && ustr.Suff(fileinfo.Name(), atmo.SrcFileExt) && !ustr.In(dirfullpath, me.Dirs.Kits...) {
 				added, modkitdirs[dirfullpath] = true, modkitdirs[dirfullpath]+1
 			}
 		}
@@ -117,8 +117,7 @@ func (me *Ctx) initKits() {
 			for fullpath, fileinfo := range mods {
 				if fileinfo.IsDir() {
 					handledir(fullpath, modkitdirs)
-				} else {
-					dp := filepath.Dir(fullpath)
+				} else if dp := filepath.Dir(fullpath); !ustr.In(dp, me.Dirs.Kits...) {
 					modkitdirs[dp] = modkitdirs[dp] + 1
 				}
 			}
@@ -152,8 +151,12 @@ func (me *Ctx) initKits() {
 								}
 							}
 						}
-						me.Kits.all = append(me.Kits.all, &Kit{DirPath: kitdirpath, ImpPath: kitimppath,
-							srcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
+						kitimps := []string{atmo.NameAutoKit}
+						if kitimppath == atmo.NameAutoKit {
+							kitimps = nil
+						}
+						me.Kits.all = append(me.Kits.all, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
+							srcFiles: make(atmolang.AstFiles, 0, numfilesguess), defsReduced: make(map[string]*defReduced, numfilesguess*8)})
 					}
 					shouldrefresh[kitdirpath] = true
 				}
@@ -191,7 +194,11 @@ func (me *Ctx) initKits() {
 				atmo.SortMaybe(me.Kits.all)
 				// per-file refresher
 				for kitdirpath := range shouldrefresh {
-					me.kitRefreshFilesAndReloadIfWasLoaded(me.Kits.all.indexDirPath(kitdirpath))
+					if idx := me.Kits.all.indexDirPath(kitdirpath); idx >= 0 {
+						me.kitRefreshFilesAndMaybeReload(me.Kits.all[idx], true, false)
+					} else {
+						panic(kitdirpath)
+					}
 				}
 				me.reReduceAffectedIRsIfAnyKitsReloaded()
 				if me.state.fileModsWatch.emitMsgsIfManual {
@@ -265,6 +272,13 @@ func (me Kits) indexImpPath(impPath string) int {
 
 func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {
 	return filepath.Clean(kitDirPath[:len(kitDirPath)-len(kitImpPath)])
+}
+
+func (me Kits) byDirPath(kitDirPath string) *Kit {
+	if idx := me.indexDirPath(kitDirPath); idx >= 0 {
+		return me[idx]
+	}
+	return nil
 }
 
 // ByImpPath finds the `Kit` in `Kits` with the given import-path.
