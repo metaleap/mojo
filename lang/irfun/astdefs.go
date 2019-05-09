@@ -33,7 +33,7 @@ func (me AstDefs) index(name string) int {
 	return -1
 }
 
-type AstTopDefs []AstDefTop
+type AstTopDefs []*AstDefTop
 
 func (me AstTopDefs) Len() int          { return len(me) }
 func (me AstTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
@@ -90,10 +90,10 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 	newTopLevelDefIDs = make([]string, 0, len(newdefs))
 	for _, tlc := range newdefs {
 		if !tlc.HasErrors() {
-			idx := len(this)
-			this = append(this, AstDefTop{TopLevel: tlc, ID: tlc.ID()})
-			this[idx].Orig = tlc.Ast.Def.Orig
-			newTopLevelDefIDs = append(newTopLevelDefIDs, this[idx].ID)
+			def := &AstDefTop{TopLevel: tlc, ID: tlc.ID()}
+			def.Orig = tlc.Ast.Def.Orig
+			this = append(this, def)
+			newTopLevelDefIDs = append(newTopLevelDefIDs, def.ID)
 		}
 	}
 
@@ -110,7 +110,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
-		def := &this[i]
+		def := this[i]
 		var let AstExprLetBase
 		var ctxastinit ctxAstInit
 		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevel, ctxastinit.namesInScope = ctxastinit.nextPrefix(), &let.letDefs, def.Orig, names

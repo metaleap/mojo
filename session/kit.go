@@ -28,6 +28,7 @@ type Kit struct {
 		defsNew          []string
 	}
 	lookups struct {
+		allNames       []string
 		tlDefsByID     map[string]*atmolang_irfun.AstDefTop
 		tlDefIDsByName map[string][]string
 	}
@@ -120,7 +121,8 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		atmo.SortMaybe(kit.srcFiles)
 	}
 	if kit.WasEverToBeLoaded || forceReload {
-		kit.WasEverToBeLoaded, kit.errs.badImports = true, nil
+		kit.WasEverToBeLoaded, kit.errs.badImports, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID, kit.lookups.allNames =
+			true, nil, nil, nil, nil
 
 		for _, sf := range kit.srcFiles {
 			fresherrs = append(fresherrs, sf.LexAndParseFile(true, false)...)
@@ -144,11 +146,16 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 				me.state.someKitsReloaded = true
 			}
 		}
-		kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevel)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevel))
-		for i := range kit.topLevel {
-			tldef := &kit.topLevel[i]
+		kit.lookups.allNames, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID =
+			make([]string, 0, len(kit.topLevel)), make(map[string][]string, len(kit.topLevel)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevel))
+		for _, tldef := range kit.topLevel {
 			kit.lookups.tlDefsByID[tldef.ID] = tldef
-			kit.lookups.tlDefIDsByName[tldef.Name.Val] = append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.ID)
+			if n, ok := kit.lookups.tlDefIDsByName[tldef.Name.Val]; !ok {
+				kit.lookups.tlDefIDsByName[tldef.Name.Val], kit.lookups.allNames =
+					[]string{tldef.ID}, append(kit.lookups.allNames, tldef.Name.Val)
+			} else {
+				kit.lookups.tlDefIDsByName[tldef.Name.Val] = append(n, tldef.ID)
+			}
 		}
 
 	}
@@ -197,7 +204,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return len(me.lookups.tlDefIDsByName[name]) > 0
 }
 
-func (me *Kit) Defs(name string, resolveNakedAliases bool) (defs []*atmolang_irfun.AstDefTop) {
+func (me *Kit) Defs(name string, resolveNakedAliases bool) (defs atmolang_irfun.AstTopDefs) {
 	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}

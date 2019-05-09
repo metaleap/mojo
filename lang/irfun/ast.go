@@ -22,6 +22,7 @@ type IAstExprWithLetDefs interface {
 	astExprLetBase() *AstExprLetBase
 	LetDef(string) *AstDef
 	LetDefs() AstDefs
+	Names() []string
 }
 
 type astNodeBase struct {
@@ -134,6 +135,13 @@ type AstExprLetBase struct {
 }
 
 func (me *AstExprLetBase) astExprLetBase() *AstExprLetBase { return me }
+func (me *AstExprLetBase) Names() (names []string) {
+	names = make([]string, len(me.letDefs))
+	for i := range me.letDefs {
+		names[i] = me.letDefs[i].Name.Val
+	}
+	return
+}
 func (me *AstExprLetBase) LetDef(name string) *AstDef {
 	for i := range me.letDefs {
 		if me.letDefs[i].Name.Val == name {

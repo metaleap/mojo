@@ -158,9 +158,12 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr, ancestors ...a
 		}
 
 		var found bool
+		namesinscope := append(make([]string, 0, len(kit.lookups.allNames)+8), kit.lookups.allNames...)
 		if def := expr.LetDef(expr.Val); def != nil { // thanks stupid golang interface-nilness double semantics...
 			found = true
 			handledef(def)
+		} else {
+			namesinscope = append(namesinscope, expr.Names()...)
 		}
 		if !found {
 			for i := len(ancestors) - 1; i >= 0; i-- {
@@ -168,6 +171,8 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr, ancestors ...a
 					if def := ald.LetDef(expr.Val); def != nil {
 						found = true
 						handledef(def)
+					} else {
+						namesinscope = append(namesinscope, ald.Names()...)
 					}
 				} else if def, _ := ancestors[i].(*atmolang_irfun.AstDef); def != nil {
 					if def.Name.Val == expr.Val {
@@ -175,7 +180,8 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr, ancestors ...a
 						handledef(def)
 					} else if def.Arg != nil && def.Arg.Val == expr.Val {
 						found = true
-
+					} else {
+						namesinscope = append(namesinscope, def.Name.Val)
 					}
 				}
 				if found {
@@ -194,7 +200,8 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr, ancestors ...a
 			}
 		}
 		if !found {
-			err = atmo.ErrNaming(&expr.Orig.Tokens[0], "unknown: "+expr.Val)
+			namesinscope = ustr.Similes(expr.Val, namesinscope...)
+			err = atmo.ErrNaming(&expr.Orig.Tokens[0], "unknown: "+expr.Val+ustr.If(len(namesinscope) == 0, "", " (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
 		}
 	}
 	return

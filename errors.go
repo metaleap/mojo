@@ -39,7 +39,7 @@ func (me *Error) Error() (msg string) {
 	case ErrCatParsing:
 		msg += "[syntax] "
 	case ErrCatNaming:
-		msg += "[identifiers] "
+		msg += "[naming] "
 	case ErrCatReducing:
 		msg += "[validation] "
 	default:
