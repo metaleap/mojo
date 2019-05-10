@@ -230,3 +230,9 @@ Less implements Go's standard `sort.Interface`.
 func (me Kits) Swap(i int, j int)
 ```
 Swap implements Go's standard `sort.Interface`.
+
+#### func (Kits) Where
+
+```go
+func (me Kits) Where(check func(*Kit) bool) (kits Kits)
+```

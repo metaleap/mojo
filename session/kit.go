@@ -28,9 +28,11 @@ type Kit struct {
 		defsNew          []string
 	}
 	lookups struct {
-		allNames       []string
-		tlDefsByID     map[string]*atmolang_irfun.AstDefTop
-		tlDefIDsByName map[string][]string
+		allNames        []string
+		tlDefsByID      map[string]*atmolang_irfun.AstDefTop
+		tlDefIDsByName  map[string][]string
+		namesInScopeOwn map[string][]atmolang_irfun.IAstNode
+		namesInScopeExt map[string][]atmolang_irfun.IAstNode
 	}
 	errs struct {
 		dirAccessDuringRefresh error

@@ -86,6 +86,7 @@ func (me *Ctx) reReduceAffectedIRsIfAnyKitsReloaded() {
 	if me.state.someKitsReloaded {
 		me.state.someKitsReloaded = false
 
+		me.kitsRepopulateIdentNamesInScope()
 		needsReReducing := make(map[string]*Kit, 32)
 
 		for _, kit := range me.Kits.all {
@@ -159,7 +160,7 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr, ancestors ...a
 
 		var found bool
 		namesinscope := append(make([]string, 0, len(kit.lookups.allNames)+8), kit.lookups.allNames...)
-		if def := expr.LetDef(expr.Val); def != nil { // thanks stupid golang interface-nilness double semantics...
+		if def := expr.LetDef(expr.Val); def != nil {
 			found = true
 			handledef(def)
 		} else {

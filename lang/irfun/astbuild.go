@@ -42,7 +42,7 @@ func (AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {
 }
 
 func (AstBuilder) IdentName(name string) *AstIdentName {
-	return &AstIdentName{AstIdentBase{Val: name}, AstExprLetBase{}}
+	return &AstIdentName{AstIdentBase{Val: name}, AstExprLetBase{}, nil}
 }
 
 func (AstBuilder) IdentEmptyParens() *AstIdentEmptyParens {

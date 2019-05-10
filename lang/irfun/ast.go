@@ -188,6 +188,9 @@ func (me *AstIdentBase) refersTo(name string) bool { return name == me.Val }
 type AstIdentName struct {
 	AstIdentBase
 	AstExprLetBase
+
+	// "always `nil`" as far as this package is concerned, used as seen fit by importers
+	NamesInScope map[string][]IAstNode
 }
 
 func (me *AstIdentName) refersTo(name string) bool {

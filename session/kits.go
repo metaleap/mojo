@@ -11,6 +11,7 @@ import (
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
+	"github.com/metaleap/atmo/lang/irfun"
 )
 
 // KitsWatchInterval is the default file-watching interval that is picked up
@@ -221,6 +222,52 @@ func (me *Ctx) initKits() {
 	}
 }
 
+func (me *Ctx) kitsRepopulateIdentNamesInScope() {
+	// AstIdentName.NamesInScope map[string][]IAstNode
+
+	{ // FIRST: namesInScopeOwn
+		for _, kit := range me.Kits.all {
+			if len(kit.state.defsGoneIDsNames) > 0 || len(kit.state.defsNew) > 0 {
+				kit.lookups.namesInScopeOwn = make(map[string][]atmolang_irfun.IAstNode, len(kit.topLevel))
+				for _, tld := range kit.topLevel {
+					kit.lookups.namesInScopeOwn[tld.Name.Val] = append(kit.lookups.namesInScopeOwn[tld.Name.Val], tld)
+				}
+			}
+		}
+	}
+	{ // NEXT: namesInScopeExt
+		for _, kit := range me.Kits.all {
+			if len(kit.Imports) > 0 {
+				var totaldefscount int
+				var anychanges bool
+				kimps := me.Kits.all.Where(func(k *Kit) (iskimp bool) {
+					if iskimp = ustr.In(k.ImpPath, kit.Imports...); iskimp {
+						totaldefscount, anychanges = totaldefscount+len(k.topLevel), anychanges || len(k.state.defsGoneIDsNames) > 0 || len(k.state.defsNew) > 0
+					}
+					return
+				})
+				if anychanges {
+					kit.lookups.namesInScopeExt = make(map[string][]atmolang_irfun.IAstNode, totaldefscount)
+					for _, kimp := range kimps {
+						for k, v := range kimp.lookups.namesInScopeOwn {
+							kit.lookups.namesInScopeExt[k] = append(kit.lookups.namesInScopeExt[k], v...)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+type astNodeExternalKit struct {
+	atmolang_irfun.IAstNode
+	kit string
+}
+
+func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {
+	return filepath.Clean(kitDirPath[:len(kitDirPath)-len(kitImpPath)])
+}
+
 // Len implements Go's standard `sort.Interface`.
 func (me Kits) Len() int { return len(me) }
 
@@ -270,10 +317,6 @@ func (me Kits) indexImpPath(impPath string) int {
 	return -1
 }
 
-func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {
-	return filepath.Clean(kitDirPath[:len(kitDirPath)-len(kitImpPath)])
-}
-
 func (me Kits) byDirPath(kitDirPath string) *Kit {
 	if idx := me.indexDirPath(kitDirPath); idx >= 0 {
 		return me[idx]
@@ -287,4 +330,13 @@ func (me Kits) ByImpPath(kitImpPath string) *Kit {
 		return me[idx]
 	}
 	return nil
+}
+
+func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
+	for _, kit := range me {
+		if check(kit) {
+			kits = append(kits, kit)
+		}
+	}
+	return
 }
