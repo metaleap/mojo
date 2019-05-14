@@ -223,12 +223,13 @@ func (me *Ctx) initKits() {
 }
 
 func (me *Ctx) kitsRepopulateIdentNamesInScope() {
-	// AstIdentName.NamesInScope map[string][]IAstNode
+	type namesInScope = map[string][]atmolang_irfun.IAstNode
+	kitrepops := make(map[*Kit]bool, len(me.Kits.all))
 
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.all {
 			if len(kit.state.defsGoneIDsNames) > 0 || len(kit.state.defsNew) > 0 {
-				kit.lookups.namesInScopeOwn = make(map[string][]atmolang_irfun.IAstNode, len(kit.topLevel))
+				kitrepops[kit], kit.lookups.namesInScopeOwn = true, make(namesInScope, len(kit.topLevel))
 				for _, tld := range kit.topLevel {
 					kit.lookups.namesInScopeOwn[tld.Name.Val] = append(kit.lookups.namesInScopeOwn[tld.Name.Val], tld)
 				}
@@ -247,19 +248,43 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 					return
 				})
 				if anychanges {
-					kit.lookups.namesInScopeExt = make(map[string][]atmolang_irfun.IAstNode, totaldefscount)
+					kitrepops[kit], kit.lookups.namesInScopeExt = true, make(namesInScope, totaldefscount)
 					for _, kimp := range kimps {
 						for k, v := range kimp.lookups.namesInScopeOwn {
-							kit.lookups.namesInScopeExt[k] = append(kit.lookups.namesInScopeExt[k], v...)
+							nodes := kit.lookups.namesInScopeExt[k]
+							for _, n := range v {
+								nodes = append(nodes, astNodeExt{IAstNode: n, kit: kimp.ImpPath})
+							}
+							kit.lookups.namesInScopeExt[k] = nodes
 						}
 					}
 				}
 			}
 		}
 	}
+
+	repopulateIdentNamesInScope := func(node atmolang_irfun.IAstNode) {
+
+	}
+
+	for _, kit := range me.Kits.all {
+		if kitrepops[kit] {
+			combined := make(namesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
+			for k, v := range kit.lookups.namesInScopeOwn {
+				nodes := make([]atmolang_irfun.IAstNode, len(v))
+				copy(nodes, v)
+				combined[k] = nodes
+			}
+			// for k, v := range kit.lookups.namesInScopeExt {
+			// }
+			for _, tld := range kit.topLevel {
+				repopulateIdentNamesInScope(&tld.AstDef)
+			}
+		}
+	}
 }
 
-type astNodeExternalKit struct {
+type astNodeExt struct {
 	atmolang_irfun.IAstNode
 	kit string
 }
