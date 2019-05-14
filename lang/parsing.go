@@ -302,12 +302,12 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	for i := range alts {
 		if len(alts[i]) == 0 {
 			err = atmo.ErrSyn(&toks[0], "malformed branching: empty case")
-		} else if ifthen := alts[i].Chunked("|=", "?"); len(ifthen) > 2 {
+		} else if ifthen := alts[i].Chunked("=>", "?"); len(ifthen) > 2 {
 			err = atmo.ErrSyn(&alts[i][0], "malformed branching: case has more than one result expression")
 		} else if len(ifthen) > 1 && len(ifthen[1]) == 0 {
 			err = atmo.ErrSyn(&alts[i][0], "malformed branching: case has no result expression")
 		} else if len(ifthen[0]) == 0 {
-			// the branching's "default" case (empty between `|` and `|=`)
+			// the branching's "default" case (empty between `|` and `=>`)
 			if cases.Alts[i].Body, err = me.parseExpr(ifthen[1]); err == nil && cases.defaultIndex >= 0 {
 				err = atmo.ErrSyn(&alts[i][0], "malformed branching: encountered a second default case, only at most one is permissible")
 			} else {
