@@ -59,7 +59,6 @@ const (
 	rcRetTypeAtomLitStr
 	rcRetTypeAtomLitUint
 	rcRetTypeAtomIdentTag
-	// rcRetTypeFunc
 )
 
 type defReducedValPrim struct {
