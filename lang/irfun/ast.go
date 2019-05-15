@@ -18,6 +18,8 @@ type IAstExpr interface {
 	IsAtomic() bool
 }
 
+// IAstExprWithLetDefs is implemented by `AstExprLetBase` embedders,
+// that is, by `AstIdentName`, `AstAppl` and `AstCases`.
 type IAstExprWithLetDefs interface {
 	astExprLetBase() *AstExprLetBase
 	LetDef(string) *AstDef
@@ -189,7 +191,7 @@ type AstIdentName struct {
 	AstIdentBase
 	AstExprLetBase
 
-	// "always `nil`" as far as this package is concerned, used as seen fit by importers
+	// "always `nil`" as far as this pkg is concerned, ie. populated from outside
 	NamesInScope map[string][]IAstNode
 }
 

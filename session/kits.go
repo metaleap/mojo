@@ -263,8 +263,53 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 		}
 	}
 
-	repopulateIdentNamesInScope := func(node atmolang_irfun.IAstNode, inScope namesInScope) {
+	copyOf := func(src namesInScope, namesExpected ...string) (dst namesInScope) {
+		dst = make(namesInScope, len(src)+1)
+		for k, v := range src {
+			if !ustr.In(k, namesExpected...) {
+				dst[k] = v
+			} else {
+				dst[k] = append(dst[k], v...)
+			}
+		}
+		return
+	}
 
+	var repopulateIdentNamesInScope func(atmolang_irfun.IAstNode, namesInScope)
+	repopulateIdentNamesInScope = func(node atmolang_irfun.IAstNode, inScope namesInScope) {
+		inscope := inScope
+		if ldx, _ := node.(atmolang_irfun.IAstExprWithLetDefs); ldx != nil {
+			lds := ldx.LetDefs()
+			if len(lds) > 0 {
+				inscope = copyOf(inscope, ldx.Names()...)
+				for i := range lds {
+					k, v := lds[i].Name.Val, &lds[i]
+					inscope[k] = append(inscope[k], v)
+				}
+			}
+			for i := range lds {
+				repopulateIdentNamesInScope(&lds[i], inscope)
+			}
+		}
+		switch n := node.(type) {
+		case *atmolang_irfun.AstDef:
+			if n.Arg != nil {
+				k, v := n.Arg.AstIdentName.Val, n.Arg
+				inscope = copyOf(inscope, k)
+				inscope[k] = append(inscope[k], v)
+			}
+			repopulateIdentNamesInScope(n.Body, inscope)
+		case *atmolang_irfun.AstAppl:
+			repopulateIdentNamesInScope(n.AtomicCallee, inscope)
+			repopulateIdentNamesInScope(n.AtomicArg, inscope)
+		case *atmolang_irfun.AstCases:
+			for i := range n.Ifs {
+				repopulateIdentNamesInScope(n.Ifs[i], inscope)
+				repopulateIdentNamesInScope(n.Thens[i], inscope)
+			}
+		case *atmolang_irfun.AstIdentName:
+			n.NamesInScope = inscope
+		}
 	}
 
 	for _, kit := range me.Kits.all {

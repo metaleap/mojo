@@ -268,7 +268,11 @@ func (me *Repl) DSrcs(what string) bool {
 				defs, ctxp := kit.Defs(whatname, true), atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
 					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
+				var nakedalias string
 				for _, def := range defs {
+					if def.Name.Val != whatname {
+						nakedalias = def.Name.Val
+					}
 					me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath)
 					ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
 					def.TopLevel.Print(&ctxp)
@@ -285,6 +289,9 @@ func (me *Repl) DSrcs(what string) bool {
 						ctxp.Reset()
 						me.IO.writeLns("", "")
 					}
+				}
+				if nakedalias != "" {
+					me.IO.writeLns("(def `" + whatname + "` is a mere alias for `" + nakedalias + "`)")
 				}
 			}
 		})
