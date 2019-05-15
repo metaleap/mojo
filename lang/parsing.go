@@ -84,7 +84,7 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 			}
 			if err = me.parseDefHeadSig(toksheads[0], def); err == nil {
 				if len(def.Args) == 0 && len(def.Meta) == 0 && def.NameAffix == nil {
-					if ident, _ := def.Body.(*AstIdent); ident != nil {
+					if ident, _ := def.Body.(*AstIdent); ident != nil && ident.IsName(true) {
 						def.IsNakedAliasTo = ident.Val
 					}
 				}

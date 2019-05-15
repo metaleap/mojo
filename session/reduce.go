@@ -1,6 +1,8 @@
 package atmosess
 
 import (
+	"fmt"
+
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang/irfun"
@@ -151,63 +153,70 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr) (result interf
 	case *atmolang_irfun.AstIdentTag:
 		result, retDesc = expr, &defReducedCaseValPrim{val: expr, primType: rcRetTypeAtomIdentTag}
 	case *atmolang_irfun.AstIdentName:
-		candidates := expr.NamesInScope[expr.Val]
-		switch len(candidates) {
-		case 0:
-			idx, namesinscope := 0, make([]string, len(expr.NamesInScope))
-			for k := range expr.NamesInScope {
-				idx, namesinscope[idx] = idx+1, k
+		result, retDesc, err = me.reduceExprIdentName(kit, expr)
+	default:
+		err = atmo.ErrTodo(expr.Origin().Toks().First(nil), fmt.Sprintf("%T", expr))
+	}
+	return
+}
+
+func (me *Ctx) reduceExprIdentName(kit *Kit, expr *atmolang_irfun.AstIdentName) (result interface{}, retDesc iDefReducedCaseVal, err *atmo.Error) {
+	candidates := expr.NamesInScope[expr.Val]
+	switch len(candidates) {
+	case 0:
+		idx, namesinscope := 0, make([]string, len(expr.NamesInScope))
+		for k := range expr.NamesInScope {
+			idx, namesinscope[idx] = idx+1, k
+		}
+		namesinscope = ustr.Similes(expr.Val, namesinscope...)
+		err = atmo.ErrNaming(&expr.Orig.Tokens[0], "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
+	case 1:
+		if maybearg, _ := candidates[0].(*atmolang_irfun.AstDefArg); maybearg != nil {
+			err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve args")
+		} else {
+			def, _ := candidates[0].(*atmolang_irfun.AstDef)
+			if def == nil {
+				def = &candidates[0].(*atmolang_irfun.AstDefTop).AstDef
 			}
-			namesinscope = ustr.Similes(expr.Val, namesinscope...)
-			err = atmo.ErrNaming(&expr.Orig.Tokens[0], "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
-		case 1:
-			if maybearg, _ := candidates[0].(*atmolang_irfun.AstDefArg); maybearg != nil {
-				err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve args")
-			} else {
-				def, _ := candidates[0].(*atmolang_irfun.AstDef)
-				if def == nil {
-					def = &candidates[0].(*atmolang_irfun.AstDefTop).AstDef
-				}
-				if def.Arg != nil {
-					err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve to func")
-				} else if result, retDesc, err = me.reduceExpr(kit, def.Body); err != nil && !err.IsRef() {
-					err = atmo.ErrRef(err)
+			if def.Arg != nil {
+				err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve to func")
+			} else if result, retDesc, err = me.reduceExpr(kit, def.Body); err != nil && !err.IsRef() {
+				err = atmo.ErrRef(err)
+			}
+		}
+	default:
+		var nonarity []atmolang_irfun.IAstNode
+		for _, cand := range candidates {
+			if !cand.IsDefWithArg() {
+				nonarity = append(nonarity, cand)
+			}
+		}
+		if len(nonarity) > 0 {
+			locs, exts, candkits := false, false, make(map[string]int, len(nonarity))
+			for _, cand := range nonarity {
+				if nx, ok := cand.(astNodeExt); ok && nx.IAstNode != nil && nx.kit != "" {
+					exts, candkits[nx.kit] = true, 1+candkits[nx.kit]
+				} else {
+					locs, candkits[kit.ImpPath] = true, 1+candkits[kit.ImpPath]
 				}
 			}
-		default:
-			var nonarity []atmolang_irfun.IAstNode
-			for _, cand := range candidates {
-				if !cand.IsDefWithArg() {
-					nonarity = append(nonarity, cand)
-				}
+			var str string
+			for k, v := range candkits {
+				str += k + " (" + ustr.Int(v) + "×) ─── "
 			}
-			if len(nonarity) > 0 {
-				locs, exts, candkits := false, false, make(map[string]int, len(nonarity))
-				for _, cand := range nonarity {
-					if nx, ok := cand.(astNodeExt); ok && nx.IAstNode != nil && nx.kit != "" {
-						exts, candkits[nx.kit] = true, 1+candkits[nx.kit]
-					} else {
-						locs, candkits[kit.ImpPath] = true, 1+candkits[kit.ImpPath]
-					}
-				}
-				var str string
-				for k, v := range candkits {
-					str += k + " (" + ustr.Int(v) + "×) ─── "
-				}
-				if locs {
-					str += "rename culprits in " + kit.ImpPath
-				}
-				if locs && exts {
-					str += " and/or "
-				}
-				if exts {
-					str += "qualify which import was meant"
-				}
-				err = atmo.ErrNaming(&expr.Orig.Tokens[0], "ambiguous: `"+expr.Val+"`, competing candidates from "+str)
+			if locs {
+				str += "rename culprits in " + kit.ImpPath
 			}
-			if err == nil {
-				err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve overloads")
+			if locs && exts {
+				str += " and/or "
 			}
+			if exts {
+				str += "qualify which import was meant"
+			}
+			err = atmo.ErrNaming(&expr.Orig.Tokens[0], "ambiguous: `"+expr.Val+"`, competing candidates from "+str)
+		}
+		if err == nil {
+			err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve overloads")
 		}
 	}
 	return
