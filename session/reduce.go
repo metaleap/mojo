@@ -139,10 +139,10 @@ func (me *Ctx) reduceIfNotAlready(kit *Kit, defId string) (red *defReduced, rc *
 }
 
 func (me *Ctx) reduce(kit *Kit, defTop *atmolang_irfun.AstDefTop, red *defReduced, rc *defReducedCase) {
-	rc.Result, rc.Ret.Desc, rc.Err = me.reduceExpr(kit, defTop.Body, &defTop.AstDef)
+	rc.Result, rc.Ret.Desc, rc.Err = me.reduceExpr(kit, defTop.Body)
 }
 
-func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr, ancestors ...atmolang_irfun.IAstNode) (result interface{}, retDesc iDefReducedCaseVal, err *atmo.Error) {
+func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr) (result interface{}, retDesc iDefReducedCaseVal, err *atmo.Error) {
 	switch expr := body.(type) {
 	case *atmolang_irfun.AstLitFloat:
 		result, retDesc = expr, &defReducedCaseValPrim{val: expr, primType: rcRetTypeAtomLitFloat}
@@ -155,59 +155,63 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr, ancestors ...a
 	case *atmolang_irfun.AstIdentTag:
 		result, retDesc = expr, &defReducedCaseValPrim{val: expr, primType: rcRetTypeAtomIdentTag}
 	case *atmolang_irfun.AstIdentName:
-		handledef := func(def *atmolang_irfun.AstDef) {
-			if def.Arg == nil {
-				result, retDesc, err = me.reduceExpr(kit, def.Body, expr)
-			} else {
-				panic("def with arg not yet impl")
+		candidates := expr.NamesInScope[expr.Val]
+		switch len(candidates) {
+		case 0:
+			idx, namesinscope := 0, make([]string, len(expr.NamesInScope))
+			for k := range expr.NamesInScope {
+				idx, namesinscope[idx] = idx+1, k
 			}
-		}
-
-		var found bool
-		namesinscope := append(make([]string, 0, len(kit.lookups.allNames)+8), kit.lookups.allNames...)
-		if def := expr.LetDef(expr.Val); def != nil {
-			found = true
-			handledef(def)
-		} else {
-			namesinscope = append(namesinscope, expr.Names()...)
-		}
-		if !found {
-			for i := len(ancestors) - 1; i >= 0; i-- {
-				if ald, _ := ancestors[i].(atmolang_irfun.IAstExprWithLetDefs); ald != nil {
-					if def := ald.LetDef(expr.Val); def != nil {
-						found = true
-						handledef(def)
-					} else {
-						namesinscope = append(namesinscope, ald.Names()...)
-					}
-				} else if def, _ := ancestors[i].(*atmolang_irfun.AstDef); def != nil {
-					if def.Name.Val == expr.Val {
-						found = true
-						handledef(def)
-					} else if def.Arg != nil && def.Arg.Val == expr.Val {
-						found = true
-					} else {
-						namesinscope = append(namesinscope, def.Name.Val)
-					}
-				}
-				if found {
-					break
-				}
-			}
-		}
-		if !found {
-			if defids := kit.lookups.tlDefIDsByName[expr.Val]; len(defids) == 1 {
-				if def := kit.lookups.tlDefsByID[defids[0]]; def != nil {
-					found = true
-					handledef(&def.AstDef)
-				}
-			} else if len(defids) > 1 {
-				panic(expr.Val)
-			}
-		}
-		if !found {
 			namesinscope = ustr.Similes(expr.Val, namesinscope...)
-			err = atmo.ErrNaming(&expr.Orig.Tokens[0], "unknown: "+expr.Val+ustr.If(len(namesinscope) == 0, "", " (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
+			err = atmo.ErrNaming(&expr.Orig.Tokens[0], "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
+		case 1:
+			if maybearg, _ := candidates[0].(*atmolang_irfun.AstDefArg); maybearg != nil {
+				err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve args")
+			} else {
+				def, _ := candidates[0].(*atmolang_irfun.AstDef)
+				if def == nil {
+					def = &candidates[0].(*atmolang_irfun.AstDefTop).AstDef
+				}
+				if def.Arg != nil {
+					err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve to func")
+				} else {
+					result, retDesc, err = me.reduceExpr(kit, def.Body)
+				}
+			}
+		default:
+			var nonarity []atmolang_irfun.IAstNode
+			for _, cand := range candidates {
+				if !cand.IsDefWithArg() {
+					nonarity = append(nonarity, cand)
+				}
+			}
+			if len(nonarity) > 0 {
+				locs, exts, candkits := false, false, make(map[string]int, len(nonarity))
+				for _, cand := range nonarity {
+					if nx, ok := cand.(astNodeExt); ok && nx.IAstNode != nil && nx.kit != "" {
+						exts, candkits[nx.kit] = true, 1+candkits[nx.kit]
+					} else {
+						locs, candkits[kit.ImpPath] = true, 1+candkits[kit.ImpPath]
+					}
+				}
+				var str string
+				for k, v := range candkits {
+					str += k + " (" + ustr.Int(v) + "×) ─── "
+				}
+				if locs {
+					str += "rename culprits in " + kit.ImpPath
+				}
+				if locs && exts {
+					str += " and/or "
+				}
+				if exts {
+					str += "qualify which import was meant"
+				}
+				err = atmo.ErrNaming(&expr.Orig.Tokens[0], "ambiguous: `"+expr.Val+"`, competing candidates from "+str)
+			}
+			if err == nil {
+				err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve overloads")
+			}
 		}
 	}
 	return
