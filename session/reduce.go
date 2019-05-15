@@ -6,6 +6,11 @@ import (
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
+type astNodeExt struct {
+	atmolang_irfun.IAstNode
+	kit string
+}
+
 type defReduced struct {
 	Cases []*defReducedCase
 }

@@ -263,7 +263,7 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 		}
 	}
 
-	repopulateIdentNamesInScope := func(node atmolang_irfun.IAstNode) {
+	repopulateIdentNamesInScope := func(node atmolang_irfun.IAstNode, inScope namesInScope) {
 
 	}
 
@@ -275,18 +275,14 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 				copy(nodes, v)
 				combined[k] = nodes
 			}
-			// for k, v := range kit.lookups.namesInScopeExt {
-			// }
+			for k, v := range kit.lookups.namesInScopeExt {
+				combined[k] = append(combined[k], v...)
+			}
 			for _, tld := range kit.topLevel {
-				repopulateIdentNamesInScope(&tld.AstDef)
+				repopulateIdentNamesInScope(&tld.AstDef, combined)
 			}
 		}
 	}
-}
-
-type astNodeExt struct {
-	atmolang_irfun.IAstNode
-	kit string
 }
 
 func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {
