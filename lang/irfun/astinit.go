@@ -8,20 +8,11 @@ import (
 
 func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.Orig = orig.ToUnary()
-	var argname bool
-	if len(me.Orig.Args) > 0 {
-		if ident, _ := me.Orig.Args[0].NameOrConstVal.(*atmolang.AstIdent); ident != nil && ident.IsName(false) {
-			argname = ctx.namesInScopeAdd(&errs, me.Orig.Args[0].NameOrConstVal) > 0
-		}
-	}
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initArg(ctx))
 	errs.Add(me.initMetas(ctx))
 	errs.Add(me.initBody(ctx))
 	me.Orig = orig
-	if argname {
-		ctx.namesInScopeDrop(1)
-	}
 	return
 }
 

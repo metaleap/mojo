@@ -11,7 +11,6 @@ import (
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
-	"github.com/metaleap/atmo/lang/irfun"
 )
 
 // KitsWatchInterval is the default file-watching interval that is picked up
@@ -219,114 +218,6 @@ func (me *Ctx) initKits() {
 		go modswatchstart()
 	} else {
 		me.state.fileModsWatch.emitMsgsIfManual, me.state.fileModsWatch.doManually = true, modswatcher
-	}
-}
-
-func (me *Ctx) kitsRepopulateIdentNamesInScope() {
-	type namesInScope = map[string][]atmolang_irfun.IAstNode
-	kitrepops := make(map[*Kit]bool, len(me.Kits.all))
-
-	{ // FIRST: namesInScopeOwn
-		for _, kit := range me.Kits.all {
-			if len(kit.state.defsGoneIDsNames) > 0 || len(kit.state.defsNew) > 0 {
-				kitrepops[kit], kit.lookups.namesInScopeOwn = true, make(namesInScope, len(kit.topLevel))
-				for _, tld := range kit.topLevel {
-					kit.lookups.namesInScopeOwn[tld.Name.Val] = append(kit.lookups.namesInScopeOwn[tld.Name.Val], tld)
-				}
-			}
-		}
-	}
-	{ // NEXT: namesInScopeExt
-		for _, kit := range me.Kits.all {
-			if len(kit.Imports) > 0 {
-				var totaldefscount int
-				var anychanges bool
-				kimps := me.Kits.all.Where(func(k *Kit) (iskimp bool) {
-					if iskimp = ustr.In(k.ImpPath, kit.Imports...); iskimp {
-						totaldefscount, anychanges = totaldefscount+len(k.topLevel), anychanges || len(k.state.defsGoneIDsNames) > 0 || len(k.state.defsNew) > 0
-					}
-					return
-				})
-				if anychanges {
-					kitrepops[kit], kit.lookups.namesInScopeExt = true, make(namesInScope, totaldefscount)
-					for _, kimp := range kimps {
-						for k, v := range kimp.lookups.namesInScopeOwn {
-							nodes := kit.lookups.namesInScopeExt[k]
-							for _, n := range v {
-								nodes = append(nodes, astNodeExt{IAstNode: n, kit: kimp.ImpPath})
-							}
-							kit.lookups.namesInScopeExt[k] = nodes
-						}
-					}
-				}
-			}
-		}
-	}
-
-	copyOf := func(src namesInScope, namesExpected ...string) (dst namesInScope) {
-		dst = make(namesInScope, len(src)+1)
-		for k, v := range src {
-			if !ustr.In(k, namesExpected...) {
-				dst[k] = v
-			} else {
-				dst[k] = append(dst[k], v...)
-			}
-		}
-		return
-	}
-
-	var repopulateIdentNamesInScope func(atmolang_irfun.IAstNode, namesInScope)
-	repopulateIdentNamesInScope = func(node atmolang_irfun.IAstNode, inScope namesInScope) {
-		inscope := inScope
-		if ldx, _ := node.(atmolang_irfun.IAstExprWithLetDefs); ldx != nil {
-			lds := ldx.LetDefs()
-			if len(lds) > 0 {
-				inscope = copyOf(inscope, ldx.Names()...)
-				for i := range lds {
-					k, v := lds[i].Name.Val, &lds[i]
-					inscope[k] = append(inscope[k], v)
-				}
-			}
-			for i := range lds {
-				repopulateIdentNamesInScope(&lds[i], inscope)
-			}
-		}
-		switch n := node.(type) {
-		case *atmolang_irfun.AstDef:
-			if n.Arg != nil {
-				k, v := n.Arg.AstIdentName.Val, n.Arg
-				inscope = copyOf(inscope, k)
-				inscope[k] = append(inscope[k], v)
-			}
-			repopulateIdentNamesInScope(n.Body, inscope)
-		case *atmolang_irfun.AstAppl:
-			repopulateIdentNamesInScope(n.AtomicCallee, inscope)
-			repopulateIdentNamesInScope(n.AtomicArg, inscope)
-		case *atmolang_irfun.AstCases:
-			for i := range n.Ifs {
-				repopulateIdentNamesInScope(n.Ifs[i], inscope)
-				repopulateIdentNamesInScope(n.Thens[i], inscope)
-			}
-		case *atmolang_irfun.AstIdentName:
-			n.NamesInScope = inscope
-		}
-	}
-
-	for _, kit := range me.Kits.all {
-		if kitrepops[kit] {
-			combined := make(namesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
-			for k, v := range kit.lookups.namesInScopeOwn {
-				nodes := make([]atmolang_irfun.IAstNode, len(v))
-				copy(nodes, v)
-				combined[k] = nodes
-			}
-			for k, v := range kit.lookups.namesInScopeExt {
-				combined[k] = append(combined[k], v...)
-			}
-			for _, tld := range kit.topLevel {
-				repopulateIdentNamesInScope(&tld.AstDef, combined)
-			}
-		}
 	}
 }
 

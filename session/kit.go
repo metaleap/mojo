@@ -31,12 +31,13 @@ type Kit struct {
 		allNames        []string
 		tlDefsByID      map[string]*atmolang_irfun.AstDefTop
 		tlDefIDsByName  map[string][]string
-		namesInScopeOwn map[string][]atmolang_irfun.IAstNode
-		namesInScopeExt map[string][]atmolang_irfun.IAstNode
+		namesInScopeOwn namesInScope
+		namesInScopeExt namesInScope
 	}
 	errs struct {
 		dirAccessDuringRefresh error
 		badImports             []error
+		badNames               atmo.Errors
 	}
 }
 
@@ -123,8 +124,8 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		atmo.SortMaybe(kit.srcFiles)
 	}
 	if kit.WasEverToBeLoaded || forceReload {
-		kit.WasEverToBeLoaded, kit.errs.badImports, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID, kit.lookups.allNames =
-			true, nil, nil, nil, nil
+		kit.WasEverToBeLoaded, kit.errs.badImports, kit.errs.badNames, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID, kit.lookups.allNames =
+			true, nil, nil, nil, nil, nil
 
 		for _, sf := range kit.srcFiles {
 			fresherrs = append(fresherrs, sf.LexAndParseFile(true, false)...)
@@ -171,6 +172,7 @@ func (me *Kit) Errors() (errs []error) {
 	if me.errs.dirAccessDuringRefresh != nil {
 		errs = append(errs, me.errs.dirAccessDuringRefresh)
 	}
+	errs = append(errs, me.errs.badImports...)
 	for i := range me.srcFiles {
 		for _, e := range me.srcFiles[i].Errors() {
 			errs = append(errs, e)
@@ -180,6 +182,9 @@ func (me *Kit) Errors() (errs []error) {
 		for e := range me.topLevel[i].Errors {
 			errs = append(errs, &me.topLevel[i].Errors[e])
 		}
+	}
+	for i := range me.errs.badNames {
+		errs = append(errs, &me.errs.badNames[i])
 	}
 	for _, defred := range me.defsReduced {
 		for _, rc := range defred.Cases {

@@ -7,6 +7,7 @@ import (
 
 type IAstNode interface {
 	Print() atmolang.IAstNode
+	Origin() atmolang.IAstNode
 
 	equivTo(IAstNode) bool
 	renameIdents(map[string]string)
@@ -39,6 +40,7 @@ type AstDef struct {
 	Body IAstExpr
 }
 
+func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstDef) refersTo(name string) bool { return me.Body.refersTo(name) }
 func (me *AstDef) renameIdents(ren map[string]string) {
 	me.Name.renameIdents(ren)
@@ -66,6 +68,7 @@ type AstDefArg struct {
 	Orig *atmolang.AstDefArg
 }
 
+func (me *AstDefArg) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstDefArg) isEquivTo(cmp *AstDefArg) bool {
 	return ((me == nil) == (cmp == nil)) && (me == nil || me.AstIdentName.equivTo(&cmp.AstIdentName))
 }
@@ -88,7 +91,8 @@ type AstLitBase struct {
 	Orig atmolang.IAstExprAtomic
 }
 
-func (me *AstLitBase) refersTo(string) bool { return false }
+func (me *AstLitBase) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstLitBase) refersTo(string) bool      { return false }
 
 type AstLitRune struct {
 	AstLitBase
@@ -185,6 +189,7 @@ type AstIdentBase struct {
 	Orig *atmolang.AstIdent
 }
 
+func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstIdentBase) refersTo(name string) bool { return name == me.Val }
 
 type AstIdentName struct {
@@ -195,6 +200,12 @@ type AstIdentName struct {
 	NamesInScope map[string][]IAstNode
 }
 
+func (me *AstIdentName) Origin() atmolang.IAstNode {
+	if me.letOrig != nil {
+		return me.letOrig
+	}
+	return me.Orig
+}
 func (me *AstIdentName) refersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
 }
@@ -244,6 +255,12 @@ type AstAppl struct {
 	AtomicArg    IAstExpr
 }
 
+func (me *AstAppl) Origin() atmolang.IAstNode {
+	if me.letOrig != nil {
+		return me.letOrig
+	}
+	return me.Orig
+}
 func (me *AstAppl) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstAppl)
 	return cmp != nil && cmp.AtomicCallee.equivTo(me.AtomicCallee) && cmp.AtomicArg.equivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.AstExprLetBase)
@@ -265,6 +282,12 @@ type AstCases struct {
 	Thens []IAstExpr
 }
 
+func (me *AstCases) Origin() atmolang.IAstNode {
+	if me.letOrig != nil {
+		return me.letOrig
+	}
+	return me.Orig
+}
 func (me *AstCases) equivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstCases)
 	if cmp != nil && len(cmp.Ifs) == len(me.Ifs) && len(cmp.Thens) == len(me.Thens) {
