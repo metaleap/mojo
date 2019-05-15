@@ -230,6 +230,30 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 	return
 }
 
+func (me *AstDef) detectNakedAliasIfAny() {
+	if len(me.Meta) == 0 && me.NameAffix == nil {
+		if len(me.Args) == 0 {
+			if ident, ok := me.Body.(*AstIdent); ok && ident != nil && ident.IsName(true) {
+				me.IsNakedAliasTo = ident.Val
+			}
+		} else if appl, ok := me.Body.(*AstExprAppl); ok && appl != nil && len(appl.Args) == len(me.Args) {
+			if ident, _ := appl.Callee.(*AstIdent); ident != nil && ident.IsName(true) {
+				for i, arg := range appl.Args {
+					daid, _ := me.Args[i].NameOrConstVal.(*AstIdent)
+					aaid, _ := arg.(*AstIdent)
+					if daid == nil || aaid == nil || daid.Val != aaid.Val {
+						ok = false
+						break
+					}
+				}
+				if ok {
+					me.IsNakedAliasTo = ident.Val
+				}
+			}
+		}
+	}
+}
+
 func (me *AstDef) makeUnary(origName string) {
 	subname, let := ustr.Int(len(me.Args)-1)+origName, AstExprLet{Defs: []AstDef{{Body: me.Body, AstBaseTokens: me.AstBaseTokens}}}
 	subdef := &let.Defs[0]

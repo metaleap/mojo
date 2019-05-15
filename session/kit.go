@@ -183,7 +183,7 @@ func (me *Kit) Errors() (errs []error) {
 		}
 	}
 	for _, defred := range me.defsReduced {
-		for _, rc := range defred.Cases {
+		for _, rc := range defred.overloads {
 			if rc.Err != nil && !rc.Err.IsRef() {
 				errs = append(errs, rc.Err)
 			}

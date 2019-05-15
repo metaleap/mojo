@@ -14,11 +14,11 @@ type astNodeExt struct {
 }
 
 type defReduced struct {
-	Cases []*defReducedCase
+	overloads []*defOverload
 }
 
-func (me *defReduced) caseByID(id string) *defReducedCase {
-	for _, rc := range me.Cases {
+func (me *defReduced) overloadByID(id string) *defOverload {
+	for _, rc := range me.overloads {
 		if rc.ID == id {
 			return rc
 		}
@@ -26,40 +26,34 @@ func (me *defReduced) caseByID(id string) *defReducedCase {
 	return nil
 }
 
-func (me *defReduced) dropCase(id string) {
-	for i, rc := range me.Cases {
+func (me *defReduced) dropOverload(id string) {
+	for i, rc := range me.overloads {
 		if rc.ID == id {
-			me.Cases = append(me.Cases[:i], me.Cases[i+1:]...)
+			me.overloads = append(me.overloads[:i], me.overloads[i+1:]...)
 			break
 		}
 	}
 }
 
-type defReducedCase struct {
+type defOverload struct {
 	ID     string
 	Err    *atmo.Error
-	Args   []defReducedCaseArg
-	Ret    defReducedCaseRet
+	Ret    defOverloadRet
 	Result interface{}
 }
 
-type defReducedCaseArg struct {
-	Name string
-	Desc iDefReducedCaseVal
+type defOverloadRet struct {
+	Desc iDefReducedValDesc
 }
 
-type defReducedCaseRet struct {
-	Desc iDefReducedCaseVal
-}
-
-type iDefReducedCaseVal interface {
+type iDefReducedValDesc interface {
 	String() string
 }
 
-type defReducedCasePrimType int
+type defReducedValPrimType int
 
 const (
-	_ defReducedCasePrimType = iota
+	_ defReducedValPrimType = iota
 	rcRetTypeAtomLitFloat
 	rcRetTypeAtomLitRune
 	rcRetTypeAtomLitStr
@@ -68,25 +62,13 @@ const (
 	// rcRetTypeFunc
 )
 
-type defReducedCaseValPrim struct {
-	primType defReducedCasePrimType
+type defReducedValPrim struct {
+	primType defReducedValPrimType
 	val      atmolang_irfun.IAstExpr
 }
 
-func (me *defReducedCaseValPrim) String() string {
+func (me *defReducedValPrim) String() string {
 	return "(always exactly prim-type " + ustr.Int(int(me.primType)) + " and value " + atmolang_irfun.DbgPrintToString(me.val) + ")"
-}
-
-type defReducedCaseValArg struct {
-	name string
-}
-
-type defReducedCaseValAnd struct {
-	vals []iDefReducedCaseVal
-}
-
-type defReducedCaseValOr struct {
-	vals []iDefReducedCaseVal
 }
 
 func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
@@ -100,7 +82,7 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 			if len(kit.state.defsGoneIDsNames) > 0 {
 				for defid, defname := range kit.state.defsGoneIDsNames {
 					if red := kit.defsReduced[defname]; red != nil {
-						red.dropCase(defid)
+						red.dropOverload(defid)
 					}
 				}
 			}
@@ -108,7 +90,7 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 				for _, defid := range kit.state.defsNew {
 					if tldef := kit.lookups.tlDefsByID[defid]; tldef != nil && len(tldef.Errors) == 0 {
 						if red := kit.defsReduced[tldef.Name.Val]; red != nil {
-							red.dropCase(defid)
+							red.dropOverload(defid)
 						}
 						needsReReducing[defid] = kit
 					}
@@ -126,32 +108,32 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 	}
 }
 
-func (me *Ctx) reduceIfNotAlready(kit *Kit, defId string) (red *defReduced, rc *defReducedCase) {
+func (me *Ctx) reduceIfNotAlready(kit *Kit, defId string) (red *defReduced, rc *defOverload) {
 	def := kit.lookups.tlDefsByID[defId]
 	if red = kit.defsReduced[def.Name.Val]; red == nil {
 		red = &defReduced{}
 		kit.defsReduced[def.Name.Val] = red
 	}
-	if rc = red.caseByID(defId); rc == nil {
-		rc = &defReducedCase{ID: defId}
-		red.Cases = append(red.Cases, rc)
+	if rc = red.overloadByID(defId); rc == nil {
+		rc = &defOverload{ID: defId}
+		red.overloads = append(red.overloads, rc)
 		rc.Result, rc.Ret.Desc, rc.Err = me.reduceExpr(kit, def.Body)
 	}
 	return
 }
 
-func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr) (result interface{}, retDesc iDefReducedCaseVal, err *atmo.Error) {
+func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr) (result interface{}, retDesc iDefReducedValDesc, err *atmo.Error) {
 	switch expr := body.(type) {
 	case *atmolang_irfun.AstLitFloat:
-		result, retDesc = expr, &defReducedCaseValPrim{val: expr, primType: rcRetTypeAtomLitFloat}
+		result, retDesc = expr, &defReducedValPrim{val: expr, primType: rcRetTypeAtomLitFloat}
 	case *atmolang_irfun.AstLitRune:
-		result, retDesc = expr, &defReducedCaseValPrim{val: expr, primType: rcRetTypeAtomLitRune}
+		result, retDesc = expr, &defReducedValPrim{val: expr, primType: rcRetTypeAtomLitRune}
 	case *atmolang_irfun.AstLitStr:
-		result, retDesc = expr, &defReducedCaseValPrim{val: expr, primType: rcRetTypeAtomLitStr}
+		result, retDesc = expr, &defReducedValPrim{val: expr, primType: rcRetTypeAtomLitStr}
 	case *atmolang_irfun.AstLitUint:
-		result, retDesc = expr, &defReducedCaseValPrim{val: expr, primType: rcRetTypeAtomLitUint}
+		result, retDesc = expr, &defReducedValPrim{val: expr, primType: rcRetTypeAtomLitUint}
 	case *atmolang_irfun.AstIdentTag:
-		result, retDesc = expr, &defReducedCaseValPrim{val: expr, primType: rcRetTypeAtomIdentTag}
+		result, retDesc = expr, &defReducedValPrim{val: expr, primType: rcRetTypeAtomIdentTag}
 	case *atmolang_irfun.AstIdentName:
 		result, retDesc, err = me.reduceExprIdentName(kit, expr)
 	default:
@@ -160,7 +142,7 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr) (result interf
 	return
 }
 
-func (me *Ctx) reduceExprIdentName(kit *Kit, expr *atmolang_irfun.AstIdentName) (result interface{}, retDesc iDefReducedCaseVal, err *atmo.Error) {
+func (me *Ctx) reduceExprIdentName(kit *Kit, expr *atmolang_irfun.AstIdentName) (result interface{}, retDesc iDefReducedValDesc, err *atmo.Error) {
 	candidates := expr.NamesInScope[expr.Val]
 	switch len(candidates) {
 	case 0:
