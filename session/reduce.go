@@ -87,9 +87,9 @@ type defReducedCaseValOr struct {
 	vals []iDefReducedCaseVal
 }
 
-func (me *Ctx) reReduceAffectedIRsIfAnyKitsReloaded() {
-	if me.state.someKitsReloaded {
-		me.state.someKitsReloaded = false
+func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
+	if me.state.someKitsNeedReprocessing {
+		me.state.someKitsNeedReprocessing = false
 
 		me.kitsRepopulateIdentNamesInScope()
 		needsReReducing := make(map[string]*Kit, 32)
@@ -116,7 +116,7 @@ func (me *Ctx) reReduceAffectedIRsIfAnyKitsReloaded() {
 		}
 		var errs []error
 		for defid, kit := range needsReReducing {
-			if _, rc := me.reduceIfNotAlready(kit, defid); rc.Err != nil {
+			if _, rc := me.reduceIfNotAlready(kit, defid); rc.Err != nil && !rc.Err.IsRef() {
 				errs = append(errs, rc.Err)
 			}
 		}
@@ -133,13 +133,9 @@ func (me *Ctx) reduceIfNotAlready(kit *Kit, defId string) (red *defReduced, rc *
 	if rc = red.caseByID(defId); rc == nil {
 		rc = &defReducedCase{ID: defId}
 		red.Cases = append(red.Cases, rc)
-		me.reduce(kit, def, red, rc)
+		rc.Result, rc.Ret.Desc, rc.Err = me.reduceExpr(kit, def.Body)
 	}
 	return
-}
-
-func (me *Ctx) reduce(kit *Kit, defTop *atmolang_irfun.AstDefTop, red *defReduced, rc *defReducedCase) {
-	rc.Result, rc.Ret.Desc, rc.Err = me.reduceExpr(kit, defTop.Body)
 }
 
 func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr) (result interface{}, retDesc iDefReducedCaseVal, err *atmo.Error) {
@@ -174,8 +170,8 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr) (result interf
 				}
 				if def.Arg != nil {
 					err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve to func")
-				} else {
-					result, retDesc, err = me.reduceExpr(kit, def.Body)
+				} else if result, retDesc, err = me.reduceExpr(kit, def.Body); err != nil && !err.IsRef() {
+					err = atmo.ErrRef(err)
 				}
 			}
 		default:

@@ -14,8 +14,9 @@ func (me *Ctx) Eval(kit *Kit, src string) (str string, errs []error) {
 		for e := range errors {
 			errs = append(errs, &errors[e])
 		}
-		if len(errs) == 0 && irx != nil {
-			if _, retdesc, err := me.reduceExpr(me.Kits.all.byDirPath(me.Dirs.sess[0]), irx); err != nil {
+		if kit := me.Kits.all.byDirPath(me.Dirs.sess[0]); len(errs) == 0 && irx != nil {
+			kit.lookups.namesInScopeAll.repopulateAstIdents(irx)
+			if _, retdesc, err := me.reduceExpr(kit, irx); err != nil {
 				errs = append(errs, err)
 			} else {
 				str = retdesc.String()

@@ -18,20 +18,27 @@ const (
 )
 
 type Error struct {
-	Msg string
-	Pos scanner.Position
-	Len int
-	Cat ErrorCategory
+	ref *Error
+	msg string
+	pos scanner.Position
+	len int
+	cat ErrorCategory
 }
 
 // At ensures that `Error` shares an interface with `udevlex.Error`.
 func (me *Error) At() *scanner.Position {
-	return &me.Pos
+	if me.ref != nil {
+		return me.ref.At()
+	}
+	return &me.pos
 }
 
 func (me *Error) Error() (msg string) {
-	msg = me.Pos.String() + ": "
-	switch me.Cat {
+	if me.ref != nil {
+		return me.ref.Error()
+	}
+	msg = me.pos.String() + ": "
+	switch me.cat {
 	case ErrCatTodo:
 		msg += "[──TODO──] not yet implemented: "
 	case ErrCatLexing:
@@ -45,9 +52,11 @@ func (me *Error) Error() (msg string) {
 	default:
 		msg += "[other] "
 	}
-	msg += me.Msg
+	msg += me.msg
 	return
 }
+
+func (me *Error) IsRef() bool { return me.ref != nil }
 
 func (me *Errors) Add(errs Errors) (anyAdded bool) {
 	if anyAdded = len(errs) > 0; anyAdded {
@@ -59,7 +68,7 @@ func (me *Errors) Add(errs Errors) (anyAdded bool) {
 func (me *Errors) AddVia(v interface{}, errs Errors) interface{} { me.Add(errs); return v }
 
 func ErrAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
-	return &Error{Msg: msg, Pos: *pos, Len: length, Cat: cat}
+	return &Error{msg: msg, pos: *pos, len: length, cat: cat}
 }
 
 func ErrLex(pos *scanner.Position, msg string) *Error {
@@ -82,10 +91,14 @@ func ErrTodo(tok *udevlex.Token, msg string) *Error {
 	return ErrAt(ErrCatTodo, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
 
+func ErrRef(err *Error) *Error {
+	return &Error{ref: err}
+}
+
 type Errors []Error
 
 func (me *Errors) AddAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) {
-	*me = append(*me, Error{Msg: msg, Pos: *pos, Len: length, Cat: cat})
+	*me = append(*me, Error{msg: msg, pos: *pos, len: length, cat: cat})
 }
 
 func (me *Errors) AddLex(pos *scanner.Position, msg string) {
@@ -116,11 +129,11 @@ func (me Errors) Len() int          { return len(me) }
 func (me Errors) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me Errors) Less(i int, j int) bool {
 	ei, ej := &me[i], &me[j]
-	if ei.Pos.Filename == ej.Pos.Filename {
-		if ei.Pos.Offset == ej.Pos.Offset {
-			return ei.Msg < ej.Msg
+	if ei.pos.Filename == ej.pos.Filename {
+		if ei.pos.Offset == ej.pos.Offset {
+			return ei.msg < ej.msg
 		}
-		return ei.Pos.Offset < ej.Pos.Offset
+		return ei.pos.Offset < ej.pos.Offset
 	}
-	return ei.Pos.Filename < ej.Pos.Filename
+	return ei.pos.Filename < ej.pos.Filename
 }

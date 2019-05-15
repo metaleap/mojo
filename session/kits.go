@@ -200,7 +200,7 @@ func (me *Ctx) initKits() {
 						panic(kitdirpath)
 					}
 				}
-				me.reReduceAffectedIRsIfAnyKitsReloaded()
+				me.reprocessAffectedIRsIfAnyKitsReloaded()
 				if me.state.fileModsWatch.emitMsgsIfManual {
 					me.bgMsg(true, false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+", which took "+time.Duration(time.Now().UnixNano()-starttime).String()+".")
 				}

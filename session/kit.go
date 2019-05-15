@@ -33,18 +33,18 @@ type Kit struct {
 		tlDefIDsByName  map[string][]string
 		namesInScopeOwn namesInScope
 		namesInScopeExt namesInScope
+		namesInScopeAll namesInScope
 	}
 	errs struct {
 		dirAccessDuringRefresh error
 		badImports             []error
-		badNames               atmo.Errors
 	}
 }
 
 func (me *Ctx) kitEnsureLoaded(kit *Kit, redoIRs bool) {
 	me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.runningAutomaticallyPeriodically, !kit.WasEverToBeLoaded)
 	if redoIRs {
-		me.reReduceAffectedIRsIfAnyKitsReloaded()
+		me.reprocessAffectedIRsIfAnyKitsReloaded()
 	}
 }
 
@@ -69,10 +69,9 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 			me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.runningAutomaticallyPeriodically, true)
 		}
 	}
-	me.reReduceAffectedIRsIfAnyKitsReloaded()
+	me.reprocessAffectedIRsIfAnyKitsReloaded()
 	me.state.Unlock()
 }
-
 func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
 	return ustr.In(kit.DirPath, me.Dirs.sess...)
 }
@@ -124,8 +123,8 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		atmo.SortMaybe(kit.srcFiles)
 	}
 	if kit.WasEverToBeLoaded || forceReload {
-		kit.WasEverToBeLoaded, kit.errs.badImports, kit.errs.badNames, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID, kit.lookups.allNames =
-			true, nil, nil, nil, nil, nil
+		kit.WasEverToBeLoaded, kit.errs.badImports, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID, kit.lookups.allNames =
+			true, nil, nil, nil, nil
 
 		for _, sf := range kit.srcFiles {
 			fresherrs = append(fresherrs, sf.LexAndParseFile(true, false)...)
@@ -146,7 +145,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 			od, nd, fe := kit.topLevel.ReInitFrom(kit.srcFiles)
 			kit.state.defsGoneIDsNames, kit.state.defsNew, fresherrs = od, nd, append(fresherrs, fe...)
 			if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
-				me.state.someKitsReloaded = true
+				me.state.someKitsNeedReprocessing = true
 			}
 		}
 		kit.lookups.allNames, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID =
@@ -183,12 +182,9 @@ func (me *Kit) Errors() (errs []error) {
 			errs = append(errs, &me.topLevel[i].Errors[e])
 		}
 	}
-	for i := range me.errs.badNames {
-		errs = append(errs, &me.errs.badNames[i])
-	}
 	for _, defred := range me.defsReduced {
 		for _, rc := range defred.Cases {
-			if rc.Err != nil {
+			if rc.Err != nil && !rc.Err.IsRef() {
 				errs = append(errs, rc.Err)
 			}
 		}

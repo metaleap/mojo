@@ -41,8 +41,8 @@ type Ctx struct {
 			runningAutomaticallyPeriodically bool
 			emitMsgsIfManual                 bool
 		}
-		someKitsReloaded bool
-		initCalled       bool
+		someKitsNeedReprocessing bool
+		initCalled               bool
 	}
 }
 
