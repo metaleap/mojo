@@ -92,6 +92,9 @@ func ErrTodo(tok *udevlex.Token, msg string) *Error {
 }
 
 func ErrRef(err *Error) *Error {
+	if err.ref != nil {
+		return err
+	}
 	return &Error{ref: err}
 }
 

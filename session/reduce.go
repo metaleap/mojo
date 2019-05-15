@@ -46,7 +46,20 @@ type defOverloadRet struct {
 	Desc iDefReducedValDesc
 }
 
+type defReducedValDescs []iDefReducedValDesc
+
+func (me defReducedValDescs) String() (s string) {
+	for i, vd := range me {
+		if i > 0 {
+			s += " AND "
+		}
+		s += vd.String()
+	}
+	return
+}
+
 type iDefReducedValDesc interface {
+	// Satisfies(iDefReducedValDesc) bool
 	String() string
 }
 
@@ -67,7 +80,25 @@ type defReducedValPrim struct {
 }
 
 func (me *defReducedValPrim) String() string {
-	return "(always exactly prim-type " + ustr.Int(int(me.primType)) + " and value " + atmolang_irfun.DbgPrintToString(me.val) + ")"
+	return "always exactly prim-type " + ustr.Int(int(me.primType)) + " and value " + atmolang_irfun.DbgPrintToString(me.val)
+}
+
+type defReducedValArgRef struct {
+	name            string
+	alwaysSatisfies defReducedValDescs
+}
+
+func (me *defReducedValArgRef) String() string {
+	return "value of arg `" + me.name + "`, which always satisfies " + me.alwaysSatisfies.String()
+}
+
+type defReducedValDefRef struct {
+	arg  *defReducedValArgRef
+	body iDefReducedValDesc
+}
+
+func (me *defReducedValDefRef) String() string {
+	return "callable that takes (" + me.arg.String() + ") and returns (" + me.body.String() + ")"
 }
 
 func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
@@ -99,6 +130,7 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 		}
 		var errs []error
 		for defid, kit := range needsReReducing {
+			me.state.reduceArgs = map[string]iDefReducedValDesc{}
 			if _, rc := me.reduceIfNotAlready(kit, defid); rc.Err != nil && !rc.Err.IsRef() {
 				errs = append(errs, rc.Err)
 			}
@@ -135,8 +167,27 @@ func (me *Ctx) reduceExpr(kit *Kit, body atmolang_irfun.IAstExpr) (result interf
 		result, retDesc = expr, &defReducedValPrim{val: expr, primType: rcRetTypeAtomIdentTag}
 	case *atmolang_irfun.AstIdentName:
 		result, retDesc, err = me.reduceExprIdentName(kit, expr)
+	case *atmolang_irfun.AstAppl:
+		result, retDesc, err = me.reduceExprAppl(kit, expr)
 	default:
 		err = atmo.ErrTodo(expr.Origin().Toks().First(nil), fmt.Sprintf("%T", expr))
+	}
+	return
+}
+
+func (me *Ctx) reduceExprAppl(kit *Kit, expr *atmolang_irfun.AstAppl) (result interface{}, retDesc iDefReducedValDesc, err *atmo.Error) {
+	if _, callee, cerr := me.reduceExpr(kit, expr.AtomicCallee); cerr != nil {
+		err = atmo.ErrRef(cerr)
+	} else if _, arg, aerr := me.reduceExpr(kit, expr.AtomicArg); aerr != nil {
+		err = atmo.ErrRef(aerr)
+	} else if calleedef, _ := callee.(*defReducedValDefRef); calleedef == nil {
+		err = atmo.ErrReducing(expr.AtomicCallee.Origin().Toks().First(nil), "not callable")
+	} else {
+		me.state.reduceArgs[calleedef.arg.name] = arg
+		panic(fmt.Sprintf("%T", calleedef.body))
+		// if result, retDesc, err = me.reduceExpr(kit, calleedef.body); err != nil {
+		// 	err = atmo.ErrRef(err)
+		// }
 	}
 	return
 }
@@ -153,15 +204,20 @@ func (me *Ctx) reduceExprIdentName(kit *Kit, expr *atmolang_irfun.AstIdentName) 
 		err = atmo.ErrNaming(&expr.Orig.Tokens[0], "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
 	case 1:
 		if maybearg, _ := candidates[0].(*atmolang_irfun.AstDefArg); maybearg != nil {
-			err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve args")
+			retDesc = &defReducedValArgRef{name: maybearg.AstIdentName.Val}
 		} else {
 			def, _ := candidates[0].(*atmolang_irfun.AstDef)
 			if def == nil {
 				def = &candidates[0].(*atmolang_irfun.AstDefTop).AstDef
 			}
 			if def.Arg != nil {
-				err = atmo.ErrTodo(&expr.Orig.Tokens[0], "resolve to func")
-			} else if result, retDesc, err = me.reduceExpr(kit, def.Body); err != nil && !err.IsRef() {
+				_, rvdbody, e := me.reduceExpr(kit, def.Body)
+				if e != nil {
+					err = atmo.ErrRef(e)
+				} else {
+					retDesc = &defReducedValDefRef{arg: &defReducedValArgRef{name: def.Arg.AstIdentName.Val}, body: rvdbody}
+				}
+			} else if result, retDesc, err = me.reduceExpr(kit, def.Body); err != nil {
 				err = atmo.ErrRef(err)
 			}
 		}

@@ -10,7 +10,7 @@ type IAstNode interface {
 	Print() atmolang.IAstNode
 	Origin() atmolang.IAstNode
 
-	equivTo(IAstNode) bool
+	EquivTo(IAstNode) bool
 	renameIdents(map[string]string)
 	refersTo(string) bool
 }
@@ -53,9 +53,9 @@ func (me *AstDef) renameIdents(ren map[string]string) {
 	}
 	me.Body.renameIdents(ren)
 }
-func (me *AstDef) equivTo(node IAstNode) bool {
+func (me *AstDef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
-	return cmp != nil && cmp.Name.equivTo(&me.Name) && cmp.Arg.isEquivTo(me.Arg) && cmp.Body.equivTo(me.Body)
+	return cmp != nil && cmp.Name.EquivTo(&me.Name) && cmp.Arg.isEquivTo(me.Arg) && cmp.Body.EquivTo(me.Body)
 }
 
 type AstDefTop struct {
@@ -74,7 +74,7 @@ type AstDefArg struct {
 
 func (me *AstDefArg) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstDefArg) isEquivTo(cmp *AstDefArg) bool {
-	return ((me == nil) == (cmp == nil)) && (me == nil || me.AstIdentName.equivTo(&cmp.AstIdentName))
+	return ((me == nil) == (cmp == nil)) && (me == nil || me.AstIdentName.EquivTo(&cmp.AstIdentName))
 }
 
 type AstExprBase struct {
@@ -103,7 +103,7 @@ type AstLitRune struct {
 	Val rune
 }
 
-func (me *AstLitRune) equivTo(node IAstNode) bool {
+func (me *AstLitRune) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitRune)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -113,7 +113,7 @@ type AstLitStr struct {
 	Val string
 }
 
-func (me *AstLitStr) equivTo(node IAstNode) bool {
+func (me *AstLitStr) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitStr)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -123,7 +123,7 @@ type AstLitUint struct {
 	Val uint64
 }
 
-func (me *AstLitUint) equivTo(node IAstNode) bool {
+func (me *AstLitUint) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitUint)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -133,7 +133,7 @@ type AstLitFloat struct {
 	Val float64
 }
 
-func (me *AstLitFloat) equivTo(node IAstNode) bool {
+func (me *AstLitFloat) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitFloat)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -164,7 +164,7 @@ func (me *AstExprLetBase) LetDefs() AstDefs { return me.letDefs }
 func (me *AstExprLetBase) letDefsEquivTo(cmp *AstExprLetBase) bool {
 	if len(me.letDefs) == len(cmp.letDefs) {
 		for i := range me.letDefs {
-			if !me.letDefs[i].equivTo(&cmp.letDefs[i]) {
+			if !me.letDefs[i].EquivTo(&cmp.letDefs[i]) {
 				return false
 			}
 		}
@@ -213,7 +213,7 @@ func (me *AstIdentName) Origin() atmolang.IAstNode {
 func (me *AstIdentName) refersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
 }
-func (me *AstIdentName) equivTo(node IAstNode) bool {
+func (me *AstIdentName) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentName)
 	return cmp != nil && cmp.Val == me.Val && cmp.letDefsEquivTo(&me.AstExprLetBase)
 }
@@ -228,7 +228,7 @@ type AstIdentVar struct {
 	AstIdentBase
 }
 
-func (me *AstIdentVar) equivTo(node IAstNode) bool {
+func (me *AstIdentVar) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentVar)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -237,7 +237,7 @@ type AstIdentTag struct {
 	AstIdentBase
 }
 
-func (me *AstIdentTag) equivTo(node IAstNode) bool {
+func (me *AstIdentTag) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentTag)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -246,7 +246,7 @@ type AstIdentEmptyParens struct {
 	AstIdentBase
 }
 
-func (me *AstIdentEmptyParens) equivTo(node IAstNode) bool {
+func (me *AstIdentEmptyParens) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentEmptyParens)
 	return cmp != nil
 }
@@ -265,9 +265,9 @@ func (me *AstAppl) Origin() atmolang.IAstNode {
 	}
 	return me.Orig
 }
-func (me *AstAppl) equivTo(node IAstNode) bool {
+func (me *AstAppl) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstAppl)
-	return cmp != nil && cmp.AtomicCallee.equivTo(me.AtomicCallee) && cmp.AtomicArg.equivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.AstExprLetBase)
+	return cmp != nil && cmp.AtomicCallee.EquivTo(me.AtomicCallee) && cmp.AtomicArg.EquivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.AstExprLetBase)
 }
 func (me *AstAppl) renameIdents(ren map[string]string) {
 	me.AtomicCallee.renameIdents(ren)
@@ -292,16 +292,16 @@ func (me *AstCases) Origin() atmolang.IAstNode {
 	}
 	return me.Orig
 }
-func (me *AstCases) equivTo(node IAstNode) bool {
+func (me *AstCases) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstCases)
 	if cmp != nil && len(cmp.Ifs) == len(me.Ifs) && len(cmp.Thens) == len(me.Thens) {
 		for i := range cmp.Ifs {
-			if !cmp.Ifs[i].equivTo(me.Ifs[i]) {
+			if !cmp.Ifs[i].EquivTo(me.Ifs[i]) {
 				return false
 			}
 		}
 		for i := range cmp.Thens {
-			if !cmp.Thens[i].equivTo(me.Thens[i]) {
+			if !cmp.Thens[i].EquivTo(me.Thens[i]) {
 				return false
 			}
 		}
