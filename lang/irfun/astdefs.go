@@ -103,16 +103,14 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 		var let AstExprLetBase
 		var ctxastinit ctxAstInit
 		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevel = ctxastinit.nextPrefix(), &let.letDefs, def.Orig
-		def.Errors.Add(def.initFrom(&ctxastinit, def.Orig))
+		def.Errs.Add(def.initFrom(&ctxastinit, def.Orig))
 		if len(let.letDefs) > 0 {
-			def.Errors.Add(ctxastinit.addLetDefsToNode(def.Orig.Body, def.Body, &let))
+			def.Errs.Add(ctxastinit.addLetDefsToNode(def.Orig.Body, def.Body, &let))
 		}
-		if len(def.Errors) > 0 {
-			for e := range def.Errors {
-				freshErrs = append(freshErrs, &def.Errors[e])
-			}
+		if len(def.Errs) > 0 {
+			freshErrs = append(freshErrs, def.Errs.Errors()...)
 		}
-		atmo.SortMaybe(def.Errors)
+		atmo.SortMaybe(def.Errs)
 	}
 	atmo.SortMaybe(this)
 	*me = this

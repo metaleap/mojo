@@ -11,9 +11,7 @@ func (me *Ctx) Eval(kit *Kit, src string) (str string, errs []error) {
 		errs = append(errs, err)
 	} else {
 		irx, errors := atmolang_irfun.ExprFrom(expr)
-		for e := range errors {
-			errs = append(errs, &errors[e])
-		}
+		errs = append(errs, errors.Errors()...)
 		if kit := me.Kits.all.byDirPath(me.Dirs.sess[0]); len(errs) == 0 && irx != nil {
 			kit.lookups.namesInScopeAll.repopulateAstIdents(irx)
 			// if retdesc, err := me.inferFactsForExpr(kit, irx); err != nil {

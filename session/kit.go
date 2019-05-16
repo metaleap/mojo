@@ -183,15 +183,13 @@ func (me *Kit) Errors() (errs []error) {
 		}
 	}
 	for i := range me.topLevel {
-		for e := range me.topLevel[i].Errors {
-			errs = append(errs, &me.topLevel[i].Errors[e])
-		}
+		errs = append(errs, me.topLevel[i].Errs.Errors()...)
 	}
 	for _, dins := range me.defsFacts {
 		for _, dol := range dins.overloads {
 			dolerrs := dol.Errs()
-			for i := range dolerrs {
-				if e := &dolerrs[i]; !e.IsRef() {
+			for _, e := range dolerrs {
+				if !e.IsRef() {
 					errs = append(errs, e)
 				}
 			}

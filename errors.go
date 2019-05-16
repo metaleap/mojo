@@ -58,15 +58,6 @@ func (me *Error) Error() (msg string) {
 
 func (me *Error) IsRef() bool { return me.ref != nil }
 
-func (me *Errors) Add(errs Errors) (anyAdded bool) {
-	if anyAdded = len(errs) > 0; anyAdded {
-		*me = append(*me, errs...)
-	}
-	return
-}
-
-func (me *Errors) AddVia(v interface{}, errs Errors) interface{} { me.Add(errs); return v }
-
 func ErrAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
 	return &Error{msg: msg, pos: *pos, len: length, cat: cat}
 }
@@ -98,10 +89,19 @@ func ErrRef(err *Error) *Error {
 	return &Error{ref: err}
 }
 
-type Errors []Error
+type Errors []*Error
+
+func (me *Errors) Add(errs Errors) (anyAdded bool) {
+	if anyAdded = len(errs) > 0; anyAdded {
+		*me = append(*me, errs...)
+	}
+	return
+}
+
+func (me *Errors) AddVia(v interface{}, errs Errors) interface{} { me.Add(errs); return v }
 
 func (me *Errors) AddAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) {
-	*me = append(*me, Error{msg: msg, pos: *pos, len: length, cat: cat})
+	*me = append(*me, &Error{msg: msg, pos: *pos, len: length, cat: cat})
 }
 
 func (me *Errors) AddLex(pos *scanner.Position, msg string) {
@@ -128,7 +128,15 @@ func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) {
 	me.AddAt(cat, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
 
-func (me Errors) Errors() (s []string) {
+func (me Errors) Errors() (errs []error) {
+	errs = make([]error, len(me))
+	for i, e := range me {
+		errs[i] = e
+	}
+	return
+}
+
+func (me Errors) Strings() (s []string) {
 	s = make([]string, len(me))
 	for i := range me {
 		s[i] = me[i].Error()
@@ -138,8 +146,8 @@ func (me Errors) Errors() (s []string) {
 
 func (me Errors) Refs() (refs Errors) {
 	refs = make(Errors, len(me))
-	for i := range me {
-		refs[i] = *ErrRef(&me[i])
+	for i, e := range me {
+		refs[i] = ErrRef(e)
 	}
 	return
 }
@@ -147,7 +155,7 @@ func (me Errors) Refs() (refs Errors) {
 func (me Errors) Len() int          { return len(me) }
 func (me Errors) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me Errors) Less(i int, j int) bool {
-	ei, ej := &me[i], &me[j]
+	ei, ej := me[i], me[j]
 	if ei.pos.Filename == ej.pos.Filename {
 		if ei.pos.Offset == ej.pos.Offset {
 			return ei.msg < ej.msg

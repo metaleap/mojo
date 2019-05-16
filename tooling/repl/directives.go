@@ -225,7 +225,7 @@ func (me *Repl) dInfoDef(whatKit string, whatName string) {
 	me.withKitDefs(whatKit, whatName, false, "info", func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
 		findings := me.Ctx.KitDefFacts(kit, def)
 		if errs := findings.Errs(); len(errs) > 0 {
-			me.IO.writeLns(errs.Errors()...)
+			me.IO.writeLns(errs.Strings()...)
 		} else if str := findings.String(); str != "" {
 			me.IO.writeLns(str)
 		} else {
@@ -246,7 +246,7 @@ func (me *Repl) DSrcs(what string) bool {
 			ctxp.WriteTo(me.IO.Stdout)
 			ctxp.Reset()
 
-			if len(def.Errors) == 0 {
+			if len(def.Errs) == 0 {
 				ir2lang := def.Print().(*atmolang.AstDef)
 				me.decoAddNotice(false, "", true, "internal representation:", "")
 				ctxp.ApplStyle = atmolang.APPLSTYLE_VSO

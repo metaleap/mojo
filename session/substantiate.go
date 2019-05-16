@@ -83,7 +83,7 @@ type valFactErrs struct {
 }
 
 func (me *valFactErrs) Errs() atmo.Errors { return me.Errors }
-func (me *valFactErrs) String() string    { return ustr.Join(me.Errors.Errors(), "\n") }
+func (me *valFactErrs) String() string    { return ustr.Join(me.Errors.Strings(), "\n") }
 
 type valFactPrim struct {
 	orig  atmolang_irfun.IAstExpr
@@ -134,11 +134,8 @@ type valFactArgRef struct {
 	*valFactCallable
 }
 
-func (me *valFactArgRef) Errs() (errs atmo.Errors) {
-	errs.Add(me.valFactCallable.Errs().Refs())
-	return
-}
-func (me *valFactArgRef) String() string { return me.valFactCallable.arg.String() }
+func (me *valFactArgRef) Errs() (errs atmo.Errors) { return me.valFactCallable.arg.Errs() }
+func (me *valFactArgRef) String() string           { return me.valFactCallable.arg.String() }
 
 type defValFinisher func(*Kit, *defIdFacts, *atmolang_irfun.AstDef)
 
@@ -187,7 +184,7 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 			}
 			if len(kit.state.defsNew) > 0 {
 				for _, defid := range kit.state.defsNew {
-					if tldef := kit.lookups.tlDefsByID[defid]; tldef != nil && len(tldef.Errors) == 0 {
+					if tldef := kit.lookups.tlDefsByID[defid]; tldef != nil && len(tldef.Errs) == 0 {
 						if dans := kit.defsFacts[tldef.Name.Val]; dans != nil && dans.overloadByID(defid) != nil {
 							panic(defid) // to see if this ever occurs
 						}
@@ -200,8 +197,8 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 		var errs []error
 		for defid, kit := range needsReSubst {
 			if errors := me.substantiateFactsIfNotAlready(kit, defid).Errs(); len(errors) > 0 {
-				for i := range errors {
-					if e := &errors[i]; !e.IsRef() {
+				for _, e := range errors {
+					if !e.IsRef() {
 						errs = append(errs, e)
 					}
 				}

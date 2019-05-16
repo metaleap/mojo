@@ -38,7 +38,7 @@ type AstFileTopLevelChunk struct {
 	}
 	id       [3]uint64
 	_id      string
-	_errs    []error
+	_errs    atmo.Errors
 	srcDirty bool
 	errs     struct {
 		lexing  atmo.Errors
@@ -51,13 +51,10 @@ func (me *AstFileTopLevelChunk) HasErrors() bool {
 	return me.errs.parsing != nil || len(me.errs.lexing) > 0
 }
 
-func (me *AstFileTopLevelChunk) Errors() []error {
+func (me *AstFileTopLevelChunk) Errs() atmo.Errors {
 	if me._errs == nil {
-		me._errs = make([]error, 0, len(me.errs.lexing)+1)
-		for i := range me.errs.lexing {
-			me._errs = append(me._errs, &me.errs.lexing[i])
-		}
-		if me.errs.parsing != nil {
+		me._errs = make(atmo.Errors, 0, len(me.errs.lexing)+1)
+		if me._errs.Add(me.errs.lexing); me.errs.parsing != nil {
 			me._errs = append(me._errs, me.errs.parsing)
 		}
 	}
@@ -95,7 +92,7 @@ func (me *AstFile) Errors() []error {
 			me._errs = append(me._errs, me.errs.loading)
 		}
 		for i := range me.TopLevel {
-			me._errs = append(me._errs, me.TopLevel[i].Errors()...)
+			me._errs = append(me._errs, me.TopLevel[i].Errs().Errors()...)
 		}
 	}
 	return me._errs

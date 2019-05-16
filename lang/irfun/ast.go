@@ -63,7 +63,7 @@ type AstDefTop struct {
 
 	ID       string
 	TopLevel *atmolang.AstFileTopLevelChunk
-	Errors   atmo.Errors
+	Errs     atmo.Errors
 }
 
 type AstDefArg struct {
