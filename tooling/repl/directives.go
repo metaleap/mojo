@@ -7,6 +7,7 @@ import (
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
+	"github.com/metaleap/atmo/lang/irfun"
 	"github.com/metaleap/atmo/session"
 )
 
@@ -221,81 +222,97 @@ func (me *Repl) dInfoKit(whatKit string) {
 }
 
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
-	me.IO.writeLns("Info on name: " + whatName + " in " + whatKit)
+	me.withKitDefs(whatKit, whatName, func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
+		if facts, errs := me.Ctx.KitDefFacts(kit, def); len(errs) > 0 {
+			me.IO.writeLns(errs.Errors()...)
+		} else if facts != nil {
+			me.IO.writeLns(facts.String())
+		} else {
+			me.IO.writeLns("‹in progress›")
+		}
+	})
 }
 
 func (me *Repl) DSrcs(what string) bool {
 	if whatkit, whatname := me.what2KitAndName(what); whatkit != "" && whatname != "" {
-		me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
-			var kit *atmosess.Kit
-			if searchloaded, searchall := (whatkit == "_"), (whatkit == "*"); !(searchall || searchloaded) {
-				if kit = kits.ByImpPath(whatkit); kit == nil && (whatkit == "." || whatkit == "~") {
-					for i := range kits {
-						if me.Ctx.KitIsSessionDirFauxKit(kits[i]) {
-							kit = kits[i]
-							break
-						}
-					}
-				}
-			} else {
-				var finds atmosess.Kits
-				for _, k := range kits {
-					if searchall {
-						me.Ctx.KitEnsureLoaded(k)
-					}
-					if k.HasDefs(whatname) {
-						finds = append(finds, k)
-					}
-				}
-				if len(finds) == 1 {
-					kit = finds[0]
-				} else {
-					if len(finds) > 1 {
-						me.IO.writeLns("Defs named `" + whatname + "` were found in " + ustr.Int(len(finds)) + " currently-" + ustr.If(searchall, "known", "loaded") + " kits. Pick one:")
-						for _, k := range finds {
-							me.IO.writeLns("    :srcs " + k.ImpPath + " " + whatname)
-						}
-					} else {
-						me.IO.writeLns("No defs named `" + whatname + "` were found in any currently-" + ustr.If(searchall, "known", "loaded") + " kits.")
-					}
-					return
-				}
-			}
-			if kit == nil {
-				me.IO.writeLns("Unknown kit: `" + whatkit + "`, see known kits via `:list _`.")
-			} else {
-				me.Ctx.KitEnsureLoaded(kit)
-				defs, ctxp := kit.Defs(whatname, true), atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
-					ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
-				me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatname+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
-				var nakedalias string
-				for _, def := range defs {
-					if def.Name.Val != whatname {
-						nakedalias = def.Name.Val
-					}
-					me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath)
-					ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
-					def.TopLevel.Print(&ctxp)
-					ctxp.WriteTo(me.IO.Stdout)
-					ctxp.Reset()
+		ctxp := atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
+			ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
-					if len(def.Errors) == 0 {
-						ir2lang := def.Print().(*atmolang.AstDef)
-						me.decoAddNotice(false, "", true, "internal representation:", "")
-						ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
-						ctxp.CurTopLevel = ir2lang
-						ir2lang.Print(&ctxp)
-						ctxp.WriteTo(me.IO.Stdout)
-						ctxp.Reset()
-						me.IO.writeLns("", "")
-					}
-				}
-				if nakedalias != "" {
-					me.IO.writeLns("(def `" + whatname + "` is a mere alias for `" + nakedalias + "`)")
-				}
+		me.withKitDefs(whatkit, whatname, func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
+			me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath)
+			ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
+			def.TopLevel.Print(&ctxp)
+			ctxp.WriteTo(me.IO.Stdout)
+			ctxp.Reset()
+
+			if len(def.Errors) == 0 {
+				ir2lang := def.Print().(*atmolang.AstDef)
+				me.decoAddNotice(false, "", true, "internal representation:", "")
+				ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
+				ctxp.CurTopLevel = ir2lang
+				ir2lang.Print(&ctxp)
+				ctxp.WriteTo(me.IO.Stdout)
+				ctxp.Reset()
+				me.IO.writeLns("", "")
 			}
 		})
 		return true
 	}
 	return false
+}
+
+func (me *Repl) withKitDefs(whatKit string, whatName string, on func(*atmosess.Kit, *atmolang_irfun.AstDefTop)) {
+	me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
+		var kit *atmosess.Kit
+		if searchloaded, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloaded) {
+			if kit = kits.ByImpPath(whatKit); kit == nil && (whatKit == "." || whatKit == "~") {
+				for i := range kits {
+					if me.Ctx.KitIsSessionDirFauxKit(kits[i]) {
+						kit = kits[i]
+						break
+					}
+				}
+			}
+		} else {
+			var finds atmosess.Kits
+			for _, k := range kits {
+				if searchall {
+					me.Ctx.KitEnsureLoaded(k)
+				}
+				if k.HasDefs(whatName) {
+					finds = append(finds, k)
+				}
+			}
+			if len(finds) == 1 {
+				kit = finds[0]
+			} else {
+				if len(finds) > 1 {
+					me.IO.writeLns("Defs named `" + whatName + "` were found in " + ustr.Int(len(finds)) + " currently-" + ustr.If(searchall, "known", "loaded") + " kits. Pick one:")
+					for _, k := range finds {
+						me.IO.writeLns("    :srcs " + k.ImpPath + " " + whatName)
+					}
+				} else {
+					me.IO.writeLns("No defs named `" + whatName + "` were found in any currently-" + ustr.If(searchall, "known", "loaded") + " kits.")
+				}
+				return
+			}
+		}
+		if kit == nil {
+			me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
+		} else {
+			me.Ctx.KitEnsureLoaded(kit)
+			defs := kit.Defs(whatName, true)
+			me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatName+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
+			var nakedalias string
+			for _, def := range defs {
+				if def.Name.Val != whatName {
+					nakedalias = def.Name.Val
+				}
+				on(kit, def)
+			}
+			if nakedalias != "" {
+				me.IO.writeLns("(def `" + whatName + "` is a mere alias for `" + nakedalias + "`)")
+			}
+		}
+	})
 }

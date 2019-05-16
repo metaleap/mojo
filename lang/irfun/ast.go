@@ -6,7 +6,6 @@ import (
 )
 
 type IAstNode interface {
-	IsDefWithArg() bool
 	Print() atmolang.IAstNode
 	Origin() atmolang.IAstNode
 
@@ -32,8 +31,6 @@ type IAstExprWithLetDefs interface {
 type astNodeBase struct {
 }
 
-func (me *astNodeBase) IsDefWithArg() bool { return false }
-
 type AstDef struct {
 	astNodeBase
 	Orig *atmolang.AstDef
@@ -43,7 +40,6 @@ type AstDef struct {
 	Body IAstExpr
 }
 
-func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstDef) refersTo(name string) bool { return me.Body.refersTo(name) }
 func (me *AstDef) renameIdents(ren map[string]string) {
@@ -59,6 +55,8 @@ func (me *AstDef) EquivTo(node IAstNode) bool {
 		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.AstIdentName.EquivTo(&cmp.Arg.AstIdentName))
 }
 
+// AstDefTop embeds an `AstDef` but its `Arg` is always `nil`, as all
+// top-level defs in irfun ASTs are transformed into arg-less defs
 type AstDefTop struct {
 	AstDef
 

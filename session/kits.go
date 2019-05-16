@@ -156,7 +156,7 @@ func (me *Ctx) initKits() {
 							kitimps = nil
 						}
 						me.Kits.all = append(me.Kits.all, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
-							srcFiles: make(atmolang.AstFiles, 0, numfilesguess), defsInferences: make(map[string]*defInferences, numfilesguess*8)})
+							srcFiles: make(atmolang.AstFiles, 0, numfilesguess), defsFacts: make(map[string]*defNameFacts, numfilesguess*8)})
 					}
 					shouldrefresh[kitdirpath] = true
 				}

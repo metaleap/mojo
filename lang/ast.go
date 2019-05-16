@@ -254,6 +254,18 @@ func (me *AstDef) detectNakedAliasIfAny() {
 	}
 }
 
+func (me *AstDef) Argless(prefix func() string) *AstDef {
+	if len(me.Args) == 0 {
+		return me
+	}
+	def, let := *me, &AstExprLet{Defs: make([]AstDef, 1)}
+	let.Tokens, let.Defs[0].Tokens, let.Defs[0].Args, def.Args, let.Defs[0].Name =
+		me.Tokens, me.Tokens, def.Args, nil, def.Name
+	let.Defs[0].Name.Val, let.Defs[0].Body, let.Body, def.Body =
+		prefix()+let.Defs[0].Name.Val, def.Body, &let.Defs[0].Name, let
+	return &def
+}
+
 func (me *AstDef) makeUnary(origName string) {
 	subname, let := ustr.Int(len(me.Args)-1)+origName, AstExprLet{Defs: []AstDef{{Body: me.Body, AstBaseTokens: me.AstBaseTokens}}}
 	subdef := &let.Defs[0]

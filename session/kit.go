@@ -20,10 +20,10 @@ type Kit struct {
 	WasEverToBeLoaded bool
 	Imports           []string
 
-	topLevel       atmolang_irfun.AstTopDefs
-	defsInferences map[string]*defInferences
-	srcFiles       atmolang.AstFiles
-	state          struct {
+	topLevel  atmolang_irfun.AstTopDefs
+	defsFacts map[string]*defNameFacts
+	srcFiles  atmolang.AstFiles
+	state     struct {
 		defsGoneIDsNames map[string]string
 		defsNew          []string
 	}
@@ -72,8 +72,14 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 	me.reprocessAffectedIRsIfAnyKitsReloaded()
 	me.state.Unlock()
 }
+
 func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
 	return ustr.In(kit.DirPath, me.Dirs.sess...)
+}
+
+func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) (ValFacts, atmo.Errors) {
+	dol := me.substantiateFactsIfNotAlready(kit, def.ID)
+	return dol.facts, dol.errs
 }
 
 // WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
@@ -182,10 +188,12 @@ func (me *Kit) Errors() (errs []error) {
 			errs = append(errs, &me.topLevel[i].Errors[e])
 		}
 	}
-	for _, dins := range me.defsInferences {
+	for _, dins := range me.defsFacts {
 		for _, dol := range dins.overloads {
-			if dol.Err != nil && !dol.Err.IsRef() {
-				errs = append(errs, dol.Err)
+			for i := range dol.errs {
+				if e := &dol.errs[i]; !e.IsRef() {
+					errs = append(errs, e)
+				}
 			}
 		}
 	}

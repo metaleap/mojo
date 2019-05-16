@@ -79,6 +79,12 @@ Init validates the `Ctx.Dirs` fields currently set, then builds up its `Kits`
 reflective of the structures found in the various `me.Dirs.Kits` search paths
 and from now on in sync with live modifications to those.
 
+#### func (*Ctx) KitDefFacts
+
+```go
+func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) (ValFacts, atmo.Errors)
+```
+
 #### func (*Ctx) KitEnsureLoaded
 
 ```go
@@ -149,6 +155,15 @@ type CtxBgMsg struct {
 	Issue bool
 	Time  time.Time
 	Lines []string
+}
+```
+
+
+#### type IValFact
+
+```go
+type IValFact interface {
+	String() string
 }
 ```
 
@@ -235,4 +250,17 @@ Swap implements Go's standard `sort.Interface`.
 
 ```go
 func (me Kits) Where(check func(*Kit) bool) (kits Kits)
+```
+
+#### type ValFacts
+
+```go
+type ValFacts []IValFact
+```
+
+
+#### func (ValFacts) String
+
+```go
+func (me ValFacts) String() string
 ```

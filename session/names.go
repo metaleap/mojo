@@ -5,6 +5,11 @@ import (
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
+type astNodeExt struct {
+	atmolang_irfun.IAstNode
+	kit string
+}
+
 type namesInScope map[string][]atmolang_irfun.IAstNode
 
 func (me namesInScope) add(k string, v ...atmolang_irfun.IAstNode) {
