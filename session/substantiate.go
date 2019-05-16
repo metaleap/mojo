@@ -280,6 +280,19 @@ func (me *Ctx) substantiateFactsForExpr(kit *Kit, astExpr atmolang_irfun.IAstExp
 }
 
 func (me *Ctx) substantiateFactsForExprAppl(kit *Kit, expr *atmolang_irfun.AstAppl, tld *defIdFacts, fullArgsScope ...*atmolang_irfun.AstDef) (findings valFacts) {
+	cfacts := me.substantiateFactsForExpr(kit, expr.AtomicCallee, tld, fullArgsScope...)
+	if cerrs := cfacts.errs(false); cerrs != nil && len(cerrs.Errors) > 0 {
+		cfacts.errs(true).Add(cerrs.Errors.Refs())
+	}
+	afacts := me.substantiateFactsForExpr(kit, expr.AtomicArg, tld, fullArgsScope...)
+	if aerrs := afacts.errs(false); aerrs != nil && len(aerrs.Errors) > 0 {
+		afacts.errs(true).Add(aerrs.Errors.Refs())
+	}
+	callable := cfacts.callable(false)
+	if callable == nil {
+		findings.errs(true).AddSubst(expr.AtomicCallee.OrigToks().First(nil), "not callable: "+cfacts.String())
+	} else {
+	}
 	return
 }
 
@@ -295,6 +308,12 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 		findings.errs(true).AddNaming(&expr.Orig.Tokens[0], "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
 	case 1:
 		switch cand := candidates[0].(type) {
+		case *atmolang_irfun.AstDef:
+			findings.add(&valFactRef{valFacts: tld.cache[cand]})
+		case *atmolang_irfun.AstDefTop:
+			findings.add(&valFactRef{valFacts: &me.substantiateFactsIfNotAlready(kit, cand.ID).valFacts})
+		case astNodeExt:
+			findings.add(&valFactRef{valFacts: &me.substantiateFactsIfNotAlready(me.Kits.all.ByImpPath(cand.kit), cand.ID).valFacts})
 		case *atmolang_irfun.AstDefArg:
 			var argdef *atmolang_irfun.AstDef
 			istopleveldefarg := (tld.def.Arg == cand)
@@ -314,12 +333,6 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 			} else {
 				findings.add(&valFactArgRef{tld.cache[argdef].callable(false)})
 			}
-		case *atmolang_irfun.AstDef:
-			findings.add(&valFactRef{valFacts: tld.cache[cand]})
-		case *atmolang_irfun.AstDefTop:
-			findings.add(&valFactRef{valFacts: &me.substantiateFactsIfNotAlready(kit, cand.ID).valFacts})
-		case astNodeExt:
-			findings.add(&valFactRef{valFacts: &me.substantiateFactsIfNotAlready(me.Kits.all.ByImpPath(cand.kit), cand.ID).valFacts})
 		default:
 			panic(cand)
 		}

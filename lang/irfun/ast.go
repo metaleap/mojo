@@ -1,6 +1,7 @@
 package atmolang_irfun
 
 import (
+	"github.com/go-leap/dev/lex"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
@@ -8,6 +9,7 @@ import (
 type IAstNode interface {
 	Print() atmolang.IAstNode
 	Origin() atmolang.IAstNode
+	OrigToks() udevlex.Tokens
 	EquivTo(IAstNode) bool
 	IsDefWithArg() bool
 	renameIdents(map[string]string)
@@ -44,6 +46,16 @@ type AstDef struct {
 
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstDef) OrigToks() (toks udevlex.Tokens) {
+	if me.Orig != nil {
+		toks = me.Orig.Tokens
+	} else if toks = me.Name.OrigToks(); len(toks) == 0 {
+		if toks = me.Arg.OrigToks(); len(toks) == 0 {
+			toks = me.Body.OrigToks()
+		}
+	}
+	return
+}
 func (me *AstDef) refersTo(name string) bool { return me.Body.refersTo(name) }
 func (me *AstDef) renameIdents(ren map[string]string) {
 	me.Name.renameIdents(ren)
@@ -72,6 +84,12 @@ type AstDefArg struct {
 	Orig *atmolang.AstDefArg
 }
 
+func (me *AstDefArg) OrigToks() (toks udevlex.Tokens) {
+	if me.Orig != nil {
+		toks = me.Orig.Tokens
+	}
+	return me.AstIdentName.OrigToks()
+}
 func (me *AstDefArg) Origin() atmolang.IAstNode { return me.Orig }
 
 type AstExprBase struct {
@@ -93,7 +111,13 @@ type AstLitBase struct {
 }
 
 func (me *AstLitBase) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstLitBase) refersTo(string) bool      { return false }
+func (me *AstLitBase) OrigToks() (toks udevlex.Tokens) {
+	if me.Orig != nil {
+		toks = me.Orig.Toks()
+	}
+	return
+}
+func (me *AstLitBase) refersTo(string) bool { return false }
 
 type AstLitRune struct {
 	AstLitBase
@@ -191,6 +215,12 @@ type AstIdentBase struct {
 }
 
 func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstIdentBase) OrigToks() (toks udevlex.Tokens) {
+	if me.Orig != nil {
+		toks = me.Orig.Tokens
+	}
+	return
+}
 func (me *AstIdentBase) refersTo(name string) bool { return name == me.Val }
 
 type AstIdentName struct {
@@ -206,6 +236,14 @@ func (me *AstIdentName) Origin() atmolang.IAstNode {
 		return me.letOrig
 	}
 	return me.Orig
+}
+func (me *AstIdentName) OrigToks() (toks udevlex.Tokens) {
+	if me.Orig != nil {
+		toks = me.Orig.Tokens
+	} else if me.letOrig != nil {
+		toks = me.letOrig.Tokens
+	}
+	return
 }
 func (me *AstIdentName) refersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
@@ -262,6 +300,16 @@ func (me *AstAppl) Origin() atmolang.IAstNode {
 	}
 	return me.Orig
 }
+func (me *AstAppl) OrigToks() (toks udevlex.Tokens) {
+	if me.Orig != nil {
+		toks = me.Orig.Tokens
+	} else if toks = me.AtomicCallee.OrigToks(); len(toks) == 0 {
+		if toks = me.AtomicArg.OrigToks(); len(toks) == 0 && me.letOrig != nil {
+			toks = me.letOrig.Tokens
+		}
+	}
+	return
+}
 func (me *AstAppl) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstAppl)
 	return cmp != nil && cmp.AtomicCallee.EquivTo(me.AtomicCallee) && cmp.AtomicArg.EquivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.AstExprLetBase)
@@ -289,6 +337,23 @@ func (me *AstCases) Origin() atmolang.IAstNode {
 	}
 	return me.Orig
 }
+func (me *AstCases) OrigToks() (toks udevlex.Tokens) {
+	if me.Orig != nil {
+		toks = me.Orig.Tokens
+	} else if me.letOrig != nil {
+		toks = me.letOrig.Tokens
+	} else {
+		for i := range me.Ifs {
+			if toks = me.Ifs[i].OrigToks(); len(toks) > 0 {
+				break
+			} else if toks = me.Thens[i].OrigToks(); len(toks) > 0 {
+				break
+			}
+		}
+	}
+	return
+}
+
 func (me *AstCases) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstCases)
 	if cmp != nil && len(cmp.Ifs) == len(me.Ifs) && len(cmp.Thens) == len(me.Thens) {
