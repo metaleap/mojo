@@ -130,12 +130,14 @@ type valFactRef struct {
 	*valFacts
 }
 
+func (me *valFactRef) Errs() atmo.Errors { return me.valFacts.Errs().Refs() }
+
 type valFactArgRef struct {
 	*valFactCallable
 }
 
-func (me *valFactArgRef) Errs() (errs atmo.Errors) { return me.valFactCallable.arg.Errs() }
-func (me *valFactArgRef) String() string           { return me.valFactCallable.arg.String() }
+func (me *valFactArgRef) Errs() atmo.Errors { return me.valFactCallable.arg.Errs().Refs() }
+func (me *valFactArgRef) String() string    { return me.valFactCallable.arg.String() }
 
 type defValFinisher func(*Kit, *defIdFacts, *atmolang_irfun.AstDef)
 
