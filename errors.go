@@ -136,6 +136,14 @@ func (me Errors) Errors() (s []string) {
 	return
 }
 
+func (me Errors) Refs() (refs Errors) {
+	refs = make(Errors, len(me))
+	for i := range me {
+		refs[i] = *ErrRef(&me[i])
+	}
+	return
+}
+
 func (me Errors) Len() int          { return len(me) }
 func (me Errors) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me Errors) Less(i int, j int) bool {

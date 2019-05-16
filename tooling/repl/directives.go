@@ -222,11 +222,12 @@ func (me *Repl) dInfoKit(whatKit string) {
 }
 
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
-	me.withKitDefs(whatKit, whatName, func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
-		if facts, errs := me.Ctx.KitDefFacts(kit, def); len(errs) > 0 {
+	me.withKitDefs(whatKit, whatName, false, "info", func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
+		findings := me.Ctx.KitDefFacts(kit, def)
+		if errs := findings.Errs(); len(errs) > 0 {
 			me.IO.writeLns(errs.Errors()...)
-		} else if facts != nil {
-			me.IO.writeLns(facts.String())
+		} else if str := findings.String(); str != "" {
+			me.IO.writeLns(str)
 		} else {
 			me.IO.writeLns("‹in progress›")
 		}
@@ -238,7 +239,7 @@ func (me *Repl) DSrcs(what string) bool {
 		ctxp := atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
 			ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
-		me.withKitDefs(whatkit, whatname, func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
+		me.withKitDefs(whatkit, whatname, true, "srcs", func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
 			me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath)
 			ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
 			def.TopLevel.Print(&ctxp)
@@ -253,7 +254,7 @@ func (me *Repl) DSrcs(what string) bool {
 				ir2lang.Print(&ctxp)
 				ctxp.WriteTo(me.IO.Stdout)
 				ctxp.Reset()
-				me.IO.writeLns("", "")
+				me.IO.writeLns("")
 			}
 		})
 		return true
@@ -261,7 +262,7 @@ func (me *Repl) DSrcs(what string) bool {
 	return false
 }
 
-func (me *Repl) withKitDefs(whatKit string, whatName string, on func(*atmosess.Kit, *atmolang_irfun.AstDefTop)) {
+func (me *Repl) withKitDefs(whatKit string, whatName string, resolveNakedAliases bool, cmdName string, on func(*atmosess.Kit, *atmolang_irfun.AstDefTop)) {
 	me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
 		var kit *atmosess.Kit
 		if searchloaded, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloaded) {
@@ -289,7 +290,7 @@ func (me *Repl) withKitDefs(whatKit string, whatName string, on func(*atmosess.K
 				if len(finds) > 1 {
 					me.IO.writeLns("Defs named `" + whatName + "` were found in " + ustr.Int(len(finds)) + " currently-" + ustr.If(searchall, "known", "loaded") + " kits. Pick one:")
 					for _, k := range finds {
-						me.IO.writeLns("    :srcs " + k.ImpPath + " " + whatName)
+						me.IO.writeLns("    :" + cmdName + " " + k.ImpPath + " " + whatName)
 					}
 				} else {
 					me.IO.writeLns("No defs named `" + whatName + "` were found in any currently-" + ustr.If(searchall, "known", "loaded") + " kits.")
@@ -301,7 +302,7 @@ func (me *Repl) withKitDefs(whatKit string, whatName string, on func(*atmosess.K
 			me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
 		} else {
 			me.Ctx.KitEnsureLoaded(kit)
-			defs := kit.Defs(whatName, true)
+			defs := kit.Defs(whatName, resolveNakedAliases)
 			me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatName+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
 			var nakedalias string
 			for _, def := range defs {
@@ -311,7 +312,7 @@ func (me *Repl) withKitDefs(whatKit string, whatName string, on func(*atmosess.K
 				on(kit, def)
 			}
 			if nakedalias != "" {
-				me.IO.writeLns("(def `" + whatName + "` is a mere alias for `" + nakedalias + "`)")
+				me.IO.writeLns("", "(btw: def `"+whatName+"` is a mere alias for `"+nakedalias+"`)")
 			}
 		}
 	})

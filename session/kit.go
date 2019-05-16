@@ -77,9 +77,8 @@ func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
 	return ustr.In(kit.DirPath, me.Dirs.sess...)
 }
 
-func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) (ValFacts, atmo.Errors) {
-	dol := me.substantiateFactsIfNotAlready(kit, def.ID)
-	return dol.facts, dol.errs
+func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
+	return ValFacts{valFacts: me.substantiateFactsIfNotAlready(kit, def.ID).valFacts}
 }
 
 // WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
@@ -190,8 +189,9 @@ func (me *Kit) Errors() (errs []error) {
 	}
 	for _, dins := range me.defsFacts {
 		for _, dol := range dins.overloads {
-			for i := range dol.errs {
-				if e := &dol.errs[i]; !e.IsRef() {
+			dolerrs := dol.Errs()
+			for i := range dolerrs {
+				if e := &dolerrs[i]; !e.IsRef() {
 					errs = append(errs, e)
 				}
 			}

@@ -82,7 +82,7 @@ and from now on in sync with live modifications to those.
 #### func (*Ctx) KitDefFacts
 
 ```go
-func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) (ValFacts, atmo.Errors)
+func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts
 ```
 
 #### func (*Ctx) KitEnsureLoaded
@@ -163,6 +163,7 @@ type CtxBgMsg struct {
 
 ```go
 type IValFact interface {
+	Errs() atmo.Errors
 	String() string
 }
 ```
@@ -255,9 +256,16 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits)
 #### type ValFacts
 
 ```go
-type ValFacts []IValFact
+type ValFacts struct {
+}
 ```
 
+
+#### func (*ValFacts) Errs
+
+```go
+func (me *ValFacts) Errs() atmo.Errors
+```
 
 #### func (ValFacts) String
 

@@ -6,7 +6,7 @@ import (
 )
 
 type astNodeExt struct {
-	atmolang_irfun.IAstNode
+	*atmolang_irfun.AstDefTop
 	kit string
 }
 
@@ -46,7 +46,7 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 						for k, v := range kimp.lookups.namesInScopeOwn {
 							nodes := make([]atmolang_irfun.IAstNode, len(v))
 							for i, n := range v {
-								nodes[i] = astNodeExt{IAstNode: n, kit: kimp.ImpPath}
+								nodes[i] = astNodeExt{AstDefTop: n.(*atmolang_irfun.AstDefTop), kit: kimp.ImpPath}
 							}
 							kit.lookups.namesInScopeExt.add(k, nodes...)
 						}

@@ -8,8 +8,8 @@ import (
 type IAstNode interface {
 	Print() atmolang.IAstNode
 	Origin() atmolang.IAstNode
-
 	EquivTo(IAstNode) bool
+	IsDefWithArg() bool
 	renameIdents(map[string]string)
 	refersTo(string) bool
 }
@@ -31,6 +31,8 @@ type IAstExprWithLetDefs interface {
 type astNodeBase struct {
 }
 
+func (me *astNodeBase) IsDefWithArg() bool { return false }
+
 type AstDef struct {
 	astNodeBase
 	Orig *atmolang.AstDef
@@ -40,6 +42,7 @@ type AstDef struct {
 	Body IAstExpr
 }
 
+func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstDef) refersTo(name string) bool { return me.Body.refersTo(name) }
 func (me *AstDef) renameIdents(ren map[string]string) {
@@ -55,8 +58,6 @@ func (me *AstDef) EquivTo(node IAstNode) bool {
 		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.AstIdentName.EquivTo(&cmp.Arg.AstIdentName))
 }
 
-// AstDefTop embeds an `AstDef` but its `Arg` is always `nil`, as all
-// top-level defs in irfun ASTs are transformed into arg-less defs
 type AstDefTop struct {
 	AstDef
 
@@ -196,7 +197,7 @@ type AstIdentName struct {
 	AstIdentBase
 	AstExprLetBase
 
-	// "always `nil`" as far as this pkg is concerned, ie. populated from outside
+	// "always `nil`" as far as this pkg is concerned, ie. populated and consumed from outside
 	NamesInScope map[string][]IAstNode
 }
 
