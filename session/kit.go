@@ -20,10 +20,10 @@ type Kit struct {
 	WasEverToBeLoaded bool
 	Imports           []string
 
-	topLevel    atmolang_irfun.AstTopDefs
-	defsReduced map[string]*defReduced
-	srcFiles    atmolang.AstFiles
-	state       struct {
+	topLevel       atmolang_irfun.AstTopDefs
+	defsInferences map[string]*defInferences
+	srcFiles       atmolang.AstFiles
+	state          struct {
 		defsGoneIDsNames map[string]string
 		defsNew          []string
 	}
@@ -182,10 +182,10 @@ func (me *Kit) Errors() (errs []error) {
 			errs = append(errs, &me.topLevel[i].Errors[e])
 		}
 	}
-	for _, defred := range me.defsReduced {
-		for _, rc := range defred.overloads {
-			if rc.Err != nil && !rc.Err.IsRef() {
-				errs = append(errs, rc.Err)
+	for _, dins := range me.defsInferences {
+		for _, dol := range dins.overloads {
+			if dol.Err != nil && !dol.Err.IsRef() {
+				errs = append(errs, dol.Err)
 			}
 		}
 	}

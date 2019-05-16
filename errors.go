@@ -14,7 +14,7 @@ const (
 	ErrCatLexing
 	ErrCatParsing
 	ErrCatNaming
-	ErrCatReducing
+	ErrCatInferring
 )
 
 type Error struct {
@@ -47,8 +47,8 @@ func (me *Error) Error() (msg string) {
 		msg += "[syntax] "
 	case ErrCatNaming:
 		msg += "[naming] "
-	case ErrCatReducing:
-		msg += "[validation] "
+	case ErrCatInferring:
+		msg += "[inference] "
 	default:
 		msg += "[other] "
 	}
@@ -79,8 +79,8 @@ func ErrNaming(tok *udevlex.Token, msg string) *Error {
 	return ErrAt(ErrCatNaming, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
 
-func ErrReducing(tok *udevlex.Token, msg string) *Error {
-	return ErrAt(ErrCatReducing, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+func ErrInfer(tok *udevlex.Token, msg string) *Error {
+	return ErrAt(ErrCatInferring, &tok.Meta.Position, len(tok.Meta.Orig), msg)
 }
 
 func ErrSyn(tok *udevlex.Token, msg string) *Error {
@@ -120,8 +120,8 @@ func (me *Errors) AddNaming(tok *udevlex.Token, msg string) {
 	me.AddFrom(ErrCatNaming, tok, msg)
 }
 
-func (me *Errors) AddReducing(tok *udevlex.Token, msg string) {
-	me.AddFrom(ErrCatReducing, tok, msg)
+func (me *Errors) AddInfer(tok *udevlex.Token, msg string) {
+	me.AddFrom(ErrCatInferring, tok, msg)
 }
 
 func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) {

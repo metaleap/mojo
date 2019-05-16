@@ -41,7 +41,6 @@ type Ctx struct {
 			runningAutomaticallyPeriodically bool
 			emitMsgsIfManual                 bool
 		}
-		reduceArgs               map[string]iDefReducedValDesc
 		someKitsNeedReprocessing bool
 		initCalled               bool
 	}
