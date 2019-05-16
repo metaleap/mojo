@@ -55,7 +55,8 @@ func (me *AstDef) renameIdents(ren map[string]string) {
 }
 func (me *AstDef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
-	return cmp != nil && cmp.Name.EquivTo(&me.Name) && cmp.Arg.isEquivTo(me.Arg) && cmp.Body.EquivTo(me.Body)
+	return cmp != nil && cmp.Name.EquivTo(&me.Name) && cmp.Body.EquivTo(me.Body) &&
+		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.AstIdentName.EquivTo(&cmp.Arg.AstIdentName))
 }
 
 type AstDefTop struct {
@@ -73,9 +74,6 @@ type AstDefArg struct {
 }
 
 func (me *AstDefArg) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstDefArg) isEquivTo(cmp *AstDefArg) bool {
-	return ((me == nil) == (cmp == nil)) && (me == nil || me.AstIdentName.EquivTo(&cmp.AstIdentName))
-}
 
 type AstExprBase struct {
 	astNodeBase

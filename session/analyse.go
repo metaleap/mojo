@@ -38,15 +38,41 @@ func (me *defInferences) dropOverload(id string) {
 type defOverload struct {
 	ID  string
 	Err *atmo.Error
-	Ret defOverloadRet
+	Ret iDefValDesc
 }
 
-type defOverloadRet struct {
-	Desc iDefValDesc
+type iDefValDesc interface {
+	equiv(iDefValDesc) bool
+	String() string
 }
 
 type defValDescs []iDefValDesc
 
+func (me *defValDescs) ensureContains(rule iDefValDesc) {
+	this := *me
+	var contains bool
+	for _, vd := range this {
+		if contains = vd.equiv(rule); contains {
+			break
+		}
+	}
+	if !contains {
+		this = append(this, rule)
+		*me = this
+	}
+}
+func (me defValDescs) equiv(vd iDefValDesc) bool {
+	cmp, ok := vd.(defValDescs)
+	if ok && len(me) == len(cmp) {
+		for i := range me {
+			if !me[i].equiv(cmp[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
 func (me defValDescs) String() (s string) {
 	for i, vd := range me {
 		if i > 0 {
@@ -55,10 +81,6 @@ func (me defValDescs) String() (s string) {
 		s += vd.String()
 	}
 	return
-}
-
-type iDefValDesc interface {
-	String() string
 }
 
 type defValPrimType int
@@ -77,26 +99,38 @@ type defValPrim struct {
 	val      atmolang_irfun.IAstExpr
 }
 
+func (me *defValPrim) equiv(vd iDefValDesc) bool {
+	cmp, ok := vd.(*defValPrim)
+	return ok && cmp != nil && me.val.EquivTo(cmp.val) && me.primType == cmp.primType
+}
 func (me *defValPrim) String() string {
 	return "always exactly prim-type " + ustr.Int(int(me.primType)) + " and value " + atmolang_irfun.DbgPrintToString(me.val)
 }
 
 type defValArgRef struct {
-	name string
-	// alwaysSatisfies defValDescs
+	name              string
+	mustAlwaysSatisfy defValDescs
 }
 
+func (me *defValArgRef) equiv(vd iDefValDesc) bool {
+	cmp, _ := vd.(*defValArgRef)
+	return cmp != nil && me.mustAlwaysSatisfy.equiv(cmp.mustAlwaysSatisfy)
+}
 func (me *defValArgRef) String() string {
 	return "value of arg `" + me.name + "`" //, which always satisfies " + me.alwaysSatisfies.String()
 }
 
 type defValCallable struct {
-	arg  *defValArgRef
-	body iDefValDesc
+	arg iDefValDesc
+	ret iDefValDesc
 }
 
+func (me *defValCallable) equiv(vd iDefValDesc) bool {
+	cmp, _ := vd.(*defValCallable)
+	return cmp != nil && me.arg.equiv(cmp.arg) && me.ret.equiv(cmp.ret)
+}
 func (me *defValCallable) String() string {
-	return "callable that takes (" + me.arg.String() + ") and returns (" + me.body.String() + ")"
+	return "callable that takes (" + me.arg.String() + ") and returns (" + me.ret.String() + ")"
 }
 
 func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
@@ -145,7 +179,7 @@ func (me *Ctx) inferIfNotAlready(kit *Kit, defId string) (rda *defInferences, rd
 	if rdo = rda.overloadByID(defId); rdo == nil {
 		rdo = &defOverload{ID: defId}
 		rda.overloads = append(rda.overloads, rdo)
-		rdo.Ret.Desc, rdo.Err = me.inferExpr(kit, def.Body)
+		rdo.Ret, rdo.Err = me.inferExpr(kit, def.Body)
 	}
 	return
 }
@@ -178,13 +212,14 @@ func (me *Ctx) inferExprAppl(kit *Kit, expr *atmolang_irfun.AstAppl) (retDesc iD
 	} else if arg, aerr := me.inferExpr(kit, expr.AtomicArg); aerr != nil {
 		err = atmo.ErrRef(aerr)
 	} else if calleedef, _ := callee.(*defValCallable); calleedef == nil {
-		err = atmo.ErrInfer(expr.AtomicCallee.Origin().Toks().First(nil), "not callable")
-	} else {
-		if arg == nil {
+		switch cx := callee.(type) {
+		case *defValArgRef:
+			cx.mustAlwaysSatisfy.ensureContains(&defValCallable{arg: arg})
+		default:
+			err = atmo.ErrInfer(expr.AtomicCallee.Origin().Toks().First(nil), "not callable: "+cx.String())
 		}
-		// if result, retDesc, err = me.reduceExpr(kit, calleedef.body); err != nil {
-		// 	err = atmo.ErrRef(err)
-		// }
+	} else {
+		retDesc = calleedef.ret
 	}
 	return
 }
@@ -208,11 +243,10 @@ func (me *Ctx) inferExprIdentName(kit *Kit, expr *atmolang_irfun.AstIdentName) (
 				def = &candidates[0].(*atmolang_irfun.AstDefTop).AstDef
 			}
 			if def.Arg != nil {
-				rvdbody, e := me.inferExpr(kit, def.Body)
-				if e != nil {
+				if defret, e := me.inferExpr(kit, def.Body); e != nil {
 					err = atmo.ErrRef(e)
 				} else {
-					retDesc = &defValCallable{arg: &defValArgRef{name: def.Arg.AstIdentName.Val}, body: rvdbody}
+					retDesc = &defValCallable{arg: &defValArgRef{name: def.Arg.AstIdentName.Val}, ret: defret}
 				}
 			} else if retDesc, err = me.inferExpr(kit, def.Body); err != nil {
 				err = atmo.ErrRef(err)
