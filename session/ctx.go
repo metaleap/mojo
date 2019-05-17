@@ -19,13 +19,13 @@ type CtxBgMsg struct {
 	Lines []string
 }
 
+// Ctx fields must never be written to from the outside after the `Ctx.Init` call.
 type Ctx struct {
 	Dirs struct {
-		sess  []string
-		Cache string
-		Kits  []string
+		fauxKits []string
+		Cache    string
+		Kits     []string
 	}
-
 	Kits struct {
 		all                      Kits
 		RecurringBackgroundWatch struct {
@@ -33,11 +33,12 @@ type Ctx struct {
 		}
 	}
 	state struct {
-		protection    sync.Mutex
 		cleanUps      []func()
 		bgMsgs        []CtxBgMsg
 		fileModsWatch struct {
-			doManually                       func() int
+			sync.Mutex
+			latest                           []map[string]os.FileInfo
+			doManually                       func([]string, []string) int
 			runningAutomaticallyPeriodically bool
 			emitMsgsIfManual                 bool
 		}
@@ -62,7 +63,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 // Init validates the `Ctx.Dirs` fields currently set, then builds up its
 // `Kits` reflective of the structures found in the various `me.Dirs.Kits`
 // search paths and from now on in sync with live modifications to those.
-func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
+func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 	me.maybeInitPanic(true)
 	me.state.initCalled, me.Kits.all = true, make(Kits, 0, 32)
 	cachedir := me.Dirs.Cache
@@ -85,7 +86,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
 		kitsdirsorig := kitsdirs
 		kitsdirs = ustr.Merge(kitsdirsenv, kitsdirs, func(ldp string) bool {
 			if ldp != "" && !ufs.IsDir(ldp) {
-				me.bgMsg(true, true, "kits-dir "+ldp+" not found")
+				me.bgMsg(true, "kits-dir "+ldp+" not found")
 				return true
 			}
 			return ldp == ""
@@ -121,7 +122,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
 		}
 		if err == nil {
 			me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs
-			if err = me.AddFauxKit(sessionDir); err == nil {
+			if err = me.AddFauxKit(sessionFauxKitDir); err == nil {
 				me.initKits()
 			}
 		}
@@ -132,7 +133,6 @@ func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
 	return
 }
 
-// AddFauxKit must always be called in a protected context (WithFoo etc.)
 func (me *Ctx) AddFauxKit(dirPath string) (err error) {
 	if dirPath == "." {
 		dirPath, err = os.Getwd()
@@ -157,16 +157,18 @@ func (me *Ctx) AddFauxKit(dirPath string) (err error) {
 					break
 				}
 			}
+			me.state.fileModsWatch.Lock()
 			if !in {
-				for _, dp := range me.Dirs.sess {
+				for _, dp := range me.Dirs.fauxKits {
 					if in = (dp == dirPath); in {
 						break
 					}
 				}
 			}
 			if !in {
-				me.Dirs.sess = append(me.Dirs.sess, dirPath)
+				me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
 			}
+			me.state.fileModsWatch.Unlock()
 		}
 	}
 	return
@@ -183,42 +185,46 @@ func (me *Ctx) Dispose() {
 	me.state.cleanUps = nil
 }
 
-func (me *Ctx) bgMsg(alreadyLocked bool, issue bool, lines ...string) {
+func (me *Ctx) bgMsg(issue bool, lines ...string) {
 	msg := CtxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
-	if !alreadyLocked {
-		me.state.protection.Lock()
-	}
 	me.state.bgMsgs = append(me.state.bgMsgs, msg)
-	if !alreadyLocked {
-		me.state.protection.Unlock()
-	}
 }
 
-// BackgroundMessages must never be called in a protected context.
 func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg) {
 	me.maybeInitPanic(false)
-	me.state.protection.Lock()
 	if msgs = me.state.bgMsgs; clear {
 		me.state.bgMsgs = nil
 	}
-	me.state.protection.Unlock()
 	return
 }
 
-// BackgroundMessagesCount must never be called in a protected context.
 func (me *Ctx) BackgroundMessagesCount() (count int) {
 	me.maybeInitPanic(false)
-	me.state.protection.Lock()
 	count = len(me.state.bgMsgs)
-	me.state.protection.Unlock()
 	return
 }
 
 func (me *Ctx) onErrs(errs []error, errors atmo.Errors) {
 	for _, e := range errs {
-		me.bgMsg(true, true, e.Error())
+		me.bgMsg(true, e.Error())
 	}
 	for i := range errors {
-		me.bgMsg(true, true, errors[i].Error())
+		me.bgMsg(true, errors[i].Error())
 	}
+}
+
+func (me *Ctx) CatchUp() {
+	var latest []map[string]os.FileInfo
+	me.state.fileModsWatch.Lock()
+	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
+	fauxkitdirs := me.Dirs.fauxKits
+	me.state.fileModsWatch.Unlock()
+	me.fileModsHandle(me.Dirs.Kits, fauxkitdirs, latest)
+}
+
+func (me *Ctx) FauxKitDirPaths() (fauxKitDirPaths []string) {
+	me.state.fileModsWatch.Lock()
+	fauxKitDirPaths = me.Dirs.fauxKits
+	me.state.fileModsWatch.Unlock()
+	return
 }

@@ -110,7 +110,7 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 		default:
 			me.Ctx.WithKit("", func(kit *atmosess.Kit) {
 				var caretpos int
-				str, errs := me.Ctx.Eval(kit, inputln)
+				str, errs := me.Ctx.Eval(kit, inputln, "")
 				if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
 					if e, _ := errs[0].(interface{ At() *scanner.Position }); e != nil && e.At().Line == 1 {
 						caretpos = e.At().Column + numleadingspaces

@@ -29,7 +29,6 @@ type Ctx struct {
 		Cache string
 		Kits  []string
 	}
-
 	Kits struct {
 		RecurringBackgroundWatch struct {
 			ShouldNow func() bool
@@ -38,27 +37,31 @@ type Ctx struct {
 }
 ```
 
+Ctx fields must never be written to from the outside after the `Ctx.Init` call.
 
 #### func (*Ctx) AddFauxKit
 
 ```go
 func (me *Ctx) AddFauxKit(dirPath string) (err error)
 ```
-AddFauxKit must always be called in a protected context (WithFoo etc.)
 
 #### func (*Ctx) BackgroundMessages
 
 ```go
 func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg)
 ```
-BackgroundMessages must never be called in a protected context.
 
 #### func (*Ctx) BackgroundMessagesCount
 
 ```go
 func (me *Ctx) BackgroundMessagesCount() (count int)
 ```
-BackgroundMessagesCount must never be called in a protected context.
+
+#### func (*Ctx) CatchUp
+
+```go
+func (me *Ctx) CatchUp()
+```
 
 #### func (*Ctx) Dispose
 
@@ -70,13 +73,19 @@ Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 #### func (*Ctx) Eval
 
 ```go
-func (me *Ctx) Eval(kit *Kit, src string) (str string, errs []error)
+func (me *Ctx) Eval(kit *Kit, src string, maybeFauxKitDir string) (str string, errs []error)
+```
+
+#### func (*Ctx) FauxKitDirPaths
+
+```go
+func (me *Ctx) FauxKitDirPaths() (fauxKitDirPaths []string)
 ```
 
 #### func (*Ctx) Init
 
 ```go
-func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error)
+func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error)
 ```
 Init validates the `Ctx.Dirs` fields currently set, then builds up its `Kits`
 reflective of the structures found in the various `me.Dirs.Kits` search paths
@@ -108,7 +117,15 @@ func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool
 ```go
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 ```
-KitsEnsureLoaded must never be called in a protected context.
+
+#### func (*Ctx) KitsReloadModifiedsUnlessAlreadyWatching
+
+```go
+func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int)
+```
+KitsReloadModifiedsUnlessAlreadyWatching returns -1 if file-watching is enabled,
+otherwise it scans all currently-known kits-dirs for modifications and refreshes
+the `Ctx`'s internal represenation of `Kits` if any were noted.
 
 #### func (*Ctx) KnownKitImpPaths
 
@@ -116,17 +133,6 @@ KitsEnsureLoaded must never be called in a protected context.
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string)
 ```
 KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
-`KnownKitImpPaths` establishes its own protected context and must never be
-called within one.
-
-#### func (*Ctx) ReloadModifiedKitsUnlessAlreadyWatching
-
-```go
-func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int)
-```
-ReloadModifiedKitsUnlessAlreadyWatching returns -1 if file-watching is enabled,
-otherwise it scans all currently-known kits-dirs for modifications and refreshes
-the `Ctx`'s internal represenation of `Kits` if any were noted.
 
 #### func (*Ctx) WithKit
 
@@ -134,9 +140,7 @@ the `Ctx`'s internal represenation of `Kits` if any were noted.
 func (me *Ctx) WithKit(impPath string, do func(*Kit))
 ```
 WithKit runs `do` with the specified `Kit` if it exists, else with `nil`. The
-`Kit` must not be written to. While `do` runs, the `Kit` is blocked for updates
-triggered by file modifications etc. In other words, `WithKit` establishes a
-protected context and may never be called within one.
+`Kit` must not be written to.
 
 #### func (*Ctx) WithKnownKits
 
@@ -144,10 +148,7 @@ protected context and may never be called within one.
 func (me *Ctx) WithKnownKits(do func(Kits))
 ```
 WithKnownKits runs `do` with all currently-known (loaded or not) `Kit`s passed
-to it. The `Kits` slice or its contents must not be written to. While `do` runs,
-the slice is blocked for updates triggered by file modifications etc. In other
-words, `WithKnownKits` establishes a protected context and may never be called
-within one.
+to it. The `Kits` slice or its contents must not be written to.
 
 #### func (*Ctx) WithKnownKitsWhere
 

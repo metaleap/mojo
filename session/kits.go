@@ -22,21 +22,16 @@ type Kits []*Kit
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
 // WithKnownKits runs `do` with all currently-known (loaded or not) `Kit`s
-// passed to it. The `Kits` slice or its contents must not be written to. While
-// `do` runs, the slice is blocked for updates triggered by file modifications etc.
-// In other words, `WithKnownKits` establishes a protected context and may never be called within one.
+// passed to it. The `Kits` slice or its contents must not be written to.
 func (me *Ctx) WithKnownKits(do func(Kits)) {
 	me.maybeInitPanic(false)
-	me.state.protection.Lock()
 	do(me.Kits.all)
-	me.state.protection.Unlock()
 	return
 }
 
 // WithKnownKitsWhere works like `WithKnownKits` but with pre-filtering via `where`.
 func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func(Kits)) {
 	me.maybeInitPanic(false)
-	me.state.protection.Lock()
 	doall, kits := (where == nil), make(Kits, 0, len(me.Kits.all))
 	for i := range me.Kits.all {
 		if kit := me.Kits.all[i]; doall || where(kit) {
@@ -44,64 +39,49 @@ func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func(Kits)) {
 		}
 	}
 	do(kits)
-	me.state.protection.Unlock()
 	return
 }
 
 // KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
-// `KnownKitImpPaths` establishes its own protected context and must never be called within one.
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
 	me.maybeInitPanic(false)
-	me.state.protection.Lock()
 	kitImpPaths = make([]string, len(me.Kits.all))
 	for i := range me.Kits.all {
 		kitImpPaths[i] = me.Kits.all[i].ImpPath
-	}
-	me.state.protection.Unlock()
-	return
-}
-
-// ReloadModifiedKitsUnlessAlreadyWatching returns -1 if file-watching is
-// enabled, otherwise it scans all currently-known kits-dirs for modifications
-// and refreshes the `Ctx`'s internal represenation of `Kits` if any were noted.
-func (me *Ctx) ReloadModifiedKitsUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int) {
-	me.maybeInitPanic(false)
-	if me.state.fileModsWatch.doManually == nil {
-		numFileSystemModsNoticedAndActedUpon = -1
-	} else {
-		numFileSystemModsNoticedAndActedUpon = me.state.fileModsWatch.doManually()
 	}
 	return
 }
 
 func (me *Ctx) initKits() {
-	watchdirsess := func() []string { return me.Dirs.sess }
-	modswatcher := ufs.ModificationsWatcher(me.Dirs.Kits, watchdirsess, atmo.SrcFileExt, me.fileModsDirOk, 0,
-		func(mods map[string]os.FileInfo, starttime int64) {
-			const modswatchdurationcritical = int64(23 * time.Millisecond)
-			if filemodwatchduration := time.Now().UnixNano() - starttime; filemodwatchduration > modswatchdurationcritical {
-				// no need for ctxBgMsg stuff, this will eventually be dropped after enough observation
-				println("[DBG] note to dev, mods-watch took " + time.Duration(filemodwatchduration).String())
+	checkforfilemodsnow := ufs.ModificationsWatcher(atmo.SrcFileExt, me.fileModsDirOk, 0,
+		func(mods map[string]os.FileInfo, starttime int64, wasfirstrun bool) {
+			// isconcurrent := me.state.fileModsWatch.runningAutomaticallyPeriodically && (!wasfirstrun)
+			if len(mods) > 0 {
+				me.state.fileModsWatch.Lock()
+				me.state.fileModsWatch.latest = append(me.state.fileModsWatch.latest, mods)
+				me.state.fileModsWatch.Unlock()
 			}
-			me.fileModsHandle(mods)
 		},
 	)
-	if modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval, me.Kits.RecurringBackgroundWatch.ShouldNow, func() { _ = modswatcher() }); modswatchstart != nil {
+	if modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval,
+		me.Kits.RecurringBackgroundWatch.ShouldNow,
+		func() { _ = checkforfilemodsnow(me.Dirs.Kits, me.FauxKitDirPaths()) },
+	); modswatchstart != nil {
 		me.state.fileModsWatch.runningAutomaticallyPeriodically, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
 		go modswatchstart()
 	} else {
-		me.state.fileModsWatch.emitMsgsIfManual, me.state.fileModsWatch.doManually = true, modswatcher
+		me.state.fileModsWatch.emitMsgsIfManual, me.state.fileModsWatch.doManually = true, checkforfilemodsnow
 	}
 }
 
-func (me *Ctx) fileModsDirOk(dirFullPath string, dirName string) bool {
-	return ustr.In(dirFullPath, me.Dirs.sess...) || ustr.In(dirFullPath, me.Dirs.Kits...) ||
-		((!ustr.HasAnyOf(dirName, '*', '.', '_', '~')) && !ustr.HasAny(dirName, unicode.IsSpace))
+func (me *Ctx) fileModsDirOk(kitsDirs []string, fauxKitDirs []string, dirFullPath string, dirName string) bool {
+	return ((!ustr.HasAnyOf(dirName, '*', '.', '_', '~')) && !ustr.HasAny(dirName, unicode.IsSpace)) ||
+		ustr.In(dirFullPath, fauxKitDirs...) || ustr.In(dirFullPath, kitsDirs...)
 }
 
-func (me *Ctx) fileModsHandleDir(dirFullPath string, modKitDirs map[string]int) {
-	isdirsess := ustr.In(dirFullPath, me.Dirs.sess...)
+func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFullPath string, modKitDirs map[string]int) {
+	isdirsess := ustr.In(dirFullPath, fauxKitDirs...)
 	if idx := me.Kits.all.indexDirPath(dirFullPath); idx >= 0 {
 		// dir was previously known as a kit
 		modKitDirs[dirFullPath] = cap(me.Kits.all[idx].srcFiles)
@@ -121,27 +101,26 @@ func (me *Ctx) fileModsHandleDir(dirFullPath string, modKitDirs map[string]int) 
 	for _, fileinfo := range dircontents {
 		if isdir, fp := fileinfo.IsDir(), filepath.Join(dirFullPath, fileinfo.Name()); isdir && isdirsess {
 			// continue next one
-		} else if isdir && me.fileModsDirOk(fp, fileinfo.Name()) {
-			me.fileModsHandleDir(fp, modKitDirs)
-		} else if (!isdir) && (!added) && ustr.Suff(fileinfo.Name(), atmo.SrcFileExt) && !ustr.In(dirFullPath, me.Dirs.Kits...) {
+		} else if isdir && me.fileModsDirOk(kitsDirs, fauxKitDirs, fp, fileinfo.Name()) {
+			me.fileModsHandleDir(kitsDirs, fauxKitDirs, fp, modKitDirs)
+		} else if (!isdir) && (!added) && ustr.Suff(fileinfo.Name(), atmo.SrcFileExt) && !ustr.In(dirFullPath, kitsDirs...) {
 			added, modKitDirs[dirFullPath] = true, modKitDirs[dirFullPath]+1
 		}
 	}
 }
 
-func (me *Ctx) fileModsHandle(latestFileMods map[string]os.FileInfo) {
-	if len(latestFileMods) > 0 {
-		me.state.protection.Lock()
+func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo) {
+	for _, latestfilemods := range latest {
 		modkitdirs := map[string]int{}
-		for fullpath, fileinfo := range latestFileMods {
+		for fullpath, fileinfo := range latestfilemods {
 			if fileinfo.IsDir() {
-				me.fileModsHandleDir(fullpath, modkitdirs)
-			} else if dp := filepath.Dir(fullpath); !ustr.In(dp, me.Dirs.Kits...) {
+				me.fileModsHandleDir(kitsDirs, fauxKitDirs, fullpath, modkitdirs)
+			} else if dp := filepath.Dir(fullpath); !ustr.In(dp, kitsDirs...) {
 				modkitdirs[dp] = modkitdirs[dp] + 1
 			}
 		}
 		if len(me.Kits.all) == 0 {
-			for _, dirsess := range me.Dirs.sess {
+			for _, dirsess := range fauxKitDirs {
 				modkitdirs[dirsess] = 1
 			}
 		}
@@ -155,7 +134,7 @@ func (me *Ctx) fileModsHandle(latestFileMods map[string]os.FileInfo) {
 						numfilesguess = 2
 					}
 					var kitimppath string
-					for _, ldp := range me.Dirs.Kits {
+					for _, ldp := range kitsDirs {
 						if ustr.Pref(kitdirpath, ldp+string(os.PathSeparator)) {
 							if kitimppath = filepath.Clean(kitdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
 								kitimppath = ustr.Replace(kitimppath, string(os.PathSeparator), "/")
@@ -164,7 +143,7 @@ func (me *Ctx) fileModsHandle(latestFileMods map[string]os.FileInfo) {
 						}
 					}
 					if kitimppath == "" {
-						for _, dirsess := range me.Dirs.sess {
+						for _, dirsess := range fauxKitDirs {
 							if dirsess == kitdirpath {
 								kitimppath = ustr.ReplB(kitdirpath, '/', '~')
 								break
@@ -184,7 +163,7 @@ func (me *Ctx) fileModsHandle(latestFileMods map[string]os.FileInfo) {
 			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 			var numremoved int
 			for i := 0; i < len(me.Kits.all); i++ {
-				if kit := me.Kits.all[i]; !ustr.In(kit.DirPath, me.Dirs.sess...) &&
+				if kit := me.Kits.all[i]; !ustr.In(kit.DirPath, fauxKitDirs...) &&
 					((!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
 					delete(shouldrefresh, kit.DirPath)
 					me.Kits.all.removeAt(i)
@@ -197,7 +176,7 @@ func (me *Ctx) fileModsHandle(latestFileMods map[string]os.FileInfo) {
 				if idx := me.Kits.all.indexImpPath(kit.ImpPath); idx != i {
 					delete(shouldrefresh, kit.DirPath)
 					delete(shouldrefresh, me.Kits.all[idx].DirPath)
-					me.bgMsg(true, true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.kitsDirPath(), "and "+me.Kits.all[idx].kitsDirPath(), "─── both will not load until fixed")
+					me.bgMsg(true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.kitsDirPath(), "and "+me.Kits.all[idx].kitsDirPath(), "─── both will not load until fixed")
 					if idx > i {
 						me.Kits.all.removeAt(idx)
 						me.Kits.all.removeAt(i)
@@ -220,11 +199,23 @@ func (me *Ctx) fileModsHandle(latestFileMods map[string]os.FileInfo) {
 			}
 			me.reprocessAffectedIRsIfAnyKitsReloaded()
 			if me.state.fileModsWatch.emitMsgsIfManual {
-				me.bgMsg(true, false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+".")
+				me.bgMsg(false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+".")
 			}
 		}
-		me.state.protection.Unlock()
 	}
+}
+
+// KitsReloadModifiedsUnlessAlreadyWatching returns -1 if file-watching is
+// enabled, otherwise it scans all currently-known kits-dirs for modifications
+// and refreshes the `Ctx`'s internal represenation of `Kits` if any were noted.
+func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int) {
+	me.maybeInitPanic(false)
+	if me.state.fileModsWatch.doManually == nil {
+		numFileSystemModsNoticedAndActedUpon = -1
+	} else {
+		numFileSystemModsNoticedAndActedUpon = me.state.fileModsWatch.doManually(me.Dirs.Kits, me.FauxKitDirPaths())
+	}
+	return
 }
 
 func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {

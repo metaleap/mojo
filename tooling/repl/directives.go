@@ -105,10 +105,10 @@ func (me *Repl) DQuit(s string) bool {
 }
 
 func (me *Repl) DReload(string) bool {
-	if nummods := me.Ctx.ReloadModifiedKitsUnlessAlreadyWatching(); nummods == 0 {
+	if nummods := me.Ctx.KitsReloadModifiedsUnlessAlreadyWatching(); nummods == 0 {
 		me.IO.writeLns("No relevant modifications ── nothing to (re)load.")
 	} else if nummods < 0 {
-		me.IO.writeLns("No manual (re)load possible: already checking every " + atmosess.KitsWatchInterval.String() + ".")
+		me.IO.writeLns("No manual (re)loads: already checking for relevant", "file modifications every "+atmosess.KitsWatchInterval.String()+" and (re)loading", "(if necessary) silently right upon the next", "input (so it might have happened just-now).")
 	}
 	return true
 }

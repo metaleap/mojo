@@ -64,7 +64,7 @@ func (me *Repl) decoInputDone(altStyle bool) {
 	me.decoInputDoneBut(altStyle, true, 0)
 }
 
-func (me *Repl) decoInputDoneBut(altStyle bool, checkMsgs bool, caretPos int) {
+func (me *Repl) decoInputDoneBut(altStyle bool, catchUp bool, caretPos int) {
 	sepline := sepLine
 	if l := len("─"); caretPos > 0 {
 		caretPos = caretPos * l
@@ -72,7 +72,8 @@ func (me *Repl) decoInputDoneBut(altStyle bool, checkMsgs bool, caretPos int) {
 	}
 	me.IO.writeLns(ustr.If(altStyle, "╚", "└") + sepline)
 	me.uxMore(true)
-	if checkMsgs {
+	if catchUp {
+		me.Ctx.CatchUp()
 		me.decoCtxMsgsIfAny(false)
 	}
 }
