@@ -213,11 +213,17 @@ func (me *Ctx) onErrs(errs []error, errors atmo.Errors) {
 	}
 }
 
-func (me *Ctx) CatchUp() {
+func (me *Ctx) CatchUp(checkForFileModsNow bool) {
+	me.state.fileModsWatch.Lock()
+	fauxkitdirs := me.Dirs.fauxKits
+	me.state.fileModsWatch.Unlock()
+
+	if checkForFileModsNow {
+		me.state.fileModsWatch.doManually(me.Dirs.Kits, fauxkitdirs)
+	}
 	var latest []map[string]os.FileInfo
 	me.state.fileModsWatch.Lock()
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
-	fauxkitdirs := me.Dirs.fauxKits
 	me.state.fileModsWatch.Unlock()
 	me.fileModsHandle(me.Dirs.Kits, fauxkitdirs, latest)
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-const ErrMsgDefNotExpr = "unexpected `:=` in expression, only permissible for defs (missed a comma?)"
+const ErrMsgDefNotExpr = "unexpected `:=` in expression, only permissible for defs (forgot a comma?)"
 
 type ApplStyle int
 
@@ -83,7 +83,7 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 				}
 			}
 			if err = me.parseDefHeadSig(toksheads[0], def); err == nil {
-				def.detectNakedAliasIfAny()
+				def.detectMereAliasIfAny()
 			}
 		}
 	}

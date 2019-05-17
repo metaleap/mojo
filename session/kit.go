@@ -210,7 +210,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return len(me.lookups.tlDefIDsByName[name]) > 0
 }
 
-func (me *Kit) Defs(name string, resolveNakedAliases bool) (defs atmolang_irfun.AstTopDefs) {
+func (me *Kit) Defs(name string, resolveKitInternalMereAliases bool) (defs atmolang_irfun.AstTopDefs) {
 	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}
@@ -218,8 +218,8 @@ start:
 	if len(name) > 0 {
 		for _, id := range me.lookups.tlDefIDsByName[name] {
 			if def := me.lookups.tlDefsByID[id]; def != nil {
-				if def.Orig.IsNakedAliasTo != "" {
-					name = def.Orig.IsNakedAliasTo
+				if resolveKitInternalMereAliases && def.Orig.IsMereAliasTo != "" && len(me.lookups.tlDefIDsByName[def.Orig.IsMereAliasTo]) > 0 {
+					name = def.Orig.IsMereAliasTo
 					goto start
 				}
 				defs = append(defs, def)

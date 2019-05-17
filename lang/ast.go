@@ -66,13 +66,13 @@ type AstComment struct {
 
 type AstDef struct {
 	AstBaseTokens
-	Name           AstIdent
-	NameAffix      IAstExpr
-	Args           []AstDefArg
-	Meta           []IAstExpr
-	Body           IAstExpr
-	IsTopLevel     bool
-	IsNakedAliasTo string
+	Name          AstIdent
+	NameAffix     IAstExpr
+	Args          []AstDefArg
+	Meta          []IAstExpr
+	Body          IAstExpr
+	IsTopLevel    bool
+	IsMereAliasTo string
 }
 
 type AstDefArg struct {
@@ -230,11 +230,11 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 	return
 }
 
-func (me *AstDef) detectNakedAliasIfAny() {
+func (me *AstDef) detectMereAliasIfAny() {
 	if len(me.Meta) == 0 && me.NameAffix == nil {
 		if len(me.Args) == 0 {
 			if ident, ok := me.Body.(*AstIdent); ok && ident != nil && ident.IsName(true) {
-				me.IsNakedAliasTo = ident.Val
+				me.IsMereAliasTo = ident.Val
 			}
 		} else if appl, ok := me.Body.(*AstExprAppl); ok && appl != nil && len(appl.Args) == len(me.Args) {
 			if ident, _ := appl.Callee.(*AstIdent); ident != nil && ident.IsName(true) {
@@ -247,7 +247,7 @@ func (me *AstDef) detectNakedAliasIfAny() {
 					}
 				}
 				if ok {
-					me.IsNakedAliasTo = ident.Val
+					me.IsMereAliasTo = ident.Val
 				}
 			}
 		}

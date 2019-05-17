@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"github.com/go-forks/go-ps"
 	"github.com/go-leap/str"
@@ -13,20 +12,16 @@ import (
 )
 
 var (
-	replMultiLineSuffix     = ",,,"
-	replDirSession          = "."
-	replDirCache            = atmosess.CtxDefaultCacheDirPath()
-	replDirsAdditionalKits  []string
-	replKitsWatchPauseAfter = 242 * time.Second
+	replMultiLineSuffix    = ",,,"
+	replDirSession         = "."
+	replDirCache           = atmosess.CtxDefaultCacheDirPath()
+	replDirsAdditionalKits []string
 )
 
 func mainRepl() {
 	atmo.Options.Sorts = true
 	var repl atmorepl.Repl
 	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Kits, repl.Ctx.Dirs.Cache = replMultiLineSuffix, replDirsAdditionalKits, replDirCache
-	repl.Ctx.Kits.RecurringBackgroundWatch.ShouldNow = func() bool {
-		return replKitsWatchPauseAfter == 0 || time.Since(repl.IO.TimeLastInput) < replKitsWatchPauseAfter
-	}
 	if err := repl.Ctx.Init(false, replDirSession); err == nil {
 		usys.OnSigint(func() {
 			repl.QuitNonDirectiveInitiated(true)

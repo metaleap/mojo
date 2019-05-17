@@ -60,7 +60,7 @@ func (me *Ctx) BackgroundMessagesCount() (count int)
 #### func (*Ctx) CatchUp
 
 ```go
-func (me *Ctx) CatchUp()
+func (me *Ctx) CatchUp(checkForFileModsNow bool)
 ```
 
 #### func (*Ctx) Dispose
@@ -196,7 +196,7 @@ interpreted or compiled all together as a unit.
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string, resolveNakedAliases bool) (defs atmolang_irfun.AstTopDefs)
+func (me *Kit) Defs(name string, resolveKitInternalMereAliases bool) (defs atmolang_irfun.AstTopDefs)
 ```
 
 #### func (*Kit) Errors

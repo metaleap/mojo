@@ -43,7 +43,6 @@ func (me *Repl) initEnsureDefaultDirectives() {
 	)
 	kd("quit", me.DQuit)
 	kd("intro", me.DIntro)
-	kd("reload", me.DReload).Hidden = (atmosess.KitsWatchInterval > 0)
 }
 
 func (me *directive) Name() string { return ustr.Until(me.Desc, " ") }
@@ -101,15 +100,6 @@ func (me *Repl) runDirective(name string, args string) {
 
 func (me *Repl) DQuit(s string) bool {
 	me.run.quit = true
-	return true
-}
-
-func (me *Repl) DReload(string) bool {
-	if nummods := me.Ctx.KitsReloadModifiedsUnlessAlreadyWatching(); nummods == 0 {
-		me.IO.writeLns("No relevant modifications ── nothing to (re)load.")
-	} else if nummods < 0 {
-		me.IO.writeLns("No manual (re)loads: already checking for relevant", "file modifications every "+atmosess.KitsWatchInterval.String()+" and (re)loading", "(if necessary) silently right upon the next", "input (so it might have happened just-now).")
-	}
 	return true
 }
 
@@ -264,10 +254,10 @@ func (me *Repl) DSrcs(what string) bool {
 	return false
 }
 
-func (me *Repl) withKitDefs(whatKit string, whatName string, resolveNakedAliases bool, cmdName string, on func(*atmosess.Kit, *atmolang_irfun.AstDefTop)) {
+func (me *Repl) withKitDefs(whatKit string, whatName string, resolveKitInternalMereAliases bool, cmdName string, on func(*atmosess.Kit, *atmolang_irfun.AstDefTop)) {
 	me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
 		var kit *atmosess.Kit
-		if searchloaded, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloaded) {
+		if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {
 			if kit = kits.ByImpPath(whatKit); kit == nil && (whatKit == "." || whatKit == "~") {
 				for i := range kits {
 					if me.Ctx.KitIsSessionDirFauxKit(kits[i]) {
@@ -304,17 +294,17 @@ func (me *Repl) withKitDefs(whatKit string, whatName string, resolveNakedAliases
 			me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
 		} else {
 			me.Ctx.KitEnsureLoaded(kit)
-			defs := kit.Defs(whatName, resolveNakedAliases)
+			defs := kit.Defs(whatName, resolveKitInternalMereAliases)
 			me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatName+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
-			var nakedalias string
+			var merealias string
 			for _, def := range defs {
 				if def.Name.Val != whatName {
-					nakedalias = def.Name.Val
+					merealias = def.Name.Val
 				}
 				on(kit, def)
 			}
-			if nakedalias != "" {
-				me.IO.writeLns("", "(btw: def `"+whatName+"` is a mere alias for `"+nakedalias+"`)")
+			if merealias != "" {
+				me.IO.writeLns("", "(btw: def `"+whatName+"` is a mere alias for `"+merealias+"`)")
 			}
 		}
 	})

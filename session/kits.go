@@ -71,7 +71,7 @@ func (me *Ctx) initKits() {
 			true, append(me.state.cleanUps, modswatchcancel)
 		go modswatchstart()
 	} else {
-		me.state.fileModsWatch.emitMsgsIfManual, me.state.fileModsWatch.doManually = true, checkforfilemodsnow
+		me.state.fileModsWatch.doManually = checkforfilemodsnow
 	}
 }
 
