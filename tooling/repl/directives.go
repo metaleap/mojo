@@ -224,11 +224,13 @@ func (me *Repl) dInfoKit(whatKit string) {
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
 	me.withKitDefs(whatKit, whatName, false, "info", func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
 		findings := me.Ctx.KitDefFacts(kit, def)
-		if errs := findings.Errs(); len(errs) > 0 {
+		errs := findings.Errs()
+		if len(errs) > 0 {
 			me.IO.writeLns(errs.Strings()...)
-		} else if str := findings.String(); str != "" {
+		}
+		if str := findings.String(); str != "" {
 			me.IO.writeLns(str)
-		} else {
+		} else if len(errs) == 0 {
 			me.IO.writeLns("‹in progress›")
 		}
 	})

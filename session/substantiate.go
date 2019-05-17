@@ -52,7 +52,9 @@ func (me valFacts) Errs() (errs atmo.Errors) {
 	return
 }
 func (me valFacts) String() string {
-	if len(me) == 1 {
+	if len(me) == 0 {
+		return "()"
+	} else if len(me) == 1 {
 		return me[0].String()
 	}
 	s := "("
@@ -83,7 +85,7 @@ type valFactErrs struct {
 }
 
 func (me *valFactErrs) Errs() atmo.Errors { return me.Errors }
-func (me *valFactErrs) String() string    { return ustr.Join(me.Errors.Strings(), "\n") }
+func (me *valFactErrs) String() string    { return "" }
 
 type valFactPrim struct {
 	orig  atmolang_irfun.IAstExpr
@@ -114,6 +116,10 @@ type valFactCallableArg struct {
 	orig *atmolang_irfun.AstDefArg
 }
 
+func (me *valFactCallableArg) String() string {
+	return "‹" + me.orig.AstIdentName.Val + ": " + me.valFacts.String() + "›"
+}
+
 type valFactCallable struct {
 	arg valFactCallableArg
 	ret valFacts
@@ -124,7 +130,7 @@ func (me *valFactCallable) Errs() (errs atmo.Errors) {
 	errs.Add(me.ret.Errs())
 	return
 }
-func (me *valFactCallable) String() string { return me.arg.String() + " -> " + me.ret.String() }
+func (me *valFactCallable) String() string { return me.arg.String() + " » " + me.ret.String() }
 
 type valFactRef struct {
 	*valFacts
@@ -137,7 +143,7 @@ type valFactArgRef struct {
 }
 
 func (me *valFactArgRef) Errs() atmo.Errors { return me.valFactCallable.arg.Errs().Refs() }
-func (me *valFactArgRef) String() string    { return me.valFactCallable.arg.String() }
+func (me *valFactArgRef) String() string    { return me.valFactCallable.arg.orig.AstIdentName.Val }
 
 type defValFinisher func(*Kit, *defIdFacts, *atmolang_irfun.AstDef)
 
@@ -336,18 +342,19 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 		default:
 			panic(cand)
 		}
-	default:
-		var argless []atmolang_irfun.IAstNode
+	default: // >1 candidates name-match our ‹curExprIdent›
+		var argless []atmolang_irfun.IAstNode // verify all are argful to qualify
 		for _, cand := range candidates {
 			if !cand.IsDefWithArg() {
 				argless = append(argless, cand)
 			}
 		}
-		if len(argless) == 0 {
+		if len(argless) == 0 { // fine: but still-todo
 			findings.errs(true).AddTodo(&expr.Orig.Tokens[0], "resolve overloads")
-		} else { // err: multiple arg-less defs and/or args-in-scope shadow each other, that's illegal
-			var errmsghints string
-			{ // BEGIN: lame boilerplate to hint in err-msg which kits are involved in duplicate name
+
+		} else { // fail: multiple ‹curExprIdent›-named arg-less defs and/or args-in-scope shadow each other and/or same-named known argful defs, that's illegal
+			errmsg := "ambiguous: `" + expr.Val + "`, competing candidates from "
+			{ // BEGIN: lame boilerplate to hint in err-msg which deps are involved in duplicate name
 				locs, exts, candkits := false, false, make(map[string]int, len(argless))
 				for _, cand := range argless {
 					if nx, ok := cand.(astNodeExt); ok && nx.AstDefTop != nil && nx.kit != "" {
@@ -357,19 +364,18 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 					}
 				}
 				for k, v := range candkits {
-					errmsghints += k + " (" + ustr.Int(v) + "×) ─── "
+					errmsg += k + " (" + ustr.Int(v) + "×) ─── "
 				}
 				if locs {
-					errmsghints += "rename culprits in " + kit.ImpPath
-				}
-				if locs && exts {
-					errmsghints += " and/or "
+					if errmsg += "rename culprits in " + kit.ImpPath; exts {
+						errmsg += " and/or "
+					}
 				}
 				if exts {
-					errmsghints += "qualify which import was meant"
+					errmsg += "qualify which import was meant"
 				}
 			} // END: lame boilerplate
-			findings.errs(true).AddNaming(&expr.Orig.Tokens[0], "ambiguous: `"+expr.Val+"`, competing candidates from "+errmsghints)
+			findings.errs(true).AddNaming(&expr.Orig.Tokens[0], errmsg)
 		}
 	}
 	return
