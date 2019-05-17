@@ -129,6 +129,7 @@ func (me *Ctx) initKits() {
 			if filemodwatchduration = time.Now().UnixNano() - starttime; len(modkitdirs) > 0 {
 				shouldrefresh := make(map[string]bool, len(modkitdirs))
 				// handle new-or-modified kits
+				// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 				for kitdirpath, numfilesguess := range modkitdirs {
 					if me.Kits.all.indexDirPath(kitdirpath) < 0 {
 						if numfilesguess < 2 {
@@ -161,6 +162,7 @@ func (me *Ctx) initKits() {
 					shouldrefresh[kitdirpath] = true
 				}
 				// remove kits that have vanished from the file-system
+				// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 				var numremoved int
 				for i := 0; i < len(me.Kits.all); i++ {
 					if kit := me.Kits.all[i]; !ustr.In(kit.DirPath, me.Dirs.sess...) &&

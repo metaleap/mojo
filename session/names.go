@@ -5,7 +5,7 @@ import (
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
-type astNodeExt struct {
+type astDefRef struct {
 	*atmolang_irfun.AstDefTop
 	kit string
 }
@@ -46,7 +46,8 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 						for k, v := range kimp.lookups.namesInScopeOwn {
 							nodes := make([]atmolang_irfun.IAstNode, len(v))
 							for i, n := range v {
-								nodes[i] = astNodeExt{AstDefTop: n.(*atmolang_irfun.AstDefTop), kit: kimp.ImpPath}
+								nodes[i] = astDefRef{kit: kimp.ImpPath,
+									AstDefTop: n.(*atmolang_irfun.AstDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
 							}
 							kit.lookups.namesInScopeExt.add(k, nodes...)
 						}

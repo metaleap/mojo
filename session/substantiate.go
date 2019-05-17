@@ -217,7 +217,13 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 }
 
 func (me *Ctx) substantiateFactsIfNotAlready(kit *Kit, defId string) (dol *defIdFacts) {
+	if kit == nil {
+		return nil
+	}
 	def := kit.lookups.tlDefsByID[defId]
+	if def == nil {
+		return nil
+	}
 	facts := kit.defsFacts[def.Name.Val]
 	if facts == nil {
 		facts = &defNameFacts{}
@@ -303,23 +309,36 @@ func (me *Ctx) substantiateFactsForExprAppl(kit *Kit, expr *atmolang_irfun.AstAp
 }
 
 func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.AstIdentName, tld *defIdFacts, fullArgsScope ...*atmolang_irfun.AstDef) (findings valFacts) {
-	candidates := expr.NamesInScope[expr.Val]
-	switch len(candidates) {
-	case 0:
+	switch candidates := expr.NamesInScope[expr.Val]; len(candidates) {
+
+	case 0: // uncomplicated fail: name unknown / not found in scope
 		i, namesinscope := 0, make([]string, len(expr.NamesInScope))
 		for k := range expr.NamesInScope {
 			i, namesinscope[i] = i+1, k
 		}
 		namesinscope = ustr.Similes(expr.Val, namesinscope...)
 		findings.errs(true).AddNaming(&expr.Orig.Tokens[0], "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
-	case 1:
+
+	case 1: // uncomplicated best-case: 1 name-match exactly
 		switch cand := candidates[0].(type) {
 		case *atmolang_irfun.AstDef:
-			findings.add(&valFactRef{valFacts: tld.cache[cand]})
+			if dol := tld.cache[cand]; dol != nil {
+				findings.add(&valFactRef{valFacts: dol})
+			} else {
+				panic(cand)
+			}
 		case *atmolang_irfun.AstDefTop:
-			findings.add(&valFactRef{valFacts: &me.substantiateFactsIfNotAlready(kit, cand.ID).valFacts})
-		case astNodeExt:
-			findings.add(&valFactRef{valFacts: &me.substantiateFactsIfNotAlready(me.Kits.all.ByImpPath(cand.kit), cand.ID).valFacts})
+			if dol := me.substantiateFactsIfNotAlready(kit, cand.ID); dol != nil {
+				findings.add(&valFactRef{valFacts: &dol.valFacts})
+			} else {
+				panic(cand.ID)
+			}
+		case astDefRef:
+			if dol := me.substantiateFactsIfNotAlready(me.Kits.all.ByImpPath(cand.kit), cand.ID); dol != nil {
+				findings.add(&valFactRef{valFacts: &dol.valFacts})
+			} else {
+				panic(cand.kit + "@" + cand.ID)
+			}
 		case *atmolang_irfun.AstDefArg:
 			var argdef *atmolang_irfun.AstDef
 			istopleveldefarg := (tld.def.Arg == cand)
@@ -342,6 +361,7 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 		default:
 			panic(cand)
 		}
+
 	default: // >1 candidates name-match our ‹curExprIdent›
 		var argless []atmolang_irfun.IAstNode // verify all are argful to qualify
 		for _, cand := range candidates {
@@ -357,7 +377,7 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 			{ // BEGIN: lame boilerplate to hint in err-msg which deps are involved in duplicate name
 				locs, exts, candkits := false, false, make(map[string]int, len(argless))
 				for _, cand := range argless {
-					if nx, ok := cand.(astNodeExt); ok && nx.AstDefTop != nil && nx.kit != "" {
+					if nx, ok := cand.(astDefRef); ok && nx.AstDefTop != nil && nx.kit != "" {
 						exts, candkits[nx.kit] = true, 1+candkits[nx.kit]
 					} else {
 						locs, candkits[kit.ImpPath] = true, 1+candkits[kit.ImpPath]
