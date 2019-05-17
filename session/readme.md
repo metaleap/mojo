@@ -44,18 +44,21 @@ type Ctx struct {
 ```go
 func (me *Ctx) AddFauxKit(dirPath string) (err error)
 ```
+AddFauxKit must always be called in a protected context (WithFoo etc.)
 
 #### func (*Ctx) BackgroundMessages
 
 ```go
 func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg)
 ```
+BackgroundMessages must never be called in a protected context.
 
 #### func (*Ctx) BackgroundMessagesCount
 
 ```go
 func (me *Ctx) BackgroundMessagesCount() (count int)
 ```
+BackgroundMessagesCount must never be called in a protected context.
 
 #### func (*Ctx) Dispose
 
@@ -105,6 +108,7 @@ func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool
 ```go
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 ```
+KitsEnsureLoaded must never be called in a protected context.
 
 #### func (*Ctx) KnownKitImpPaths
 
@@ -112,6 +116,8 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string)
 ```
 KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
+`KnownKitImpPaths` establishes its own protected context and must never be
+called within one.
 
 #### func (*Ctx) ReloadModifiedKitsUnlessAlreadyWatching
 
@@ -129,7 +135,8 @@ func (me *Ctx) WithKit(impPath string, do func(*Kit))
 ```
 WithKit runs `do` with the specified `Kit` if it exists, else with `nil`. The
 `Kit` must not be written to. While `do` runs, the `Kit` is blocked for updates
-triggered by file modifications etc.
+triggered by file modifications etc. In other words, `WithKit` establishes a
+protected context and may never be called within one.
 
 #### func (*Ctx) WithKnownKits
 
@@ -138,7 +145,9 @@ func (me *Ctx) WithKnownKits(do func(Kits))
 ```
 WithKnownKits runs `do` with all currently-known (loaded or not) `Kit`s passed
 to it. The `Kits` slice or its contents must not be written to. While `do` runs,
-the slice is blocked for updates triggered by file modifications etc.
+the slice is blocked for updates triggered by file modifications etc. In other
+words, `WithKnownKits` establishes a protected context and may never be called
+within one.
 
 #### func (*Ctx) WithKnownKitsWhere
 

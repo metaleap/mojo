@@ -33,7 +33,7 @@ type Ctx struct {
 		}
 	}
 	state struct {
-		sync.Mutex
+		protection    sync.Mutex
 		cleanUps      []func()
 		bgMsgs        []CtxBgMsg
 		fileModsWatch struct {
@@ -132,6 +132,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionDir string) (err error) {
 	return
 }
 
+// AddFauxKit must always be called in a protected context (WithFoo etc.)
 func (me *Ctx) AddFauxKit(dirPath string) (err error) {
 	if dirPath == "." {
 		dirPath, err = os.Getwd()
@@ -185,29 +186,31 @@ func (me *Ctx) Dispose() {
 func (me *Ctx) bgMsg(alreadyLocked bool, issue bool, lines ...string) {
 	msg := CtxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
 	if !alreadyLocked {
-		me.state.Lock()
+		me.state.protection.Lock()
 	}
 	me.state.bgMsgs = append(me.state.bgMsgs, msg)
 	if !alreadyLocked {
-		me.state.Unlock()
+		me.state.protection.Unlock()
 	}
 }
 
+// BackgroundMessages must never be called in a protected context.
 func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg) {
 	me.maybeInitPanic(false)
-	me.state.Lock()
+	me.state.protection.Lock()
 	if msgs = me.state.bgMsgs; clear {
 		me.state.bgMsgs = nil
 	}
-	me.state.Unlock()
+	me.state.protection.Unlock()
 	return
 }
 
+// BackgroundMessagesCount must never be called in a protected context.
 func (me *Ctx) BackgroundMessagesCount() (count int) {
 	me.maybeInitPanic(false)
-	me.state.Lock()
+	me.state.protection.Lock()
 	count = len(me.state.bgMsgs)
-	me.state.Unlock()
+	me.state.protection.Unlock()
 	return
 }
 

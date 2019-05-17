@@ -54,9 +54,10 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	me.kitEnsureLoaded(kit, true)
 }
 
+// KitsEnsureLoaded must never be called in a protected context.
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
 	me.maybeInitPanic(false)
-	me.state.Lock()
+	me.state.protection.Lock()
 	if plusSessDirFauxKits {
 		for _, dirsess := range me.Dirs.sess {
 			if idx := me.Kits.all.indexDirPath(dirsess); idx >= 0 {
@@ -70,7 +71,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 		}
 	}
 	me.reprocessAffectedIRsIfAnyKitsReloaded()
-	me.state.Unlock()
+	me.state.protection.Unlock()
 }
 
 func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
@@ -84,9 +85,10 @@ func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
 // WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
 // The `Kit` must not be written to. While `do` runs, the `Kit` is blocked
 // for updates triggered by file modifications etc.
+// In other words, `WithKit` establishes a protected context and may never be called within one.
 func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
-	me.state.Lock()
+	me.state.protection.Lock()
 	idx := me.Kits.all.indexImpPath(impPath)
 	if idx < 0 && (impPath == "" || impPath == "." || impPath == "~") && len(me.Dirs.sess) == 1 {
 		idx = me.Kits.all.indexDirPath(me.Dirs.sess[0])
@@ -96,7 +98,7 @@ func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	} else {
 		do(me.Kits.all[idx])
 	}
-	me.state.Unlock()
+	me.state.protection.Unlock()
 	return
 }
 
