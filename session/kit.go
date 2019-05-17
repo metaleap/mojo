@@ -84,7 +84,7 @@ func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
 func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	idx := me.Kits.all.indexImpPath(impPath)
-	if idx < 0 && (impPath == "" || impPath == "." || impPath == "~") {
+	if idx < 0 && (impPath == "" || impPath == "." || impPath == "·") {
 		if fauxkitdirs := me.FauxKitDirPaths(); len(fauxkitdirs) > 0 {
 			idx = me.Kits.all.indexDirPath(fauxkitdirs[0])
 		}

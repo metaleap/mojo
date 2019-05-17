@@ -258,7 +258,7 @@ func (me *Repl) withKitDefs(whatKit string, whatName string, resolveKitInternalM
 	me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
 		var kit *atmosess.Kit
 		if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {
-			if kit = kits.ByImpPath(whatKit); kit == nil && (whatKit == "." || whatKit == "~") {
+			if kit = kits.ByImpPath(whatKit); kit == nil && (whatKit == "." || whatKit == "·") {
 				for i := range kits {
 					if me.Ctx.KitIsSessionDirFauxKit(kits[i]) {
 						kit = kits[i]

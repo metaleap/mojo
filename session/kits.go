@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	"unicode"
 
 	"github.com/go-leap/fs"
 	"github.com/go-leap/std"
@@ -76,8 +75,8 @@ func (me *Ctx) initKits() {
 }
 
 func (me *Ctx) fileModsDirOk(kitsDirs []string, fauxKitDirs []string, dirFullPath string, dirName string) bool {
-	return ((!ustr.HasAnyOf(dirName, '*', '.', '_', '~')) && !ustr.HasAny(dirName, unicode.IsSpace)) ||
-		ustr.In(dirFullPath, fauxKitDirs...) || ustr.In(dirFullPath, kitsDirs...)
+	return ustr.In(dirFullPath, fauxKitDirs...) || ustr.In(dirFullPath, kitsDirs...) ||
+		((!ustr.IsLen1And(dirName, '_', '*', '.', ' ')) && dirName != "·" && (!ustr.HasAnyOf(dirName, ' ')))
 }
 
 func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFullPath string, modKitDirs map[string]int) {
@@ -145,7 +144,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 					if kitimppath == "" {
 						for _, dirsess := range fauxKitDirs {
 							if dirsess == kitdirpath {
-								kitimppath = ustr.ReplB(kitdirpath, '/', '~')
+								kitimppath = ustr.Replace(kitdirpath, "/", "·")
 								break
 							}
 						}

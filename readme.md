@@ -55,17 +55,17 @@ For a rough idea, imagine a console screenshot instead of this paste ...
 
     Found 3 kits:
     ├── [×] omni
-    ├── [×] ~home~_~c~atmo
+    ├── [×] ·home·_·c·atmo
     ├── [_] omni/tmp
 
     Legend: [_] = unloaded, [×] = loaded or load attempted
     (To see kit details, use `:info ‹kit›`.)
 
     ┌─────────────────────────────────────────
-    │:l ~
+    │:l ·
     └─────────────────────────────────────────
 
-    LIST of defs in kit:    `~home~_~c~atmo`
+    LIST of defs in kit:    `·home·_·c·atmo`
             found in:    /home/_/c/atmo
 
     red.at: 10 top-level defs
@@ -83,29 +83,29 @@ For a rough idea, imagine a console screenshot instead of this paste ...
     Total: 10 defs in 1 `*.at` source file
 
     (To see more details, try also:
-    `:info ~` or `:info ~ ‹def›`.)
+    `:info ·` or `:info · ‹def›`.)
 
     ┌─────────────────────────────────────────
-    │:i ~
+    │:i ·
     └─────────────────────────────────────────
 
-    INFO summary on kit:    `~home~_~c~atmo`
+    INFO summary on kit:    `·home·_·c·atmo`
             found in:    /home/_/c/atmo
 
-    1 source file in kit `~`:
+    1 source file in kit `·`:
     ├── red.at
         20 lines (10 sloc), 10 top-level defs, 10 exported
     Total:
         20 lines (10 sloc), 10 top-level defs, 10 exported
         (Counts exclude failed-to-parse defs, if any.)
 
-    (To see kit defs, use `:list ~`.)
+    (To see kit defs, use `:list ·`.)
 
     ┌─────────────────────────────────────────
-    │:s ~ it
+    │:s · it
     └─────────────────────────────────────────
 
-    1 def named `it` found in kit `~home~_~c~atmo`:
+    1 def named `it` found in kit `·home·_·c·atmo`:
 
     ├── /home/_/c/atmo/red.at
 
@@ -118,10 +118,10 @@ For a rough idea, imagine a console screenshot instead of this paste ...
         x
 
     ┌─────────────────────────────────────────
-    │:i ~ it
+    │:i · it
     └─────────────────────────────────────────
 
-    1 def named `it` found in kit `~home~_~c~atmo`:
+    1 def named `it` found in kit `·home·_·c·atmo`:
 
     ‹x: ()› » x
 

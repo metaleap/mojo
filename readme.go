@@ -54,7 +54,7 @@
 //
 //        Found 3 kits:
 //        ├── [×] omni
-//        ├── [×] ~home~_~c~atmo
+//        ├── [×] ·home·_·c·atmo
 //        ├── [_] omni/tmp
 //
 //        Legend: [_] = unloaded, [×] = loaded or load attempted
@@ -62,10 +62,10 @@
 //
 //
 //        ┌─────────────────────────────────────────
-//        │:l ~
+//        │:l ·
 //        └─────────────────────────────────────────
 //
-//        LIST of defs in kit:    `~home~_~c~atmo`
+//        LIST of defs in kit:    `·home·_·c·atmo`
 //                found in:    /home/_/c/atmo
 //
 //        red.at: 10 top-level defs
@@ -83,17 +83,17 @@
 //        Total: 10 defs in 1 `*.at` source file
 //
 //        (To see more details, try also:
-//        `:info ~` or `:info ~ ‹def›`.)
+//        `:info ·` or `:info · ‹def›`.)
 //
 //
 //        ┌─────────────────────────────────────────
-//        │:i ~
+//        │:i ·
 //        └─────────────────────────────────────────
 //
-//        INFO summary on kit:    `~home~_~c~atmo`
+//        INFO summary on kit:    `·home·_·c·atmo`
 //                found in:    /home/_/c/atmo
 //
-//        1 source file in kit `~`:
+//        1 source file in kit `·`:
 //        ├── red.at
 //            20 lines (10 sloc), 10 top-level defs, 10 exported
 //        Total:
@@ -101,14 +101,14 @@
 //            (Counts exclude failed-to-parse defs, if any.)
 //
 //
-//        (To see kit defs, use `:list ~`.)
+//        (To see kit defs, use `:list ·`.)
 //
 //
 //        ┌─────────────────────────────────────────
-//        │:s ~ it
+//        │:s · it
 //        └─────────────────────────────────────────
 //
-//        1 def named `it` found in kit `~home~_~c~atmo`:
+//        1 def named `it` found in kit `·home·_·c·atmo`:
 //
 //
 //        ├── /home/_/c/atmo/red.at
@@ -123,10 +123,10 @@
 //
 //
 //        ┌─────────────────────────────────────────
-//        │:i ~ it
+//        │:i · it
 //        └─────────────────────────────────────────
 //
-//        1 def named `it` found in kit `~home~_~c~atmo`:
+//        1 def named `it` found in kit `·home·_·c·atmo`:
 //
 //
 //        ‹x: ()› » x
