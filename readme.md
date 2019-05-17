@@ -5,7 +5,7 @@
 For a rough idea, imagine a console screenshot instead of this paste ...
 
     ~/c/atmo> atmorepl
-     .
+
     ┌─────────────────────────────────────────
     │:intro
     └─────────────────────────────────────────
@@ -66,7 +66,7 @@ For a rough idea, imagine a console screenshot instead of this paste ...
     └─────────────────────────────────────────
 
     LIST of defs in kit:    `~home~_~c~atmo`
-               found in:    /home/_/c/atmo
+            found in:    /home/_/c/atmo
 
     red.at: 10 top-level defs
     ├── it ─── (line 2)
@@ -90,7 +90,7 @@ For a rough idea, imagine a console screenshot instead of this paste ...
     └─────────────────────────────────────────
 
     INFO summary on kit:    `~home~_~c~atmo`
-               found in:    /home/_/c/atmo
+            found in:    /home/_/c/atmo
 
     1 source file in kit `~`:
     ├── red.at
