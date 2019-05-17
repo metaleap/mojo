@@ -25,7 +25,7 @@ type Kit struct {
 	srcFiles  atmolang.AstFiles
 	state     struct {
 		defsGoneIDsNames map[string]string
-		defsNew          []string
+		defsBornIDsNames map[string]string
 	}
 	lookups struct {
 		allNames        []string
@@ -76,7 +76,7 @@ func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
 }
 
 func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
-	return ValFacts{valFacts: me.substantiateFactsIfNotAlready(kit, def.ID).valFacts}
+	return ValFacts{valFacts: me.substantiateKitTopLevelDefFacts(kit, def.ID, false).valFacts}
 }
 
 // WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
@@ -145,9 +145,9 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 
 		{
 			od, nd, fe := kit.topLevel.ReInitFrom(kit.srcFiles)
-			kit.state.defsGoneIDsNames, kit.state.defsNew, fresherrs = od, nd, append(fresherrs, fe...)
+			kit.state.defsGoneIDsNames, kit.state.defsBornIDsNames, fresherrs = od, nd, append(fresherrs, fe...)
 			if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
-				me.state.someKitsNeedReprocessing = true
+				me.state.kitsReprocessing.needed = true
 			}
 		}
 		kit.lookups.allNames, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID =

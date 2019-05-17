@@ -51,7 +51,7 @@ func (me AstTopDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIDsAndNames map[string]string, newTopLevelDefIDs []string, freshErrs []error) {
+func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIDsAndNames map[string]string, newTopLevelDefIDsAndNames map[string]string, freshErrs []error) {
 	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]bool, len(*me))
 
 	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
@@ -87,13 +87,13 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 
 	// add what's new
 	newstartfrom := len(this)
-	newTopLevelDefIDs = make([]string, 0, len(newdefs))
+	newTopLevelDefIDsAndNames = make(map[string]string, len(newdefs))
 	for _, tlc := range newdefs {
 		if !tlc.HasErrors() {
 			def := &AstDefTop{TopLevel: tlc, ID: tlc.ID()}
 			def.Orig = tlc.Ast.Def.Orig
 			this = append(this, def)
-			newTopLevelDefIDs = append(newTopLevelDefIDs, def.ID)
+			newTopLevelDefIDsAndNames[def.ID] = def.Orig.Name.Val
 		}
 	}
 

@@ -218,6 +218,15 @@ func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() (numFileSystemModsNoti
 	return
 }
 
+func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
+	if me.state.kitsReprocessing.needed {
+		me.state.kitsReprocessing.needed = false
+		me.kitsRepopulateIdentNamesInScope()
+		me.substantiateKitsDefsFactsAsNeeded()
+		me.state.kitsReprocessing.ever = true
+	}
+}
+
 func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {
 	return filepath.Clean(kitDirPath[:len(kitDirPath)-len(kitImpPath)])
 }
@@ -293,4 +302,28 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 		}
 	}
 	return
+}
+
+func (me Kits) collectReferencers(defNames map[string]bool, into map[string]*Kit, indirects bool) {
+	if len(defNames) == 0 {
+		return
+	}
+	var morenames map[string]bool
+	if indirects {
+		morenames = make(map[string]bool, 4)
+	}
+	for _, kit := range me {
+		for _, tld := range kit.topLevel {
+			for defname := range defNames {
+				if tld.RefersTo(defname) {
+					if into[tld.ID] = kit; indirects {
+						morenames[tld.Name.Val] = true
+					}
+				}
+			}
+		}
+	}
+	if indirects {
+		me.collectReferencers(morenames, into, true)
+	}
 }

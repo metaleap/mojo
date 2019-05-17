@@ -21,7 +21,7 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.all {
-			if len(kit.state.defsGoneIDsNames) > 0 || len(kit.state.defsNew) > 0 {
+			if len(kit.state.defsGoneIDsNames) > 0 || len(kit.state.defsBornIDsNames) > 0 {
 				kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn = true, nil, make(namesInScope, len(kit.topLevel))
 				for _, tld := range kit.topLevel {
 					kit.lookups.namesInScopeOwn.add(tld.Name.Val, tld)
@@ -36,7 +36,7 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 				var anychanges bool
 				kimps := me.Kits.all.Where(func(k *Kit) (iskimp bool) {
 					if iskimp = ustr.In(k.ImpPath, kit.Imports...); iskimp {
-						totaldefscount, anychanges = totaldefscount+len(k.topLevel), anychanges || len(k.state.defsGoneIDsNames) > 0 || len(k.state.defsNew) > 0
+						totaldefscount, anychanges = totaldefscount+len(k.topLevel), anychanges || len(k.state.defsGoneIDsNames) > 0 || len(k.state.defsBornIDsNames) > 0
 					}
 					return
 				})

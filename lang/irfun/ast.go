@@ -12,8 +12,7 @@ type IAstNode interface {
 	OrigToks() udevlex.Tokens
 	EquivTo(IAstNode) bool
 	IsDefWithArg() bool
-	renameIdents(map[string]string)
-	refersTo(string) bool
+	RefersTo(string) bool
 }
 
 type IAstExpr interface {
@@ -56,14 +55,7 @@ func (me *AstDef) OrigToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *AstDef) refersTo(name string) bool { return me.Body.refersTo(name) }
-func (me *AstDef) renameIdents(ren map[string]string) {
-	me.Name.renameIdents(ren)
-	if me.Arg != nil {
-		me.Arg.renameIdents(ren)
-	}
-	me.Body.renameIdents(ren)
-}
+func (me *AstDef) RefersTo(name string) bool { return me.Body.RefersTo(name) }
 func (me *AstDef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
 	return cmp != nil && cmp.Name.EquivTo(&me.Name) && cmp.Body.EquivTo(me.Body) &&
@@ -102,8 +94,8 @@ type AstExprAtomBase struct {
 	AstExprBase
 }
 
-func (me *AstExprAtomBase) IsAtomic() bool                 { return true }
-func (me *AstExprAtomBase) renameIdents(map[string]string) {}
+func (me *AstExprAtomBase) IsAtomic() bool       { return true }
+func (me *AstExprAtomBase) RefersTo(string) bool { return false }
 
 type AstLitBase struct {
 	AstExprAtomBase
@@ -117,7 +109,6 @@ func (me *AstLitBase) OrigToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *AstLitBase) refersTo(string) bool { return false }
 
 type AstLitRune struct {
 	AstLitBase
@@ -193,14 +184,9 @@ func (me *AstExprLetBase) letDefsEquivTo(cmp *AstExprLetBase) bool {
 	}
 	return false
 }
-func (me *AstExprLetBase) letDefsRenameIdents(ren map[string]string) {
-	for i := range me.letDefs {
-		me.letDefs[i].Body.renameIdents(ren)
-	}
-}
 func (me *AstExprLetBase) letDefsReferTo(name string) (refers bool) {
 	for i := range me.letDefs {
-		if refers = me.letDefs[i].refersTo(name); refers {
+		if refers = me.letDefs[i].RefersTo(name); refers {
 			break
 		}
 	}
@@ -221,7 +207,6 @@ func (me *AstIdentBase) OrigToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *AstIdentBase) refersTo(name string) bool { return name == me.Val }
 
 type AstIdentName struct {
 	AstIdentBase
@@ -245,18 +230,12 @@ func (me *AstIdentName) OrigToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *AstIdentName) refersTo(name string) bool {
+func (me *AstIdentName) RefersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
 }
 func (me *AstIdentName) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentName)
 	return cmp != nil && cmp.Val == me.Val && cmp.letDefsEquivTo(&me.AstExprLetBase)
-}
-func (me *AstIdentName) renameIdents(ren map[string]string) {
-	if nu, ok := ren[me.Val]; ok {
-		me.Val = nu
-	}
-	me.letDefsRenameIdents(ren)
 }
 
 type AstIdentVar struct {
@@ -314,13 +293,8 @@ func (me *AstAppl) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstAppl)
 	return cmp != nil && cmp.AtomicCallee.EquivTo(me.AtomicCallee) && cmp.AtomicArg.EquivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.AstExprLetBase)
 }
-func (me *AstAppl) renameIdents(ren map[string]string) {
-	me.AtomicCallee.renameIdents(ren)
-	me.AtomicArg.renameIdents(ren)
-	me.letDefsRenameIdents(ren)
-}
-func (me *AstAppl) refersTo(name string) bool {
-	return me.AtomicCallee.refersTo(name) || me.AtomicArg.refersTo(name) || me.letDefsReferTo(name)
+func (me *AstAppl) RefersTo(name string) bool {
+	return me.AtomicCallee.RefersTo(name) || me.AtomicArg.RefersTo(name) || me.letDefsReferTo(name)
 }
 
 type AstCases struct {
@@ -371,19 +345,9 @@ func (me *AstCases) EquivTo(node IAstNode) bool {
 	}
 	return false
 }
-func (me *AstCases) renameIdents(ren map[string]string) {
+func (me *AstCases) RefersTo(name string) bool {
 	for i := range me.Thens {
-		me.Thens[i].renameIdents(ren)
-		me.Ifs[i].renameIdents(ren)
-	}
-	me.letDefsRenameIdents(ren)
-}
-func (me *AstCases) refersTo(name string) bool {
-	for i := range me.Thens {
-		if me.Thens[i].refersTo(name) {
-			return true
-		}
-		if me.Ifs[i].refersTo(name) {
+		if me.Thens[i].RefersTo(name) || me.Ifs[i].RefersTo(name) {
 			return true
 		}
 	}

@@ -1,6 +1,7 @@
 package atmosess
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/go-leap/str"
@@ -148,25 +149,7 @@ func (me *valFactArgRef) String() string    { return me.valFactCallable.arg.orig
 type defValFinisher func(*Kit, *defIdFacts, *atmolang_irfun.AstDef)
 
 type defNameFacts struct {
-	overloads []*defIdFacts
-}
-
-func (me *defNameFacts) overloadByID(id string) *defIdFacts {
-	for _, rc := range me.overloads {
-		if rc.def.ID == id {
-			return rc
-		}
-	}
-	return nil
-}
-
-func (me *defNameFacts) dropOverload(id string) {
-	for i, rc := range me.overloads {
-		if rc.def.ID == id {
-			me.overloads = append(me.overloads[:i], me.overloads[i+1:]...)
-			break
-		}
-	}
+	overloads map[string]*defIdFacts
 }
 
 type defIdFacts struct {
@@ -175,48 +158,67 @@ type defIdFacts struct {
 	cache map[*atmolang_irfun.AstDef]*valFacts
 }
 
-func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
-	if me.state.someKitsNeedReprocessing {
-		me.state.someKitsNeedReprocessing = false
+func (me *Ctx) substantiateKitsDefsFactsAsNeeded() {
+	reSubstFirst, reSubstNext := make(map[string]*Kit, 8), make(map[string]*Kit, 16)
 
-		me.kitsRepopulateIdentNamesInScope()
-		needsReSubst := make(map[string]*Kit, 32)
-
-		for _, kit := range me.Kits.all {
-			if len(kit.state.defsGoneIDsNames) > 0 {
-				for defid, defname := range kit.state.defsGoneIDsNames {
-					if dins := kit.defsFacts[defname]; dins != nil {
-						dins.dropOverload(defid)
-					}
+	namesofchange := make(map[string]bool, 4)
+	for _, kit := range me.Kits.all {
+		if len(kit.state.defsGoneIDsNames) > 0 {
+			for defid, defname := range kit.state.defsGoneIDsNames {
+				if me.state.kitsReprocessing.ever {
+					namesofchange[defname] = true
 				}
-			}
-			if len(kit.state.defsNew) > 0 {
-				for _, defid := range kit.state.defsNew {
-					if tldef := kit.lookups.tlDefsByID[defid]; tldef != nil && len(tldef.Errs) == 0 {
-						if dans := kit.defsFacts[tldef.Name.Val]; dans != nil && dans.overloadByID(defid) != nil {
-							panic(defid) // to see if this ever occurs
-						}
-						needsReSubst[defid] = kit
-					}
-				}
-			}
-			kit.state.defsGoneIDsNames, kit.state.defsNew = nil, nil
-		}
-		var errs []error
-		for defid, kit := range needsReSubst {
-			if errors := me.substantiateFactsIfNotAlready(kit, defid).Errs(); len(errors) > 0 {
-				for _, e := range errors {
-					if !e.IsRef() {
-						errs = append(errs, e)
-					}
+				if dins := kit.defsFacts[defname]; dins != nil {
+					delete(dins.overloads, defid)
 				}
 			}
 		}
-		me.onErrs(errs, nil)
+		if len(kit.state.defsBornIDsNames) > 0 {
+			for defid, defname := range kit.state.defsBornIDsNames {
+				if reSubstFirst[defid] = kit; me.state.kitsReprocessing.ever {
+					namesofchange[defname] = true
+				}
+				if dans := kit.defsFacts[defname]; dans != nil && dans.overloads[defid] != nil {
+					panic(defid) // to see if this ever occurs
+				}
+			}
+		}
+		kit.state.defsGoneIDsNames, kit.state.defsBornIDsNames = nil, nil
 	}
+	if me.Kits.all.collectReferencers(namesofchange, reSubstNext, true); len(reSubstNext) > 0 {
+		println("DEPS of " + fmt.Sprintf("%#v", namesofchange) + ":")
+		for defid, kit := range reSubstNext {
+			println("\t", kit.ImpPath, defid, kit.lookups.tlDefsByID[defid].Name.Val)
+			if tld := kit.lookups.tlDefsByID[defid]; tld != nil {
+				if dnf := kit.defsFacts[tld.Name.Val]; dnf != nil {
+					delete(dnf.overloads, defid)
+				}
+			}
+		}
+	}
+	var errs []error
+	for defid, kit := range reSubstFirst {
+		if errors := me.substantiateKitTopLevelDefFacts(kit, defid, true).Errs(); len(errors) > 0 {
+			for _, e := range errors {
+				if !e.IsRef() {
+					errs = append(errs, e)
+				}
+			}
+		}
+	}
+	for defid, kit := range reSubstNext {
+		if errors := me.substantiateKitTopLevelDefFacts(kit, defid, false).Errs(); len(errors) > 0 {
+			for _, e := range errors {
+				if !e.IsRef() {
+					errs = append(errs, e)
+				}
+			}
+		}
+	}
+	me.onErrs(errs, nil)
 }
 
-func (me *Ctx) substantiateFactsIfNotAlready(kit *Kit, defId string) (dol *defIdFacts) {
+func (me *Ctx) substantiateKitTopLevelDefFacts(kit *Kit, defId string, forceResubst bool) (dol *defIdFacts) {
 	if kit == nil {
 		return nil
 	}
@@ -226,12 +228,15 @@ func (me *Ctx) substantiateFactsIfNotAlready(kit *Kit, defId string) (dol *defId
 	}
 	facts := kit.defsFacts[def.Name.Val]
 	if facts == nil {
-		facts = &defNameFacts{}
+		facts = &defNameFacts{overloads: map[string]*defIdFacts{}}
 		kit.defsFacts[def.Name.Val] = facts
 	}
-	if dol = facts.overloadByID(defId); dol == nil {
+	if forceResubst {
+		delete(facts.overloads, defId)
+	}
+	if dol = facts.overloads[defId]; dol == nil {
 		dol = &defIdFacts{def: def, cache: make(map[*atmolang_irfun.AstDef]*valFacts)}
-		facts.overloads = append(facts.overloads, dol)
+		facts.overloads[defId] = dol
 		var finish defValFinisher
 		if dol.valFacts, finish = me.substantiateFactsForDef(kit, dol, &def.AstDef); finish != nil {
 			finish(kit, dol, &def.AstDef)
@@ -328,13 +333,13 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 				panic(cand)
 			}
 		case *atmolang_irfun.AstDefTop:
-			if dol := me.substantiateFactsIfNotAlready(kit, cand.ID); dol != nil {
+			if dol := me.substantiateKitTopLevelDefFacts(kit, cand.ID, false); dol != nil {
 				findings.add(&valFactRef{valFacts: &dol.valFacts})
 			} else {
 				panic(cand.ID)
 			}
 		case astDefRef:
-			if dol := me.substantiateFactsIfNotAlready(me.Kits.all.ByImpPath(cand.kit), cand.ID); dol != nil {
+			if dol := me.substantiateKitTopLevelDefFacts(me.Kits.all.ByImpPath(cand.kit), cand.ID, false); dol != nil {
 				findings.add(&valFactRef{valFacts: &dol.valFacts})
 			} else {
 				panic(cand.kit + "@" + cand.ID)
