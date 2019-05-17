@@ -44,7 +44,7 @@ func (me AstTopDefs) Less(i int, j int) bool {
 
 func (me AstTopDefs) IndexByID(id string) int {
 	for i := range me {
-		if me[i].ID == id {
+		if me[i].Id == id {
 			return i
 		}
 	}
@@ -73,7 +73,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 		for i := range this {
 			if !oldunchangeddefidxs[i] {
 				dels[this[i].Orig] = true
-				droppedTopLevelDefIDsAndNames[this[i].ID] = this[i].Name.Val
+				droppedTopLevelDefIDsAndNames[this[i].Id] = this[i].Name.Val
 			}
 		}
 		thisnew := make(AstTopDefs, 0, len(this)) // nasty way to delete but they're all nasty
@@ -90,13 +90,12 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 	newTopLevelDefIDsAndNames = make(map[string]string, len(newdefs))
 	for _, tlc := range newdefs {
 		if !tlc.HasErrors() {
-			def := &AstDefTop{TopLevel: tlc, ID: tlc.ID()}
+			def := &AstDefTop{TopLevel: tlc, Id: tlc.ID()}
 			def.Orig = tlc.Ast.Def.Orig
 			this = append(this, def)
-			newTopLevelDefIDsAndNames[def.ID] = def.Orig.Name.Val
+			newTopLevelDefIDsAndNames[def.Id] = def.Orig.Name.Val
 		}
 	}
-
 	// populate new `Def`s from orig AST node
 	for i := newstartfrom; i < len(this); i++ {
 		def := this[i]

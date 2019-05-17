@@ -149,7 +149,25 @@ func (me *valFactArgRef) String() string    { return me.valFactCallable.arg.orig
 type defValFinisher func(*Kit, *defIdFacts, *atmolang_irfun.AstDef)
 
 type defNameFacts struct {
-	overloads map[string]*defIdFacts
+	overloads []*defIdFacts // not a map because most (~90+%?) will be of len 1
+}
+
+func (me *defNameFacts) overloadById(id string) *defIdFacts {
+	for _, dif := range me.overloads {
+		if dif.def.Id == id {
+			return dif
+		}
+	}
+	return nil
+}
+
+func (me *defNameFacts) overloadDrop(id string) {
+	for i, dif := range me.overloads {
+		if dif.def.Id == id {
+			me.overloads = append(me.overloads[:i], me.overloads[i+1:]...)
+			break
+		}
+	}
 }
 
 type defIdFacts struct {
@@ -169,7 +187,7 @@ func (me *Ctx) substantiateKitsDefsFactsAsNeeded() {
 					namesofchange[defname] = true
 				}
 				if dins := kit.defsFacts[defname]; dins != nil {
-					delete(dins.overloads, defid)
+					dins.overloadDrop(defid)
 				}
 			}
 		}
@@ -178,7 +196,7 @@ func (me *Ctx) substantiateKitsDefsFactsAsNeeded() {
 				if reSubstFirst[defid] = kit; me.state.kitsReprocessing.ever {
 					namesofchange[defname] = true
 				}
-				if dans := kit.defsFacts[defname]; dans != nil && dans.overloads[defid] != nil {
+				if dans := kit.defsFacts[defname]; dans != nil && dans.overloadById(defid) != nil {
 					panic(defid) // to see if this ever occurs
 				}
 			}
@@ -191,7 +209,7 @@ func (me *Ctx) substantiateKitsDefsFactsAsNeeded() {
 			println("\t", kit.ImpPath, defid, kit.lookups.tlDefsByID[defid].Name.Val)
 			if tld := kit.lookups.tlDefsByID[defid]; tld != nil {
 				if dnf := kit.defsFacts[tld.Name.Val]; dnf != nil {
-					delete(dnf.overloads, defid)
+					dnf.overloadDrop(defid)
 				}
 			}
 		}
@@ -228,15 +246,15 @@ func (me *Ctx) substantiateKitTopLevelDefFacts(kit *Kit, defId string, forceResu
 	}
 	facts := kit.defsFacts[def.Name.Val]
 	if facts == nil {
-		facts = &defNameFacts{overloads: map[string]*defIdFacts{}}
+		facts = &defNameFacts{}
 		kit.defsFacts[def.Name.Val] = facts
 	}
 	if forceResubst {
-		delete(facts.overloads, defId)
+		facts.overloadDrop(defId)
 	}
-	if dol = facts.overloads[defId]; dol == nil {
+	if dol = facts.overloadById(defId); dol == nil {
 		dol = &defIdFacts{def: def, cache: make(map[*atmolang_irfun.AstDef]*valFacts)}
-		facts.overloads[defId] = dol
+		facts.overloads = append(facts.overloads, dol)
 		var finish defValFinisher
 		if dol.valFacts, finish = me.substantiateFactsForDef(kit, dol, &def.AstDef); finish != nil {
 			finish(kit, dol, &def.AstDef)
@@ -333,16 +351,16 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 				panic(cand)
 			}
 		case *atmolang_irfun.AstDefTop:
-			if dol := me.substantiateKitTopLevelDefFacts(kit, cand.ID, false); dol != nil {
+			if dol := me.substantiateKitTopLevelDefFacts(kit, cand.Id, false); dol != nil {
 				findings.add(&valFactRef{valFacts: &dol.valFacts})
 			} else {
-				panic(cand.ID)
+				panic(cand.Id)
 			}
 		case astDefRef:
-			if dol := me.substantiateKitTopLevelDefFacts(me.Kits.all.ByImpPath(cand.kit), cand.ID, false); dol != nil {
+			if dol := me.substantiateKitTopLevelDefFacts(me.Kits.all.ByImpPath(cand.kit), cand.Id, false); dol != nil {
 				findings.add(&valFactRef{valFacts: &dol.valFacts})
 			} else {
-				panic(cand.kit + "@" + cand.ID)
+				panic(cand.kit + "@" + cand.Id)
 			}
 		case *atmolang_irfun.AstDefArg:
 			var argdef *atmolang_irfun.AstDef

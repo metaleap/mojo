@@ -76,7 +76,7 @@ func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
 }
 
 func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
-	return ValFacts{valFacts: me.substantiateKitTopLevelDefFacts(kit, def.ID, false).valFacts}
+	return ValFacts{valFacts: me.substantiateKitTopLevelDefFacts(kit, def.Id, false).valFacts}
 }
 
 // WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
@@ -153,15 +153,14 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		kit.lookups.allNames, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID =
 			make([]string, 0, len(kit.topLevel)), make(map[string][]string, len(kit.topLevel)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevel))
 		for _, tldef := range kit.topLevel {
-			kit.lookups.tlDefsByID[tldef.ID] = tldef
+			kit.lookups.tlDefsByID[tldef.Id] = tldef
 			if n, ok := kit.lookups.tlDefIDsByName[tldef.Name.Val]; !ok {
 				kit.lookups.tlDefIDsByName[tldef.Name.Val], kit.lookups.allNames =
-					[]string{tldef.ID}, append(kit.lookups.allNames, tldef.Name.Val)
+					[]string{tldef.Id}, append(kit.lookups.allNames, tldef.Name.Val)
 			} else {
-				kit.lookups.tlDefIDsByName[tldef.Name.Val] = append(n, tldef.ID)
+				kit.lookups.tlDefIDsByName[tldef.Name.Val] = append(n, tldef.Id)
 			}
 		}
-
 	}
 end:
 	me.onErrs(fresherrs, nil)

@@ -315,7 +315,7 @@ func (me Kits) collectReferencers(defNames map[string]bool, into map[string]*Kit
 		for _, tld := range kit.topLevel {
 			for defname := range defNames {
 				if tld.RefersTo(defname) {
-					if into[tld.ID] = kit; indirects {
+					if into[tld.Id] = kit; indirects {
 						morenames[tld.Name.Val] = true
 					}
 				}
