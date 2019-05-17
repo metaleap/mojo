@@ -66,7 +66,7 @@
 //        └─────────────────────────────────────────
 //
 //        LIST of defs in kit:    `·home·_·c·atmo`
-//                found in:    /home/_/c/atmo
+//                   found in:    /home/_/c/atmo
 //
 //        red.at: 10 top-level defs
 //        ├── it ─── (line 2)
@@ -91,7 +91,7 @@
 //        └─────────────────────────────────────────
 //
 //        INFO summary on kit:    `·home·_·c·atmo`
-//                found in:    /home/_/c/atmo
+//                   found in:    /home/_/c/atmo
 //
 //        1 source file in kit `·`:
 //        ├── red.at
