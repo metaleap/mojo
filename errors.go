@@ -25,10 +25,9 @@ type Error struct {
 	cat ErrorCategory
 }
 
-// At ensures that `Error` shares an interface with `udevlex.Error`.
-func (me *Error) At() *scanner.Position {
+func (me *Error) Pos() *scanner.Position {
 	if me.ref != nil {
-		return me.ref.At()
+		return me.ref.Pos()
 	}
 	return &me.pos
 }

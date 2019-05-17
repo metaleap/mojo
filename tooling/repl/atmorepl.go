@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"os"
-	"text/scanner"
 	"time"
 
 	"github.com/go-leap/str"
@@ -109,10 +108,10 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 		default:
 			me.Ctx.WithKit("", func(kit *atmosess.Kit) {
 				var caretpos int
-				str, errs := me.Ctx.Eval(kit, inputln, "")
+				str, errs := me.Ctx.Eval(kit, inputln)
 				if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
-					if e, _ := errs[0].(interface{ At() *scanner.Position }); e != nil && e.At().Line == 1 {
-						caretpos = e.At().Column + numleadingspaces
+					if err0pos := errs[0].Pos(); err0pos.Line == 1 {
+						caretpos = err0pos.Column + numleadingspaces
 					}
 				}
 				me.decoInputDoneBut(false, false, caretpos)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/std"
+	"github.com/metaleap/atmo"
 )
 
 func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) (freshErrs []error) {
@@ -37,10 +38,10 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	return
 }
 
-func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, error) {
+func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, *atmo.Error) {
 	toks, errs := udevlex.Lex(&ustd.BytesReader{Data: src}, fauxSrcFileNameForErrs, 0, 0, 64)
 	for _, e := range errs {
-		return nil, e
+		return nil, atmo.ErrLex(&e.Pos, e.Msg)
 	}
 
 	if expr, err := (&ctxTldParse{}).parseExpr(toks); err != nil { // need this..

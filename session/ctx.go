@@ -124,9 +124,10 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 			}
 		}
 		if err == nil {
-			me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs
-			if err = me.AddFauxKit(sessionFauxKitDir); err == nil {
-				me.initKits()
+			if me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
+				if err = me.AddFauxKit(sessionFauxKitDir); err == nil {
+					me.initKits()
+				}
 			}
 		}
 	}
@@ -137,7 +138,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 }
 
 func (me *Ctx) AddFauxKit(dirPath string) (err error) {
-	if dirPath == "." {
+	if dirPath == "" || dirPath == "." {
 		dirPath, err = os.Getwd()
 	} else if dirPath[0] == '~' {
 		if len(dirPath) == 1 {
@@ -146,33 +147,31 @@ func (me *Ctx) AddFauxKit(dirPath string) (err error) {
 			dirPath = filepath.Join(usys.UserHomeDirPath(), dirPath[2:])
 		}
 	}
-	if dirPath != "" {
-		if err == nil {
-			dirPath, err = filepath.Abs(dirPath)
+	if err == nil {
+		dirPath, err = filepath.Abs(dirPath)
+	}
+	if err == nil && !ufs.IsDir(dirPath) {
+		err = &os.PathError{Path: dirPath, Op: "directory", Err: os.ErrNotExist}
+	}
+	if err == nil {
+		var in bool
+		for _, kitsdirpath := range me.Dirs.Kits {
+			if in = ustr.Pref(dirPath, kitsdirpath+string(os.PathSeparator)); in {
+				break
+			}
 		}
-		if err == nil && !ufs.IsDir(dirPath) {
-			err = &os.PathError{Path: dirPath, Op: "directory", Err: os.ErrNotExist}
-		}
-		if err == nil {
-			var in bool
-			for _, kitsdirpath := range me.Dirs.Kits {
-				if in = ustr.Pref(dirPath, kitsdirpath+string(os.PathSeparator)); in {
+		me.state.fileModsWatch.Lock()
+		if !in {
+			for _, dp := range me.Dirs.fauxKits {
+				if in = (dp == dirPath); in {
 					break
 				}
 			}
-			me.state.fileModsWatch.Lock()
-			if !in {
-				for _, dp := range me.Dirs.fauxKits {
-					if in = (dp == dirPath); in {
-						break
-					}
-				}
-			}
-			if !in {
-				me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
-			}
-			me.state.fileModsWatch.Unlock()
 		}
+		if !in {
+			me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
+		}
+		me.state.fileModsWatch.Unlock()
 	}
 	return
 }

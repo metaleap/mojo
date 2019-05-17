@@ -73,7 +73,7 @@ Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 #### func (*Ctx) Eval
 
 ```go
-func (me *Ctx) Eval(kit *Kit, src string, maybeFauxKitDir string) (str string, errs []error)
+func (me *Ctx) Eval(kit *Kit, src string) (str string, errs atmo.Errors)
 ```
 
 #### func (*Ctx) FauxKitDirPaths

@@ -206,13 +206,6 @@ func ErrSyn(tok *udevlex.Token, msg string) *Error
 func ErrTodo(tok *udevlex.Token, msg string) *Error
 ```
 
-#### func (*Error) At
-
-```go
-func (me *Error) At() *scanner.Position
-```
-At ensures that `Error` shares an interface with `udevlex.Error`.
-
 #### func (*Error) Error
 
 ```go
@@ -223,6 +216,12 @@ func (me *Error) Error() (msg string)
 
 ```go
 func (me *Error) IsRef() bool
+```
+
+#### func (*Error) Pos
+
+```go
+func (me *Error) Pos() *scanner.Position
 ```
 
 #### type ErrorCategory
