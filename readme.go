@@ -1,6 +1,6 @@
 // For a rough idea, imagine a console screenshot instead of this paste
 // ...
-//        ~/c/atmo> atmorepl
+//        ~/c/atmo> atmo repl
 //
 //        ┌─────────────────────────────────────────
 //        │:intro
