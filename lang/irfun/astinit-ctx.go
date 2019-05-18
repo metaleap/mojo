@@ -9,10 +9,10 @@ import (
 )
 
 type ctxAstInit struct {
-	curTopLevel *atmolang.AstDef
-	defsScope   *AstDefs
-	coerceFuncs map[IAstNode]IAstExpr
-	counter     struct {
+	curTopLevelDef *AstDefTop
+	defsScope      *AstDefs
+	coerceFuncs    map[IAstNode]IAstExpr
+	counter        struct {
 		val   byte
 		times int
 	}
@@ -61,6 +61,7 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, er
 	} else {
 		var ident AstIdentName
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+		me.curTopLevelDef.refersTo[ident.Val] = true
 
 	}
 	return

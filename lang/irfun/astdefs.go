@@ -101,7 +101,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 		def := this[i]
 		var let AstExprLetBase
 		var ctxastinit ctxAstInit
-		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevel = ctxastinit.nextPrefix(), &let.letDefs, def.Orig
+		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevelDef = ctxastinit.nextPrefix(), &let.letDefs, def
 		def.Errs.Add(def.initFrom(&ctxastinit, def.Orig))
 		if len(let.letDefs) > 0 {
 			def.Errs.Add(ctxastinit.addLetDefsToNode(def.Orig.Body, def.Body, &let))
