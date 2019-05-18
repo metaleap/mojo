@@ -90,7 +90,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 	newTopLevelDefIDsAndNames = make(map[string]string, len(newdefs))
 	for _, tlc := range newdefs {
 		if !tlc.HasErrors() {
-			def := &AstDefTop{TopLevel: tlc, Id: tlc.ID()}
+			def := &AstDefTop{TopLevel: tlc, Id: tlc.ID(), refersTo: make(map[string]bool)}
 			def.Orig = tlc.Ast.Def.Orig
 			this = append(this, def)
 			newTopLevelDefIDsAndNames[def.Id] = def.Orig.Name.Val

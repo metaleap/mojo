@@ -68,6 +68,20 @@ type AstDefTop struct {
 	Id       string
 	TopLevel *atmolang.AstFileTopLevelChunk
 	Errs     atmo.Errors
+
+	refersTo map[string]bool
+}
+
+func (me *AstDefTop) RefersTo(name string) (refersTo bool) {
+	// as long as an AstDefTop exists, it represents the same original code snippet: so any given
+	// RefersTo(foo) truth will hold throughout: great for caching instead of continuously re-searching
+	if refersto, ok := me.refersTo[name]; ok {
+		refersTo = refersto
+	} else {
+		refersTo = me.AstDef.RefersTo(name)
+		me.refersTo[name] = refersTo
+	}
+	return
 }
 
 type AstDefArg struct {
