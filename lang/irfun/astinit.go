@@ -12,6 +12,9 @@ func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Er
 	errs.Add(me.initArg(ctx))
 	errs.Add(me.initMetas(ctx))
 	errs.Add(me.initBody(ctx))
+
+	// all inits worked off the orig-unary-fied, but for all
+	// post-init usage we restore the real source orig-def:
 	me.OrigDef = orig
 	return
 }

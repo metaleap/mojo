@@ -71,8 +71,8 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 		return
 	}
 
-	// gather & drop what's gone
-	if l := len(oldunchangeds); l < len(this) { // either some (l>0) or all (l==0) are gone, the former will occur fairly seldomly in practice
+	// drop what's gone
+	if l := len(oldunchangeds); l < len(this) { // either some (l>0) or all (l==0) are gone, the latter will occur too seldomly in practice to optimize for
 		thiswithout := make(AstTopDefs, 0, l+len(newdefs))
 		droppedTopLevelDefIdsAndNames = make(map[string]string, len(this)-l)
 		for i := range this {
@@ -86,24 +86,26 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 	}
 
 	// add what's new
-	newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
-	for _, tlc := range newdefs {
-		// add the def skeleton
-		def := &AstDefTop{OrigTopLevelChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool)}
-		this, def.OrigDef, newTopLevelDefIdsAndNames[def.Id] =
-			append(this, def), tlc.Ast.Def.Orig, tlc.Ast.Def.Orig.Name.Val
-		// populate it
-		var let AstExprLetBase
-		var ctxastinit ctxAstInit
-		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevelDef = ctxastinit.nextPrefix(), &let.letDefs, def
-		def.Errs.Add(def.initFrom(&ctxastinit, def.OrigDef))
-		if len(let.letDefs) > 0 {
-			def.Errs.Add(ctxastinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let))
+	if len(newdefs) > 0 {
+		newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
+		for _, tlc := range newdefs {
+			// add the def skeleton
+			def := &AstDefTop{OrigTopLevelChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool)}
+			this, def.OrigDef, newTopLevelDefIdsAndNames[def.Id] =
+				append(this, def), tlc.Ast.Def.Orig, tlc.Ast.Def.Orig.Name.Val
+			// populate it
+			var let AstExprLetBase
+			var ctxastinit ctxAstInit
+			let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevelDef = ctxastinit.nextPrefix(), &let.letDefs, def
+			def.Errs.Add(def.initFrom(&ctxastinit, def.OrigDef))
+			if len(let.letDefs) > 0 {
+				def.Errs.Add(ctxastinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let))
+			}
+			if len(def.Errs) > 0 {
+				freshErrs = append(freshErrs, def.Errs.Errors()...)
+			}
+			atmo.SortMaybe(def.Errs)
 		}
-		if len(def.Errs) > 0 {
-			freshErrs = append(freshErrs, def.Errs.Errors()...)
-		}
-		atmo.SortMaybe(def.Errs)
 	}
 	atmo.SortMaybe(this)
 	*me = this

@@ -266,13 +266,13 @@ func (me *AstDef) Argless(prefix func() string) *AstDef {
 	return &def
 }
 
-func (me *AstDef) makeUnary(origName string) {
+func (me *AstDef) ensureUnary(origName string) {
 	subname, let := ustr.Int(len(me.Args)-1)+origName, AstExprLet{Defs: []AstDef{{Body: me.Body, AstBaseTokens: me.AstBaseTokens}}}
 	subdef := &let.Defs[0]
 	let.AstBaseTokens, let.comments, me.Body, let.Body, me.Args, subdef.Args, subdef.Name.Val =
 		me.AstBaseTokens, *me.Body.Comments(), &let, &subdef.Name, me.Args[:1], me.Args[1:], subname
 	if len(subdef.Args) > 1 {
-		subdef.makeUnary(origName)
+		subdef.ensureUnary(origName)
 	}
 }
 
@@ -281,6 +281,6 @@ func (me *AstDef) ToUnary() *AstDef {
 		return me
 	}
 	def := *me
-	def.makeUnary(me.Name.Val)
+	def.ensureUnary(me.Name.Val)
 	return &def
 }
