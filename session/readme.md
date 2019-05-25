@@ -196,7 +196,7 @@ interpreted or compiled all together as a unit.
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string, resolveKitInternalMereAliases bool) (defs atmolang_irfun.AstTopDefs)
+func (me *Kit) Defs(name string) (defs atmolang_irfun.AstTopDefs)
 ```
 
 #### func (*Kit) Errors

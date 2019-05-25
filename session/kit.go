@@ -209,18 +209,13 @@ func (me *Kit) HasDefs(name string) bool {
 	return len(me.lookups.tlDefIDsByName[name]) > 0
 }
 
-func (me *Kit) Defs(name string, resolveKitInternalMereAliases bool) (defs atmolang_irfun.AstTopDefs) {
+func (me *Kit) Defs(name string) (defs atmolang_irfun.AstTopDefs) {
 	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}
-start:
 	if len(name) > 0 {
 		for _, id := range me.lookups.tlDefIDsByName[name] {
 			if def := me.lookups.tlDefsByID[id]; def != nil {
-				if resolveKitInternalMereAliases && def.OrigDef.IsMereAliasTo != "" && len(me.lookups.tlDefIDsByName[def.OrigDef.IsMereAliasTo]) > 0 {
-					name = def.OrigDef.IsMereAliasTo
-					goto start
-				}
 				defs = append(defs, def)
 			}
 		}

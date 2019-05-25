@@ -30,18 +30,18 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 			}
 		}
 	}
-	{ // NEXT: namesInScopeExt
+	{ // NEXT: namesInScopeExt (extra loop because potentially utilizing above namesInScopeOwn adds)
 		for _, kit := range me.Kits.all {
 			if len(kit.Imports) > 0 {
 				var totaldefscount int
-				var anychanges bool
+				var anychangesinkimps bool
 				kimps := me.Kits.all.Where(func(k *Kit) (iskimp bool) {
 					if iskimp = ustr.In(k.ImpPath, kit.Imports...); iskimp {
-						totaldefscount, anychanges = totaldefscount+len(k.topLevel), anychanges || len(k.state.defsGoneIdsNames) > 0 || len(k.state.defsBornIdsNames) > 0
+						totaldefscount, anychangesinkimps = totaldefscount+len(k.topLevel), anychangesinkimps || len(k.state.defsGoneIdsNames) > 0 || len(k.state.defsBornIdsNames) > 0
 					}
 					return
 				})
-				if anychanges {
+				if anychangesinkimps {
 					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt = atmo.Exists, nil, make(namesInScope, totaldefscount)
 					for _, kimp := range kimps {
 						for k, v := range kimp.lookups.namesInScopeOwn {
@@ -58,45 +58,75 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 		}
 	}
 
-	for _, kit := range me.Kits.all {
-		if _, ok := kitrepops[kit]; ok {
-			kit.lookups.namesInScopeAll = make(namesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
-			for k, v := range kit.lookups.namesInScopeOwn {
-				nodes := make([]atmolang_irfun.IAstNode, len(v))
-				copy(nodes, v)
-				kit.lookups.namesInScopeAll[k] = nodes
-			}
-			for k, v := range kit.lookups.namesInScopeExt {
-				kit.lookups.namesInScopeAll[k] = append(kit.lookups.namesInScopeAll[k], v...)
-			}
-			for _, tld := range kit.topLevel {
-				kit.lookups.namesInScopeAll.repopulateAstIdents(&tld.AstDef)
-			}
+	for kit := range kitrepops {
+		kit.lookups.namesInScopeAll = make(namesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
+		for k, v := range kit.lookups.namesInScopeOwn {
+			nodes := make([]atmolang_irfun.IAstNode, len(v))
+			copy(nodes, v)
+			kit.lookups.namesInScopeAll[k] = nodes
 		}
+		for k, v := range kit.lookups.namesInScopeExt {
+			kit.lookups.namesInScopeAll[k] = append(kit.lookups.namesInScopeAll[k], v...)
+		}
+		for _, tld := range kit.topLevel {
+			kit.lookups.namesInScopeAll.repopulateAstIdentsFor(&tld.AstDef)
+		}
+	}
+}
+
+func (me namesInScope) repopulateAstIdentsFor(node atmolang_irfun.IAstNode) {
+	inscope := me
+	if ldx, _ := node.(atmolang_irfun.IAstExprWithLetDefs); ldx != nil {
+		lds := ldx.LetDefs()
+		if len(lds) > 0 {
+			inscope = inscope.copyAndAdd(lds)
+		}
+		for i := range lds {
+			inscope.repopulateAstIdentsFor(&lds[i])
+		}
+	}
+	switch n := node.(type) {
+	case *atmolang_irfun.AstDef:
+		if n.Arg != nil {
+			inscope = inscope.copyAndAdd(n.Arg)
+		}
+		inscope.repopulateAstIdentsFor(n.Body)
+	case *atmolang_irfun.AstAppl:
+		inscope.repopulateAstIdentsFor(n.AtomicCallee)
+		inscope.repopulateAstIdentsFor(n.AtomicArg)
+	case *atmolang_irfun.AstCases:
+		for i := range n.Ifs {
+			inscope.repopulateAstIdentsFor(n.Ifs[i])
+			inscope.repopulateAstIdentsFor(n.Thens[i])
+		}
+	case *atmolang_irfun.AstIdentName:
+		n.NamesInScope = inscope
 	}
 }
 
 func (me namesInScope) copyAndAdd(add interface{}) (namesInScopeCopy namesInScope) {
 	addarg, _ := add.(*atmolang_irfun.AstDefArg)
 	adddefs, _ := add.(atmolang_irfun.AstDefs)
-	var namesexpected []string
+	var namestoadd []string
 	switch {
 	case addarg != nil:
-		namesexpected = []string{addarg.AstIdentName.Val}
+		namestoadd = []string{addarg.AstIdentName.Val}
 	case len(adddefs) > 0:
-		namesexpected = make([]string, len(adddefs))
+		namestoadd = make([]string, len(adddefs))
 		for i := range adddefs {
-			namesexpected[i] = adddefs[i].Name.Val
+			namestoadd[i] = adddefs[i].Name.Val
 		}
 	}
-	namesInScopeCopy = make(namesInScope, len(me)+1)
+	namesInScopeCopy = make(namesInScope, len(me)+len(namestoadd))
+	// copy old names:
 	for k, v := range me {
-		if !ustr.In(k, namesexpected...) {
-			namesInScopeCopy[k] = v
+		if !ustr.In(k, namestoadd...) {
+			namesInScopeCopy[k] = v // safe to keep existing slice as-is
 		} else {
-			namesInScopeCopy.add(k, v...)
+			namesInScopeCopy.add(k, v...) // effectively copy existing slice
 		}
 	}
+	// add new names:
 	switch {
 	case addarg != nil:
 		k, v := addarg.AstIdentName.Val, addarg
@@ -108,34 +138,4 @@ func (me namesInScope) copyAndAdd(add interface{}) (namesInScopeCopy namesInScop
 		}
 	}
 	return
-}
-
-func (me namesInScope) repopulateAstIdents(node atmolang_irfun.IAstNode) {
-	inscope := me
-	if ldx, _ := node.(atmolang_irfun.IAstExprWithLetDefs); ldx != nil {
-		lds := ldx.LetDefs()
-		if len(lds) > 0 {
-			inscope = inscope.copyAndAdd(lds)
-		}
-		for i := range lds {
-			inscope.repopulateAstIdents(&lds[i])
-		}
-	}
-	switch n := node.(type) {
-	case *atmolang_irfun.AstDef:
-		if n.Arg != nil {
-			inscope = inscope.copyAndAdd(n.Arg)
-		}
-		inscope.repopulateAstIdents(n.Body)
-	case *atmolang_irfun.AstAppl:
-		inscope.repopulateAstIdents(n.AtomicCallee)
-		inscope.repopulateAstIdents(n.AtomicArg)
-	case *atmolang_irfun.AstCases:
-		for i := range n.Ifs {
-			inscope.repopulateAstIdents(n.Ifs[i])
-			inscope.repopulateAstIdents(n.Thens[i])
-		}
-	case *atmolang_irfun.AstIdentName:
-		n.NamesInScope = inscope
-	}
 }

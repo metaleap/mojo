@@ -66,13 +66,12 @@ type AstComment struct {
 
 type AstDef struct {
 	AstBaseTokens
-	Name          AstIdent
-	NameAffix     IAstExpr
-	Args          []AstDefArg
-	Meta          []IAstExpr
-	Body          IAstExpr
-	IsTopLevel    bool
-	IsMereAliasTo string
+	Name       AstIdent
+	NameAffix  IAstExpr
+	Args       []AstDefArg
+	Meta       []IAstExpr
+	Body       IAstExpr
+	IsTopLevel bool
 }
 
 type AstDefArg struct {
@@ -228,30 +227,6 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 		unary = &appl
 	}
 	return
-}
-
-func (me *AstDef) detectMereAliasIfAny() {
-	if len(me.Meta) == 0 && me.NameAffix == nil {
-		if len(me.Args) == 0 {
-			if ident, ok := me.Body.(*AstIdent); ok && ident != nil && ident.IsName(true) {
-				me.IsMereAliasTo = ident.Val
-			}
-		} else if appl, ok := me.Body.(*AstExprAppl); ok && appl != nil && len(appl.Args) == len(me.Args) {
-			if ident, _ := appl.Callee.(*AstIdent); ident != nil && ident.IsName(true) {
-				for i, arg := range appl.Args {
-					daid, _ := me.Args[i].NameOrConstVal.(*AstIdent)
-					aaid, _ := arg.(*AstIdent)
-					if daid == nil || aaid == nil || daid.Val != aaid.Val {
-						ok = false
-						break
-					}
-				}
-				if ok {
-					me.IsMereAliasTo = ident.Val
-				}
-			}
-		}
-	}
 }
 
 func (me *AstDef) Argless(prefix func() string) *AstDef {

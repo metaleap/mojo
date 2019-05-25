@@ -82,9 +82,7 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 					return
 				}
 			}
-			if err = me.parseDefHeadSig(toksheads[0], def); err == nil {
-				def.detectMereAliasIfAny()
-			}
+			err = me.parseDefHeadSig(toksheads[0], def)
 		}
 	}
 	return
