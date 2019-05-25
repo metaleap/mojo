@@ -24,8 +24,8 @@ type Kit struct {
 	defsFacts map[string]*defNameFacts
 	srcFiles  atmolang.AstFiles
 	state     struct {
-		defsGoneIDsNames map[string]string
-		defsBornIDsNames map[string]string
+		defsGoneIdsNames map[string]string
+		defsBornIdsNames map[string]string
 	}
 	lookups struct {
 		allNames        []string
@@ -145,7 +145,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 
 		{
 			od, nd, fe := kit.topLevel.ReInitFrom(kit.srcFiles)
-			kit.state.defsGoneIDsNames, kit.state.defsBornIDsNames, fresherrs = od, nd, append(fresherrs, fe...)
+			kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, fresherrs = od, nd, append(fresherrs, fe...)
 			if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
 				me.state.kitsReprocessing.needed = true
 			}
@@ -217,8 +217,8 @@ start:
 	if len(name) > 0 {
 		for _, id := range me.lookups.tlDefIDsByName[name] {
 			if def := me.lookups.tlDefsByID[id]; def != nil {
-				if resolveKitInternalMereAliases && def.Orig.IsMereAliasTo != "" && len(me.lookups.tlDefIDsByName[def.Orig.IsMereAliasTo]) > 0 {
-					name = def.Orig.IsMereAliasTo
+				if resolveKitInternalMereAliases && def.OrigDef.IsMereAliasTo != "" && len(me.lookups.tlDefIDsByName[def.OrigDef.IsMereAliasTo]) > 0 {
+					name = def.OrigDef.IsMereAliasTo
 					goto start
 				}
 				defs = append(defs, def)

@@ -38,7 +38,7 @@ type AstTopDefs []*AstDefTop
 func (me AstTopDefs) Len() int          { return len(me) }
 func (me AstTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me AstTopDefs) Less(i int, j int) bool {
-	dis, dat := &me[i].Orig.Tokens[0].Meta, &me[j].Orig.Tokens[0].Meta
+	dis, dat := &me[i].OrigDef.Tokens[0].Meta, &me[j].OrigDef.Tokens[0].Meta
 	return (dis.Filename == dat.Filename && dis.Offset < dat.Offset) || dis.Filename < dat.Filename
 }
 
@@ -51,60 +51,54 @@ func (me AstTopDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIDsAndNames map[string]string, newTopLevelDefIDsAndNames map[string]string, freshErrs []error) {
-	this, newdefs, oldunchangeddefidxs := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]bool, len(*me))
+func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs []error) {
+	this, newdefs, oldunchangeds := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]atmo.Empty, len(*me))
 
-	// gather whats "new" (newly added or source-wise modified) and whats "old" (source-wise unchanged)
+	// gather what's "new" (newly added or source-wise modified) and what's "old" (source-wise unchanged)
 	for i := range kitSrcFiles {
 		for j := range kitSrcFiles[i].TopLevel {
 			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
-				if defidx := this.IndexByID(tl.ID()); defidx < 0 {
+				if defidx := this.IndexByID(tl.Id()); defidx >= 0 {
+					oldunchangeds[defidx], this[defidx].OrigTopLevelChunk, this[defidx].OrigDef = atmo.Exists, tl, tl.Ast.Def.Orig
+				} else if !tl.HasErrors() { // any source chunk with parse/lex errs doesn't exist for us anymore at this point
 					newdefs = append(newdefs, tl)
-				} else {
-					oldunchangeddefidxs[defidx], this[defidx].TopLevel, this[defidx].Orig = true, tl, tl.Ast.Def.Orig
 				}
 			}
 		}
 	}
 
-	if len(oldunchangeddefidxs) > 0 && len(oldunchangeddefidxs) < len(this) { // gather & drop what's gone
-		dels := make(map[*atmolang.AstDef]bool, len(this)-len(oldunchangeddefidxs))
-		droppedTopLevelDefIDsAndNames = make(map[string]string, len(this)-len(oldunchangeddefidxs))
+	if len(newdefs) == 0 && len(oldunchangeds) == len(this) {
+		return
+	}
+
+	// gather & drop what's gone
+	if l := len(oldunchangeds); l < len(this) { // either some (l>0) or all (l==0) are gone, the former will occur fairly seldomly in practice
+		thiswithout := make(AstTopDefs, 0, l+len(newdefs))
+		droppedTopLevelDefIdsAndNames = make(map[string]string, len(this)-l)
 		for i := range this {
-			if !oldunchangeddefidxs[i] {
-				dels[this[i].Orig] = true
-				droppedTopLevelDefIDsAndNames[this[i].Id] = this[i].Name.Val
+			if _, oldunchanged := oldunchangeds[i]; oldunchanged {
+				thiswithout = append(thiswithout, this[i])
+			} else {
+				droppedTopLevelDefIdsAndNames[this[i].Id] = this[i].Name.Val
 			}
 		}
-		thisnew := make(AstTopDefs, 0, len(this)) // nasty way to delete but they're all nasty
-		for i := range this {
-			if !dels[this[i].Orig] {
-				thisnew = append(thisnew, this[i])
-			}
-		}
-		this = thisnew
+		this = thiswithout
 	}
 
 	// add what's new
-	newstartfrom := len(this)
-	newTopLevelDefIDsAndNames = make(map[string]string, len(newdefs))
+	newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
 	for _, tlc := range newdefs {
-		if !tlc.HasErrors() {
-			def := &AstDefTop{TopLevel: tlc, Id: tlc.ID(), refersTo: make(map[string]bool)}
-			def.Orig = tlc.Ast.Def.Orig
-			this = append(this, def)
-			newTopLevelDefIDsAndNames[def.Id] = def.Orig.Name.Val
-		}
-	}
-	// populate new `Def`s from orig AST node
-	for i := newstartfrom; i < len(this); i++ {
-		def := this[i]
+		// add the def skeleton
+		def := &AstDefTop{OrigTopLevelChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool)}
+		this, def.OrigDef, newTopLevelDefIdsAndNames[def.Id] =
+			append(this, def), tlc.Ast.Def.Orig, tlc.Ast.Def.Orig.Name.Val
+		// populate it
 		var let AstExprLetBase
 		var ctxastinit ctxAstInit
 		let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevelDef = ctxastinit.nextPrefix(), &let.letDefs, def
-		def.Errs.Add(def.initFrom(&ctxastinit, def.Orig))
+		def.Errs.Add(def.initFrom(&ctxastinit, def.OrigDef))
 		if len(let.letDefs) > 0 {
-			def.Errs.Add(ctxastinit.addLetDefsToNode(def.Orig.Body, def.Body, &let))
+			def.Errs.Add(ctxastinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let))
 		}
 		if len(def.Errs) > 0 {
 			freshErrs = append(freshErrs, def.Errs.Errors()...)

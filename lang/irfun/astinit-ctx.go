@@ -61,7 +61,7 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, er
 	} else {
 		var ident AstIdentName
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
-		me.curTopLevelDef.refersTo[ident.Val] = true
+		// me.curTopLevelDef.refersTo[ident.Val] = true
 
 	}
 	return

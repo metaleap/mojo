@@ -37,7 +37,7 @@ func (me *astNodeBase) IsDefWithArg() bool { return false }
 
 type AstDef struct {
 	astNodeBase
-	Orig *atmolang.AstDef
+	OrigDef *atmolang.AstDef
 
 	Name AstIdentName
 	Arg  *AstDefArg
@@ -45,10 +45,10 @@ type AstDef struct {
 }
 
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
-func (me *AstDef) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstDef) Origin() atmolang.IAstNode { return me.OrigDef }
 func (me *AstDef) OrigToks() (toks udevlex.Tokens) {
-	if me.Orig != nil {
-		toks = me.Orig.Tokens
+	if me.OrigDef != nil {
+		toks = me.OrigDef.Tokens
 	} else if toks = me.Name.OrigToks(); len(toks) == 0 {
 		if toks = me.Arg.OrigToks(); len(toks) == 0 {
 			toks = me.Body.OrigToks()
@@ -67,9 +67,9 @@ func (me *AstDef) EquivTo(node IAstNode) bool {
 type AstDefTop struct {
 	AstDef
 
-	Id       string
-	TopLevel *atmolang.AstFileTopLevelChunk
-	Errs     atmo.Errors
+	Id                string
+	OrigTopLevelChunk *atmolang.AstFileTopLevelChunk
+	Errs              atmo.Errors
 
 	refersTo map[string]bool
 }
@@ -77,9 +77,8 @@ type AstDefTop struct {
 func (me *AstDefTop) RefersTo(name string) (refersTo bool) {
 	// as long as an AstDefTop exists, it represents the same original code snippet: so any given
 	// RefersTo(foo) truth will hold throughout: so we cache instead of continuously re-searching
-	if refersto, known := me.refersTo[name]; known {
-		refersTo = refersto
-	} else {
+	var known bool
+	if refersTo, known = me.refersTo[name]; !known {
 		refersTo = me.AstDef.RefersTo(name)
 		me.refersTo[name] = refersTo
 	}

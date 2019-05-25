@@ -124,7 +124,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 			}
 		}
 		if len(modkitdirs) > 0 {
-			shouldrefresh := make(map[string]bool, len(modkitdirs))
+			shouldrefresh := make(atmo.StringsUnorderedButUnique, len(modkitdirs))
 			// handle new-or-modified kits
 			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 			for kitdirpath, numfilesguess := range modkitdirs {
@@ -156,7 +156,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 					me.Kits.all = append(me.Kits.all, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
 						srcFiles: make(atmolang.AstFiles, 0, numfilesguess), defsFacts: make(map[string]*defNameFacts, numfilesguess*8)})
 				}
-				shouldrefresh[kitdirpath] = true
+				shouldrefresh[kitdirpath] = atmo.Exists
 			}
 			// remove kits that have vanished from the file-system
 			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
@@ -221,7 +221,7 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 	if me.state.kitsReprocessing.needed {
 		me.state.kitsReprocessing.needed = false
 		me.kitsRepopulateIdentNamesInScope()
-		me.substantiateKitsDefsFactsAsNeeded()
+		me.substantiateKitsDefsFactsAsNeeded(!me.state.kitsReprocessing.ever)
 		me.state.kitsReprocessing.ever = true
 	}
 }
@@ -303,20 +303,20 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 	return
 }
 
-func (me Kits) collectReferencers(defNames map[string]bool, into map[string]*Kit, indirects bool) {
+func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, into map[string]*Kit, indirects bool) {
 	if len(defNames) == 0 {
 		return
 	}
-	var morenames map[string]bool
+	var morenames atmo.StringsUnorderedButUnique
 	if indirects {
-		morenames = make(map[string]bool, 4)
+		morenames = make(atmo.StringsUnorderedButUnique, 4)
 	}
 	for _, kit := range me {
 		for _, tld := range kit.topLevel {
 			for defname := range defNames {
 				if tld.RefersTo(defname) {
 					if into[tld.Id] = kit; indirects {
-						morenames[tld.Name.Val] = true
+						morenames[tld.Name.Val] = atmo.Exists
 					}
 				}
 			}

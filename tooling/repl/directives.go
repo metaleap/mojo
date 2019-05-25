@@ -232,12 +232,11 @@ func (me *Repl) DSrcs(what string) bool {
 			ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
 		me.withKitDefs(whatkit, whatname, true, "srcs", func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
-			me.decoAddNotice(false, "", true, def.TopLevel.SrcFile.SrcFilePath)
-			ctxp.ApplStyle = def.TopLevel.SrcFile.Options.ApplStyle
-			def.TopLevel.Print(&ctxp)
+			me.decoAddNotice(false, "", true, def.OrigTopLevelChunk.SrcFile.SrcFilePath)
+			ctxp.ApplStyle = def.OrigTopLevelChunk.SrcFile.Options.ApplStyle
+			def.OrigTopLevelChunk.Print(&ctxp)
 			ctxp.WriteTo(me.IO.Stdout)
 			ctxp.Reset()
-
 			if len(def.Errs) == 0 {
 				ir2lang := def.Print().(*atmolang.AstDef)
 				me.decoAddNotice(false, "", true, "internal representation:", "")

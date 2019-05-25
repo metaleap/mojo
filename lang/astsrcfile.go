@@ -137,7 +137,7 @@ func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 	return
 }
 
-func (me *AstFileTopLevelChunk) ID() string {
+func (me *AstFileTopLevelChunk) Id() string {
 	if me._id == "" {
 		me._id = ustr.Uint64s('-', me.id[:])
 	}

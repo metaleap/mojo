@@ -2,6 +2,7 @@ package atmosess
 
 import (
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
@@ -17,12 +18,12 @@ func (me namesInScope) add(k string, v ...atmolang_irfun.IAstNode) {
 }
 
 func (me *Ctx) kitsRepopulateIdentNamesInScope() {
-	kitrepops := make(map[*Kit]bool, len(me.Kits.all))
+	kitrepops := make(map[*Kit]atmo.Empty, len(me.Kits.all))
 
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.all {
-			if len(kit.state.defsGoneIDsNames) > 0 || len(kit.state.defsBornIDsNames) > 0 {
-				kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn = true, nil, make(namesInScope, len(kit.topLevel))
+			if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 {
+				kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn = atmo.Exists, nil, make(namesInScope, len(kit.topLevel))
 				for _, tld := range kit.topLevel {
 					kit.lookups.namesInScopeOwn.add(tld.Name.Val, tld)
 				}
@@ -36,12 +37,12 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 				var anychanges bool
 				kimps := me.Kits.all.Where(func(k *Kit) (iskimp bool) {
 					if iskimp = ustr.In(k.ImpPath, kit.Imports...); iskimp {
-						totaldefscount, anychanges = totaldefscount+len(k.topLevel), anychanges || len(k.state.defsGoneIDsNames) > 0 || len(k.state.defsBornIDsNames) > 0
+						totaldefscount, anychanges = totaldefscount+len(k.topLevel), anychanges || len(k.state.defsGoneIdsNames) > 0 || len(k.state.defsBornIdsNames) > 0
 					}
 					return
 				})
 				if anychanges {
-					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt = true, nil, make(namesInScope, totaldefscount)
+					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt = atmo.Exists, nil, make(namesInScope, totaldefscount)
 					for _, kimp := range kimps {
 						for k, v := range kimp.lookups.namesInScopeOwn {
 							nodes := make([]atmolang_irfun.IAstNode, len(v))
@@ -58,7 +59,7 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 	}
 
 	for _, kit := range me.Kits.all {
-		if kitrepops[kit] {
+		if _, ok := kitrepops[kit]; ok {
 			kit.lookups.namesInScopeAll = make(namesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
 			for k, v := range kit.lookups.namesInScopeOwn {
 				nodes := make([]atmolang_irfun.IAstNode, len(v))

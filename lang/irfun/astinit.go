@@ -7,36 +7,36 @@ import (
 )
 
 func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
-	me.Orig = orig.ToUnary()
+	me.OrigDef = orig.ToUnary()
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initArg(ctx))
 	errs.Add(me.initMetas(ctx))
 	errs.Add(me.initBody(ctx))
-	me.Orig = orig
+	me.OrigDef = orig
 	return
 }
 
 func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
-	tok := me.Orig.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
+	tok := me.OrigDef.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
 	var ident IAstExpr
-	ident, errs = ctx.newAstIdentFrom(&me.Orig.Name)
+	ident, errs = ctx.newAstIdentFrom(&me.OrigDef.Name)
 	if name, _ := ident.(*AstIdentName); name == nil && tok != nil /* else, it's dyn. gen. stuff */ {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or EmptyParens or placeholder etc..
 	} else if me.Name = *name; name.Val == "" && tok != nil {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 	}
-	if me.Orig.NameAffix != nil {
-		ctx.addCoercion(&me.Name, errs.AddVia(ctx.newAstExprFrom(me.Orig.NameAffix)).(IAstExpr))
+	if me.OrigDef.NameAffix != nil {
+		ctx.addCoercion(&me.Name, errs.AddVia(ctx.newAstExprFrom(me.OrigDef.NameAffix)).(IAstExpr))
 	}
 	return
 }
 
 func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 	// fast-track special case: "func signature expression" aka body-less def acts as notation for a func type
-	if toks := me.Orig.Body.Toks(); len(toks) == 1 && toks[0].Meta.Orig == "_" {
+	if toks := me.OrigDef.Body.Toks(); len(toks) == 1 && toks[0].Meta.Orig == "_" {
 		// no-op: me.Body remains `nil`, this is preserved also in any `Case`s from the below coerce-propagations, if any
 	} else {
-		me.Body, errs = ctx.newAstExprFrom(me.Orig.Body)
+		me.Body, errs = ctx.newAstExprFrom(me.OrigDef.Body)
 	}
 	opeq := B.IdentName("==")
 	if len(ctx.coerceFuncs) > 0 {
@@ -55,19 +55,19 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 }
 
 func (me *AstDef) initArg(ctx *ctxAstInit) (errs atmo.Errors) {
-	if len(me.Orig.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
+	if len(me.OrigDef.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
 		var arg AstDefArg
-		errs.Add(arg.initFrom(ctx, &me.Orig.Args[0]))
+		errs.Add(arg.initFrom(ctx, &me.OrigDef.Args[0]))
 		me.Arg = &arg
 	}
 	return
 }
 
 func (me *AstDef) initMetas(ctx *ctxAstInit) (errs atmo.Errors) {
-	if len(me.Orig.Meta) > 0 {
-		errs.AddTodo(&me.Orig.Meta[0].Toks()[0], "def metas")
-		for i := range me.Orig.Meta {
-			_ = errs.AddVia(ctx.newAstExprFrom(me.Orig.Meta[i]))
+	if len(me.OrigDef.Meta) > 0 {
+		errs.AddTodo(&me.OrigDef.Meta[0].Toks()[0], "def metas")
+		for i := range me.OrigDef.Meta {
+			_ = errs.AddVia(ctx.newAstExprFrom(me.OrigDef.Meta[i]))
 		}
 	}
 	return

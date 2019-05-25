@@ -176,32 +176,32 @@ type defIdFacts struct {
 	cache map[*atmolang_irfun.AstDef]*valFacts
 }
 
-func (me *Ctx) substantiateKitsDefsFactsAsNeeded() {
+func (me *Ctx) substantiateKitsDefsFactsAsNeeded(firstEver bool) {
 	reSubstFirst, reSubstNext := make(map[string]*Kit, 8), make(map[string]*Kit, 16)
 
-	namesofchange := make(map[string]bool, 4)
+	namesofchange := make(atmo.StringsUnorderedButUnique, 4)
 	for _, kit := range me.Kits.all {
-		if len(kit.state.defsGoneIDsNames) > 0 {
-			for defid, defname := range kit.state.defsGoneIDsNames {
-				if me.state.kitsReprocessing.ever {
-					namesofchange[defname] = true
+		if len(kit.state.defsGoneIdsNames) > 0 {
+			for defid, defname := range kit.state.defsGoneIdsNames {
+				if !firstEver {
+					namesofchange[defname] = atmo.Exists
 				}
 				if dins := kit.defsFacts[defname]; dins != nil {
 					dins.overloadDrop(defid)
 				}
 			}
 		}
-		if len(kit.state.defsBornIDsNames) > 0 {
-			for defid, defname := range kit.state.defsBornIDsNames {
-				if reSubstFirst[defid] = kit; me.state.kitsReprocessing.ever {
-					namesofchange[defname] = true
+		if len(kit.state.defsBornIdsNames) > 0 {
+			for defid, defname := range kit.state.defsBornIdsNames {
+				if reSubstFirst[defid] = kit; !firstEver {
+					namesofchange[defname] = atmo.Exists
 				}
 				if dans := kit.defsFacts[defname]; dans != nil && dans.overloadById(defid) != nil {
 					panic(defid) // to see if this ever occurs
 				}
 			}
 		}
-		kit.state.defsGoneIDsNames, kit.state.defsBornIDsNames = nil, nil
+		kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames = nil, nil
 	}
 	if me.Kits.all.collectReferencers(namesofchange, reSubstNext, true); len(reSubstNext) > 0 {
 		println("DEPS of " + fmt.Sprintf("%#v", namesofchange) + ":")
