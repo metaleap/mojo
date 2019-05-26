@@ -55,7 +55,7 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
 	me.maybeInitPanic(false)
 	if plusSessDirFauxKits {
-		for _, dirsess := range me.FauxKitDirPaths() {
+		for _, dirsess := range me.Dirs.fauxKits {
 			if idx := me.Kits.all.indexDirPath(dirsess); idx >= 0 {
 				kitImpPaths = append(kitImpPaths, me.Kits.all[idx].ImpPath)
 			}
@@ -70,7 +70,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 }
 
 func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
-	return ustr.In(kit.DirPath, me.FauxKitDirPaths()...)
+	return ustr.In(kit.DirPath, me.Dirs.fauxKits...)
 }
 
 func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
@@ -83,7 +83,7 @@ func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
 	me.maybeInitPanic(false)
 	idx := me.Kits.all.indexImpPath(impPath)
 	if idx < 0 && (impPath == "" || impPath == "." || impPath == "·") {
-		if fauxkitdirs := me.FauxKitDirPaths(); len(fauxkitdirs) > 0 {
+		if fauxkitdirs := me.Dirs.fauxKits; len(fauxkitdirs) > 0 {
 			idx = me.Kits.all.indexDirPath(fauxkitdirs[0])
 		}
 	}

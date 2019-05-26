@@ -56,15 +56,15 @@ func (me *Ctx) initKits() {
 		func(mods map[string]os.FileInfo, starttime int64, wasfirstrun bool) {
 			// isconcurrent := me.state.fileModsWatch.runningAutomaticallyPeriodically && (!wasfirstrun)
 			if len(mods) > 0 {
-				me.state.fileModsWatch.Lock()
+				me.state.fileModsWatch.latestMutex.Lock()
 				me.state.fileModsWatch.latest = append(me.state.fileModsWatch.latest, mods)
-				me.state.fileModsWatch.Unlock()
+				me.state.fileModsWatch.latestMutex.Unlock()
 			}
 		},
 	)
 	if modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval,
 		me.Kits.RecurringBackgroundWatch.ShouldNow,
-		func() { _ = checkforfilemodsnow(me.Dirs.Kits, me.FauxKitDirPaths()) },
+		func() { _ = checkforfilemodsnow(me.Dirs.Kits, me.fauxKitDirPaths()) },
 	); modswatchstart != nil {
 		me.state.fileModsWatch.runningAutomaticallyPeriodically, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
@@ -212,7 +212,7 @@ func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() (numFileSystemModsNoti
 	if me.state.fileModsWatch.doManually == nil {
 		numFileSystemModsNoticedAndActedUpon = -1
 	} else {
-		numFileSystemModsNoticedAndActedUpon = me.state.fileModsWatch.doManually(me.Dirs.Kits, me.FauxKitDirPaths())
+		numFileSystemModsNoticedAndActedUpon = me.state.fileModsWatch.doManually(me.Dirs.Kits, me.Dirs.fauxKits)
 	}
 	return
 }

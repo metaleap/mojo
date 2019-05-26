@@ -22,9 +22,10 @@ type CtxBgMsg struct {
 // Ctx fields must never be written to from the outside after the `Ctx.Init` call.
 type Ctx struct {
 	Dirs struct {
-		fauxKits []string
-		Cache    string
-		Kits     []string
+		fauxKitsMutex sync.Mutex
+		fauxKits      []string
+		Cache         string
+		Kits          []string
 	}
 	Kits struct {
 		all                      Kits
@@ -36,7 +37,7 @@ type Ctx struct {
 		cleanUps      []func()
 		bgMsgs        []CtxBgMsg
 		fileModsWatch struct {
-			sync.Mutex
+			latestMutex                      sync.Mutex
 			latest                           []map[string]os.FileInfo
 			doManually                       func([]string, []string) int
 			runningAutomaticallyPeriodically bool
@@ -159,7 +160,7 @@ func (me *Ctx) AddFauxKit(dirPath string) (err error) {
 				break
 			}
 		}
-		me.state.fileModsWatch.Lock()
+		me.Dirs.fauxKitsMutex.Lock()
 		if !in {
 			for _, dp := range me.Dirs.fauxKits {
 				if in = (dp == dirPath); in {
@@ -170,7 +171,7 @@ func (me *Ctx) AddFauxKit(dirPath string) (err error) {
 		if !in {
 			me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
 		}
-		me.state.fileModsWatch.Unlock()
+		me.Dirs.fauxKitsMutex.Unlock()
 	}
 	return
 }
@@ -215,23 +216,23 @@ func (me *Ctx) onErrs(errs []error, errors atmo.Errors) {
 }
 
 func (me *Ctx) CatchUp(checkForFileModsNow bool) {
-	me.state.fileModsWatch.Lock()
+	me.Dirs.fauxKitsMutex.Lock()
 	fauxkitdirs := me.Dirs.fauxKits
-	me.state.fileModsWatch.Unlock()
+	me.Dirs.fauxKitsMutex.Unlock()
 
 	if checkForFileModsNow {
 		me.state.fileModsWatch.doManually(me.Dirs.Kits, fauxkitdirs)
 	}
 	var latest []map[string]os.FileInfo
-	me.state.fileModsWatch.Lock()
+	me.state.fileModsWatch.latestMutex.Lock()
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
-	me.state.fileModsWatch.Unlock()
+	me.state.fileModsWatch.latestMutex.Unlock()
 	me.fileModsHandle(me.Dirs.Kits, fauxkitdirs, latest)
 }
 
-func (me *Ctx) FauxKitDirPaths() (fauxKitDirPaths []string) {
-	me.state.fileModsWatch.Lock()
+func (me *Ctx) fauxKitDirPaths() (fauxKitDirPaths []string) {
+	me.Dirs.fauxKitsMutex.Lock()
 	fauxKitDirPaths = me.Dirs.fauxKits
-	me.state.fileModsWatch.Unlock()
+	me.Dirs.fauxKitsMutex.Unlock()
 	return
 }
