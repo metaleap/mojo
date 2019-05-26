@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 )
 
 type IAstNode interface {
@@ -20,7 +21,7 @@ type IAstExpr interface {
 	IAstNode
 	IAstComments
 	IsAtomic() bool
-	Desugared(func() string) IAstExpr
+	Desugared(func() string) (IAstExpr, atmo.Errors)
 }
 
 type IAstExprAtomic interface {
@@ -139,9 +140,8 @@ func (me *AstIdent) String() string { return me.Val }
 
 type AstExprAppl struct {
 	AstBaseExpr
-	Callee          IAstExpr
-	Args            []IAstExpr
-	HasPlaceholders bool
+	Callee IAstExpr
+	Args   []IAstExpr
 }
 
 type AstExprLet struct {

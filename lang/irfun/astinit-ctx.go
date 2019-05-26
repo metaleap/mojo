@@ -68,19 +68,20 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, er
 }
 
 func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
-	origdesugared := origin.Desugared(me.nextPrefix)
-	for des := origdesugared; des != nil; {
-		if des = des.Desugared(me.nextPrefix); des != nil {
-			origdesugared = des
-		}
-	}
-	if origdesugared == nil {
+	var origdesugared atmolang.IAstExpr
+	if origdesugared, errs = origin.Desugared(me.nextPrefix); origdesugared == nil {
 		origdesugared = origin
+	} else {
+		for des := origdesugared; des != nil; {
+			if des = errs.AddVia(des.Desugared(me.nextPrefix)).(atmolang.IAstExpr); des != nil {
+				origdesugared = des
+			}
+		}
 	}
 
 	switch origdes := origdesugared.(type) {
 	case *atmolang.AstIdent:
-		expr, errs = me.newAstIdentFrom(origdes)
+		expr = errs.AddVia(me.newAstIdentFrom(origdes)).(IAstExpr)
 	case *atmolang.AstExprLitFloat:
 		var lit AstLitFloat
 		lit.initFrom(me, origdes)

@@ -2,17 +2,18 @@ package atmolang
 
 import (
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 )
 
-func (*AstBaseExpr) Desugared(func() string) IAstExpr { return nil }
+func (*AstBaseExpr) Desugared(func() string) (IAstExpr, atmo.Errors) { return nil, nil }
 
-func (me *AstExprAppl) Desugared(prefix func() string) IAstExpr {
+func (me *AstExprAppl) Desugared(prefix func() string) (IAstExpr, atmo.Errors) {
 	if lamb := me.desugarToLetExprIfPlaceholders(prefix); lamb != nil {
-		return lamb
+		return lamb, nil
 	} else if lamb := me.desugarToLetExprIfUnionTest(prefix); lamb != nil {
-		return lamb
+		return lamb, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func (me *AstExprAppl) desugarToLetExprIfUnionTest(prefix func() string) *AstExprLet {
@@ -29,9 +30,6 @@ func (me *AstExprAppl) desugarToLetExprIfUnionTest(prefix func() string) *AstExp
 }
 
 func (me *AstExprAppl) desugarToLetExprIfPlaceholders(prefix func() string) *AstExprLet {
-	if !me.HasPlaceholders {
-		return nil
-	}
 	var num int
 	var lamc string
 	var lama []string
@@ -45,6 +43,9 @@ func (me *AstExprAppl) desugarToLetExprIfPlaceholders(prefix func() string) *Ast
 			}
 			num, lama[i] = num+1, ustr.Int(len(ident.Val)-1)+"_"
 		}
+	}
+	if lamc == "" && lama == nil {
+		return nil
 	}
 
 	def := AstDef{Name: AstIdent{Val: prefix() + "┌"}, Args: make([]AstDefArg, num)}
@@ -67,49 +68,53 @@ func (me *AstExprAppl) desugarToLetExprIfPlaceholders(prefix func() string) *Ast
 	return B.Let(&def.Name, def)
 }
 
-// func (me *AstExprCases) Desugared(prefix func() string) IAstExpr {
-// 	if me.defaultIndex >= 0 {
-// 		panic("to-be-handled: AstExprCases.defaultIndex")
-// 	}
-// 	if me.Scrutinee == nil {
-
-// 	} else {
-
-// 	}
-// 	return nil
-// }
-
-// func (me *AstCases) initFrom(ctx *ctxAstInit, orig *atmolang.AstExprCases) (errs atmo.Errors) {
-// 	me.Orig = orig
-
-// 	var scrut IAstExpr
-// 	if orig.Scrutinee != nil {
-// 		scrut = errs.AddVia(ctx.newAstExprFrom(orig.Scrutinee)).(IAstExpr)
-// 	} else {
-// 		scrut = B.IdentTag("True")
-// 	}
-// 	scrut = B.Appl(B.IdentName("=="), ctx.ensureAstAtomFor(scrut))
-// 	scrutatomic, opeq := ctx.ensureAstAtomFor(scrut), B.IdentName("||")
-
-// 	me.Ifs, me.Thens = make([]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
-// 	for i := range orig.Alts {
-// 		alt := &orig.Alts[i]
-// 		if alt.Body == nil {
-// 			errs.AddSyn(&alt.Tokens[0], "malformed branching: case has no result expression (or nested branchings should be parenthesized)")
-// 		} else {
-// 			me.Thens[i] = errs.AddVia(ctx.newAstExprFrom(alt.Body)).(IAstExpr)
-// 		}
-// 		if len(alt.Conds) == 0 {
-// 			errs.AddTodo(&alt.Tokens[0], "deriving of default case")
-// 		}
-// 		for c, cond := range alt.Conds {
-// 			if c == 0 {
-// 				me.Ifs[i] = B.Appl(scrutatomic, ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)))
-// 			} else {
-// 				me.Ifs[i] = B.Appls(ctx, opeq, ctx.ensureAstAtomFor(me.Ifs[i]), ctx.ensureAstAtomFor(
-// 					B.Appl(scrutatomic, ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)))))
-// 			}
-// 		}
-// 	}
-// 	return
-// }
+func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors) {
+	havescrut := (me.Scrutinee != nil)
+	var opeq, scrut *AstIdent
+	var let *AstExprLet
+	if havescrut {
+		let = &AstExprLet{Defs: []AstDef{{Body: me.Scrutinee}}}
+		let.AstBaseTokens, let.AstBaseComments, opeq, scrut, let.Defs[0].Tokens, let.Defs[0].Name.Val, let.Defs[0].Name.Tokens =
+			me.AstBaseTokens, me.AstBaseComments, B.Ident("=="), &let.Defs[0].Name, me.Scrutinee.Toks(), prefix()+"scrut", me.Scrutinee.Toks()
+	}
+	var appl, applcur *AstExprAppl
+	var defcase IAstExpr
+	for i := range me.Alts {
+		if alt := me.Alts[i]; alt.Body == nil {
+			errs.AddSyn(&alt.Tokens[0], "malformed branching: case has no result expression (or nested branchings should be parenthesized)")
+		} else if len(alt.Conds) == 0 {
+			defcase = alt.Body
+		} else {
+			alt.Conds = make([]IAstExpr, len(alt.Conds)) // copying slice, too
+			if havescrut {
+				for c := range alt.Conds {
+					alt.Conds[c] = B.Appl(opeq, scrut, me.Alts[i].Conds[c])
+				}
+			} else {
+				copy(alt.Conds, me.Alts[i].Conds)
+			}
+			for len(alt.Conds) > 1 {
+				cond0, cond1, opor := alt.Conds[0], alt.Conds[1], B.Ident("||")
+				cond := B.Appl(opor, cond0, cond1)
+				cond.Tokens, opor.Tokens = alt.Tokens.FromUntil(cond0.Toks().First(nil), cond1.Toks().Last(nil), true), alt.Tokens.Between(cond0.Toks().Last(nil), cond1.Toks().First(nil))
+				alt.Conds = append([]IAstExpr{cond}, alt.Conds[2:]...)
+			}
+			ite := B.Appl(B.Ident("?:"), alt.Conds[0], alt.Body, nil)
+			if ite.AstBaseTokens = alt.AstBaseTokens; applcur != nil {
+				applcur.Args[2] = ite
+			}
+			if applcur = ite; appl == nil {
+				appl = applcur
+			}
+		}
+	}
+	if defcase == nil {
+		defcase = B.Ident("()")
+	}
+	if appl.Args[2] = defcase; havescrut {
+		expr, let.Body = let, appl
+	} else {
+		expr = appl
+	}
+	return
+}

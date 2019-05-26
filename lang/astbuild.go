@@ -11,7 +11,7 @@ var (
 type AstBuilder struct{}
 
 func (AstBuilder) Ident(val string) *AstIdent {
-	isnotopish := len(val) == 0 || val[0] == '_' || ustr.BeginsLetter(val)
+	isnotopish := val[0] == '_' || ustr.BeginsLetter(val)
 	return &AstIdent{Val: val, IsTag: ustr.BeginsUpper(val), IsOpish: !isnotopish}
 }
 

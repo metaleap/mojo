@@ -2,7 +2,6 @@ package atmolang
 
 import (
 	"github.com/go-leap/dev/lex"
-	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 )
 
@@ -263,16 +262,6 @@ func (me *ctxTldParse) parseExprApplOrIdent(accum []IAstExpr, allToks udevlex.To
 			l := len(accum) - 1
 			appl.Callee, args[0] = accum[l], accum[0]
 			appl.Args = append(args, accum[1:l]...)
-		}
-		if ident, _ := appl.Callee.(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
-			appl.HasPlaceholders = true
-		} else {
-			for i := range appl.Args {
-				if ident, _ := appl.Args[i].(*AstIdent); ident != nil && ustr.IsRepeat(ident.Val, '_') {
-					appl.HasPlaceholders = true
-					break
-				}
-			}
 		}
 	}
 	return
