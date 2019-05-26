@@ -43,7 +43,6 @@ type Ctx struct {
 			emitMsgsIfManual                 bool
 		}
 		kitsReprocessing struct {
-			ever   bool
 			needed bool
 		}
 		initCalled bool

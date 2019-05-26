@@ -2,10 +2,19 @@ package atmo
 
 import (
 	"sort"
+	"strconv"
 )
 
 type Empty struct{}
 type StringsUnorderedButUnique map[string]Empty
+
+func (me StringsUnorderedButUnique) String() (s string) {
+	s = "{"
+	for k := range me {
+		s += strconv.Quote(k) + ","
+	}
+	return s + "}"
+}
 
 const (
 	EnvVarKitsDirs = "ATMO_KITS_DIRS"

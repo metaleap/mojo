@@ -23,8 +23,8 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.all {
 			if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 {
-				kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn = atmo.Exists, nil, make(namesInScope, len(kit.topLevel))
-				for _, tld := range kit.topLevel {
+				kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn = atmo.Exists, nil, make(namesInScope, len(kit.topLevelDefs))
+				for _, tld := range kit.topLevelDefs {
 					kit.lookups.namesInScopeOwn.add(tld.Name.Val, tld)
 				}
 			}
@@ -37,7 +37,7 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 				var anychangesinkimps bool
 				kimps := me.Kits.all.Where(func(k *Kit) (iskimp bool) {
 					if iskimp = ustr.In(k.ImpPath, kit.Imports...); iskimp {
-						totaldefscount, anychangesinkimps = totaldefscount+len(k.topLevel), anychangesinkimps || len(k.state.defsGoneIdsNames) > 0 || len(k.state.defsBornIdsNames) > 0
+						totaldefscount, anychangesinkimps = totaldefscount+len(k.topLevelDefs), anychangesinkimps || len(k.state.defsGoneIdsNames) > 0 || len(k.state.defsBornIdsNames) > 0
 					}
 					return
 				})
@@ -68,7 +68,7 @@ func (me *Ctx) kitsRepopulateIdentNamesInScope() {
 		for k, v := range kit.lookups.namesInScopeExt {
 			kit.lookups.namesInScopeAll[k] = append(kit.lookups.namesInScopeAll[k], v...)
 		}
-		for _, tld := range kit.topLevel {
+		for _, tld := range kit.topLevelDefs {
 			kit.lookups.namesInScopeAll.repopulateAstIdentsFor(&tld.AstDef)
 		}
 	}

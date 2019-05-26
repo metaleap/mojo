@@ -221,8 +221,7 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 	if me.state.kitsReprocessing.needed {
 		me.state.kitsReprocessing.needed = false
 		me.kitsRepopulateIdentNamesInScope()
-		me.substantiateKitsDefsFactsAsNeeded(!me.state.kitsReprocessing.ever)
-		me.state.kitsReprocessing.ever = true
+		me.substantiateKitsDefsFactsAsNeeded()
 	}
 }
 
@@ -312,7 +311,7 @@ func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, into 
 		morenames = make(atmo.StringsUnorderedButUnique, 4)
 	}
 	for _, kit := range me {
-		for _, tld := range kit.topLevel {
+		for _, tld := range kit.topLevelDefs {
 			for defname := range defNames {
 				if tld.RefersTo(defname) {
 					if into[tld.Id] = kit; indirects {

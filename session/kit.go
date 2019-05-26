@@ -20,10 +20,10 @@ type Kit struct {
 	WasEverToBeLoaded bool
 	Imports           []string
 
-	topLevel  atmolang_irfun.AstTopDefs
-	defsFacts map[string]*defNameFacts
-	srcFiles  atmolang.AstFiles
-	state     struct {
+	topLevelDefs atmolang_irfun.AstTopDefs
+	defsFacts    map[string]*defNameFacts
+	srcFiles     atmolang.AstFiles
+	state        struct {
 		defsGoneIdsNames map[string]string
 		defsBornIdsNames map[string]string
 	}
@@ -41,17 +41,15 @@ type Kit struct {
 	}
 }
 
-func (me *Ctx) kitEnsureLoaded(kit *Kit, redoIRs bool) {
+func (me *Ctx) kitEnsureLoaded(kit *Kit) {
 	me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.runningAutomaticallyPeriodically, !kit.WasEverToBeLoaded)
-	if redoIRs {
-		me.reprocessAffectedIRsIfAnyKitsReloaded()
-	}
 }
 
 // KitEnsureLoaded forces (re)loading the `kit` only if it never was.
 // (Primarily for interactive load-on-demand scenarios like REPLs or editor language servers.))
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
-	me.kitEnsureLoaded(kit, true)
+	me.kitEnsureLoaded(kit)
+	me.reprocessAffectedIRsIfAnyKitsReloaded()
 }
 
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
@@ -102,7 +100,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 	if forceFilesCheck {
 		var diritems []os.FileInfo
 		if diritems, kit.errs.dirAccessDuringRefresh = ufs.Dir(kit.DirPath); kit.errs.dirAccessDuringRefresh != nil {
-			kit.srcFiles, kit.topLevel, fresherrs = nil, nil, append(fresherrs, kit.errs.dirAccessDuringRefresh)
+			kit.srcFiles, kit.topLevelDefs, fresherrs = nil, nil, append(fresherrs, kit.errs.dirAccessDuringRefresh)
 			goto end
 		}
 
@@ -136,7 +134,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 			if kimp := me.Kits.all.ByImpPath(imp); kimp == nil {
 				kit.errs.badImports = append(kit.errs.badImports, errors.New("import not found: `"+imp+"`"))
 			} else {
-				me.kitEnsureLoaded(kimp, true)
+				me.kitEnsureLoaded(kimp)
 			}
 		}
 		if len(kit.errs.badImports) > 0 {
@@ -144,15 +142,15 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		}
 
 		{
-			od, nd, fe := kit.topLevel.ReInitFrom(kit.srcFiles)
+			od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.srcFiles)
 			kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, fresherrs = od, nd, append(fresherrs, fe...)
 			if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
 				me.state.kitsReprocessing.needed = true
 			}
 		}
 		kit.lookups.allNames, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID =
-			make([]string, 0, len(kit.topLevel)), make(map[string][]string, len(kit.topLevel)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevel))
-		for _, tldef := range kit.topLevel {
+			make([]string, 0, len(kit.topLevelDefs)), make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevelDefs))
+		for _, tldef := range kit.topLevelDefs {
 			kit.lookups.tlDefsByID[tldef.Id] = tldef
 			if n, ok := kit.lookups.tlDefIDsByName[tldef.Name.Val]; !ok {
 				kit.lookups.tlDefIDsByName[tldef.Name.Val], kit.lookups.allNames =
@@ -178,8 +176,8 @@ func (me *Kit) Errors() (errs []error) {
 			errs = append(errs, e)
 		}
 	}
-	for i := range me.topLevel {
-		errs = append(errs, me.topLevel[i].Errs.Errors()...)
+	for i := range me.topLevelDefs {
+		errs = append(errs, me.topLevelDefs[i].Errs.Errors()...)
 	}
 	for _, dins := range me.defsFacts {
 		for _, dol := range dins.overloads {

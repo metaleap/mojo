@@ -1,7 +1,6 @@
 package atmosess
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/go-leap/str"
@@ -176,44 +175,27 @@ type defIdFacts struct {
 	cache map[*atmolang_irfun.AstDef]*valFacts
 }
 
-func (me *Ctx) substantiateKitsDefsFactsAsNeeded(firstEver bool) {
+func (me *Ctx) substantiateKitsDefsFactsAsNeeded() {
 	reSubstFirst, reSubstNext := make(map[string]*Kit, 8), make(map[string]*Kit, 16)
 
 	namesofchange := make(atmo.StringsUnorderedButUnique, 4)
 	for _, kit := range me.Kits.all {
-		if len(kit.state.defsGoneIdsNames) > 0 {
-			for defid, defname := range kit.state.defsGoneIdsNames {
-				if !firstEver {
-					namesofchange[defname] = atmo.Exists
-				}
-				if dins := kit.defsFacts[defname]; dins != nil {
-					dins.overloadDrop(defid)
-				}
+		for defid, defname := range kit.state.defsGoneIdsNames {
+			namesofchange[defname] = atmo.Exists
+			if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil {
+				defnamefacts.overloadDrop(defid)
 			}
 		}
-		if len(kit.state.defsBornIdsNames) > 0 {
-			for defid, defname := range kit.state.defsBornIdsNames {
-				if reSubstFirst[defid] = kit; !firstEver {
-					namesofchange[defname] = atmo.Exists
-				}
-				if dans := kit.defsFacts[defname]; dans != nil && dans.overloadById(defid) != nil {
-					panic(defid) // to see if this ever occurs
-				}
+		for defid, defname := range kit.state.defsBornIdsNames {
+			reSubstFirst[defid] = kit
+			namesofchange[defname] = atmo.Exists
+			if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil && defnamefacts.overloadById(defid) != nil {
+				panic(defid) // tells us we have a bug in our housekeeping
 			}
 		}
 		kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames = nil, nil
 	}
-	if me.Kits.all.collectReferencers(namesofchange, reSubstNext, true); len(reSubstNext) > 0 {
-		println("DEPS of " + fmt.Sprintf("%#v", namesofchange) + ":")
-		for defid, kit := range reSubstNext {
-			println("\t", kit.ImpPath, defid, kit.lookups.tlDefsByID[defid].Name.Val)
-			if tld := kit.lookups.tlDefsByID[defid]; tld != nil {
-				if dnf := kit.defsFacts[tld.Name.Val]; dnf != nil {
-					dnf.overloadDrop(defid)
-				}
-			}
-		}
-	}
+	me.Kits.all.collectReferencers(namesofchange, reSubstNext, true)
 	var errs []error
 	for defid, kit := range reSubstFirst {
 		if errors := me.substantiateKitTopLevelDefFacts(kit, defid, true).Errs(); len(errors) > 0 {
@@ -225,7 +207,7 @@ func (me *Ctx) substantiateKitsDefsFactsAsNeeded(firstEver bool) {
 		}
 	}
 	for defid, kit := range reSubstNext {
-		if errors := me.substantiateKitTopLevelDefFacts(kit, defid, false).Errs(); len(errors) > 0 {
+		if errors := me.substantiateKitTopLevelDefFacts(kit, defid, reSubstFirst[defid] != kit).Errs(); len(errors) > 0 {
 			for _, e := range errors {
 				if !e.IsRef() {
 					errs = append(errs, e)
