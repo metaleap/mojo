@@ -67,48 +67,55 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, er
 	return
 }
 
-func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
-	for des := orig.Desugared(me.nextPrefix); des != nil; des = orig.Desugared(me.nextPrefix) {
-		orig = des
+func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
+	origdesugared := origin.Desugared(me.nextPrefix)
+	for des := origdesugared; des != nil; {
+		if des = des.Desugared(me.nextPrefix); des != nil {
+			origdesugared = des
+		}
 	}
-	switch o := orig.(type) {
+	if origdesugared == nil {
+		origdesugared = origin
+	}
+
+	switch origdes := origdesugared.(type) {
 	case *atmolang.AstIdent:
-		expr, errs = me.newAstIdentFrom(o)
+		expr, errs = me.newAstIdentFrom(origdes)
 	case *atmolang.AstExprLitFloat:
 		var lit AstLitFloat
-		lit.initFrom(me, o)
+		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLitUint:
 		var lit AstLitUint
-		lit.initFrom(me, o)
+		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLitRune:
 		var lit AstLitRune
-		lit.initFrom(me, o)
+		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLitStr:
 		var lit AstLitStr
-		lit.initFrom(me, o)
+		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLet:
 		oldscope, sidedefs, let :=
-			me.defsScope, AstDefs{}, AstExprLetBase{letOrig: o, letPrefix: me.nextPrefix(), letDefs: make(AstDefs, len(o.Defs))}
+			me.defsScope, AstDefs{}, AstExprLetBase{letOrig: origdes, letPrefix: me.nextPrefix(), letDefs: make(AstDefs, len(origdes.Defs))}
 		me.defsScope = &sidedefs
-		for i := range o.Defs {
-			errs.Add(let.letDefs[i].initFrom(me, &o.Defs[i]))
+		for i := range origdes.Defs {
+			errs.Add(let.letDefs[i].initFrom(me, &origdes.Defs[i]))
 		}
-		expr = errs.AddVia(me.newAstExprFrom(o.Body)).(IAstExpr)
+		expr = errs.AddVia(me.newAstExprFrom(origdes.Body)).(IAstExpr)
 		let.letDefs = append(let.letDefs, sidedefs...)
-		errs.Add(me.addLetDefsToNode(o.Body, expr, &let))
+		errs.Add(me.addLetDefsToNode(origdes.Body, expr, &let))
 		me.defsScope = oldscope
 	case *atmolang.AstExprAppl:
-		o = o.ToUnary()
-		appl, atc, ata := AstAppl{Orig: o}, o.Callee.IsAtomic(), o.Args[0].IsAtomic()
+		origdes = origdes.ToUnary()
+		appl, atc, ata := AstAppl{Orig: origdes}, origdes.Callee.IsAtomic(), origdes.Args[0].IsAtomic()
 		if atc {
-			appl.AtomicCallee = errs.AddVia(me.newAstExprFrom(o.Callee)).(IAstExpr)
+			appl.AtomicCallee = errs.AddVia(me.newAstExprFrom(origdes.Callee)).(IAstExpr)
 		}
 		if ata {
-			appl.AtomicArg = errs.AddVia(me.newAstExprFrom(o.Args[0])).(IAstExpr)
+			appl.AtomicArg = errs.AddVia(me.newAstExprFrom(origdes.Args[0])).(IAstExpr)
 		}
 		if expr = &appl; !(atc && ata) {
 			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IAstExpr {
@@ -117,20 +124,17 @@ func (me *ctxAstInit) newAstExprFrom(orig atmolang.IAstExpr) (expr IAstExpr, err
 			}
 			me.defsScope, appl.letPrefix = &appl.letDefs, me.nextPrefix()
 			if !atc {
-				appl.AtomicCallee = toatomic(o.Callee)
+				appl.AtomicCallee = toatomic(origdes.Callee)
 			}
 			if !ata {
-				appl.AtomicArg = toatomic(o.Args[0])
+				appl.AtomicArg = toatomic(origdes.Args[0])
 			}
 			me.defsScope = oldscope
 		}
-	case *atmolang.AstExprCases:
-		var cases AstCases
-		errs = cases.initFrom(me, o)
-		expr = &cases
 	default:
-		panic(o)
+		panic(origdes)
 	}
+	expr.astExprBase().Orig = origin
 	return
 }
 

@@ -1,11 +1,7 @@
 package atmolang_irfun
 
 var (
-	B                 AstBuilder
-	builderSingletons struct {
-		identTagTrue  *AstIdentTag
-		identTagFalse *AstIdentTag
-	}
+	B AstBuilder
 )
 
 type AstBuilder struct{}
@@ -37,10 +33,6 @@ func (AstBuilder) Appls(ctx *ctxAstInit, callee IAstExpr, args ...IAstExpr) (app
 	return
 }
 
-func (AstBuilder) Case(ifThis IAstExpr, thenThat IAstExpr) *AstCases {
-	return &AstCases{Ifs: []IAstExpr{ifThis}, Thens: []IAstExpr{thenThat}}
-}
-
 func (AstBuilder) IdentName(name string) *AstIdentName {
 	return &AstIdentName{AstIdentBase{Val: name}, AstExprLetBase{}, nil}
 }
@@ -55,18 +47,4 @@ func (AstBuilder) IdentVar(name string) *AstIdentVar {
 
 func (AstBuilder) IdentTag(name string) *AstIdentTag {
 	return &AstIdentTag{AstIdentBase{Val: name}}
-}
-
-func (AstBuilder) IdentTagTrue() *AstIdentTag {
-	if builderSingletons.identTagTrue == nil {
-		builderSingletons.identTagTrue = B.IdentTag("True")
-	}
-	return builderSingletons.identTagTrue
-}
-
-func (AstBuilder) IdentTagFalse() *AstIdentTag {
-	if builderSingletons.identTagFalse == nil {
-		builderSingletons.identTagFalse = B.IdentTag("False")
-	}
-	return builderSingletons.identTagFalse
 }

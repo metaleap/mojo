@@ -140,7 +140,7 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 			i, namesinscope[i] = i+1, k
 		}
 		namesinscope = ustr.Similes(expr.Val, namesinscope...)
-		findings.errs(true).AddNaming(&expr.Orig.Tokens[0], "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
+		findings.errs(true).AddNaming(expr.Orig.Toks().First(nil), "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
 
 	case 1: // uncomplicated best-case: 1 name-match exactly
 		switch cand := candidates[0].(type) {
@@ -193,7 +193,7 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 			}
 		}
 		if len(argless) == 0 { // fine: but still-todo
-			findings.errs(true).AddTodo(&expr.Orig.Tokens[0], "resolve overloads")
+			findings.errs(true).AddTodo(expr.Orig.Toks().First(nil), "resolve overloads")
 
 		} else { // fail: multiple ‹curExprIdent›-named arg-less defs and/or args-in-scope shadow each other and/or same-named known argful defs, that's illegal
 			errmsg := "ambiguous: `" + expr.Val + "`, competing candidates from "
@@ -218,7 +218,7 @@ func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.
 					errmsg += "qualify which import was meant"
 				}
 			} // END: lame boilerplate
-			findings.errs(true).AddNaming(&expr.Orig.Tokens[0], errmsg)
+			findings.errs(true).AddNaming(expr.Orig.Toks().First(nil), errmsg)
 		}
 	}
 	return

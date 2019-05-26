@@ -27,17 +27,6 @@ func (me *AstAppl) Print() atmolang.IAstNode {
 	return me.AstExprLetBase.print(atmolang.B.Appl(me.AtomicCallee.Print().(atmolang.IAstExpr), me.AtomicArg.Print().(atmolang.IAstExpr)))
 }
 
-func (me *AstCases) Print() atmolang.IAstNode {
-	alts := make([]atmolang.AstCase, len(me.Ifs))
-	for i := range alts {
-		alts[i].Body = me.Thens[i].Print().(atmolang.IAstExpr)
-		if me.Ifs[i] != nil {
-			alts[i].Conds = []atmolang.IAstExpr{me.Ifs[i].Print().(atmolang.IAstExpr)}
-		}
-	}
-	return me.AstExprLetBase.print(atmolang.B.Cases(nil, alts...))
-}
-
 func (me *AstExprLetBase) print(body atmolang.IAstExpr) atmolang.IAstNode {
 	if len(me.letDefs) == 0 {
 		return body

@@ -5,11 +5,7 @@ import (
 )
 
 var (
-	B                 AstBuilder
-	builderSingletons struct {
-		identTrue  *AstIdent
-		identFalse *AstIdent
-	}
+	B AstBuilder
 )
 
 type AstBuilder struct{}
@@ -17,20 +13,6 @@ type AstBuilder struct{}
 func (AstBuilder) Ident(val string) *AstIdent {
 	isnotopish := len(val) == 0 || val[0] == '_' || ustr.BeginsLetter(val)
 	return &AstIdent{Val: val, IsTag: ustr.BeginsUpper(val), IsOpish: !isnotopish}
-}
-
-func (AstBuilder) IdentTrue() *AstIdent {
-	if builderSingletons.identTrue == nil {
-		builderSingletons.identTrue = B.Ident("True")
-	}
-	return builderSingletons.identTrue
-}
-
-func (AstBuilder) IdentFalse() *AstIdent {
-	if builderSingletons.identFalse == nil {
-		builderSingletons.identFalse = B.Ident("False")
-	}
-	return builderSingletons.identFalse
 }
 
 func (AstBuilder) LitFloat(val float64) *AstExprLitFloat {

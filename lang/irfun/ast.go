@@ -19,10 +19,11 @@ type IAstNode interface {
 type IAstExpr interface {
 	IAstNode
 	IsAtomic() bool
+	astExprBase() *AstExprBase
 }
 
 // IAstExprWithLetDefs is implemented by `AstExprLetBase` embedders,
-// that is, by `AstIdentName`, `AstAppl` and `AstCases`.
+// that is, by `AstIdentName` and `AstAppl`.
 type IAstExprWithLetDefs interface {
 	astExprLetBase() *AstExprLetBase
 	LetDef(string) *AstDef
@@ -107,13 +108,31 @@ func (me *AstDefArg) OrigToks() (toks udevlex.Tokens) {
 	}
 	return me.AstIdentName.OrigToks()
 }
-func (me *AstDefArg) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstDefArg) Origin() atmolang.IAstNode {
+	if me.Orig != nil {
+		return me.Orig
+	}
+	return me.AstIdentName.Origin()
+}
 
 type AstExprBase struct {
 	astNodeBase
+
+	// some `IAstExpr`s' own `Orig` fields or `IAstNode.Origin()` implementations might
+	// point to (on-the-fly dynamically computed in-memory) desugared nodes, this
+	// one always points to the "real origin" node (might be identical or not)
+	Orig atmolang.IAstExpr
 }
 
-func (*AstExprBase) IsAtomic() bool { return false }
+func (me *AstExprBase) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstExprBase) astExprBase() *AstExprBase { return me }
+func (*AstExprBase) IsAtomic() bool               { return false }
+func (me *AstExprBase) OrigToks() (toks udevlex.Tokens) {
+	if me.Orig != nil {
+		toks = me.Orig.Toks()
+	}
+	return
+}
 
 type AstExprAtomBase struct {
 	AstExprBase
@@ -125,15 +144,6 @@ func (me *AstExprAtomBase) ReferencesTo(string) []udevlex.Tokens { return nil }
 
 type AstLitBase struct {
 	AstExprAtomBase
-	Orig atmolang.IAstExprAtomic
-}
-
-func (me *AstLitBase) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstLitBase) OrigToks() (toks udevlex.Tokens) {
-	if me.Orig != nil {
-		toks = me.Orig.Toks()
-	}
-	return
 }
 
 type AstLitRune struct {
@@ -228,16 +238,6 @@ func (me *AstExprLetBase) letDefsReferencesTo(name string) (refs []udevlex.Token
 type AstIdentBase struct {
 	AstExprAtomBase
 	Val string
-
-	Orig *atmolang.AstIdent
-}
-
-func (me *AstIdentBase) Origin() atmolang.IAstNode { return me.Orig }
-func (me *AstIdentBase) OrigToks() (toks udevlex.Tokens) {
-	if me.Orig != nil {
-		toks = me.Orig.Tokens
-	}
-	return
 }
 
 type AstIdentVar struct {
@@ -282,10 +282,10 @@ func (me *AstIdentName) Origin() atmolang.IAstNode {
 	return me.Orig
 }
 func (me *AstIdentName) OrigToks() (toks udevlex.Tokens) {
-	if me.Orig != nil {
-		toks = me.Orig.Tokens
-	} else if me.letOrig != nil {
+	if me.letOrig != nil {
 		toks = me.letOrig.Tokens
+	} else if me.Orig != nil {
+		toks = me.Orig.Toks()
 	}
 	return
 }
@@ -314,16 +314,18 @@ type AstAppl struct {
 func (me *AstAppl) Origin() atmolang.IAstNode {
 	if me.letOrig != nil {
 		return me.letOrig
+	} else if me.Orig != nil {
+		return me.Orig
 	}
-	return me.Orig
+	return me.AstExprBase.Orig
 }
 func (me *AstAppl) OrigToks() (toks udevlex.Tokens) {
-	if me.Orig != nil {
+	if me.letDefs != nil {
+		toks = me.letOrig.Tokens
+	} else if me.Orig != nil {
 		toks = me.Orig.Tokens
 	} else if toks = me.AtomicCallee.OrigToks(); len(toks) == 0 {
-		if toks = me.AtomicArg.OrigToks(); len(toks) == 0 && me.letOrig != nil {
-			toks = me.letOrig.Tokens
-		}
+		toks = me.AtomicArg.OrigToks()
 	}
 	return
 }
@@ -336,124 +338,4 @@ func (me *AstAppl) RefersTo(name string) bool {
 }
 func (me *AstAppl) ReferencesTo(name string) []udevlex.Tokens {
 	return append(me.AtomicCallee.ReferencesTo(name), append(me.AtomicArg.ReferencesTo(name), me.letDefsReferencesTo(name)...)...)
-}
-
-type AstCases struct {
-	AstExprBase
-	AstExprLetBase
-	Orig  *atmolang.AstExprCases
-	Ifs   []IAstExpr
-	Thens []IAstExpr
-}
-
-func (me *AstCases) Origin() atmolang.IAstNode {
-	if me.letOrig != nil {
-		return me.letOrig
-	}
-	return me.Orig
-}
-func (me *AstCases) OrigToks() (toks udevlex.Tokens) {
-	if me.Orig != nil {
-		toks = me.Orig.Tokens
-	} else if me.letOrig != nil {
-		toks = me.letOrig.Tokens
-	} else {
-		for i := range me.Ifs {
-			if toks = me.Ifs[i].OrigToks(); len(toks) > 0 {
-				break
-			} else if toks = me.Thens[i].OrigToks(); len(toks) > 0 {
-				break
-			}
-		}
-	}
-	return
-}
-
-func (me *AstCases) EquivTo(node IAstNode) bool {
-	cmp, _ := node.(*AstCases)
-	if cmp != nil && len(cmp.Ifs) == len(me.Ifs) && len(cmp.Thens) == len(me.Thens) {
-		for i := range cmp.Ifs {
-			if !cmp.Ifs[i].EquivTo(me.Ifs[i]) {
-				return false
-			}
-		}
-		for i := range cmp.Thens {
-			if !cmp.Thens[i].EquivTo(me.Thens[i]) {
-				return false
-			}
-		}
-		return cmp.letDefsEquivTo(&me.AstExprLetBase)
-	}
-	return false
-}
-func (me *AstCases) RefersTo(name string) bool {
-	for i := range me.Thens {
-		if me.Thens[i].RefersTo(name) || me.Ifs[i].RefersTo(name) {
-			return true
-		}
-	}
-	return me.letDefsReferTo(name)
-}
-func (me *AstCases) ReferencesTo(name string) (refs []udevlex.Tokens) {
-	refs = me.letDefsReferencesTo(name)
-	for i := range me.Thens {
-		refs = append(refs, append(me.Ifs[i].ReferencesTo(name), me.Thens[i].ReferencesTo(name)...)...)
-	}
-	return
-}
-
-func (me *AstExprLetBase) walk(on func(IAstNode)) {
-	for i := range me.letDefs {
-		me.letDefs[i].Walk(on)
-	}
-}
-
-func (me *AstIdentName) walk(on func(IAstNode)) {
-	me.AstExprLetBase.walk(on)
-	on(me)
-}
-
-func (me *AstAppl) walk(on func(IAstNode)) {
-	me.AstExprLetBase.walk(on)
-	on(me)
-	type iwalk interface{ walk(func(IAstNode)) }
-	if c, _ := me.AtomicCallee.(iwalk); c != nil {
-		c.walk(on)
-	} else {
-		on(me.AtomicCallee)
-	}
-	if a, _ := me.AtomicArg.(iwalk); a != nil {
-		a.walk(on)
-	} else {
-		on(me.AtomicArg)
-	}
-}
-
-func (me *AstCases) walk(on func(IAstNode)) {
-	me.AstExprLetBase.walk(on)
-	on(me)
-	type iwalk interface{ walk(func(IAstNode)) }
-	for i := range me.Ifs {
-		if c, _ := me.Ifs[i].(iwalk); c != nil {
-			c.walk(on)
-		} else {
-			on(me.Ifs[i])
-		}
-		if t, _ := me.Thens[i].(iwalk); t != nil {
-			t.walk(on)
-		} else {
-			on(me.Thens[i])
-		}
-	}
-}
-
-func (me *AstDef) Walk(on func(IAstNode)) { me.walk(on) }
-func (me *AstDef) walk(on func(IAstNode)) {
-	on(me)
-	type iwalk interface{ walk(func(IAstNode)) }
-	if b, _ := me.Body.(iwalk); b != nil {
-		b.walk(on)
-	} else {
-		on(me.Body)
-	}
 }

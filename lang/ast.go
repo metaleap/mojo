@@ -85,8 +85,7 @@ type AstBaseExpr struct {
 	AstBaseComments
 }
 
-func (*AstBaseExpr) Desugared(func() string) IAstExpr { return nil }
-func (*AstBaseExpr) IsAtomic() bool                   { return false }
+func (*AstBaseExpr) IsAtomic() bool { return false }
 
 type AstBaseExprAtom struct {
 	AstBaseExpr

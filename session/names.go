@@ -94,11 +94,11 @@ func (me namesInScope) repopulateAstIdentsFor(node atmolang_irfun.IAstNode) {
 	case *atmolang_irfun.AstAppl:
 		inscope.repopulateAstIdentsFor(n.AtomicCallee)
 		inscope.repopulateAstIdentsFor(n.AtomicArg)
-	case *atmolang_irfun.AstCases:
-		for i := range n.Ifs {
-			inscope.repopulateAstIdentsFor(n.Ifs[i])
-			inscope.repopulateAstIdentsFor(n.Thens[i])
-		}
+	// case *atmolang_irfun.AstCases:
+	// 	for i := range n.Ifs {
+	// 		inscope.repopulateAstIdentsFor(n.Ifs[i])
+	// 		inscope.repopulateAstIdentsFor(n.Thens[i])
+	// 	}
 	case *atmolang_irfun.AstIdentName:
 		n.NamesInScope = inscope
 	}

@@ -4,6 +4,8 @@ import (
 	"github.com/go-leap/str"
 )
 
+func (*AstBaseExpr) Desugared(func() string) IAstExpr { return nil }
+
 func (me *AstExprAppl) Desugared(prefix func() string) IAstExpr {
 	if lamb := me.desugarToLetExprIfPlaceholders(prefix); lamb != nil {
 		return lamb
@@ -64,3 +66,50 @@ func (me *AstExprAppl) desugarToLetExprIfPlaceholders(prefix func() string) *Ast
 	def.Body = &appl
 	return B.Let(&def.Name, def)
 }
+
+// func (me *AstExprCases) Desugared(prefix func() string) IAstExpr {
+// 	if me.defaultIndex >= 0 {
+// 		panic("to-be-handled: AstExprCases.defaultIndex")
+// 	}
+// 	if me.Scrutinee == nil {
+
+// 	} else {
+
+// 	}
+// 	return nil
+// }
+
+// func (me *AstCases) initFrom(ctx *ctxAstInit, orig *atmolang.AstExprCases) (errs atmo.Errors) {
+// 	me.Orig = orig
+
+// 	var scrut IAstExpr
+// 	if orig.Scrutinee != nil {
+// 		scrut = errs.AddVia(ctx.newAstExprFrom(orig.Scrutinee)).(IAstExpr)
+// 	} else {
+// 		scrut = B.IdentTag("True")
+// 	}
+// 	scrut = B.Appl(B.IdentName("=="), ctx.ensureAstAtomFor(scrut))
+// 	scrutatomic, opeq := ctx.ensureAstAtomFor(scrut), B.IdentName("||")
+
+// 	me.Ifs, me.Thens = make([]IAstExpr, len(orig.Alts)), make([]IAstExpr, len(orig.Alts))
+// 	for i := range orig.Alts {
+// 		alt := &orig.Alts[i]
+// 		if alt.Body == nil {
+// 			errs.AddSyn(&alt.Tokens[0], "malformed branching: case has no result expression (or nested branchings should be parenthesized)")
+// 		} else {
+// 			me.Thens[i] = errs.AddVia(ctx.newAstExprFrom(alt.Body)).(IAstExpr)
+// 		}
+// 		if len(alt.Conds) == 0 {
+// 			errs.AddTodo(&alt.Tokens[0], "deriving of default case")
+// 		}
+// 		for c, cond := range alt.Conds {
+// 			if c == 0 {
+// 				me.Ifs[i] = B.Appl(scrutatomic, ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)))
+// 			} else {
+// 				me.Ifs[i] = B.Appls(ctx, opeq, ctx.ensureAstAtomFor(me.Ifs[i]), ctx.ensureAstAtomFor(
+// 					B.Appl(scrutatomic, ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(cond)).(IAstExpr)))))
+// 			}
+// 		}
+// 	}
+// 	return
+// }
