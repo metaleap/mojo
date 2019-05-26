@@ -48,11 +48,11 @@ type AstDef struct {
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *AstDef) Origin() atmolang.IAstNode { return me.OrigDef }
 func (me *AstDef) OrigToks() (toks udevlex.Tokens) {
-	if me.OrigDef != nil {
+	if me.OrigDef != nil && me.OrigDef.Tokens != nil {
 		toks = me.OrigDef.Tokens
-	} else if toks = me.Name.OrigToks(); len(toks) == 0 {
-		if toks = me.Arg.OrigToks(); len(toks) == 0 {
-			toks = me.Body.OrigToks()
+	} else if toks = me.Body.OrigToks(); len(toks) == 0 {
+		if toks = me.Name.OrigToks(); len(toks) == 0 {
+			toks = me.Arg.OrigToks()
 		}
 	}
 	return
@@ -102,9 +102,9 @@ type AstDefArg struct {
 	Orig *atmolang.AstDefArg
 }
 
-func (me *AstDefArg) OrigToks() (toks udevlex.Tokens) {
-	if me.Orig != nil {
-		toks = me.Orig.Tokens
+func (me *AstDefArg) OrigToks() udevlex.Tokens {
+	if me.Orig != nil && me.Orig.Tokens != nil {
+		return me.Orig.Tokens
 	}
 	return me.AstIdentName.OrigToks()
 }
@@ -124,14 +124,14 @@ type AstExprBase struct {
 	Orig atmolang.IAstExpr
 }
 
-func (me *AstExprBase) Origin() atmolang.IAstNode { return me.Orig }
 func (me *AstExprBase) astExprBase() *AstExprBase { return me }
 func (*AstExprBase) IsAtomic() bool               { return false }
-func (me *AstExprBase) OrigToks() (toks udevlex.Tokens) {
+func (me *AstExprBase) Origin() atmolang.IAstNode { return me.Orig }
+func (me *AstExprBase) OrigToks() udevlex.Tokens {
 	if me.Orig != nil {
-		toks = me.Orig.Toks()
+		return me.Orig.Toks()
 	}
-	return
+	return nil
 }
 
 type AstExprAtomBase struct {
@@ -184,6 +184,15 @@ type AstLitFloat struct {
 func (me *AstLitFloat) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitFloat)
 	return cmp != nil && cmp.Val == me.Val
+}
+
+type AstLitUndef struct {
+	AstLitBase
+}
+
+func (me *AstLitUndef) EquivTo(node IAstNode) bool {
+	cmp, _ := node.(*AstLitUndef)
+	return cmp != nil
 }
 
 type AstExprLetBase struct {
@@ -258,15 +267,6 @@ func (me *AstIdentTag) EquivTo(node IAstNode) bool {
 	return cmp != nil && cmp.Val == me.Val
 }
 
-type AstIdentUndef struct {
-	AstIdentBase
-}
-
-func (me *AstIdentUndef) EquivTo(node IAstNode) bool {
-	cmp, _ := node.(*AstIdentUndef)
-	return cmp != nil
-}
-
 type AstIdentName struct {
 	AstIdentBase
 	AstExprLetBase
@@ -282,12 +282,10 @@ func (me *AstIdentName) Origin() atmolang.IAstNode {
 	return me.Orig
 }
 func (me *AstIdentName) OrigToks() (toks udevlex.Tokens) {
-	if me.letOrig != nil {
-		toks = me.letOrig.Tokens
-	} else if me.Orig != nil {
-		toks = me.Orig.Toks()
+	if me.letOrig != nil && me.letOrig.Tokens != nil {
+		return me.letOrig.Tokens
 	}
-	return
+	return me.AstExprBase.OrigToks()
 }
 func (me *AstIdentName) RefersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
@@ -320,9 +318,9 @@ func (me *AstAppl) Origin() atmolang.IAstNode {
 	return me.AstExprBase.Orig
 }
 func (me *AstAppl) OrigToks() (toks udevlex.Tokens) {
-	if me.letDefs != nil {
+	if me.letOrig != nil && me.letOrig.Tokens != nil {
 		toks = me.letOrig.Tokens
-	} else if me.Orig != nil {
+	} else if me.Orig != nil && me.Orig.Tokens != nil {
 		toks = me.Orig.Tokens
 	} else if toks = me.AtomicCallee.OrigToks(); len(toks) == 0 {
 		toks = me.AtomicArg.OrigToks()

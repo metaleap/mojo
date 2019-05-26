@@ -320,7 +320,9 @@ func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, into 
 			for defname := range defNames {
 				if tld.RefersTo(defname) {
 					if into[tld.Id] = kit; indirects {
-						morenames[tld.Name.Val] = atmo.Exists
+						if _, donealready := defNames[tld.Name.Val]; !donealready {
+							morenames[tld.Name.Val] = atmo.Exists
+						}
 					}
 				}
 			}

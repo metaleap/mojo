@@ -22,7 +22,7 @@ func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Er
 func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	tok := me.OrigDef.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
 	var ident IAstExpr
-	ident, errs = ctx.newAstIdentFrom(&me.OrigDef.Name)
+	ident, errs = ctx.newAstExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*AstIdentName); name == nil && tok != nil /* else, it's dyn. gen. stuff */ {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or Undef or placeholder etc..
 	} else if me.Name = *name; name.Val == "" && tok != nil {
@@ -37,23 +37,31 @@ func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 	// fast-track special case: "func signature expression" aka body-less def acts as notation for a func type
 	if toks := me.OrigDef.Body.Toks(); len(toks) == 1 && toks[0].Meta.Orig == "_" {
-		// no-op: me.Body remains `nil`, this is preserved also in any `Case`s from the below coerce-propagations, if any
+		// no-op: me.Body remains `nil`, this is preserved also in any `if`s from the below coerce-propagations, if any
 	} else {
 		me.Body, errs = ctx.newAstExprFrom(me.OrigDef.Body)
 	}
-	// opeq := B.IdentName("==")
-	if len(ctx.coerceFuncs) > 0 {
+	if len(ctx.coerceCallables) > 0 {
+		opeq, appl := B.IdentName(atmo.Syn_Eq), func(applexpr IAstExpr, orig atmolang.IAstExpr, atomic bool) IAstExpr {
+			if applexpr.astExprBase().Orig = orig; atomic {
+				applexpr = ctx.ensureAstAtomFor(applexpr)
+				applexpr.astExprBase().Orig = orig
+			}
+			return applexpr
+		}
 		if me.Arg != nil {
-			if coerce := ctx.coerceFuncs[me.Arg]; coerce != nil {
-				// appl := B.Appl(ctx.ensureAstAtomFor(coerce), &me.Arg.AstIdentName)
-				panic("NEEDIFS")
-				// me.Body = B.Case(B.Appls(ctx, opeq, &me.Arg.AstIdentName, ctx.ensureAstAtomFor(appl)), me.Body)
+			if coerce := ctx.coerceCallables[me.Arg]; coerce != nil {
+				coerceorig := coerce.astExprBase().Orig
+				newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), &me.Arg.AstIdentName), coerceorig, true)
+				newbody = appl(B.ApplN(ctx, opeq, &me.Arg.AstIdentName, newbody), coerceorig, true)
+				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.Syn_If), newbody, me.Body, B.LitUndef()), coerceorig, false)
 			}
 		}
-		if coerce := ctx.coerceFuncs[&me.Name]; coerce != nil {
-			// appl := B.Appl(ctx.ensureAstAtomFor(coerce), &me.Name)
-			panic("NEEDIFS")
-			// me.Body = B.Case(B.Appls(ctx, opeq, &me.Name, ctx.ensureAstAtomFor(appl)), me.Body)
+		if coerce := ctx.coerceCallables[&me.Name]; coerce != nil {
+			oldbody, coerceorig := ctx.ensureAstAtomFor(me.Body), coerce.astExprBase().Orig
+			newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), oldbody), coerceorig, true)
+			newbody = appl(B.ApplN(ctx, opeq, oldbody, newbody), coerceorig, true)
+			me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.Syn_If), newbody, oldbody, B.LitUndef()), coerceorig, false)
 		}
 	}
 	return
@@ -84,12 +92,12 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	var isconstexpr bool
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
-		if isconstexpr = true; !(v.IsTag || v.Val == atmo.Undef || ( /*AstIdentVar*/ v.Val[0] == '_' && len(v.Val) > 1 && v.Val[1] != '_')) {
+		if isconstexpr = true; !(v.IsTag || v.Val == atmo.Syn_Undef || ( /*AstIdentVar*/ v.Val[0] == '_' && len(v.Val) > 1 && v.Val[1] != '_')) {
 			if ustr.IsRepeat(v.Val, '_') {
 				if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v; len(v.Val) > 1 {
 					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
 				}
-			} else if cxn, ok1 := errs.AddVia(ctx.newAstIdentFrom(v)).(*AstIdentName); ok1 {
+			} else if cxn, ok1 := errs.AddVia(ctx.newAstExprFromIdent(v)).(*AstIdentName); ok1 {
 				isconstexpr, me.AstIdentName = false, *cxn
 			}
 		}
@@ -100,12 +108,14 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	if isconstexpr && orig.Affix != nil {
 		errs.AddSyn(&orig.Affix.Toks()[0], "def-arg affix illegal where the arg is itself a constant value")
 	}
-	if isconstexpr {
-		me.AstIdentName.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
-		ctx.addCoercion(me, B.Appl(B.IdentName("§"), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr))))
-	}
 	if orig.Affix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(orig.Affix)).(IAstExpr))
+	}
+	if isconstexpr {
+		me.AstIdentName.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
+		appl := B.Appl1(B.IdentName("§"), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr)))
+		appl.AstExprBase.Orig = orig.NameOrConstVal
+		ctx.addCoercion(me, appl)
 	}
 	return
 }

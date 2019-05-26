@@ -75,7 +75,7 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 	if havescrut {
 		let = &AstExprLet{Defs: []AstDef{{Body: me.Scrutinee}}}
 		let.AstBaseTokens, let.AstBaseComments, opeq, scrut, let.Defs[0].Tokens, let.Defs[0].Name.Val, let.Defs[0].Name.Tokens =
-			me.AstBaseTokens, me.AstBaseComments, B.Ident("=="), &let.Defs[0].Name, me.Scrutinee.Toks(), prefix()+"scrut", me.Scrutinee.Toks()
+			me.AstBaseTokens, me.AstBaseComments, B.Ident(atmo.Syn_Eq), &let.Defs[0].Name, me.Scrutinee.Toks(), prefix()+"scrut", me.Scrutinee.Toks()
 	}
 	var appl, applcur *AstExprAppl
 	var defcase IAstExpr
@@ -94,12 +94,12 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 				copy(alt.Conds, me.Alts[i].Conds)
 			}
 			for len(alt.Conds) > 1 {
-				cond0, cond1, opor := alt.Conds[0], alt.Conds[1], B.Ident("||")
+				cond0, cond1, opor := alt.Conds[0], alt.Conds[1], B.Ident(atmo.Syn_Or)
 				cond := B.Appl(opor, cond0, cond1)
 				cond.Tokens, opor.Tokens = alt.Tokens.FromUntil(cond0.Toks().First(nil), cond1.Toks().Last(nil), true), alt.Tokens.Between(cond0.Toks().Last(nil), cond1.Toks().First(nil))
 				alt.Conds = append([]IAstExpr{cond}, alt.Conds[2:]...)
 			}
-			ite := B.Appl(B.Ident("?:"), alt.Conds[0], alt.Body, nil)
+			ite := B.Appl(B.Ident(atmo.Syn_If), alt.Conds[0], alt.Body, nil)
 			if ite.AstBaseTokens = alt.AstBaseTokens; applcur != nil {
 				applcur.Args[2] = ite
 			}
@@ -109,7 +109,7 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 		}
 	}
 	if defcase == nil {
-		defcase = B.Ident(atmo.Undef)
+		defcase = B.Ident(atmo.Syn_Undef)
 	}
 	if appl.Args[2] = defcase; havescrut {
 		expr, let.Body = let, appl

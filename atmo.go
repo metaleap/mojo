@@ -20,7 +20,10 @@ const (
 	EnvVarKitsDirs = "ATMO_KITS_DIRS"
 	NameAutoKit    = "omni"
 	SrcFileExt     = ".at"
-	Undef          = "()"
+	Syn_Undef      = "()"
+	Syn_If         = "if"
+	Syn_Or         = "||"
+	Syn_Eq         = "=="
 )
 
 var (

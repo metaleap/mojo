@@ -1,33 +1,36 @@
 package atmolang_irfun
 
 var (
-	B AstBuilder
+	B                 AstBuilder
+	builderSingletons struct {
+		litUndef AstLitUndef
+	}
 )
 
 type AstBuilder struct{}
 
-func (AstBuilder) Appl(callee IAstExpr, arg IAstExpr) *AstAppl {
-	if !callee.IsAtomic() {
-		panic(callee)
+func (AstBuilder) Appl1(atomicCallee IAstExpr, atomicArg IAstExpr) *AstAppl {
+	if !atomicCallee.IsAtomic() {
+		panic(atomicCallee)
 	}
-	if !arg.IsAtomic() {
-		panic(arg)
+	if !atomicArg.IsAtomic() {
+		panic(atomicArg)
 	}
-	return &AstAppl{AtomicCallee: callee, AtomicArg: arg}
+	return &AstAppl{AtomicCallee: atomicCallee, AtomicArg: atomicArg}
 }
 
-func (AstBuilder) Appls(ctx *ctxAstInit, callee IAstExpr, args ...IAstExpr) (appl *AstAppl) {
-	if !callee.IsAtomic() {
-		panic(callee)
+func (AstBuilder) ApplN(ctx *ctxAstInit, atomicCallee IAstExpr, atomicArgs ...IAstExpr) (appl *AstAppl) {
+	if !atomicCallee.IsAtomic() {
+		panic(atomicCallee)
 	}
-	for i := range args {
-		if !args[i].IsAtomic() {
-			panic(args[i])
+	for i := range atomicArgs {
+		if !atomicArgs[i].IsAtomic() {
+			panic(atomicArgs[i])
 		}
 		if i == 0 {
-			appl = &AstAppl{AtomicCallee: callee, AtomicArg: args[i]}
+			appl = &AstAppl{AtomicCallee: atomicCallee, AtomicArg: atomicArgs[i]}
 		} else {
-			appl = &AstAppl{AtomicCallee: ctx.ensureAstAtomFor(appl), AtomicArg: args[i]}
+			appl = &AstAppl{AtomicCallee: ctx.ensureAstAtomFor(appl), AtomicArg: atomicArgs[i]}
 		}
 	}
 	return
@@ -44,3 +47,5 @@ func (AstBuilder) IdentVar(name string) *AstIdentVar {
 func (AstBuilder) IdentTag(name string) *AstIdentTag {
 	return &AstIdentTag{AstIdentBase{Val: name}}
 }
+
+func (AstBuilder) LitUndef() *AstLitUndef { return &builderSingletons.litUndef }

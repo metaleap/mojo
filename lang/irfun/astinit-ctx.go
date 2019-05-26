@@ -9,10 +9,10 @@ import (
 )
 
 type ctxAstInit struct {
-	curTopLevelDef *AstDefTop
-	defsScope      *AstDefs
-	coerceFuncs    map[IAstNode]IAstExpr
-	counter        struct {
+	curTopLevelDef  *AstDefTop
+	defsScope       *AstDefs
+	coerceCallables map[IAstNode]IAstExpr
+	counter         struct {
 		val   byte
 		times int
 	}
@@ -24,13 +24,12 @@ func ExprFrom(orig atmolang.IAstExpr) (IAstExpr, atmo.Errors) {
 }
 
 func (me *ctxAstInit) addCoercion(on IAstNode, coerce IAstExpr) {
-	if me.coerceFuncs == nil {
-		me.coerceFuncs = map[IAstNode]IAstExpr{on: coerce}
+	if me.coerceCallables == nil {
+		me.coerceCallables = map[IAstNode]IAstExpr{on: coerce}
 	} else {
-		me.coerceFuncs[on] = coerce
+		me.coerceCallables[on] = coerce
 	}
 }
-
 func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExpr {
 	if expr.IsAtomic() {
 		return expr
@@ -38,20 +37,20 @@ func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExpr {
 	return &me.addLocalDefToScope(expr, me.nextPrefix()).Name
 }
 
-func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, errs atmo.Errors) {
+func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr, errs atmo.Errors) {
 	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
 		var ident AstIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 	} else if t1 != t2 {
 		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + ustr.If(len(orig.Tokens) == 0, "<dyn>", orig.Tokens[0].Meta.Position.String()) + ")")
 
-	} else if orig.IsOpish && orig.Val == atmo.Undef {
-		var ident AstIdentUndef
-		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+	} else if orig.IsOpish && orig.Val == atmo.Syn_Undef {
+		var ident AstLitUndef
+		ret, ident.Orig = &ident, orig
 
 	} else if ustr.IsRepeat(orig.Val, '_') {
-		var ident AstIdentVar // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be found as well
-		errs.AddSyn(&orig.Tokens[0], "illegal placeholder placement: valid in def-args or call expressions")
+		var ident AstIdentVar // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
+		errs.AddSyn(&orig.Tokens[0], "misplaced placeholder: only legal in def-args or call expressions")
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	} else if orig.Val[0] == '_' && orig.Val[1] != '_' {
@@ -81,7 +80,7 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 
 	switch origdes := origdesugared.(type) {
 	case *atmolang.AstIdent:
-		expr = errs.AddVia(me.newAstIdentFrom(origdes)).(IAstExpr)
+		expr = errs.AddVia(me.newAstExprFromIdent(origdes)).(IAstExpr)
 	case *atmolang.AstExprLitFloat:
 		var lit AstLitFloat
 		lit.initFrom(me, origdes)
