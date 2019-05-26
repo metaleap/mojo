@@ -226,7 +226,7 @@ func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 	if me.state.kitsReprocessing.needed {
 		me.state.kitsReprocessing.needed = false
 		me.kitsRepopulateIdentNamesInScope()
-		me.substantiateKitsDefsFactsAsNeeded()
+		me.onErrs(me.substantiateKitsDefsFactsAsNeeded(), nil)
 	}
 }
 
