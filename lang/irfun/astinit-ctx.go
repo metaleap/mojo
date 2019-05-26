@@ -45,8 +45,8 @@ func (me *ctxAstInit) newAstIdentFrom(orig *atmolang.AstIdent) (ret IAstExpr, er
 	} else if t1 != t2 {
 		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + ustr.If(len(orig.Tokens) == 0, "<dyn>", orig.Tokens[0].Meta.Position.String()) + ")")
 
-	} else if orig.IsOpish && orig.Val == "()" {
-		var ident AstIdentEmptyParens
+	} else if orig.IsOpish && orig.Val == atmo.Undef {
+		var ident AstIdentUndef
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
 	} else if ustr.IsRepeat(orig.Val, '_') {

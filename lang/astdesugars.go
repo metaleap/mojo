@@ -109,7 +109,7 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 		}
 	}
 	if defcase == nil {
-		defcase = B.Ident("()")
+		defcase = B.Ident(atmo.Undef)
 	}
 	if appl.Args[2] = defcase; havescrut {
 		expr, let.Body = let, appl

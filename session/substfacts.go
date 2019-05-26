@@ -52,18 +52,18 @@ func (me valFacts) Errs() (errs atmo.Errors) {
 }
 func (me valFacts) String() string {
 	if len(me) == 0 {
-		return "()"
+		return "❲❳"
 	} else if len(me) == 1 {
 		return me[0].String()
 	}
-	s := "("
+	s := "❲"
 	for i, fact := range me {
 		if i > 0 {
 			s += " & "
 		}
 		s += fact.String()
 	}
-	return s + ")"
+	return s + "❳"
 }
 
 type ValFacts struct {

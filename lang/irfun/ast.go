@@ -258,12 +258,12 @@ func (me *AstIdentTag) EquivTo(node IAstNode) bool {
 	return cmp != nil && cmp.Val == me.Val
 }
 
-type AstIdentEmptyParens struct {
+type AstIdentUndef struct {
 	AstIdentBase
 }
 
-func (me *AstIdentEmptyParens) EquivTo(node IAstNode) bool {
-	cmp, _ := node.(*AstIdentEmptyParens)
+func (me *AstIdentUndef) EquivTo(node IAstNode) bool {
+	cmp, _ := node.(*AstIdentUndef)
 	return cmp != nil
 }
 
