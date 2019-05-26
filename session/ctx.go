@@ -216,23 +216,12 @@ func (me *Ctx) onErrs(errs []error, errors atmo.Errors) {
 }
 
 func (me *Ctx) CatchUp(checkForFileModsNow bool) {
-	me.Dirs.fauxKitsMutex.Lock()
-	fauxkitdirs := me.Dirs.fauxKits
-	me.Dirs.fauxKitsMutex.Unlock()
-
 	if checkForFileModsNow {
-		me.state.fileModsWatch.doManually(me.Dirs.Kits, fauxkitdirs)
+		me.state.fileModsWatch.doManually(me.Dirs.Kits, me.Dirs.fauxKits)
 	}
 	var latest []map[string]os.FileInfo
 	me.state.fileModsWatch.latestMutex.Lock()
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
 	me.state.fileModsWatch.latestMutex.Unlock()
-	me.fileModsHandle(me.Dirs.Kits, fauxkitdirs, latest)
-}
-
-func (me *Ctx) fauxKitDirPaths() (fauxKitDirPaths []string) {
-	me.Dirs.fauxKitsMutex.Lock()
-	fauxKitDirPaths = me.Dirs.fauxKits
-	me.Dirs.fauxKitsMutex.Unlock()
-	return
+	me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest)
 }

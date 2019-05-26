@@ -64,7 +64,12 @@ func (me *Ctx) initKits() {
 	)
 	if modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval,
 		me.Kits.RecurringBackgroundWatch.ShouldNow,
-		func() { _ = checkforfilemodsnow(me.Dirs.Kits, me.fauxKitDirPaths()) },
+		func() {
+			me.Dirs.fauxKitsMutex.Lock()
+			fauxkitdirpaths := me.Dirs.fauxKits
+			me.Dirs.fauxKitsMutex.Unlock()
+			_ = checkforfilemodsnow(me.Dirs.Kits, fauxkitdirpaths)
+		},
 	); modswatchstart != nil {
 		me.state.fileModsWatch.runningAutomaticallyPeriodically, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
