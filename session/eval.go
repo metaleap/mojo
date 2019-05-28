@@ -13,7 +13,7 @@ func (me *Ctx) Eval(kit *Kit, src string) (str string, errs atmo.Errors) {
 	} else {
 		irx, errsir := atmolang_irfun.ExprFrom(expr)
 		if errs.Add(errsir); len(errs) == 0 && irx != nil {
-			kit.lookups.namesInScopeAll.repopulateAstIdentsFor(irx)
+			kit.lookups.namesInScopeAll.RepopulateAstDefsAndIdentsFor(irx)
 			// if retdesc, err := me.inferFactsForExpr(kit, irx); err != nil {
 			// 	errs = append(errs, err)
 			// } else {

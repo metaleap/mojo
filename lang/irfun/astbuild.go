@@ -37,7 +37,7 @@ func (AstBuilder) ApplN(ctx *ctxAstInit, atomicCallee IAstExpr, atomicArgs ...IA
 }
 
 func (AstBuilder) IdentName(name string) *AstIdentName {
-	return &AstIdentName{AstIdentBase{Val: name}, AstExprLetBase{}, nil}
+	return &AstIdentName{AstIdentBase: AstIdentBase{Val: name}}
 }
 
 func (AstBuilder) IdentVar(name string) *AstIdentVar {

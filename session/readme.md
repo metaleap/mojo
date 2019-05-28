@@ -181,6 +181,12 @@ type Kit struct {
 	ImpPath           string
 	WasEverToBeLoaded bool
 	Imports           []string
+
+	Errs struct {
+		Stage0DirAccessDuringRefresh error
+		Stage0BadImports             []error
+		Stage1BadNames               atmo.Errors
+	}
 }
 ```
 

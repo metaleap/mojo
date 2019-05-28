@@ -43,6 +43,10 @@ type AstDef struct {
 	Name AstIdentName
 	Arg  *AstDefArg
 	Body IAstExpr
+
+	Anns struct {
+		NamesInScope AnnNamesInScope
+	}
 }
 
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
@@ -271,8 +275,9 @@ type AstIdentName struct {
 	AstIdentBase
 	AstExprLetBase
 
-	// "always `nil`" as far as this pkg is concerned, ie. populated and consumed from outside
-	NamesInScope map[string][]IAstNode
+	Anns struct {
+		ResolvesTo []IAstNode
+	}
 }
 
 func (me *AstIdentName) Origin() atmolang.IAstNode {

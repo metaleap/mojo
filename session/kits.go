@@ -225,7 +225,7 @@ func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() (numFileSystemModsNoti
 func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
 	if me.state.kitsReprocessing.needed {
 		me.state.kitsReprocessing.needed = false
-		me.kitsRepopulateIdentNamesInScope()
+		me.onErrs(nil, me.kitsRepopulateAstNamesInScope())
 		me.onErrs(me.substantiateKitsDefsFactsAsNeeded(), nil)
 	}
 }

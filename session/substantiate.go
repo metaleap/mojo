@@ -1,7 +1,6 @@
 package atmosess
 
 import (
-	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang/irfun"
 )
@@ -132,94 +131,94 @@ func (me *Ctx) substantiateFactsForExprAppl(kit *Kit, expr *atmolang_irfun.AstAp
 }
 
 func (me *Ctx) substantiateFactsForExprIdentName(kit *Kit, expr *atmolang_irfun.AstIdentName, tld *defIdFacts, fullArgsScope ...*atmolang_irfun.AstDef) (findings valFacts) {
-	switch candidates := expr.NamesInScope[expr.Val]; len(candidates) {
+	// switch candidates := expr.Anns.ResolvesTo; len(candidates) {
 
-	case 0: // uncomplicated fail: name unknown / not found in scope
-		i, namesinscope := 0, make([]string, len(expr.NamesInScope))
-		for k := range expr.NamesInScope {
-			i, namesinscope[i] = i+1, k
-		}
-		namesinscope = ustr.Similes(expr.Val, namesinscope...)
-		findings.errs(true).AddNaming(expr.Orig.Toks().First(nil), "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
+	// case 0: // uncomplicated fail: name unknown / not found in scope
+	// 	i, namesinscope := 0, make([]string, len(expr.NamesInScope))
+	// 	for k := range expr.NamesInScope {
+	// 		i, namesinscope[i] = i+1, k
+	// 	}
+	// 	namesinscope = ustr.Similes(expr.Val, namesinscope...)
+	// 	findings.errs(true).AddNaming(expr.Orig.Toks().First(nil), "unknown: `"+expr.Val+ustr.If(len(namesinscope) == 0, "`", "` (did you mean `"+ustr.Join(namesinscope, "` or `")+"`?)"))
 
-	case 1: // uncomplicated best-case: 1 name-match exactly
-		switch cand := candidates[0].(type) {
-		case *atmolang_irfun.AstDef:
-			if dol := tld.cache[cand]; dol != nil {
-				findings.add(&valFactRef{valFacts: dol})
-			} else {
-				panic(cand)
-			}
-		case *atmolang_irfun.AstDefTop:
-			if dol := me.substantiateKitTopLevelDefFacts(kit, cand.Id, false); dol != nil {
-				findings.add(&valFactRef{valFacts: &dol.valFacts})
-			} else {
-				panic(cand.Id)
-			}
-		case astDefRef:
-			if dol := me.substantiateKitTopLevelDefFacts(me.Kits.all.ByImpPath(cand.kit), cand.Id, false); dol != nil {
-				findings.add(&valFactRef{valFacts: &dol.valFacts})
-			} else {
-				panic(cand.kit + "@" + cand.Id)
-			}
-		case *atmolang_irfun.AstDefArg:
-			var argdef *atmolang_irfun.AstDef
-			istopleveldefarg := (tld.def.Arg == cand)
-			if istopleveldefarg {
-				argdef = &tld.def.AstDef
-			} else {
-				for i := len(fullArgsScope) - 1; i >= 0; i, argdef = i-1, nil {
-					if argdef = fullArgsScope[i]; argdef.Arg == cand {
-						break
-					}
-				}
-			}
-			if argdef == nil {
-				panic(cand)
-			} else if istopleveldefarg {
-				findings.add(&valFactArgRef{tld.callable(false)})
-			} else {
-				findings.add(&valFactArgRef{tld.cache[argdef].callable(false)})
-			}
-		default:
-			panic(cand)
-		}
+	// case 1: // uncomplicated best-case: 1 name-match exactly
+	// 	switch cand := candidates[0].(type) {
+	// 	case *atmolang_irfun.AstDef:
+	// 		if dol := tld.cache[cand]; dol != nil {
+	// 			findings.add(&valFactRef{valFacts: dol})
+	// 		} else {
+	// 			panic(cand)
+	// 		}
+	// 	case *atmolang_irfun.AstDefTop:
+	// 		if dol := me.substantiateKitTopLevelDefFacts(kit, cand.Id, false); dol != nil {
+	// 			findings.add(&valFactRef{valFacts: &dol.valFacts})
+	// 		} else {
+	// 			panic(cand.Id)
+	// 		}
+	// 	case astDefRef:
+	// 		if dol := me.substantiateKitTopLevelDefFacts(me.Kits.all.ByImpPath(cand.kit), cand.Id, false); dol != nil {
+	// 			findings.add(&valFactRef{valFacts: &dol.valFacts})
+	// 		} else {
+	// 			panic(cand.kit + "@" + cand.Id)
+	// 		}
+	// 	case *atmolang_irfun.AstDefArg:
+	// 		var argdef *atmolang_irfun.AstDef
+	// 		istopleveldefarg := (tld.def.Arg == cand)
+	// 		if istopleveldefarg {
+	// 			argdef = &tld.def.AstDef
+	// 		} else {
+	// 			for i := len(fullArgsScope) - 1; i >= 0; i, argdef = i-1, nil {
+	// 				if argdef = fullArgsScope[i]; argdef.Arg == cand {
+	// 					break
+	// 				}
+	// 			}
+	// 		}
+	// 		if argdef == nil {
+	// 			panic(cand)
+	// 		} else if istopleveldefarg {
+	// 			findings.add(&valFactArgRef{tld.callable(false)})
+	// 		} else {
+	// 			findings.add(&valFactArgRef{tld.cache[argdef].callable(false)})
+	// 		}
+	// 	default:
+	// 		panic(cand)
+	// 	}
 
-	default: // >1 candidates name-match our ‹curExprIdent›
-		var argless []atmolang_irfun.IAstNode // verify all are argful to qualify
-		for _, cand := range candidates {
-			if !cand.IsDefWithArg() {
-				argless = append(argless, cand)
-			}
-		}
-		if len(argless) == 0 { // fine: but still-todo
-			findings.errs(true).AddTodo(expr.Orig.Toks().First(nil), "resolve overloads")
+	// default: // >1 candidates name-match our ‹curExprIdent›
+	// 	var argless []atmolang_irfun.IAstNode // verify all are argful to qualify
+	// 	for _, cand := range candidates {
+	// 		if !cand.IsDefWithArg() {
+	// 			argless = append(argless, cand)
+	// 		}
+	// 	}
+	// 	if len(argless) == 0 { // fine: but still-todo
+	// 		findings.errs(true).AddTodo(expr.Orig.Toks().First(nil), "resolve overloads")
 
-		} else { // fail: multiple ‹curExprIdent›-named arg-less defs and/or args-in-scope shadow each other and/or same-named known argful defs, that's illegal
-			errmsg := "ambiguous: `" + expr.Val + "`, competing candidates from "
-			{ // BEGIN: lame boilerplate to hint in err-msg which deps are involved in duplicate name
-				locs, exts, candkits := false, false, make(map[string]int, len(argless))
-				for _, cand := range argless {
-					if nx, ok := cand.(astDefRef); ok && nx.AstDefTop != nil && nx.kit != "" {
-						exts, candkits[nx.kit] = true, 1+candkits[nx.kit]
-					} else {
-						locs, candkits[kit.ImpPath] = true, 1+candkits[kit.ImpPath]
-					}
-				}
-				for k, v := range candkits {
-					errmsg += k + " (" + ustr.Int(v) + "×) ─── "
-				}
-				if locs {
-					if errmsg += "rename culprits in " + kit.ImpPath; exts {
-						errmsg += " and/or "
-					}
-				}
-				if exts {
-					errmsg += "qualify which import was meant"
-				}
-			} // END: lame boilerplate
-			findings.errs(true).AddNaming(expr.Orig.Toks().First(nil), errmsg)
-		}
-	}
+	// 	} else { // fail: multiple ‹curExprIdent›-named arg-less defs and/or args-in-scope shadow each other and/or same-named known argful defs, that's illegal
+	// 		errmsg := "ambiguous: `" + expr.Val + "`, competing candidates from "
+	// 		{ // BEGIN: lame boilerplate to hint in err-msg which deps are involved in duplicate name
+	// 			locs, exts, candkits := false, false, make(map[string]int, len(argless))
+	// 			for _, cand := range argless {
+	// 				if nx, ok := cand.(astDefRef); ok && nx.AstDefTop != nil && nx.kit != "" {
+	// 					exts, candkits[nx.kit] = true, 1+candkits[nx.kit]
+	// 				} else {
+	// 					locs, candkits[kit.ImpPath] = true, 1+candkits[kit.ImpPath]
+	// 				}
+	// 			}
+	// 			for k, v := range candkits {
+	// 				errmsg += k + " (" + ustr.Int(v) + "×) ─── "
+	// 			}
+	// 			if locs {
+	// 				if errmsg += "rename culprits in " + kit.ImpPath; exts {
+	// 					errmsg += " and/or "
+	// 				}
+	// 			}
+	// 			if exts {
+	// 				errmsg += "qualify which import was meant"
+	// 			}
+	// 		} // END: lame boilerplate
+	// 		findings.errs(true).AddNaming(expr.Orig.Toks().First(nil), errmsg)
+	// 	}
+	// }
 	return
 }

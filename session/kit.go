@@ -31,13 +31,14 @@ type Kit struct {
 		allNames        []string
 		tlDefsByID      map[string]*atmolang_irfun.AstDefTop
 		tlDefIDsByName  map[string][]string
-		namesInScopeOwn namesInScope
-		namesInScopeExt namesInScope
-		namesInScopeAll namesInScope
+		namesInScopeOwn atmolang_irfun.AnnNamesInScope
+		namesInScopeExt atmolang_irfun.AnnNamesInScope
+		namesInScopeAll atmolang_irfun.AnnNamesInScope
 	}
-	errs struct {
-		dirAccessDuringRefresh error
-		badImports             []error
+	Errs struct {
+		Stage0DirAccessDuringRefresh error
+		Stage0BadImports             []error
+		Stage1BadNames               atmo.Errors
 	}
 }
 
@@ -99,8 +100,8 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 	var fresherrs []error
 	if forceFilesCheck {
 		var diritems []os.FileInfo
-		if diritems, kit.errs.dirAccessDuringRefresh = ufs.Dir(kit.DirPath); kit.errs.dirAccessDuringRefresh != nil {
-			kit.srcFiles, kit.topLevelDefs, fresherrs = nil, nil, append(fresherrs, kit.errs.dirAccessDuringRefresh)
+		if diritems, kit.Errs.Stage0DirAccessDuringRefresh = ufs.Dir(kit.DirPath); kit.Errs.Stage0DirAccessDuringRefresh != nil {
+			kit.srcFiles, kit.topLevelDefs, fresherrs = nil, nil, append(fresherrs, kit.Errs.Stage0DirAccessDuringRefresh)
 			goto end
 		}
 
@@ -123,7 +124,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		atmo.SortMaybe(kit.srcFiles)
 	}
 	if kit.WasEverToBeLoaded || forceReload {
-		kit.WasEverToBeLoaded, kit.errs.badImports, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID, kit.lookups.allNames =
+		kit.WasEverToBeLoaded, kit.Errs.Stage0BadImports, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID, kit.lookups.allNames =
 			true, nil, nil, nil, nil
 
 		for _, sf := range kit.srcFiles {
@@ -132,13 +133,13 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 
 		for _, imp := range kit.Imports {
 			if kimp := me.Kits.all.ByImpPath(imp); kimp == nil {
-				kit.errs.badImports = append(kit.errs.badImports, errors.New("import not found: `"+imp+"`"))
+				kit.Errs.Stage0BadImports = append(kit.Errs.Stage0BadImports, errors.New("import not found: `"+imp+"`"))
 			} else {
 				me.kitEnsureLoaded(kimp)
 			}
 		}
-		if len(kit.errs.badImports) > 0 {
-			fresherrs = append(fresherrs, kit.errs.badImports...)
+		if len(kit.Errs.Stage0BadImports) > 0 {
+			fresherrs = append(fresherrs, kit.Errs.Stage0BadImports...)
 		}
 
 		{
@@ -167,10 +168,10 @@ end:
 // Errors collects whatever issues exist in any of the `Kit`'s source files
 // (file-system errors, lexing/parsing errors, semantic errors etc).
 func (me *Kit) Errors() (errs []error) {
-	if me.errs.dirAccessDuringRefresh != nil {
-		errs = append(errs, me.errs.dirAccessDuringRefresh)
+	if me.Errs.Stage0DirAccessDuringRefresh != nil {
+		errs = append(errs, me.Errs.Stage0DirAccessDuringRefresh)
 	}
-	errs = append(errs, me.errs.badImports...)
+	errs = append(errs, me.Errs.Stage0BadImports...)
 	for i := range me.srcFiles {
 		for _, e := range me.srcFiles[i].Errors() {
 			errs = append(errs, e)
@@ -179,6 +180,7 @@ func (me *Kit) Errors() (errs []error) {
 	for i := range me.topLevelDefs {
 		errs = append(errs, me.topLevelDefs[i].Errs.Errors()...)
 	}
+	errs = append(errs, me.Errs.Stage1BadNames.Errors()...)
 	for _, dins := range me.defsFacts {
 		for _, dol := range dins.overloads {
 			dolerrs := dol.Errs()
