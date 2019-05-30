@@ -10,6 +10,7 @@ import (
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
+	"github.com/metaleap/atmo/lang/irfun"
 )
 
 // KitsWatchInterval is the default file-watching interval that is picked up
@@ -187,6 +188,22 @@ func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFul
 	}
 }
 
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstNode {
+	if forceLoadAllKnownKits {
+		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
+	}
+	return me.Kits.All.collectReferences(name)
+}
+
+func (me *Ctx) KitsCollectReferencers(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (referencerDefIds map[string]*Kit) {
+	if forceLoadAllKnownKits {
+		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
+	}
+	referencerDefIds = make(map[string]*Kit)
+	me.Kits.All.collectReferencers(defNames, referencerDefIds, indirects)
+	return
+}
+
 // KitsReloadModifiedsUnlessAlreadyWatching returns -1 if file-watching is
 // enabled, otherwise it scans all currently-known kits-dirs for modifications
 // and refreshes the `Ctx`'s internal represenation of `Kits` if any were noted.
@@ -284,7 +301,21 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 	return
 }
 
-func (me Kits) CollectReferencers(defNames atmo.StringsUnorderedButUnique, into map[string]*Kit, indirects bool) {
+func (me Kits) collectReferences(name string) (refs map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstNode) {
+	for _, kit := range me {
+		for _, tld := range kit.topLevelDefs {
+			if nodes := tld.ReferencesTo(name); len(nodes) > 0 {
+				if refs == nil {
+					refs = make(map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstNode)
+				}
+				refs[tld] = nodes
+			}
+		}
+	}
+	return
+}
+
+func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, referencerDefIds map[string]*Kit, indirects bool) {
 	if len(defNames) == 0 {
 		return
 	}
@@ -296,7 +327,7 @@ func (me Kits) CollectReferencers(defNames atmo.StringsUnorderedButUnique, into 
 		for _, tld := range kit.topLevelDefs {
 			for defname := range defNames {
 				if tld.RefersTo(defname) {
-					if into[tld.Id] = kit; indirects {
+					if referencerDefIds[tld.Id] = kit; indirects {
 						if _, donealready := defNames[tld.Name.Val]; !donealready {
 							morenames[tld.Name.Val] = atmo.Exists
 						}
@@ -306,6 +337,6 @@ func (me Kits) CollectReferencers(defNames atmo.StringsUnorderedButUnique, into 
 		}
 	}
 	if indirects {
-		me.CollectReferencers(morenames, into, true)
+		me.collectReferencers(morenames, referencerDefIds, true)
 	}
 }

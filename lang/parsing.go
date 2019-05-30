@@ -318,6 +318,8 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 					canext.Tokens = allToks.FindSub(ca.Toks(), canext.Toks())
 					cases.removeAltAt(i)
 					i--
+				} else {
+					err = atmo.ErrSyn(&ca.Tokens[0], "malformed branching: case has no result expression")
 				}
 			}
 		}

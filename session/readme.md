@@ -127,6 +127,18 @@ func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts
 func (me *Ctx) KitEnsureLoaded(kit *Kit)
 ```
 
+#### func (*Ctx) KitsCollectReferencers
+
+```go
+func (me *Ctx) KitsCollectReferencers(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (referencerDefIds map[string]*Kit)
+```
+
+#### func (*Ctx) KitsCollectReferences
+
+```go
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstNode
+```
+
 #### func (*Ctx) KitsEnsureLoaded
 
 ```go
@@ -244,12 +256,6 @@ func (me Kits) ByDirPath(kitDirPath string) *Kit
 func (me Kits) ByImpPath(kitImpPath string) *Kit
 ```
 ByImpPath finds the `Kit` in `Kits` with the given import-path.
-
-#### func (Kits) CollectReferencers
-
-```go
-func (me Kits) CollectReferencers(defNames atmo.StringsUnorderedButUnique, into map[string]*Kit, indirects bool)
-```
 
 #### func (Kits) IndexDirPath
 

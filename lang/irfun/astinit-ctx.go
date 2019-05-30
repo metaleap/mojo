@@ -72,7 +72,8 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 		origdesugared = origin
 	} else {
 		for des := origdesugared; des != nil; {
-			if des = errs.AddVia(des.Desugared(me.nextPrefix)).(atmolang.IAstExpr); des != nil {
+			maybedes := errs.AddVia(des.Desugared(me.nextPrefix))
+			if des, _ = maybedes.(atmolang.IAstExpr); des != nil {
 				origdesugared = des
 			}
 		}
@@ -132,9 +133,14 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 			me.defsScope = oldscope
 		}
 	default:
+		if tok := origin.Toks().First(nil); tok != nil {
+			panic(tok.Meta.Position.String())
+		}
 		panic(origdes)
 	}
-	expr.astExprBase().Orig = origin
+	if expr != nil {
+		expr.astExprBase().Orig = origin
+	}
 	return
 }
 

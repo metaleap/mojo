@@ -89,6 +89,6 @@ func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn
 		}
 		errs.Add(kit.Errs.Stage1BadNames)
 	}
-	me.Kits.All.CollectReferencers(namesofchange, defIdsDepsOfNamesBornOrGone, true)
+	me.Kits.All.collectReferencers(namesofchange, defIdsDepsOfNamesBornOrGone, true)
 	return
 }
