@@ -28,6 +28,8 @@ type Ctx struct {
 		Kits          []string
 	}
 	Kits struct {
+		ByDirPath                func(string) *Kit
+		ByImpPath                func(string) *Kit
 		all                      Kits
 		RecurringBackgroundWatch struct {
 			ShouldNow func() bool
@@ -125,7 +127,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		}
 		if err == nil {
 			if me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
-				if err = me.AddFauxKit(sessionFauxKitDir); err == nil {
+				if err = me.FauxKitsAdd(sessionFauxKitDir); err == nil {
 					me.initKits()
 				}
 			}
@@ -137,7 +139,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 	return
 }
 
-func (me *Ctx) AddFauxKit(dirPath string) (err error) {
+func (me *Ctx) FauxKitsAdd(dirPath string) (err error) {
 	if dirPath == "" || dirPath == "." {
 		dirPath, err = os.Getwd()
 	} else if dirPath[0] == '~' {
@@ -162,17 +164,20 @@ func (me *Ctx) AddFauxKit(dirPath string) (err error) {
 		}
 		me.Dirs.fauxKitsMutex.Lock()
 		if !in {
-			for _, dp := range me.Dirs.fauxKits {
-				if in = (dp == dirPath); in {
-					break
-				}
-			}
+			in = ustr.In(dirPath, me.Dirs.fauxKits...)
 		}
 		if !in {
 			me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
 		}
 		me.Dirs.fauxKitsMutex.Unlock()
 	}
+	return
+}
+
+func (me *Ctx) FauxKitsHas(dirPath string) (isSessionDirFauxKit bool) {
+	me.Dirs.fauxKitsMutex.Lock()
+	isSessionDirFauxKit = ustr.In(dirPath, me.Dirs.fauxKits...)
+	me.Dirs.fauxKitsMutex.Unlock()
 	return
 }
 

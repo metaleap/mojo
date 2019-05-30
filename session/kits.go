@@ -283,7 +283,7 @@ func (me Kits) indexImpPath(impPath string) int {
 	return -1
 }
 
-func (me Kits) byDirPath(kitDirPath string) *Kit {
+func (me Kits) ByDirPath(kitDirPath string) *Kit {
 	if idx := me.indexDirPath(kitDirPath); idx >= 0 {
 		return me[idx]
 	}

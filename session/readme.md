@@ -30,6 +30,9 @@ type Ctx struct {
 		Kits  []string
 	}
 	Kits struct {
+		ByDirPath func(string) *Kit
+		ByImpPath func(string) *Kit
+
 		RecurringBackgroundWatch struct {
 			ShouldNow func() bool
 		}
@@ -38,12 +41,6 @@ type Ctx struct {
 ```
 
 Ctx fields must never be written to from the outside after the `Ctx.Init` call.
-
-#### func (*Ctx) AddFauxKit
-
-```go
-func (me *Ctx) AddFauxKit(dirPath string) (err error)
-```
 
 #### func (*Ctx) BackgroundMessages
 
@@ -76,6 +73,18 @@ Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 func (me *Ctx) Eval(kit *Kit, src string) (str string, errs atmo.Errors)
 ```
 
+#### func (*Ctx) FauxKitsAdd
+
+```go
+func (me *Ctx) FauxKitsAdd(dirPath string) (err error)
+```
+
+#### func (*Ctx) FauxKitsHas
+
+```go
+func (me *Ctx) FauxKitsHas(dirPath string) (isSessionDirFauxKit bool)
+```
+
 #### func (*Ctx) Init
 
 ```go
@@ -84,6 +93,12 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error)
 Init validates the `Ctx.Dirs` fields currently set, then builds up its `Kits`
 reflective of the structures found in the various `me.Dirs.Kits` search paths
 and from now on in sync with live modifications to those.
+
+#### func (*Ctx) KitByDirPath
+
+```go
+func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit)
+```
 
 #### func (*Ctx) KitDefFacts
 
@@ -99,12 +114,6 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit)
 KitEnsureLoaded forces (re)loading the `kit` only if it never was. (Primarily
 for interactive load-on-demand scenarios like REPLs or editor language
 servers.))
-
-#### func (*Ctx) KitIsSessionDirFauxKit
-
-```go
-func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool
-```
 
 #### func (*Ctx) KitsEnsureLoaded
 
@@ -193,6 +202,12 @@ type Kit struct {
 Kit is a pile of atmo source files residing in the same directory and being
 interpreted or compiled all together as a unit.
 
+#### func (*Kit) AstNodeAt
+
+```go
+func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.AstFileTopLevelChunk, theNodeAndItsAncestors []atmolang.IAstNode)
+```
+
 #### func (*Kit) Defs
 
 ```go
@@ -228,6 +243,12 @@ contents must not be written to.
 type Kits []*Kit
 ```
 
+
+#### func (Kits) ByDirPath
+
+```go
+func (me Kits) ByDirPath(kitDirPath string) *Kit
+```
 
 #### func (Kits) ByImpPath
 

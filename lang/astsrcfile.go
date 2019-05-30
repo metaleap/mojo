@@ -47,6 +47,8 @@ type AstFileTopLevelChunk struct {
 	Ast AstTopLevel
 }
 
+func (me *AstFileTopLevelChunk) At(pos int) []IAstNode { return me.Ast.at(&me.Ast, pos) }
+
 func (me *AstFileTopLevelChunk) HasErrors() bool {
 	return me.errs.parsing != nil || len(me.errs.lexing) > 0
 }
@@ -122,7 +124,6 @@ func (me *AstFile) CountTopLevelDefs(onlyCountErrless bool) (total int, unexport
 
 func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 	var lastline int
-
 	for i := range me.TopLevel {
 		if tld := &me.TopLevel[i]; (!onlyCountErrless) || (!tld.HasErrors()) {
 			if def := tld.Ast.Def.Orig; def != nil {
@@ -135,6 +136,15 @@ func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 		}
 	}
 	return
+}
+
+func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *AstFileTopLevelChunk {
+	for i := range me.TopLevel {
+		if tlc := &me.TopLevel[i]; tlc.Ast.Tokens.DoEnclose(pos0ByteOffset) {
+			return tlc
+		}
+	}
+	return nil
 }
 
 func (me *AstFileTopLevelChunk) Id() string {
@@ -154,6 +164,15 @@ func (me AstFiles) Less(i int, j int) bool {
 		return true
 	}
 	return me[i].SrcFilePath < me[j].SrcFilePath
+}
+
+func (me AstFiles) ByFilePath(srcFilePath string) *AstFile {
+	for _, f := range me {
+		if f.SrcFilePath == srcFilePath {
+			return f
+		}
+	}
+	return nil
 }
 
 func (me AstFiles) Index(srcFilePath string) int {

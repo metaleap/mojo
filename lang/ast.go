@@ -10,6 +10,7 @@ import (
 
 type IAstNode interface {
 	print(*CtxPrint)
+	at(IAstNode, int) []IAstNode
 	Toks() udevlex.Tokens
 }
 
@@ -33,6 +34,12 @@ type AstBaseTokens struct {
 	Tokens udevlex.Tokens
 }
 
+func (me *AstBaseTokens) at(self IAstNode, pos int) []IAstNode {
+	if me.Tokens.DoEnclose(pos) {
+		return []IAstNode{self}
+	}
+	return nil
+}
 func (me *AstBaseTokens) Toks() udevlex.Tokens { return me.Tokens }
 
 type astBaseComments = struct {
@@ -57,6 +64,13 @@ type AstTopLevel struct {
 	}
 }
 
+func (me *AstTopLevel) at(_ IAstNode, pos int) (nodes []IAstNode) {
+	if me.Tokens.DoEnclose(pos) {
+		nodes = append(me.Def.Orig.at(me.Def.Orig, pos), me)
+	}
+	return
+}
+
 type AstComments []AstComment
 
 type AstComment struct {
@@ -75,10 +89,45 @@ type AstDef struct {
 	IsTopLevel bool
 }
 
+func (me *AstDef) at(_ IAstNode, pos int) (nodes []IAstNode) {
+	if me.Tokens.DoEnclose(pos) {
+		if nodes = me.Name.at(&me.Name, pos); len(nodes) == 0 {
+			if nodes = me.NameAffix.at(me.NameAffix, pos); len(nodes) == 0 {
+				if nodes = me.Body.at(me.Body, pos); len(nodes) == 0 {
+					for i := range me.Args {
+						if nodes = me.Args[i].at(&me.Args[i], pos); len(nodes) > 0 {
+							break
+						}
+					}
+					if len(nodes) == 0 {
+						for i := range me.Meta {
+							if nodes = me.Meta[i].at(me.Meta[i], pos); len(nodes) > 0 {
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+		nodes = append(nodes, me)
+	}
+	return
+}
+
 type AstDefArg struct {
 	AstBaseTokens
 	NameOrConstVal IAstExprAtomic
 	Affix          IAstExpr
+}
+
+func (me *AstDefArg) at(_ IAstNode, pos int) (nodes []IAstNode) {
+	if me.Tokens.DoEnclose(pos) {
+		if nodes = me.NameOrConstVal.at(me.NameOrConstVal, pos); len(nodes) == 0 {
+			nodes = me.Affix.at(me.Affix, pos)
+		}
+		nodes = append(nodes, me)
+	}
+	return
 }
 
 type AstBaseExpr struct {
@@ -144,10 +193,38 @@ type AstExprAppl struct {
 	Args   []IAstExpr
 }
 
+func (me *AstExprAppl) at(_ IAstNode, pos int) (nodes []IAstNode) {
+	if me.Tokens.DoEnclose(pos) {
+		if nodes = me.Callee.at(me.Callee, pos); len(nodes) == 0 {
+			for _, arg := range me.Args {
+				if nodes = arg.at(arg, pos); len(nodes) > 0 {
+					break
+				}
+			}
+		}
+		nodes = append(nodes, me)
+	}
+	return
+}
+
 type AstExprLet struct {
 	AstBaseExpr
 	Defs []AstDef
 	Body IAstExpr
+}
+
+func (me *AstExprLet) at(_ IAstNode, pos int) (nodes []IAstNode) {
+	if me.Tokens.DoEnclose(pos) {
+		if nodes = me.Body.at(me.Body, pos); len(nodes) == 0 {
+			for i := range me.Defs {
+				if nodes = me.Defs[i].at(&me.Defs[i], pos); len(nodes) > 0 {
+					break
+				}
+			}
+		}
+		nodes = append(nodes, me)
+	}
+	return
 }
 
 type AstExprCases struct {
@@ -157,10 +234,38 @@ type AstExprCases struct {
 	defaultIndex int
 }
 
+func (me *AstExprCases) at(_ IAstNode, pos int) (nodes []IAstNode) {
+	if me.Tokens.DoEnclose(pos) {
+		if nodes = me.Scrutinee.at(me.Scrutinee, pos); len(nodes) == 0 {
+			for i := range me.Alts {
+				if nodes = me.Alts[i].at(&me.Alts[i], pos); len(nodes) > 0 {
+					break
+				}
+			}
+		}
+		nodes = append(nodes, me)
+	}
+	return
+}
+
 type AstCase struct {
 	AstBaseTokens
 	Conds []IAstExpr
 	Body  IAstExpr
+}
+
+func (me *AstCase) at(_ IAstNode, pos int) (nodes []IAstNode) {
+	if me.Tokens.DoEnclose(pos) {
+		if nodes = me.Body.at(me.Body, pos); len(nodes) == 0 {
+			for _, c := range me.Conds {
+				if nodes = c.at(c, pos); len(nodes) > 0 {
+					break
+				}
+			}
+		}
+		nodes = append(nodes, me)
+	}
+	return
 }
 
 func (me *AstComments) initFrom(accumComments []udevlex.Tokens) {

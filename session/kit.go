@@ -62,20 +62,26 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 			}
 		}
 	}
-	for _, kip := range kitImpPaths {
-		if kit := me.Kits.all.ByImpPath(kip); kit != nil {
-			me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.runningAutomaticallyPeriodically, true)
+	if len(kitImpPaths) > 0 {
+		for _, kip := range kitImpPaths {
+			if kit := me.Kits.all.ByImpPath(kip); kit != nil {
+				me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.runningAutomaticallyPeriodically, true)
+			}
 		}
+		me.reprocessAffectedDefsIfAnyKitsReloaded()
 	}
-	me.reprocessAffectedDefsIfAnyKitsReloaded()
-}
-
-func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {
-	return ustr.In(kit.DirPath, me.Dirs.fauxKits...)
 }
 
 func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
 	return ValFacts{valFacts: me.substantiateKitTopLevelDefFacts(kit, def.Id, false).valFacts}
+}
+
+func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) {
+	if kit = me.Kits.all.ByDirPath(dirPath); kit == nil && tryToAddToFauxKits {
+		me.FauxKitsAdd(dirPath)
+		kit = me.Kits.all.ByDirPath(dirPath)
+	}
+	return
 }
 
 // WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
@@ -218,6 +224,15 @@ func (me *Kit) Defs(name string) (defs atmolang_irfun.AstTopDefs) {
 			if def := me.lookups.tlDefsByID[id]; def != nil {
 				defs = append(defs, def)
 			}
+		}
+	}
+	return
+}
+
+func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.AstFileTopLevelChunk, theNodeAndItsAncestors []atmolang.IAstNode) {
+	if srcfile := me.srcFiles.ByFilePath(srcFilePath); srcfile != nil {
+		if topLevelChunk = srcfile.TopLevelChunkAt(pos0ByteOffset); topLevelChunk != nil {
+			theNodeAndItsAncestors = topLevelChunk.At(pos0ByteOffset)
 		}
 	}
 	return
