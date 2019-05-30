@@ -226,7 +226,7 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
 	if me.state.kitsReprocessing.needed {
 		me.state.kitsReprocessing.needed = false
 		defidsborn, defidsdepsofnames, errs := me.kitsRepopulateAstNamesInScopeAndCollectAffectedDefs()
-		me.onErrs(me.substantiateKitsDefsFactsAsNeeded(defidsborn, defidsdepsofnames), errs)
+		me.onErrs(errs, me.substantiateKitsDefsFactsAsNeeded(defidsborn, defidsdepsofnames))
 	}
 }
 

@@ -110,13 +110,13 @@ func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(node IAstNode) (errs atm
 				errs.Add(inscope.RepopulateAstDefsAndIdentsFor(&lds[i]))
 			}
 		}
+		ldx.astExprLetBase().Anns.NamesInScope = inscope
 	}
 	switch n := node.(type) {
 	case *AstDef:
 		if n.Arg != nil {
 			inscope = inscope.copyAndAdd(n.Arg, &errs)
 		}
-		n.Anns.NamesInScope = inscope
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.Body))
 	case *AstAppl:
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.AtomicCallee))

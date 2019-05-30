@@ -162,7 +162,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		}
 	}
 end:
-	me.onErrs(fresherrs, nil)
+	me.onErrs(nil, fresherrs)
 }
 
 // Errors collects whatever issues exist in any of the `Kit`'s source files

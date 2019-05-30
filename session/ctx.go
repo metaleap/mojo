@@ -206,12 +206,12 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 	return
 }
 
-func (me *Ctx) onErrs(errs []error, errors atmo.Errors) {
-	for _, e := range errs {
-		me.bgMsg(true, e.Error())
-	}
+func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
 	for i := range errors {
 		me.bgMsg(true, errors[i].Error())
+	}
+	for _, e := range errs {
+		me.bgMsg(true, e.Error())
 	}
 }
 

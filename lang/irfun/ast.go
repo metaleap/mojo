@@ -43,10 +43,6 @@ type AstDef struct {
 	Name AstIdentName
 	Arg  *AstDefArg
 	Body IAstExpr
-
-	Anns struct {
-		NamesInScope AnnNamesInScope
-	}
 }
 
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
@@ -203,6 +199,10 @@ type AstExprLetBase struct {
 	letOrig   *atmolang.AstExprLet
 	letDefs   AstDefs
 	letPrefix string
+
+	Anns struct {
+		NamesInScope AnnNamesInScope
+	}
 }
 
 func (me *AstExprLetBase) astExprLetBase() *AstExprLetBase { return me }
