@@ -188,7 +188,7 @@ func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFul
 	}
 }
 
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstNode {
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]*atmolang_irfun.AstIdentName {
 	if forceLoadAllKnownKits {
 		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}
@@ -301,12 +301,12 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 	return
 }
 
-func (me Kits) collectReferences(name string) (refs map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstNode) {
+func (me Kits) collectReferences(name string) (refs map[*atmolang_irfun.AstDefTop][]*atmolang_irfun.AstIdentName) {
 	for _, kit := range me {
 		for _, tld := range kit.topLevelDefs {
-			if nodes := tld.ReferencesTo(name); len(nodes) > 0 {
+			if nodes := tld.RefsTo(name); len(nodes) > 0 {
 				if refs == nil {
-					refs = make(map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstNode)
+					refs = make(map[*atmolang_irfun.AstDefTop][]*atmolang_irfun.AstIdentName)
 				}
 				refs[tld] = nodes
 			}

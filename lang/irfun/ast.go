@@ -14,7 +14,7 @@ type IAstNode interface {
 	find(IAstNode, atmolang.IAstNode) []IAstNode
 	IsDefWithArg() bool
 	RefersTo(string) bool
-	ReferencesTo(string) []IAstNode
+	RefsTo(string) []*AstIdentName
 }
 
 type IAstExpr interface {
@@ -74,8 +74,8 @@ func (me *AstDef) OrigToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *AstDef) RefersTo(name string) bool           { return me.Body.RefersTo(name) }
-func (me *AstDef) ReferencesTo(name string) []IAstNode { return me.Body.ReferencesTo(name) }
+func (me *AstDef) RefersTo(name string) bool          { return me.Body.RefersTo(name) }
+func (me *AstDef) RefsTo(name string) []*AstIdentName { return me.Body.RefsTo(name) }
 func (me *AstDef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
 	return cmp != nil && cmp.Name.EquivTo(&me.Name) && cmp.Body.EquivTo(me.Body) &&
@@ -103,11 +103,11 @@ func (me *AstDefTop) RefersTo(name string) (refersTo bool) {
 	}
 	return
 }
-func (me *AstDefTop) ReferencesTo(name string) (refs []IAstNode) {
+func (me *AstDefTop) RefsTo(name string) (refs []*AstIdentName) {
 	// leverage the bool cache already in place two ways, though we dont cache the occurrences
 	// in detail (they're usually for editor or error-message scenarios, not hi-perf paths)
 	if refersto, known := me.refersTo[name]; refersto || !known {
-		if refs = me.AstDef.ReferencesTo(name); !known {
+		if refs = me.AstDef.RefsTo(name); !known {
 			me.refersTo[name] = (len(refs) > 0)
 		}
 	}
@@ -170,9 +170,9 @@ func (me *AstExprAtomBase) find(self IAstNode, orig atmolang.IAstNode) (nodes []
 	}
 	return
 }
-func (me *AstExprAtomBase) IsAtomic() bool                 { return true }
-func (me *AstExprAtomBase) RefersTo(string) bool           { return false }
-func (me *AstExprAtomBase) ReferencesTo(string) []IAstNode { return nil }
+func (me *AstExprAtomBase) IsAtomic() bool                { return true }
+func (me *AstExprAtomBase) RefersTo(string) bool          { return false }
+func (me *AstExprAtomBase) RefsTo(string) []*AstIdentName { return nil }
 
 type AstLitBase struct {
 	AstExprAtomBase
@@ -286,9 +286,9 @@ func (me *AstExprLetBase) letDefsReferTo(name string) (refers bool) {
 	}
 	return
 }
-func (me *AstExprLetBase) letDefsReferencesTo(name string) (refs []IAstNode) {
+func (me *AstExprLetBase) letDefsRefsTo(name string) (refs []*AstIdentName) {
 	for i := range me.letDefs {
-		refs = append(refs, me.letDefs[i].ReferencesTo(name)...)
+		refs = append(refs, me.letDefs[i].RefsTo(name)...)
 	}
 	return
 }
@@ -340,8 +340,8 @@ func (me *AstIdentName) OrigToks() (toks udevlex.Tokens) {
 func (me *AstIdentName) RefersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
 }
-func (me *AstIdentName) ReferencesTo(name string) (refs []IAstNode) {
-	if refs = me.letDefsReferencesTo(name); me.Val == name {
+func (me *AstIdentName) RefsTo(name string) (refs []*AstIdentName) {
+	if refs = me.letDefsRefsTo(name); me.Val == name {
 		refs = append(refs, me)
 	}
 	return
@@ -408,6 +408,6 @@ func (me *AstAppl) EquivTo(node IAstNode) bool {
 func (me *AstAppl) RefersTo(name string) bool {
 	return me.AtomicCallee.RefersTo(name) || me.AtomicArg.RefersTo(name) || me.letDefsReferTo(name)
 }
-func (me *AstAppl) ReferencesTo(name string) []IAstNode {
-	return append(me.AtomicCallee.ReferencesTo(name), append(me.AtomicArg.ReferencesTo(name), me.letDefsReferencesTo(name)...)...)
+func (me *AstAppl) RefsTo(name string) []*AstIdentName {
+	return append(me.AtomicCallee.RefsTo(name), append(me.AtomicArg.RefsTo(name), me.letDefsRefsTo(name)...)...)
 }

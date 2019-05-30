@@ -136,7 +136,7 @@ func (me *Ctx) KitsCollectReferencers(forceLoadAllKnownKits bool, defNames atmo.
 #### func (*Ctx) KitsCollectReferences
 
 ```go
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstNode
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]*atmolang_irfun.AstIdentName
 ```
 
 #### func (*Ctx) KitsEnsureLoaded
