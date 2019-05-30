@@ -21,6 +21,16 @@ CtxDefaultCacheDirPath returns the default used by `Ctx.Init` if
 `~/.cache/atmo`, `~/.config/atmo` etc. or in the worst case the current user's
 home directory.
 
+#### type AstDefRef
+
+```go
+type AstDefRef struct {
+	*atmolang_irfun.AstDefTop
+	KitImpPath string
+}
+```
+
+
 #### type Ctx
 
 ```go
@@ -116,9 +126,6 @@ func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts
 ```go
 func (me *Ctx) KitEnsureLoaded(kit *Kit)
 ```
-KitEnsureLoaded forces (re)loading the `kit` only if it never was. (Primarily
-for interactive load-on-demand scenarios like REPLs or editor language
-servers.))
 
 #### func (*Ctx) KitsEnsureLoaded
 
@@ -189,6 +196,12 @@ interpreted or compiled all together as a unit.
 
 ```go
 func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.AstFileTopLevelChunk, theNodeAndItsAncestors []atmolang.IAstNode)
+```
+
+#### func (*Kit) AstNodeIrFunFor
+
+```go
+func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (theNodeAndItsAncestors []atmolang_irfun.IAstNode)
 ```
 
 #### func (*Kit) Defs

@@ -6,9 +6,9 @@ import (
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
-type astDefRef struct {
+type AstDefRef struct {
 	*atmolang_irfun.AstDefTop
-	kit string
+	KitImpPath string
 }
 
 func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn map[string]*Kit, defIdsDepsOfNamesBornOrGone map[string]*Kit, errs atmo.Errors) {
@@ -62,7 +62,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn
 						for k, v := range kimp.lookups.namesInScopeOwn {
 							nodes := make([]atmolang_irfun.IAstNode, len(v))
 							for i, n := range v {
-								nodes[i] = astDefRef{kit: kimp.ImpPath,
+								nodes[i] = AstDefRef{KitImpPath: kimp.ImpPath,
 									AstDefTop: n.(*atmolang_irfun.AstDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
 							}
 							kit.lookups.namesInScopeExt.Add(&kit.Errs.Stage1BadNames, k, nodes...)

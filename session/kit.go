@@ -45,8 +45,6 @@ func (me *Ctx) kitEnsureLoaded(kit *Kit) {
 	me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, !kit.WasEverToBeLoaded)
 }
 
-// KitEnsureLoaded forces (re)loading the `kit` only if it never was.
-// (Primarily for interactive load-on-demand scenarios like REPLs or editor language servers.))
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	me.kitEnsureLoaded(kit)
 	me.reprocessAffectedDefsIfAnyKitsReloaded()
@@ -225,6 +223,9 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 	return
 }
 
-func (me *Kit) foo(defId string, node atmolang.IAstNode) {
-	// astdeftop:=me.lookups.tlDefsByID[defId]
+func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (theNodeAndItsAncestors []atmolang_irfun.IAstNode) {
+	if astdeftop := me.lookups.tlDefsByID[defId]; astdeftop != nil {
+		theNodeAndItsAncestors = astdeftop.Find(origNode)
+	}
+	return
 }

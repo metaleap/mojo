@@ -46,17 +46,17 @@ type AstDef struct {
 	Body IAstExpr
 }
 
-func (me *AstDef) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+func (me *AstDef) find(self IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
 	if orig == me.OrigDef {
-		nodes = []IAstNode{me}
+		nodes = []IAstNode{self}
 	} else {
 		if nodes = me.Name.find(&me.Name, orig); len(nodes) > 0 {
-			nodes = append(nodes, me)
+			nodes = append(nodes, self)
 		} else if nodes = me.Body.find(me.Body, orig); len(nodes) > 0 {
-			nodes = append(nodes, me)
+			nodes = append(nodes, self)
 		} else if me.Arg != nil {
 			if nodes = me.Arg.find(me.Arg, orig); len(nodes) > 0 {
-				nodes = append(nodes, me)
+				nodes = append(nodes, self)
 			}
 		}
 	}
@@ -92,6 +92,7 @@ type AstDefTop struct {
 	refersTo map[string]bool
 }
 
+func (me *AstDefTop) Find(orig atmolang.IAstNode) []IAstNode { return me.AstDef.find(me, orig) }
 func (me *AstDefTop) RefersTo(name string) (refersTo bool) {
 	// as long as an AstDefTop exists, it represents the same original code snippet: so any given
 	// RefersTo(foo) truth will hold throughout: so we cache instead of continuously re-searching
@@ -348,6 +349,16 @@ func (me *AstIdentName) ReferencesTo(name string) (refs []udevlex.Tokens) {
 func (me *AstIdentName) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentName)
 	return cmp != nil && cmp.Val == me.Val && cmp.letDefsEquivTo(&me.AstExprLetBase)
+}
+func (me *AstIdentName) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+	if nodes = me.AstExprAtomBase.find(me, orig); len(nodes) == 0 {
+		if orig.Toks().EqLenAndOffsets(me.OrigToks(), false) { // *AstIdentName gets copied sometimes because it's not a pointer in AstDef, bounding-offsets checking is ok because callers ensure they're in the right srcfile
+			nodes = []IAstNode{me}
+		} else {
+			nodes = me.AstExprLetBase.find(me, orig)
+		}
+	}
+	return
 }
 
 type AstAppl struct {
