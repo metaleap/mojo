@@ -1,31 +1,10 @@
 package atmosess
 
 import (
-	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
-func (me *Ctx) substantiateKitsDefsFactsAsNeeded() (errs []error) {
-	reSubstFirst, reSubstNext := make(map[string]*Kit, 8), make(map[string]*Kit, 16)
-
-	namesofchange := make(atmo.StringsUnorderedButUnique, 4)
-	for _, kit := range me.Kits.all {
-		for defid, defname := range kit.state.defsGoneIdsNames {
-			namesofchange[defname] = atmo.Exists
-			if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil {
-				defnamefacts.overloadDrop(defid)
-			}
-		}
-		for defid, defname := range kit.state.defsBornIdsNames {
-			reSubstFirst[defid] = kit
-			namesofchange[defname] = atmo.Exists
-			if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil && defnamefacts.overloadById(defid) != nil {
-				panic(defid) // tells us we have a bug in our housekeeping
-			}
-		}
-		kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames = nil, nil
-	}
-	me.Kits.all.collectReferencers(namesofchange, reSubstNext, true)
+func (me *Ctx) substantiateKitsDefsFactsAsNeeded(reSubstFirst map[string]*Kit, reSubstNext map[string]*Kit) (errs []error) {
 	for defid, kit := range reSubstFirst {
 		errs = append(errs, me.substantiateKitTopLevelDefFacts(kit, defid, true).errsNonRef()...)
 	}

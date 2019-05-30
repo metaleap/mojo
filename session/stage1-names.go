@@ -11,12 +11,27 @@ type astDefRef struct {
 	kit string
 }
 
-func (me *Ctx) kitsRepopulateAstNamesInScope() (errs atmo.Errors) {
-	kitrepops := make(map[*Kit]atmo.Empty, len(me.Kits.all))
+func (me *Ctx) kitsRepopulateAstNamesInScope() (reSubstFirst map[string]*Kit, reSubstNext map[string]*Kit, errs atmo.Errors) {
+	kitrepops, namesofchange := make(map[*Kit]atmo.Empty, len(me.Kits.all)), make(atmo.StringsUnorderedButUnique, 4)
+	reSubstFirst, reSubstNext = make(map[string]*Kit, 8), make(map[string]*Kit, 16)
 
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.all {
 			if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 {
+				for defid, defname := range kit.state.defsGoneIdsNames {
+					namesofchange[defname] = atmo.Exists
+					if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil {
+						defnamefacts.overloadDrop(defid)
+					}
+				}
+				for defid, defname := range kit.state.defsBornIdsNames {
+					reSubstFirst[defid] = kit
+					namesofchange[defname] = atmo.Exists
+					if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil && defnamefacts.overloadById(defid) != nil {
+						panic(defid) // tells us we have a bug in our housekeeping
+					}
+				}
+
 				kit.Errs.Stage1BadNames = kit.Errs.Stage1BadNames[0:0]
 				kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn =
 					atmo.Exists, nil, make(atmolang_irfun.AnnNamesInScope, len(kit.topLevelDefs))
@@ -59,6 +74,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (errs atmo.Errors) {
 	}
 
 	for kit := range kitrepops {
+		kit.state.defsBornIdsNames, kit.state.defsGoneIdsNames = nil, nil
 		kit.lookups.namesInScopeAll = make(atmolang_irfun.AnnNamesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
 		for k, v := range kit.lookups.namesInScopeOwn {
 			nodes := make([]atmolang_irfun.IAstNode, len(v))
@@ -73,6 +89,6 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (errs atmo.Errors) {
 		}
 		errs.Add(kit.Errs.Stage1BadNames)
 	}
-
+	me.Kits.all.collectReferencers(namesofchange, reSubstNext, true)
 	return
 }
