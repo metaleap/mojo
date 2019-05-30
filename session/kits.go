@@ -201,7 +201,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 					panic(kitdirpath)
 				}
 			}
-			me.reprocessAffectedIRsIfAnyKitsReloaded()
+			me.reprocessAffectedDefsIfAnyKitsReloaded()
 			if me.state.fileModsWatch.emitMsgsIfManual {
 				me.bgMsg(false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+".")
 			}
@@ -222,11 +222,11 @@ func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() (numFileSystemModsNoti
 	return
 }
 
-func (me *Ctx) reprocessAffectedIRsIfAnyKitsReloaded() {
+func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
 	if me.state.kitsReprocessing.needed {
 		me.state.kitsReprocessing.needed = false
-		resubstfirst, resubstnext, errs := me.kitsRepopulateAstNamesInScope()
-		me.onErrs(me.substantiateKitsDefsFactsAsNeeded(resubstfirst, resubstnext), errs)
+		defidsborn, defidsdepsofnames, errs := me.kitsRepopulateAstNamesInScopeAndCollectAffectedDefs()
+		me.onErrs(me.substantiateKitsDefsFactsAsNeeded(defidsborn, defidsdepsofnames), errs)
 	}
 }
 

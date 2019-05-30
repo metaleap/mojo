@@ -50,7 +50,7 @@ func (me *Ctx) kitEnsureLoaded(kit *Kit) {
 // (Primarily for interactive load-on-demand scenarios like REPLs or editor language servers.))
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	me.kitEnsureLoaded(kit)
-	me.reprocessAffectedIRsIfAnyKitsReloaded()
+	me.reprocessAffectedDefsIfAnyKitsReloaded()
 }
 
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
@@ -67,7 +67,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 			me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.runningAutomaticallyPeriodically, true)
 		}
 	}
-	me.reprocessAffectedIRsIfAnyKitsReloaded()
+	me.reprocessAffectedDefsIfAnyKitsReloaded()
 }
 
 func (me *Ctx) KitIsSessionDirFauxKit(kit *Kit) bool {

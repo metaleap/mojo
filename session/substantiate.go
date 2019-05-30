@@ -4,12 +4,12 @@ import (
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
-func (me *Ctx) substantiateKitsDefsFactsAsNeeded(reSubstFirst map[string]*Kit, reSubstNext map[string]*Kit) (errs []error) {
-	for defid, kit := range reSubstFirst {
+func (me *Ctx) substantiateKitsDefsFactsAsNeeded(defIdsBorn map[string]*Kit, defIdsDepsOfNamesBornOrGone map[string]*Kit) (errs []error) {
+	for defid, kit := range defIdsBorn {
 		errs = append(errs, me.substantiateKitTopLevelDefFacts(kit, defid, true).errsNonRef()...)
 	}
-	for defid, kit := range reSubstNext {
-		errs = append(errs, me.substantiateKitTopLevelDefFacts(kit, defid, reSubstFirst[defid] != kit).errsNonRef()...)
+	for defid, kit := range defIdsDepsOfNamesBornOrGone {
+		errs = append(errs, me.substantiateKitTopLevelDefFacts(kit, defid, defIdsBorn[defid] != kit).errsNonRef()...)
 	}
 	return
 }

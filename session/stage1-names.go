@@ -11,9 +11,9 @@ type astDefRef struct {
 	kit string
 }
 
-func (me *Ctx) kitsRepopulateAstNamesInScope() (reSubstFirst map[string]*Kit, reSubstNext map[string]*Kit, errs atmo.Errors) {
+func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn map[string]*Kit, defIdsDepsOfNamesBornOrGone map[string]*Kit, errs atmo.Errors) {
 	kitrepops, namesofchange := make(map[*Kit]atmo.Empty, len(me.Kits.all)), make(atmo.StringsUnorderedButUnique, 4)
-	reSubstFirst, reSubstNext = make(map[string]*Kit, 8), make(map[string]*Kit, 16)
+	defIdsBorn, defIdsDepsOfNamesBornOrGone = make(map[string]*Kit, 8), make(map[string]*Kit, 16)
 
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.all {
@@ -25,7 +25,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (reSubstFirst map[string]*Kit, re
 					}
 				}
 				for defid, defname := range kit.state.defsBornIdsNames {
-					reSubstFirst[defid] = kit
+					defIdsBorn[defid] = kit
 					namesofchange[defname] = atmo.Exists
 					if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil && defnamefacts.overloadById(defid) != nil {
 						panic(defid) // tells us we have a bug in our housekeeping
@@ -89,6 +89,6 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (reSubstFirst map[string]*Kit, re
 		}
 		errs.Add(kit.Errs.Stage1BadNames)
 	}
-	me.Kits.all.collectReferencers(namesofchange, reSubstNext, true)
+	me.Kits.all.collectReferencers(namesofchange, defIdsDepsOfNamesBornOrGone, true)
 	return
 }
