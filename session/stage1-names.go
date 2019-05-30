@@ -12,11 +12,11 @@ type astDefRef struct {
 }
 
 func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn map[string]*Kit, defIdsDepsOfNamesBornOrGone map[string]*Kit, errs atmo.Errors) {
-	kitrepops, namesofchange := make(map[*Kit]atmo.Empty, len(me.Kits.all)), make(atmo.StringsUnorderedButUnique, 4)
+	kitrepops, namesofchange := make(map[*Kit]atmo.Empty, len(me.Kits.All)), make(atmo.StringsUnorderedButUnique, 4)
 	defIdsBorn, defIdsDepsOfNamesBornOrGone = make(map[string]*Kit, 2), make(map[string]*Kit, 4)
 
 	{ // FIRST: namesInScopeOwn
-		for _, kit := range me.Kits.all {
+		for _, kit := range me.Kits.All {
 			if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 {
 				for defid, defname := range kit.state.defsGoneIdsNames {
 					namesofchange[defname] = atmo.Exists
@@ -42,11 +42,11 @@ func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn
 		}
 	}
 	{ // NEXT: namesInScopeExt (utilizing above namesInScopeOwn adds hence separate Ctx.Kits.all loop)
-		for _, kit := range me.Kits.all {
+		for _, kit := range me.Kits.All {
 			if len(kit.Imports) > 0 {
 				var totaldefscount int
 				var anychangesinkimps bool
-				kimps := me.Kits.all.Where(func(k *Kit) (iskimp bool) {
+				kimps := me.Kits.All.Where(func(k *Kit) (iskimp bool) {
 					if iskimp = ustr.In(k.ImpPath, kit.Imports...); iskimp {
 						totaldefscount, anychangesinkimps = totaldefscount+len(k.topLevelDefs), anychangesinkimps || len(k.state.defsGoneIdsNames) > 0 || len(k.state.defsBornIdsNames) > 0
 					}
@@ -89,6 +89,6 @@ func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn
 		}
 		errs.Add(kit.Errs.Stage1BadNames)
 	}
-	me.Kits.all.collectReferencers(namesofchange, defIdsDepsOfNamesBornOrGone, true)
+	me.Kits.All.CollectReferencers(namesofchange, defIdsDepsOfNamesBornOrGone, true)
 	return
 }

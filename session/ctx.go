@@ -28,10 +28,9 @@ type Ctx struct {
 		Kits          []string
 	}
 	Kits struct {
-		ByDirPath                func(string) *Kit
-		ByImpPath                func(string) *Kit
-		all                      Kits
-		RecurringBackgroundWatch struct {
+		All                                  Kits
+		AlwaysEnsureLoadedAsSoonAsDiscovered bool
+		RecurringBackgroundWatch             struct {
 			ShouldNow func() bool
 		}
 	}
@@ -70,7 +69,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 // search paths and from now on in sync with live modifications to those.
 func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 	me.maybeInitPanic(true)
-	me.state.initCalled, me.Kits.all = true, make(Kits, 0, 32)
+	me.state.initCalled, me.Kits.All = true, make(Kits, 0, 32)
 	cachedir := me.Dirs.Cache
 	if cachedir == "" {
 		cachedir = CtxDefaultCacheDirPath()
@@ -127,10 +126,11 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		}
 		if err == nil {
 			if me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
-				if err = me.FauxKitsAdd(sessionFauxKitDir); err == nil {
-					me.initKits()
-				}
+				err = me.fauxKitsAddDir(true, sessionFauxKitDir)
 			}
+		}
+		if err == nil {
+			me.initKits()
 		}
 	}
 	if err != nil {
@@ -140,6 +140,14 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 }
 
 func (me *Ctx) FauxKitsAdd(dirPath string) (err error) {
+	me.Dirs.fauxKitsMutex.Lock()
+	err = me.fauxKitsAddDir(true, dirPath)
+	me.state.fileModsWatch.doManually(me.Dirs.Kits, me.Dirs.fauxKits)
+	me.Dirs.fauxKitsMutex.Unlock()
+	return
+}
+
+func (me *Ctx) fauxKitsAddDir(alreadyLocked bool, dirPath string) (err error) {
 	if dirPath == "" || dirPath == "." {
 		dirPath, err = os.Getwd()
 	} else if dirPath[0] == '~' {
@@ -162,14 +170,18 @@ func (me *Ctx) FauxKitsAdd(dirPath string) (err error) {
 				break
 			}
 		}
-		me.Dirs.fauxKitsMutex.Lock()
+		if !alreadyLocked {
+			me.Dirs.fauxKitsMutex.Lock()
+		}
 		if !in {
 			in = ustr.In(dirPath, me.Dirs.fauxKits...)
 		}
 		if !in {
 			me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
 		}
-		me.Dirs.fauxKitsMutex.Unlock()
+		if !alreadyLocked {
+			me.Dirs.fauxKitsMutex.Unlock()
+		}
 	}
 	return
 }
@@ -221,12 +233,15 @@ func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
 }
 
 func (me *Ctx) CatchUp(checkForFileModsNow bool) {
+	me.Dirs.fauxKitsMutex.Lock()
+	fauxkitdirpaths := me.Dirs.fauxKits
+	me.Dirs.fauxKitsMutex.Unlock()
 	if checkForFileModsNow {
-		me.state.fileModsWatch.doManually(me.Dirs.Kits, me.Dirs.fauxKits)
+		me.state.fileModsWatch.doManually(me.Dirs.Kits, fauxkitdirpaths)
 	}
 	var latest []map[string]os.FileInfo
 	me.state.fileModsWatch.latestMutex.Lock()
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
 	me.state.fileModsWatch.latestMutex.Unlock()
-	me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest)
+	me.fileModsHandle(me.Dirs.Kits, fauxkitdirpaths, latest)
 }

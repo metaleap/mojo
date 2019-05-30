@@ -35,7 +35,7 @@ type AstBaseTokens struct {
 }
 
 func (me *AstBaseTokens) at(self IAstNode, pos int) []IAstNode {
-	if me.Tokens.DoEnclose(pos) {
+	if me.Tokens.AreEnclosing(pos) {
 		return []IAstNode{self}
 	}
 	return nil
@@ -65,7 +65,7 @@ type AstTopLevel struct {
 }
 
 func (me *AstTopLevel) at(_ IAstNode, pos int) (nodes []IAstNode) {
-	if me.Tokens.DoEnclose(pos) {
+	if me.Tokens.AreEnclosing(pos) {
 		nodes = append(me.Def.Orig.at(me.Def.Orig, pos), me)
 	}
 	return
@@ -90,7 +90,7 @@ type AstDef struct {
 }
 
 func (me *AstDef) at(_ IAstNode, pos int) (nodes []IAstNode) {
-	if me.Tokens.DoEnclose(pos) {
+	if me.Tokens.AreEnclosing(pos) {
 		if nodes = me.Name.at(&me.Name, pos); len(nodes) == 0 {
 			if nodes = me.NameAffix.at(me.NameAffix, pos); len(nodes) == 0 {
 				if nodes = me.Body.at(me.Body, pos); len(nodes) == 0 {
@@ -121,7 +121,7 @@ type AstDefArg struct {
 }
 
 func (me *AstDefArg) at(_ IAstNode, pos int) (nodes []IAstNode) {
-	if me.Tokens.DoEnclose(pos) {
+	if me.Tokens.AreEnclosing(pos) {
 		if nodes = me.NameOrConstVal.at(me.NameOrConstVal, pos); len(nodes) == 0 {
 			nodes = me.Affix.at(me.Affix, pos)
 		}
@@ -194,7 +194,7 @@ type AstExprAppl struct {
 }
 
 func (me *AstExprAppl) at(_ IAstNode, pos int) (nodes []IAstNode) {
-	if me.Tokens.DoEnclose(pos) {
+	if me.Tokens.AreEnclosing(pos) {
 		if nodes = me.Callee.at(me.Callee, pos); len(nodes) == 0 {
 			for _, arg := range me.Args {
 				if nodes = arg.at(arg, pos); len(nodes) > 0 {
@@ -214,7 +214,7 @@ type AstExprLet struct {
 }
 
 func (me *AstExprLet) at(_ IAstNode, pos int) (nodes []IAstNode) {
-	if me.Tokens.DoEnclose(pos) {
+	if me.Tokens.AreEnclosing(pos) {
 		if nodes = me.Body.at(me.Body, pos); len(nodes) == 0 {
 			for i := range me.Defs {
 				if nodes = me.Defs[i].at(&me.Defs[i], pos); len(nodes) > 0 {
@@ -235,7 +235,7 @@ type AstExprCases struct {
 }
 
 func (me *AstExprCases) at(_ IAstNode, pos int) (nodes []IAstNode) {
-	if me.Tokens.DoEnclose(pos) {
+	if me.Tokens.AreEnclosing(pos) {
 		if nodes = me.Scrutinee.at(me.Scrutinee, pos); len(nodes) == 0 {
 			for i := range me.Alts {
 				if nodes = me.Alts[i].at(&me.Alts[i], pos); len(nodes) > 0 {
@@ -255,7 +255,7 @@ type AstCase struct {
 }
 
 func (me *AstCase) at(_ IAstNode, pos int) (nodes []IAstNode) {
-	if me.Tokens.DoEnclose(pos) {
+	if me.Tokens.AreEnclosing(pos) {
 		if nodes = me.Body.at(me.Body, pos); len(nodes) == 0 {
 			for _, c := range me.Conds {
 				if nodes = c.at(c, pos); len(nodes) > 0 {

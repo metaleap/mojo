@@ -106,30 +106,30 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 
 		// else, input to be EVAL'd now
 		default:
-			me.Ctx.WithKit("", func(kit *atmosess.Kit) {
-				var caretpos int
-				str, errs := me.Ctx.Eval(kit, inputln)
-				if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
-					if err0pos := errs[0].Pos(); err0pos.Line == 1 {
-						caretpos = err0pos.Column + numleadingspaces
-					}
+			var caretpos int
+			kit := me.Ctx.KitByImpPath("")
+			str, errs := me.Ctx.Eval(kit, inputln)
+			if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
+				if err0pos := errs[0].Pos(); err0pos.Line == 1 {
+					caretpos = err0pos.Column + numleadingspaces
 				}
-				me.decoInputDoneBut(false, false, caretpos)
-				if caretpos == 0 {
-					me.IO.writeLns("")
-				} else {
-					me.IO.write("╔", 1)
-					me.IO.write("═", caretpos-1)
-					me.IO.writeLns("╝")
-				}
-				for _, e := range errs {
-					me.decoMsgNotice(false, e.Error())
-				}
-				if me.run.multiLnInputHadLeadingTabs {
-					me.decoAddNotice(false, "", false, "multi-line input had leading tabs, note", "that repl auto-indent is based on spaces")
-				}
-				me.IO.writeLns(str)
-			})
+			}
+			me.decoInputDoneBut(false, false, caretpos)
+			if caretpos == 0 {
+				me.IO.writeLns("")
+			} else {
+				me.IO.write("╔", 1)
+				me.IO.write("═", caretpos-1)
+				me.IO.writeLns("╝")
+			}
+			for _, e := range errs {
+				me.decoMsgNotice(false, e.Error())
+			}
+			if me.run.multiLnInputHadLeadingTabs {
+				me.decoAddNotice(false, "", false, "multi-line input had leading tabs, note", "that repl auto-indent is based on spaces")
+			}
+			me.IO.writeLns(str)
+
 			me.IO.writeLns("", "")
 			me.decoInputStart(false, false)
 		}

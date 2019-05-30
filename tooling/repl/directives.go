@@ -118,44 +118,41 @@ func (me *Repl) DList(what string) bool {
 func (me *Repl) dListKits() {
 	me.IO.writeLns("LIST of kits from current search paths:")
 	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Kits, func(s string) string { return "─── " + s })...)
-	me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
-		me.IO.writeLns("", "Found "+ustr.Plu(len(kits), "kit")+":")
-		for _, kit := range kits {
-			numerrs := len(kit.Errors())
-			me.decoAddNotice(false, "", true, "["+ustr.If(kit.WasEverToBeLoaded, "×", "_")+"] "+kit.ImpPath+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "issue")))
-		}
-	})
+	kits := me.Ctx.Kits.All
+	me.IO.writeLns("", "Found "+ustr.Plu(len(kits), "kit")+":")
+	for _, kit := range kits {
+		numerrs := len(kit.Errors())
+		me.decoAddNotice(false, "", true, "["+ustr.If(kit.WasEverToBeLoaded, "×", "_")+"] "+kit.ImpPath+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "issue")))
+	}
 	me.IO.writeLns("", "Legend: [_] = unloaded, [×] = loaded or load attempted", "(To see kit details, use `:info ‹kit›`.)")
 }
 
 func (me *Repl) dListDefs(whatKit string) {
-	me.Ctx.WithKit(whatKit, func(kit *atmosess.Kit) {
-		if kit == nil {
-			me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
-		} else {
-			me.Ctx.KitEnsureLoaded(kit)
-			me.IO.writeLns("LIST of defs in kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
-			kitsrcfiles, numdefs := kit.SrcFiles(), 0
-			for _, sf := range kitsrcfiles {
-				if nd, _ := sf.CountTopLevelDefs(true); nd > 0 {
-					me.IO.writeLns("", ustr.If(sf.SrcFilePath == "", "‹repl›", filepath.Base(sf.SrcFilePath))+": "+ustr.Plu(nd, "top-level def"))
-					for d := range sf.TopLevel {
-						if tld := &sf.TopLevel[d]; !tld.HasErrors() {
-							if def := tld.Ast.Def.Orig; def != nil {
-								numdefs++
-								pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
-									"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
-								me.decoAddNotice(false, "", true, ustr.Combine(ustr.If(tld.Ast.Def.IsUnexported, "_", "")+def.Name.Val, " ─── ", pos))
-							}
+	if kit := me.Ctx.KitByImpPath(whatKit); kit == nil {
+		me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
+	} else {
+		me.Ctx.KitEnsureLoaded(kit)
+		me.IO.writeLns("LIST of defs in kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
+		kitsrcfiles, numdefs := kit.SrcFiles(), 0
+		for _, sf := range kitsrcfiles {
+			if nd, _ := sf.CountTopLevelDefs(true); nd > 0 {
+				me.IO.writeLns("", ustr.If(sf.SrcFilePath == "", "‹repl›", filepath.Base(sf.SrcFilePath))+": "+ustr.Plu(nd, "top-level def"))
+				for d := range sf.TopLevel {
+					if tld := &sf.TopLevel[d]; !tld.HasErrors() {
+						if def := tld.Ast.Def.Orig; def != nil {
+							numdefs++
+							pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
+								"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
+							me.decoAddNotice(false, "", true, ustr.Combine(ustr.If(tld.Ast.Def.IsUnexported, "_", "")+def.Name.Val, " ─── ", pos))
 						}
 					}
 				}
 			}
-			if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kitsrcfiles), "`*"+atmo.SrcFileExt+"` source file")); numdefs > 0 {
-				me.IO.writeLns("", "(To see more details, try also:", "`:info "+whatKit+"` or `:info "+whatKit+" ‹def›`.)")
-			}
 		}
-	})
+		if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kitsrcfiles), "`*"+atmo.SrcFileExt+"` source file")); numdefs > 0 {
+			me.IO.writeLns("", "(To see more details, try also:", "`:info "+whatKit+"` or `:info "+whatKit+" ‹def›`.)")
+		}
+	}
 }
 
 func (me *Repl) DIntro(string) bool {
@@ -182,33 +179,31 @@ func (me *Repl) DInfo(what string) bool {
 }
 
 func (me *Repl) dInfoKit(whatKit string) {
-	me.Ctx.WithKit(whatKit, func(kit *atmosess.Kit) {
-		if kit == nil {
-			me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
-		} else {
-			me.Ctx.KitEnsureLoaded(kit)
-			me.IO.writeLns("INFO summary on kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
-			kitsrcfiles := kit.SrcFiles()
-			me.IO.writeLns("", ustr.Plu(len(kitsrcfiles), "source file")+" in kit `"+whatKit+"`:")
-			numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
-			for _, sf := range kitsrcfiles {
-				nd, ndi := sf.CountTopLevelDefs(true)
-				sloc := sf.CountNetLinesOfCode(true)
-				numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
-				me.decoAddNotice(false, "", true, ustr.If(sf.SrcFilePath == "", "‹repl›", filepath.Base(sf.SrcFilePath)), ustr.Plu(sf.LastLoad.NumLines, "line")+" ("+ustr.Int(sloc)+" sloc), "+ustr.Plu(nd, "top-level def")+", "+ustr.Int(nd-ndi)+" exported")
-			}
-			me.IO.writeLns("Total:", "    "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
-				"    (Counts exclude failed-to-parse defs, if any.)")
-
-			if kiterrs := kit.Errors(); len(kiterrs) > 0 {
-				me.IO.writeLns("", ustr.Plu(len(kiterrs), "issue")+" in kit `"+whatKit+"`:")
-				for i := range kiterrs {
-					me.decoMsgNotice(false, kiterrs[i].Error())
-				}
-			}
-			me.IO.writeLns("", "", "(To see kit defs, use `:list "+whatKit+"`.)")
+	if kit := me.Ctx.KitByImpPath(whatKit); kit == nil {
+		me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
+	} else {
+		me.Ctx.KitEnsureLoaded(kit)
+		me.IO.writeLns("INFO summary on kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
+		kitsrcfiles := kit.SrcFiles()
+		me.IO.writeLns("", ustr.Plu(len(kitsrcfiles), "source file")+" in kit `"+whatKit+"`:")
+		numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
+		for _, sf := range kitsrcfiles {
+			nd, ndi := sf.CountTopLevelDefs(true)
+			sloc := sf.CountNetLinesOfCode(true)
+			numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi
+			me.decoAddNotice(false, "", true, ustr.If(sf.SrcFilePath == "", "‹repl›", filepath.Base(sf.SrcFilePath)), ustr.Plu(sf.LastLoad.NumLines, "line")+" ("+ustr.Int(sloc)+" sloc), "+ustr.Plu(nd, "top-level def")+", "+ustr.Int(nd-ndi)+" exported")
 		}
-	})
+		me.IO.writeLns("Total:", "    "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
+			"    (Counts exclude failed-to-parse defs, if any.)")
+
+		if kiterrs := kit.Errors(); len(kiterrs) > 0 {
+			me.IO.writeLns("", ustr.Plu(len(kiterrs), "issue")+" in kit `"+whatKit+"`:")
+			for i := range kiterrs {
+				me.decoMsgNotice(false, kiterrs[i].Error())
+			}
+		}
+		me.IO.writeLns("", "", "(To see kit defs, use `:list "+whatKit+"`.)")
+	}
 }
 
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
@@ -254,50 +249,49 @@ func (me *Repl) DSrcs(what string) bool {
 }
 
 func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*atmosess.Kit, *atmolang_irfun.AstDefTop)) {
-	me.Ctx.WithKnownKits(func(kits atmosess.Kits) {
-		var kit *atmosess.Kit
-		if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {
-			if kit = kits.ByImpPath(whatKit); kit == nil && (whatKit == "." || whatKit == "·") {
-				for i := range kits {
-					if me.Ctx.FauxKitsHas(kits[i].DirPath) {
-						kit = kits[i]
-						break
-					}
+	kits := me.Ctx.Kits.All
+	var kit *atmosess.Kit
+	if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {
+		if kit = kits.ByImpPath(whatKit); kit == nil && (whatKit == "." || whatKit == "·") {
+			for i := range kits {
+				if me.Ctx.FauxKitsHas(kits[i].DirPath) {
+					kit = kits[i]
+					break
 				}
 			}
+		}
+	} else {
+		var finds atmosess.Kits
+		for _, k := range kits {
+			if searchall {
+				me.Ctx.KitEnsureLoaded(k)
+			}
+			if k.HasDefs(whatName) {
+				finds = append(finds, k)
+			}
+		}
+		if len(finds) == 1 {
+			kit = finds[0]
 		} else {
-			var finds atmosess.Kits
-			for _, k := range kits {
-				if searchall {
-					me.Ctx.KitEnsureLoaded(k)
+			if len(finds) > 1 {
+				me.IO.writeLns("Defs named `" + whatName + "` were found in " + ustr.Int(len(finds)) + " currently-" + ustr.If(searchall, "known", "loaded") + " kits. Pick one:")
+				for _, k := range finds {
+					me.IO.writeLns("    :" + cmdName + " " + k.ImpPath + " " + whatName)
 				}
-				if k.HasDefs(whatName) {
-					finds = append(finds, k)
-				}
-			}
-			if len(finds) == 1 {
-				kit = finds[0]
 			} else {
-				if len(finds) > 1 {
-					me.IO.writeLns("Defs named `" + whatName + "` were found in " + ustr.Int(len(finds)) + " currently-" + ustr.If(searchall, "known", "loaded") + " kits. Pick one:")
-					for _, k := range finds {
-						me.IO.writeLns("    :" + cmdName + " " + k.ImpPath + " " + whatName)
-					}
-				} else {
-					me.IO.writeLns("No defs named `" + whatName + "` were found in any currently-" + ustr.If(searchall, "known", "loaded") + " kits.")
-				}
-				return
+				me.IO.writeLns("No defs named `" + whatName + "` were found in any currently-" + ustr.If(searchall, "known", "loaded") + " kits.")
 			}
+			return
 		}
-		if kit == nil {
-			me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
-		} else {
-			me.Ctx.KitEnsureLoaded(kit)
-			defs := kit.Defs(whatName)
-			me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatName+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
-			for _, def := range defs {
-				on(kit, def)
-			}
+	}
+	if kit == nil {
+		me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
+	} else {
+		me.Ctx.KitEnsureLoaded(kit)
+		defs := kit.Defs(whatName)
+		me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatName+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
+		for _, def := range defs {
+			on(kit, def)
 		}
-	})
+	}
 }

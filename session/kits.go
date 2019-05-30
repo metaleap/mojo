@@ -20,39 +20,18 @@ type Kits []*Kit
 
 func init() { ufs.WalkReadDirFunc = ufs.Dir }
 
-// WithKnownKits runs `do` with all currently-known (loaded or not) `Kit`s
-// passed to it. The `Kits` slice or its contents must not be written to.
-func (me *Ctx) WithKnownKits(do func(Kits)) {
-	me.maybeInitPanic(false)
-	do(me.Kits.all)
-	return
-}
-
-// WithKnownKitsWhere works like `WithKnownKits` but with pre-filtering via `where`.
-func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func(Kits)) {
-	me.maybeInitPanic(false)
-	doall, kits := (where == nil), make(Kits, 0, len(me.Kits.all))
-	for i := range me.Kits.all {
-		if kit := me.Kits.all[i]; doall || where(kit) {
-			kits = append(kits, kit)
-		}
-	}
-	do(kits)
-	return
-}
-
 // KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
 	me.maybeInitPanic(false)
-	kitImpPaths = make([]string, len(me.Kits.all))
-	for i := range me.Kits.all {
-		kitImpPaths[i] = me.Kits.all[i].ImpPath
+	kitImpPaths = make([]string, len(me.Kits.All))
+	for i := range me.Kits.All {
+		kitImpPaths[i] = me.Kits.All[i].ImpPath
 	}
 	return
 }
 
 func (me *Ctx) initKits() {
-	checkforfilemodsnow := ufs.ModificationsWatcher(atmo.SrcFileExt, me.fileModsDirOk, 0,
+	me.state.fileModsWatch.doManually = ufs.ModificationsWatcher(atmo.SrcFileExt, me.fileModsDirOk, 0,
 		func(mods map[string]os.FileInfo, starttime int64, wasfirstrun bool) {
 			// isconcurrent := me.state.fileModsWatch.runningAutomaticallyPeriodically && (!wasfirstrun)
 			if len(mods) > 0 {
@@ -68,14 +47,12 @@ func (me *Ctx) initKits() {
 			me.Dirs.fauxKitsMutex.Lock()
 			fauxkitdirpaths := me.Dirs.fauxKits
 			me.Dirs.fauxKitsMutex.Unlock()
-			_ = checkforfilemodsnow(me.Dirs.Kits, fauxkitdirpaths)
+			_ = me.state.fileModsWatch.doManually(me.Dirs.Kits, fauxkitdirpaths)
 		},
 	); modswatchstart != nil {
 		me.state.fileModsWatch.runningAutomaticallyPeriodically, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
 		go modswatchstart()
-	} else {
-		me.state.fileModsWatch.doManually = checkforfilemodsnow
 	}
 }
 
@@ -86,17 +63,17 @@ func (me *Ctx) fileModsDirOk(kitsDirs []string, fauxKitDirs []string, dirFullPat
 
 func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFullPath string, modKitDirs map[string]int) {
 	isdirsess := ustr.In(dirFullPath, fauxKitDirs...)
-	if idx := me.Kits.all.indexDirPath(dirFullPath); idx >= 0 {
+	if idx := me.Kits.All.IndexDirPath(dirFullPath); idx >= 0 {
 		// dir was previously known as a kit
-		modKitDirs[dirFullPath] = cap(me.Kits.all[idx].srcFiles)
+		modKitDirs[dirFullPath] = cap(me.Kits.All[idx].srcFiles)
 	} else if isdirsess {
 		// cur sess dir is a (real or faux) "kit"
 		modKitDirs[dirFullPath] = 1
 	}
 	if !isdirsess {
-		for i := range me.Kits.all {
-			if ustr.Pref(me.Kits.all[i].DirPath, dirFullPath+string(os.PathSeparator)) {
-				modKitDirs[me.Kits.all[i].DirPath] = cap(me.Kits.all[i].srcFiles)
+		for i := range me.Kits.All {
+			if ustr.Pref(me.Kits.All[i].DirPath, dirFullPath+string(os.PathSeparator)) {
+				modKitDirs[me.Kits.All[i].DirPath] = cap(me.Kits.All[i].srcFiles)
 			}
 		}
 	}
@@ -123,7 +100,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 				modkitdirs[dp] = modkitdirs[dp] + 1
 			}
 		}
-		if len(me.Kits.all) == 0 {
+		if len(me.Kits.All) == 0 {
 			for _, dirsess := range fauxKitDirs {
 				modkitdirs[dirsess] = 1
 			}
@@ -133,7 +110,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 			// handle new-or-modified kits
 			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 			for kitdirpath, numfilesguess := range modkitdirs {
-				if me.Kits.all.indexDirPath(kitdirpath) < 0 {
+				if me.Kits.All.IndexDirPath(kitdirpath) < 0 {
 					if numfilesguess < 2 {
 						numfilesguess = 2
 					}
@@ -158,7 +135,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 					if kitimppath == atmo.NameAutoKit {
 						kitimps = nil
 					}
-					me.Kits.all = append(me.Kits.all, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
+					me.Kits.All = append(me.Kits.All, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
 						srcFiles: make(atmolang.AstFiles, 0, numfilesguess), defsFacts: make(map[string]*defNameFacts, numfilesguess*8)})
 				}
 				shouldrefresh[kitdirpath] = atmo.Exists
@@ -166,37 +143,37 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 			// remove kits that have vanished from the file-system
 			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 			var numremoved int
-			for i := 0; i < len(me.Kits.all); i++ {
-				if kit := me.Kits.all[i]; !ustr.In(kit.DirPath, fauxKitDirs...) &&
+			for i := 0; i < len(me.Kits.All); i++ {
+				if kit := me.Kits.All[i]; !ustr.In(kit.DirPath, fauxKitDirs...) &&
 					((!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
 					delete(shouldrefresh, kit.DirPath)
-					me.Kits.all.removeAt(i)
+					me.Kits.All.removeAt(i)
 					i, numremoved = i-1, numremoved+1
 				}
 			}
 			// ensure no duplicate imp-paths
-			for i := len(me.Kits.all) - 1; i >= 0; i-- {
-				kit := me.Kits.all[i]
-				if idx := me.Kits.all.indexImpPath(kit.ImpPath); idx != i {
+			for i := len(me.Kits.All) - 1; i >= 0; i-- {
+				kit := me.Kits.All[i]
+				if idx := me.Kits.All.IndexImpPath(kit.ImpPath); idx != i {
 					delete(shouldrefresh, kit.DirPath)
-					delete(shouldrefresh, me.Kits.all[idx].DirPath)
-					me.bgMsg(true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.kitsDirPath(), "and "+me.Kits.all[idx].kitsDirPath(), "─── both will not load until fixed")
+					delete(shouldrefresh, me.Kits.All[idx].DirPath)
+					me.bgMsg(true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.kitsDirPath(), "and "+me.Kits.All[idx].kitsDirPath(), "─── both will not load until fixed")
 					if idx > i {
-						me.Kits.all.removeAt(idx)
-						me.Kits.all.removeAt(i)
+						me.Kits.All.removeAt(idx)
+						me.Kits.All.removeAt(i)
 					} else {
-						me.Kits.all.removeAt(i)
-						me.Kits.all.removeAt(idx)
+						me.Kits.All.removeAt(i)
+						me.Kits.All.removeAt(idx)
 					}
 					i--
 				}
 			}
 			// for stable listings etc.
-			atmo.SortMaybe(me.Kits.all)
+			atmo.SortMaybe(me.Kits.All)
 			// per-file refresher
 			for kitdirpath := range shouldrefresh {
-				if idx := me.Kits.all.indexDirPath(kitdirpath); idx >= 0 {
-					me.kitRefreshFilesAndMaybeReload(me.Kits.all[idx], true, false)
+				if idx := me.Kits.All.IndexDirPath(kitdirpath); idx >= 0 {
+					me.kitRefreshFilesAndMaybeReload(me.Kits.All[idx], true, false)
 				} else {
 					panic(kitdirpath)
 				}
@@ -214,10 +191,13 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 // and refreshes the `Ctx`'s internal represenation of `Kits` if any were noted.
 func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int) {
 	me.maybeInitPanic(false)
-	if me.state.fileModsWatch.doManually == nil {
+	if me.state.fileModsWatch.runningAutomaticallyPeriodically {
 		numFileSystemModsNoticedAndActedUpon = -1
 	} else {
-		numFileSystemModsNoticedAndActedUpon = me.state.fileModsWatch.doManually(me.Dirs.Kits, me.Dirs.fauxKits)
+		me.Dirs.fauxKitsMutex.Lock()
+		fauxkitdirpaths := me.Dirs.fauxKits
+		me.Dirs.fauxKitsMutex.Unlock()
+		numFileSystemModsNoticedAndActedUpon = me.state.fileModsWatch.doManually(me.Dirs.Kits, fauxkitdirpaths)
 	}
 	return
 }
@@ -263,7 +243,7 @@ func (me *Kits) removeAt(idx int) {
 	*me = this
 }
 
-func (me Kits) indexDirPath(dirPath string) int {
+func (me Kits) IndexDirPath(dirPath string) int {
 	for i := range me {
 		if me[i].DirPath == dirPath {
 			return i
@@ -272,7 +252,7 @@ func (me Kits) indexDirPath(dirPath string) int {
 	return -1
 }
 
-func (me Kits) indexImpPath(impPath string) int {
+func (me Kits) IndexImpPath(impPath string) int {
 	if impPath != "" {
 		for i := range me {
 			if me[i].ImpPath == impPath {
@@ -284,7 +264,7 @@ func (me Kits) indexImpPath(impPath string) int {
 }
 
 func (me Kits) ByDirPath(kitDirPath string) *Kit {
-	if idx := me.indexDirPath(kitDirPath); idx >= 0 {
+	if idx := me.IndexDirPath(kitDirPath); idx >= 0 {
 		return me[idx]
 	}
 	return nil
@@ -292,13 +272,17 @@ func (me Kits) ByDirPath(kitDirPath string) *Kit {
 
 // ByImpPath finds the `Kit` in `Kits` with the given import-path.
 func (me Kits) ByImpPath(kitImpPath string) *Kit {
-	if idx := me.indexImpPath(kitImpPath); idx >= 0 {
+	if idx := me.IndexImpPath(kitImpPath); idx >= 0 {
 		return me[idx]
 	}
 	return nil
 }
 
 func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
+	if check == nil {
+		return me
+	}
+	kits = make(Kits, 0, len(me))
 	for _, kit := range me {
 		if check(kit) {
 			kits = append(kits, kit)
@@ -307,7 +291,7 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 	return
 }
 
-func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, into map[string]*Kit, indirects bool) {
+func (me Kits) CollectReferencers(defNames atmo.StringsUnorderedButUnique, into map[string]*Kit, indirects bool) {
 	if len(defNames) == 0 {
 		return
 	}
@@ -329,6 +313,6 @@ func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, into 
 		}
 	}
 	if indirects {
-		me.collectReferencers(morenames, into, true)
+		me.CollectReferencers(morenames, into, true)
 	}
 }

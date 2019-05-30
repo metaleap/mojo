@@ -30,10 +30,9 @@ type Ctx struct {
 		Kits  []string
 	}
 	Kits struct {
-		ByDirPath func(string) *Kit
-		ByImpPath func(string) *Kit
-
-		RecurringBackgroundWatch struct {
+		All                                  Kits
+		AlwaysEnsureLoadedAsSoonAsDiscovered bool
+		RecurringBackgroundWatch             struct {
 			ShouldNow func() bool
 		}
 	}
@@ -100,6 +99,12 @@ and from now on in sync with live modifications to those.
 func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit)
 ```
 
+#### func (*Ctx) KitByImpPath
+
+```go
+func (me *Ctx) KitByImpPath(impPath string) *Kit
+```
+
 #### func (*Ctx) KitDefFacts
 
 ```go
@@ -136,30 +141,6 @@ the `Ctx`'s internal represenation of `Kits` if any were noted.
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string)
 ```
 KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
-
-#### func (*Ctx) WithKit
-
-```go
-func (me *Ctx) WithKit(impPath string, do func(*Kit))
-```
-WithKit runs `do` with the specified `Kit` if it exists, else with `nil`. The
-`Kit` must not be written to.
-
-#### func (*Ctx) WithKnownKits
-
-```go
-func (me *Ctx) WithKnownKits(do func(Kits))
-```
-WithKnownKits runs `do` with all currently-known (loaded or not) `Kit`s passed
-to it. The `Kits` slice or its contents must not be written to.
-
-#### func (*Ctx) WithKnownKitsWhere
-
-```go
-func (me *Ctx) WithKnownKitsWhere(where func(*Kit) bool, do func(Kits))
-```
-WithKnownKitsWhere works like `WithKnownKits` but with pre-filtering via
-`where`.
 
 #### type CtxBgMsg
 
@@ -256,6 +237,24 @@ func (me Kits) ByDirPath(kitDirPath string) *Kit
 func (me Kits) ByImpPath(kitImpPath string) *Kit
 ```
 ByImpPath finds the `Kit` in `Kits` with the given import-path.
+
+#### func (Kits) CollectReferencers
+
+```go
+func (me Kits) CollectReferencers(defNames atmo.StringsUnorderedButUnique, into map[string]*Kit, indirects bool)
+```
+
+#### func (Kits) IndexDirPath
+
+```go
+func (me Kits) IndexDirPath(dirPath string) int
+```
+
+#### func (Kits) IndexImpPath
+
+```go
+func (me Kits) IndexImpPath(impPath string) int
+```
 
 #### func (Kits) Len
 

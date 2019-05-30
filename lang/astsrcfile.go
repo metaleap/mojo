@@ -140,7 +140,7 @@ func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 
 func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *AstFileTopLevelChunk {
 	for i := range me.TopLevel {
-		if tlc := &me.TopLevel[i]; tlc.Ast.Tokens.DoEnclose(pos0ByteOffset) {
+		if tlc := &me.TopLevel[i]; tlc.Ast.Tokens.AreEnclosing(pos0ByteOffset) {
 			return tlc
 		}
 	}

@@ -28,7 +28,6 @@ type Kit struct {
 		defsBornIdsNames map[string]string
 	}
 	lookups struct {
-		allNames        []string
 		tlDefsByID      map[string]*atmolang_irfun.AstDefTop
 		tlDefIDsByName  map[string][]string
 		namesInScopeOwn atmolang_irfun.AnnNamesInScope
@@ -57,14 +56,14 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 	me.maybeInitPanic(false)
 	if plusSessDirFauxKits {
 		for _, dirsess := range me.Dirs.fauxKits {
-			if idx := me.Kits.all.indexDirPath(dirsess); idx >= 0 {
-				kitImpPaths = append(kitImpPaths, me.Kits.all[idx].ImpPath)
+			if idx := me.Kits.All.IndexDirPath(dirsess); idx >= 0 {
+				kitImpPaths = append(kitImpPaths, me.Kits.All[idx].ImpPath)
 			}
 		}
 	}
 	if len(kitImpPaths) > 0 {
 		for _, kip := range kitImpPaths {
-			if kit := me.Kits.all.ByImpPath(kip); kit != nil {
+			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
 				me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.runningAutomaticallyPeriodically, true)
 			}
 		}
@@ -77,29 +76,25 @@ func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
 }
 
 func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) {
-	if kit = me.Kits.all.ByDirPath(dirPath); kit == nil && tryToAddToFauxKits {
+	if kit = me.Kits.All.ByDirPath(dirPath); kit == nil && tryToAddToFauxKits {
 		me.FauxKitsAdd(dirPath)
-		kit = me.Kits.all.ByDirPath(dirPath)
+		kit = me.Kits.All.ByDirPath(dirPath)
 	}
 	return
 }
 
-// WithKit runs `do` with the specified `Kit` if it exists, else with `nil`.
-// The `Kit` must not be written to.
-func (me *Ctx) WithKit(impPath string, do func(*Kit)) {
+func (me *Ctx) KitByImpPath(impPath string) *Kit {
 	me.maybeInitPanic(false)
-	idx := me.Kits.all.indexImpPath(impPath)
+	idx := me.Kits.All.IndexImpPath(impPath)
 	if idx < 0 && (impPath == "" || impPath == "." || impPath == "·") {
 		if fauxkitdirs := me.Dirs.fauxKits; len(fauxkitdirs) > 0 {
-			idx = me.Kits.all.indexDirPath(fauxkitdirs[0])
+			idx = me.Kits.All.IndexDirPath(fauxkitdirs[0])
 		}
 	}
-	if idx < 0 {
-		do(nil)
-	} else {
-		do(me.Kits.all[idx])
+	if idx >= 0 {
+		return me.Kits.All[idx]
 	}
-	return
+	return nil
 }
 
 func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, forceReload bool) {
@@ -129,16 +124,16 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		}
 		atmo.SortMaybe(kit.srcFiles)
 	}
-	if kit.WasEverToBeLoaded || forceReload {
-		kit.WasEverToBeLoaded, kit.Errs.Stage0BadImports, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID, kit.lookups.allNames =
-			true, nil, nil, nil, nil
+	if kit.WasEverToBeLoaded || forceReload || me.Kits.AlwaysEnsureLoadedAsSoonAsDiscovered {
+		kit.WasEverToBeLoaded, kit.Errs.Stage0BadImports, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID =
+			true, nil, nil, nil
 
 		for _, sf := range kit.srcFiles {
 			fresherrs = append(fresherrs, sf.LexAndParseFile(true, false)...)
 		}
 
 		for _, imp := range kit.Imports {
-			if kimp := me.Kits.all.ByImpPath(imp); kimp == nil {
+			if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
 				kit.Errs.Stage0BadImports = append(kit.Errs.Stage0BadImports, errors.New("import not found: `"+imp+"`"))
 			} else {
 				me.kitEnsureLoaded(kimp)
@@ -155,13 +150,11 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 				me.state.kitsReprocessing.needed = true
 			}
 		}
-		kit.lookups.allNames, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID =
-			make([]string, 0, len(kit.topLevelDefs)), make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevelDefs))
+		kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevelDefs))
 		for _, tldef := range kit.topLevelDefs {
 			kit.lookups.tlDefsByID[tldef.Id] = tldef
 			if n, ok := kit.lookups.tlDefIDsByName[tldef.Name.Val]; !ok {
-				kit.lookups.tlDefIDsByName[tldef.Name.Val], kit.lookups.allNames =
-					[]string{tldef.Id}, append(kit.lookups.allNames, tldef.Name.Val)
+				kit.lookups.tlDefIDsByName[tldef.Name.Val] = []string{tldef.Id}
 			} else {
 				kit.lookups.tlDefIDsByName[tldef.Name.Val] = append(n, tldef.Id)
 			}
