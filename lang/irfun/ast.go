@@ -11,6 +11,7 @@ type IAstNode interface {
 	Origin() atmolang.IAstNode
 	OrigToks() udevlex.Tokens
 	EquivTo(IAstNode) bool
+	find(IAstNode, atmolang.IAstNode) []IAstNode
 	IsDefWithArg() bool
 	RefersTo(string) bool
 	ReferencesTo(string) []udevlex.Tokens
@@ -45,6 +46,22 @@ type AstDef struct {
 	Body IAstExpr
 }
 
+func (me *AstDef) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+	if orig == me.OrigDef {
+		nodes = []IAstNode{me}
+	} else {
+		if nodes = me.Name.find(&me.Name, orig); len(nodes) > 0 {
+			nodes = append(nodes, me)
+		} else if nodes = me.Body.find(me.Body, orig); len(nodes) > 0 {
+			nodes = append(nodes, me)
+		} else if me.Arg != nil {
+			if nodes = me.Arg.find(me.Arg, orig); len(nodes) > 0 {
+				nodes = append(nodes, me)
+			}
+		}
+	}
+	return
+}
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *AstDef) Origin() atmolang.IAstNode { return me.OrigDef }
 func (me *AstDef) OrigToks() (toks udevlex.Tokens) {
@@ -102,6 +119,14 @@ type AstDefArg struct {
 	Orig *atmolang.AstDefArg
 }
 
+func (me *AstDefArg) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+	if me.Orig == orig {
+		nodes = []IAstNode{me}
+	} else if nodes = me.AstIdentName.find(&me.AstIdentName, orig); len(nodes) > 0 {
+		nodes = append(nodes, me)
+	}
+	return
+}
 func (me *AstDefArg) OrigToks() udevlex.Tokens {
 	if me.Orig != nil && me.Orig.Tokens != nil {
 		return me.Orig.Tokens
@@ -138,6 +163,12 @@ type AstExprAtomBase struct {
 	AstExprBase
 }
 
+func (me *AstExprAtomBase) find(self IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+	if self.Origin() == orig {
+		nodes = []IAstNode{self}
+	}
+	return
+}
 func (me *AstExprAtomBase) IsAtomic() bool                       { return true }
 func (me *AstExprAtomBase) RefersTo(string) bool                 { return false }
 func (me *AstExprAtomBase) ReferencesTo(string) []udevlex.Tokens { return nil }
@@ -206,6 +237,19 @@ type AstExprLetBase struct {
 }
 
 func (me *AstExprLetBase) astExprLetBase() *AstExprLetBase { return me }
+func (me *AstExprLetBase) find(self IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+	if me.letOrig == orig {
+		nodes = []IAstNode{self}
+	} else {
+		for i := range me.letDefs {
+			if nodes = me.letDefs[i].find(&me.letDefs[i], orig); len(nodes) > 0 {
+				nodes = append(nodes, self)
+				break
+			}
+		}
+	}
+	return
+}
 func (me *AstExprLetBase) Names() (names []string) {
 	names = make([]string, len(me.letDefs))
 	for i := range me.letDefs {
@@ -314,6 +358,20 @@ type AstAppl struct {
 	AtomicArg    IAstExpr
 }
 
+func (me *AstAppl) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+	if me.Orig == orig {
+		nodes = []IAstNode{me}
+	} else {
+		if nodes = me.AtomicCallee.find(me.AtomicCallee, orig); len(nodes) > 0 {
+			nodes = append(nodes, me)
+		} else if nodes = me.AtomicArg.find(me.AtomicArg, orig); len(nodes) > 0 {
+			nodes = append(nodes, me)
+		} else {
+			nodes = me.AstExprLetBase.find(me, orig)
+		}
+	}
+	return
+}
 func (me *AstAppl) Origin() atmolang.IAstNode {
 	if me.letOrig != nil {
 		return me.letOrig

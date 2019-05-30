@@ -47,7 +47,9 @@ type AstFileTopLevelChunk struct {
 	Ast AstTopLevel
 }
 
-func (me *AstFileTopLevelChunk) At(pos int) []IAstNode { return me.Ast.at(&me.Ast, pos) }
+func (me *AstFileTopLevelChunk) At(pos int) []IAstNode {
+	return me.Ast.at(&me.Ast, pos)
+}
 
 func (me *AstFileTopLevelChunk) HasErrors() bool {
 	return me.errs.parsing != nil || len(me.errs.lexing) > 0

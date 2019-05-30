@@ -133,8 +133,8 @@ func (me *Repl) dListDefs(whatKit string) {
 	} else {
 		me.Ctx.KitEnsureLoaded(kit)
 		me.IO.writeLns("LIST of defs in kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
-		kitsrcfiles, numdefs := kit.SrcFiles(), 0
-		for _, sf := range kitsrcfiles {
+		numdefs := 0
+		for _, sf := range kit.SrcFiles {
 			if nd, _ := sf.CountTopLevelDefs(true); nd > 0 {
 				me.IO.writeLns("", ustr.If(sf.SrcFilePath == "", "‹repl›", filepath.Base(sf.SrcFilePath))+": "+ustr.Plu(nd, "top-level def"))
 				for d := range sf.TopLevel {
@@ -149,7 +149,7 @@ func (me *Repl) dListDefs(whatKit string) {
 				}
 			}
 		}
-		if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kitsrcfiles), "`*"+atmo.SrcFileExt+"` source file")); numdefs > 0 {
+		if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kit.SrcFiles), "`*"+atmo.SrcFileExt+"` source file")); numdefs > 0 {
 			me.IO.writeLns("", "(To see more details, try also:", "`:info "+whatKit+"` or `:info "+whatKit+" ‹def›`.)")
 		}
 	}
@@ -184,10 +184,9 @@ func (me *Repl) dInfoKit(whatKit string) {
 	} else {
 		me.Ctx.KitEnsureLoaded(kit)
 		me.IO.writeLns("INFO summary on kit:    `"+kit.ImpPath+"`", "           found in:    "+kit.DirPath)
-		kitsrcfiles := kit.SrcFiles()
-		me.IO.writeLns("", ustr.Plu(len(kitsrcfiles), "source file")+" in kit `"+whatKit+"`:")
+		me.IO.writeLns("", ustr.Plu(len(kit.SrcFiles), "source file")+" in kit `"+whatKit+"`:")
 		numlines, numlinesnet, numdefs, numdefsinternal := 0, 0, 0, 0
-		for _, sf := range kitsrcfiles {
+		for _, sf := range kit.SrcFiles {
 			nd, ndi := sf.CountTopLevelDefs(true)
 			sloc := sf.CountNetLinesOfCode(true)
 			numlines, numlinesnet, numdefs, numdefsinternal = numlines+sf.LastLoad.NumLines, numlinesnet+sloc, numdefs+nd, numdefsinternal+ndi

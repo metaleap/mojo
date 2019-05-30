@@ -129,7 +129,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 #### func (*Ctx) KitsReloadModifiedsUnlessAlreadyWatching
 
 ```go
-func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() (numFileSystemModsNoticedAndActedUpon int)
+func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching()
 ```
 KitsReloadModifiedsUnlessAlreadyWatching returns -1 if file-watching is enabled,
 otherwise it scans all currently-known kits-dirs for modifications and refreshes
@@ -172,6 +172,8 @@ type Kit struct {
 	WasEverToBeLoaded bool
 	Imports           []string
 
+	SrcFiles atmolang.AstFiles
+
 	Errs struct {
 		Stage0DirAccessDuringRefresh error
 		Stage0BadImports             []error
@@ -209,14 +211,6 @@ Errors collects whatever issues exist in any of the `Kit`'s source files
 func (me *Kit) HasDefs(name string) bool
 ```
 HasDefs returns whether any of the `Kit`'s source files define `name`.
-
-#### func (*Kit) SrcFiles
-
-```go
-func (me *Kit) SrcFiles() atmolang.AstFiles
-```
-SrcFiles returns all source files belonging to the `Kit`. The slice or its
-contents must not be written to.
 
 #### type Kits
 

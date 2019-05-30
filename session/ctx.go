@@ -38,11 +38,11 @@ type Ctx struct {
 		cleanUps      []func()
 		bgMsgs        []CtxBgMsg
 		fileModsWatch struct {
-			latestMutex                      sync.Mutex
-			latest                           []map[string]os.FileInfo
-			doManually                       func([]string, []string) int
-			runningAutomaticallyPeriodically bool
-			emitMsgsIfManual                 bool
+			latestMutex                                 sync.Mutex
+			latest                                      []map[string]os.FileInfo
+			manuallyCollectFileModsForNextCatchup       func([]string, []string) int
+			collectingFileModsAutomaticallyPeriodically bool
+			emitMsgsIfManual                            bool
 		}
 		kitsReprocessing struct {
 			needed bool
@@ -142,8 +142,8 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 func (me *Ctx) FauxKitsAdd(dirPath string) (err error) {
 	me.Dirs.fauxKitsMutex.Lock()
 	err = me.fauxKitsAddDir(true, dirPath)
-	me.state.fileModsWatch.doManually(me.Dirs.Kits, me.Dirs.fauxKits)
 	me.Dirs.fauxKitsMutex.Unlock()
+	me.catchUpOnFileMods(true)
 	return
 }
 
@@ -233,11 +233,15 @@ func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
 }
 
 func (me *Ctx) CatchUp(checkForFileModsNow bool) {
+	me.catchUpOnFileMods(checkForFileModsNow)
+}
+
+func (me *Ctx) catchUpOnFileMods(checkForFileModsNow bool) {
 	me.Dirs.fauxKitsMutex.Lock()
 	fauxkitdirpaths := me.Dirs.fauxKits
 	me.Dirs.fauxKitsMutex.Unlock()
 	if checkForFileModsNow {
-		me.state.fileModsWatch.doManually(me.Dirs.Kits, fauxkitdirpaths)
+		me.state.fileModsWatch.manuallyCollectFileModsForNextCatchup(me.Dirs.Kits, fauxkitdirpaths)
 	}
 	var latest []map[string]os.FileInfo
 	me.state.fileModsWatch.latestMutex.Lock()
