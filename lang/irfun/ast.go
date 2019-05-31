@@ -120,8 +120,10 @@ func (me *AstDefArg) EquivTo(node IAstNode) bool {
 	return (me == nil) == (cmp == nil) && (me == nil || me.Val == cmp.Val)
 }
 func (me *AstDefArg) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
-	if me.Orig == orig || me.AstIdentBase.Orig == orig {
+	if me.Orig == orig {
 		nodes = []IAstNode{me}
+	} else {
+		nodes = me.AstIdentBase.find(me, orig)
 	}
 	return
 }
@@ -162,7 +164,7 @@ type AstExprAtomBase struct {
 }
 
 func (me *AstExprAtomBase) find(self IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
-	if self.Origin() == orig {
+	if me.Orig == orig {
 		nodes = []IAstNode{self}
 	}
 	return
@@ -279,6 +281,15 @@ type AstIdentBase struct {
 	Val string
 }
 
+func (me *AstIdentBase) find(self IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+	if nodes = me.AstExprAtomBase.find(self, orig); len(nodes) == 0 {
+		if orig.Toks().EqLenAndOffsets(me.AstExprBase.OrigToks(), false) {
+			nodes = []IAstNode{self}
+		}
+	}
+	return
+}
+
 type AstIdentVar struct {
 	AstIdentBase
 }
@@ -333,8 +344,8 @@ func (me *AstIdentName) EquivTo(node IAstNode) bool {
 	return cmp != nil && cmp.Val == me.Val && cmp.letDefsEquivTo(&me.AstExprLetBase)
 }
 func (me *AstIdentName) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
-	if nodes = me.AstExprAtomBase.find(me, orig); len(nodes) == 0 {
-		if orig.Toks().EqLenAndOffsets(me.OrigToks(), false) || orig.Toks().EqLenAndOffsets(me.AstExprBase.OrigToks(), false) { // *AstIdentName gets copied sometimes because it's not a pointer in AstDef, bounding-offsets checking is ok because callers ensure they're in the right srcfile
+	if nodes = me.AstIdentBase.find(me, orig); len(nodes) == 0 {
+		if orig.Toks().EqLenAndOffsets(me.OrigToks(), false) {
 			nodes = []IAstNode{me}
 		} else {
 			nodes = me.AstExprLetBase.find(me, orig)
