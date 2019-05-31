@@ -128,9 +128,6 @@ func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(node IAstNode) (errs atm
 		} else {
 			println(len(n.Anns.ResolvesTo), n.Val)
 		}
-		if len(n.Anns.ResolvesTo) > 1 {
-			panic(432)
-		}
 	}
 	return
 }

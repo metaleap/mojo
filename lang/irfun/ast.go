@@ -1,6 +1,7 @@
 package atmolang_irfun
 
 import (
+	"fmt"
 	"github.com/go-leap/dev/lex"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
@@ -352,10 +353,13 @@ func (me *AstIdentName) EquivTo(node IAstNode) bool {
 }
 func (me *AstIdentName) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
 	if nodes = me.AstExprAtomBase.find(me, orig); len(nodes) == 0 {
-		if orig.Toks().EqLenAndOffsets(me.OrigToks(), false) { // *AstIdentName gets copied sometimes because it's not a pointer in AstDef, bounding-offsets checking is ok because callers ensure they're in the right srcfile
+		if orig.Toks().EqLenAndOffsets(me.OrigToks(), false) || orig.Toks().EqLenAndOffsets(me.AstExprBase.OrigToks(), false) { // *AstIdentName gets copied sometimes because it's not a pointer in AstDef, bounding-offsets checking is ok because callers ensure they're in the right srcfile
 			nodes = []IAstNode{me}
 		} else {
-			nodes = me.AstExprLetBase.find(me, orig)
+			if me.Val == "blabla" {
+				println(len(me.OrigToks()), fmt.Sprintf("%T", me.Orig), len(me.Orig.Toks()), orig.Toks().String(), len(orig.Toks()))
+			}
+			// 	nodes = me.AstExprLetBase.find(me, orig)
 		}
 	}
 	return

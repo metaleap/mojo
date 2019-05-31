@@ -68,9 +68,11 @@ func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr
 
 func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
 	var origdesugared atmolang.IAstExpr
+	var wasdesugared bool
 	if origdesugared, errs = origin.Desugared(me.nextPrefix); origdesugared == nil {
 		origdesugared = origin
 	} else {
+		wasdesugared = true
 		for des := origdesugared; des != nil; {
 			maybedes := errs.AddVia(des.Desugared(me.nextPrefix))
 			if des, _ = maybedes.(atmolang.IAstExpr); des != nil {
@@ -138,8 +140,8 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 		}
 		panic(origdes)
 	}
-	if expr != nil {
-		expr.astExprBase().Orig = origin
+	if exprbase := expr.astExprBase(); wasdesugared || exprbase.Orig == nil {
+		exprbase.Orig = origin
 	}
 	return
 }
