@@ -55,5 +55,5 @@ func (me *AstDefTop) Print() atmolang.IAstNode {
 }
 
 func (me *AstDefArg) Print() atmolang.IAstNode {
-	return atmolang.B.Arg(me.AstIdentName.Print().(atmolang.IAstExprAtomic), nil)
+	return atmolang.B.Arg(me.AstIdentBase.Print().(atmolang.IAstExprAtomic), nil)
 }

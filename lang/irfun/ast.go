@@ -75,7 +75,7 @@ func (me *AstDef) RefsTo(name string) []*AstIdentName { return me.Body.RefsTo(na
 func (me *AstDef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
 	return cmp != nil && cmp.Name.EquivTo(&me.Name) && cmp.Body.EquivTo(me.Body) &&
-		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.AstIdentName.EquivTo(&cmp.Arg.AstIdentName))
+		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.EquivTo(cmp.Arg))
 }
 
 type AstDefTop struct {
@@ -111,16 +111,17 @@ func (me *AstDefTop) RefsTo(name string) (refs []*AstIdentName) {
 }
 
 type AstDefArg struct {
-	AstIdentName
-
+	AstIdentBase
 	Orig *atmolang.AstDefArg
 }
 
+func (me *AstDefArg) EquivTo(node IAstNode) bool {
+	cmp, _ := node.(*AstDefArg)
+	return (me == nil) == (cmp == nil) && (me == nil || me.Val == cmp.Val)
+}
 func (me *AstDefArg) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
-	if me.Orig == orig {
+	if me.Orig == orig || me.AstIdentBase.Orig == orig {
 		nodes = []IAstNode{me}
-	} else if nodes = me.AstIdentName.find(&me.AstIdentName, orig); len(nodes) > 0 {
-		nodes = append(nodes, me)
 	}
 	return
 }
@@ -128,13 +129,13 @@ func (me *AstDefArg) OrigToks() udevlex.Tokens {
 	if me.Orig != nil && me.Orig.Tokens != nil {
 		return me.Orig.Tokens
 	}
-	return me.AstIdentName.OrigToks()
+	return me.AstIdentBase.OrigToks()
 }
 func (me *AstDefArg) Origin() atmolang.IAstNode {
 	if me.Orig != nil {
 		return me.Orig
 	}
-	return me.AstIdentName.Origin()
+	return me.AstIdentBase.Origin()
 }
 
 type AstExprBase struct {

@@ -116,7 +116,7 @@ type valFactCallableArg struct {
 }
 
 func (me *valFactCallableArg) String() string {
-	return "‹" + me.orig.AstIdentName.Val + ": " + me.valFacts.String() + "›"
+	return "‹" + me.orig.AstIdentBase.Val + ": " + me.valFacts.String() + "›"
 }
 
 type valFactCallable struct {
@@ -142,7 +142,7 @@ type valFactArgRef struct {
 }
 
 func (me *valFactArgRef) Errs() atmo.Errors { return me.valFactCallable.arg.Errs().Refs() }
-func (me *valFactArgRef) String() string    { return me.valFactCallable.arg.orig.AstIdentName.Val }
+func (me *valFactArgRef) String() string    { return me.valFactCallable.arg.orig.AstIdentBase.Val }
 
 type defValFinisher func(*Kit, *defIdFacts, *atmolang_irfun.AstDef)
 

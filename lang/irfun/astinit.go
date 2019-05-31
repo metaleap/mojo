@@ -52,8 +52,8 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 		if me.Arg != nil {
 			if coerce := ctx.coerceCallables[me.Arg]; coerce != nil {
 				coerceorig := coerce.astExprBase().Orig
-				newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), &me.Arg.AstIdentName), coerceorig, true)
-				newbody = appl(B.ApplN(ctx, opeq, &me.Arg.AstIdentName, newbody), coerceorig, true)
+				newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}), coerceorig, true)
+				newbody = appl(B.ApplN(ctx, opeq, &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}, newbody), coerceorig, true)
 				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.Syn_If), newbody, me.Body, B.LitUndef()), coerceorig, false)
 			}
 		}
@@ -94,11 +94,11 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	case *atmolang.AstIdent:
 		if isconstexpr = true; !(v.IsTag || v.Val == atmo.Syn_Undef || ( /*AstIdentVar*/ v.Val[0] == '_' && len(v.Val) > 1 && v.Val[1] != '_')) {
 			if ustr.IsRepeat(v.Val, '_') {
-				if isconstexpr, me.AstIdentName.Val, me.AstIdentName.Orig = false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v; len(v.Val) > 1 {
+				if isconstexpr, me.AstIdentBase.Val, me.AstIdentBase.Orig = false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v; len(v.Val) > 1 {
 					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
 				}
 			} else if cxn, ok1 := errs.AddVia(ctx.newAstExprFromIdent(v)).(*AstIdentName); ok1 {
-				isconstexpr, me.AstIdentName = false, *cxn
+				isconstexpr, me.AstIdentBase = false, cxn.AstIdentBase
 			}
 		}
 	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitRune, *atmolang.AstExprLitStr:
@@ -112,7 +112,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(orig.Affix)).(IAstExpr))
 	}
 	if isconstexpr {
-		me.AstIdentName.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
+		me.AstIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
 		appl := B.Appl1(B.IdentName("§"), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr)))
 		appl.AstExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)

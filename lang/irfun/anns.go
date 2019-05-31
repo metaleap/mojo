@@ -51,7 +51,7 @@ func (me AnnNamesInScope) copyAndAdd(add interface{}, errs *atmo.Errors) (namesI
 	var numerrs int
 	switch addwhat := add.(type) {
 	case *AstDefArg:
-		addarg, namestoadd = addwhat, []string{addwhat.AstIdentName.Val}
+		addarg, namestoadd = addwhat, []string{addwhat.AstIdentBase.Val}
 		if cands := me[namestoadd[0]]; len(cands) > 0 {
 			me.errDuplName(errs, addarg, namestoadd[0], 0, cands[0])
 			numerrs++
@@ -88,7 +88,7 @@ func (me AnnNamesInScope) copyAndAdd(add interface{}, errs *atmo.Errors) (namesI
 	}
 	// add new names:
 	if addarg != nil {
-		k, v := addarg.AstIdentName.Val, addarg
+		k, v := addarg.AstIdentBase.Val, addarg
 		namesInScopeCopy.add(k, v)
 	} else {
 		for i := range adddefs {
@@ -116,7 +116,7 @@ func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(node IAstNode) (errs atm
 	case *AstDef:
 		if n.Arg != nil {
 			inscope = inscope.copyAndAdd(n.Arg, &errs)
-			n.Arg.AstIdentName.Anns.ResolvesTo = []IAstNode{n.Arg}
+			// n.Arg.AstIdentBase.Anns.ResolvesTo = []IAstNode{n.Arg}
 		}
 		n.Name.Anns.ResolvesTo = []IAstNode{n}
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.Body))
