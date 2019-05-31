@@ -54,8 +54,8 @@ func (me *Ctx) substantiateFactsForDef(kit *Kit, tld *defIdFacts, fullArgsScope 
 }
 
 func (me *Ctx) substantiateFactsForExpr(kit *Kit, astExpr atmolang_irfun.IAstExpr, tld *defIdFacts, fullArgsScope ...*atmolang_irfun.AstDef) (findings valFacts) {
-	if xld, _ := astExpr.(atmolang_irfun.IAstExprWithLetDefs); xld != nil {
-		if lds := xld.LetDefs(); len(lds) > 0 {
+	if xld := astExpr.Let(); xld != nil {
+		if lds := xld.Defs; len(lds) > 0 {
 			nu := make([]*atmolang_irfun.AstDef, 0, len(lds))
 			for i := range lds {
 				ld := &lds[i]

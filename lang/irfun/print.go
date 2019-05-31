@@ -29,13 +29,13 @@ func (me *AstAppl) Print() atmolang.IAstNode {
 }
 
 func (me *AstExprLetBase) print(body atmolang.IAstExpr) atmolang.IAstNode {
-	if len(me.letDefs) == 0 {
+	if len(me.Defs) == 0 {
 		return body
 	}
 	let := atmolang.B.Let(body)
-	let.Defs = make([]atmolang.AstDef, len(me.letDefs))
-	for i := range me.letDefs {
-		let.Defs[i] = *me.letDefs[i].Print().(*atmolang.AstDef)
+	let.Defs = make([]atmolang.AstDef, len(me.Defs))
+	for i := range me.Defs {
+		let.Defs[i] = *me.Defs[i].Print().(*atmolang.AstDef)
 	}
 	return let
 }

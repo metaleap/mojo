@@ -1,7 +1,6 @@
 package atmolang_irfun
 
 import (
-	"fmt"
 	"github.com/go-leap/dev/lex"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
@@ -13,7 +12,9 @@ type IAstNode interface {
 	OrigToks() udevlex.Tokens
 	EquivTo(IAstNode) bool
 	find(IAstNode, atmolang.IAstNode) []IAstNode
+	IsDef() *AstDef
 	IsDefWithArg() bool
+	Let() *AstExprLetBase
 	RefersTo(string) bool
 	RefsTo(string) []*AstIdentName
 }
@@ -24,19 +25,12 @@ type IAstExpr interface {
 	astExprBase() *AstExprBase
 }
 
-// IAstExprWithLetDefs is implemented by `AstExprLetBase` embedders,
-// that is, by `AstIdentName` and `AstAppl`.
-type IAstExprWithLetDefs interface {
-	astExprLetBase() *AstExprLetBase
-	LetDef(string) *AstDef
-	LetDefs() AstDefs
-	Names() []string
-}
-
 type astNodeBase struct {
 }
 
-func (me *astNodeBase) IsDefWithArg() bool { return false }
+func (*astNodeBase) Let() *AstExprLetBase { return nil }
+func (*astNodeBase) IsDef() *AstDef       { return nil }
+func (*astNodeBase) IsDefWithArg() bool   { return false }
 
 type AstDef struct {
 	astNodeBase
@@ -63,6 +57,7 @@ func (me *AstDef) find(self IAstNode, orig atmolang.IAstNode) (nodes []IAstNode)
 	}
 	return
 }
+func (me *AstDef) IsDef() *AstDef            { return me }
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *AstDef) Origin() atmolang.IAstNode { return me.OrigDef }
 func (me *AstDef) OrigToks() (toks udevlex.Tokens) {
@@ -229,8 +224,8 @@ func (me *AstLitUndef) EquivTo(node IAstNode) bool {
 }
 
 type AstExprLetBase struct {
+	Defs      AstDefs
 	letOrig   *atmolang.AstExprLet
-	letDefs   AstDefs
 	letPrefix string
 
 	Anns struct {
@@ -243,8 +238,8 @@ func (me *AstExprLetBase) find(self IAstNode, orig atmolang.IAstNode) (nodes []I
 	if me.letOrig == orig {
 		nodes = []IAstNode{self}
 	} else {
-		for i := range me.letDefs {
-			if nodes = me.letDefs[i].find(&me.letDefs[i], orig); len(nodes) > 0 {
+		for i := range me.Defs {
+			if nodes = me.Defs[i].find(&me.Defs[i], orig); len(nodes) > 0 {
 				nodes = append(nodes, self)
 				break
 			}
@@ -252,26 +247,10 @@ func (me *AstExprLetBase) find(self IAstNode, orig atmolang.IAstNode) (nodes []I
 	}
 	return
 }
-func (me *AstExprLetBase) Names() (names []string) {
-	names = make([]string, len(me.letDefs))
-	for i := range me.letDefs {
-		names[i] = me.letDefs[i].Name.Val
-	}
-	return
-}
-func (me *AstExprLetBase) LetDef(name string) *AstDef {
-	for i := range me.letDefs {
-		if me.letDefs[i].Name.Val == name {
-			return &me.letDefs[i]
-		}
-	}
-	return nil
-}
-func (me *AstExprLetBase) LetDefs() AstDefs { return me.letDefs }
 func (me *AstExprLetBase) letDefsEquivTo(cmp *AstExprLetBase) bool {
-	if len(me.letDefs) == len(cmp.letDefs) {
-		for i := range me.letDefs {
-			if !me.letDefs[i].EquivTo(&cmp.letDefs[i]) {
+	if len(me.Defs) == len(cmp.Defs) {
+		for i := range me.Defs {
+			if !me.Defs[i].EquivTo(&cmp.Defs[i]) {
 				return false
 			}
 		}
@@ -280,16 +259,16 @@ func (me *AstExprLetBase) letDefsEquivTo(cmp *AstExprLetBase) bool {
 	return false
 }
 func (me *AstExprLetBase) letDefsReferTo(name string) (refers bool) {
-	for i := range me.letDefs {
-		if refers = me.letDefs[i].RefersTo(name); refers {
+	for i := range me.Defs {
+		if refers = me.Defs[i].RefersTo(name); refers {
 			break
 		}
 	}
 	return
 }
 func (me *AstExprLetBase) letDefsRefsTo(name string) (refs []*AstIdentName) {
-	for i := range me.letDefs {
-		refs = append(refs, me.letDefs[i].RefsTo(name)...)
+	for i := range me.Defs {
+		refs = append(refs, me.Defs[i].RefsTo(name)...)
 	}
 	return
 }
@@ -326,6 +305,7 @@ type AstIdentName struct {
 	}
 }
 
+func (me *AstIdentName) Let() *AstExprLetBase { return &me.AstExprLetBase }
 func (me *AstIdentName) Origin() atmolang.IAstNode {
 	if me.letOrig != nil {
 		return me.letOrig
@@ -356,10 +336,7 @@ func (me *AstIdentName) find(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNo
 		if orig.Toks().EqLenAndOffsets(me.OrigToks(), false) || orig.Toks().EqLenAndOffsets(me.AstExprBase.OrigToks(), false) { // *AstIdentName gets copied sometimes because it's not a pointer in AstDef, bounding-offsets checking is ok because callers ensure they're in the right srcfile
 			nodes = []IAstNode{me}
 		} else {
-			if me.Val == "blabla" {
-				println(len(me.OrigToks()), fmt.Sprintf("%T", me.Orig), len(me.Orig.Toks()), orig.Toks().String(), len(orig.Toks()))
-			}
-			// 	nodes = me.AstExprLetBase.find(me, orig)
+			nodes = me.AstExprLetBase.find(me, orig)
 		}
 	}
 	return
@@ -409,6 +386,7 @@ func (me *AstAppl) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstAppl)
 	return cmp != nil && cmp.AtomicCallee.EquivTo(me.AtomicCallee) && cmp.AtomicArg.EquivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.AstExprLetBase)
 }
+func (me *AstAppl) Let() *AstExprLetBase { return &me.AstExprLetBase }
 func (me *AstAppl) RefersTo(name string) bool {
 	return me.AtomicCallee.RefersTo(name) || me.AtomicArg.RefersTo(name) || me.letDefsReferTo(name)
 }

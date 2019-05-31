@@ -102,13 +102,13 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 		expr = &lit
 	case *atmolang.AstExprLet:
 		oldscope, sidedefs, let :=
-			me.defsScope, AstDefs{}, AstExprLetBase{letOrig: origdes, letPrefix: me.nextPrefix(), letDefs: make(AstDefs, len(origdes.Defs))}
+			me.defsScope, AstDefs{}, AstExprLetBase{letOrig: origdes, letPrefix: me.nextPrefix(), Defs: make(AstDefs, len(origdes.Defs))}
 		me.defsScope = &sidedefs
 		for i := range origdes.Defs {
-			errs.Add(let.letDefs[i].initFrom(me, &origdes.Defs[i]))
+			errs.Add(let.Defs[i].initFrom(me, &origdes.Defs[i]))
 		}
 		expr = errs.AddVia(me.newAstExprFrom(origdes.Body)).(IAstExpr)
-		let.letDefs = append(let.letDefs, sidedefs...)
+		let.Defs = append(let.Defs, sidedefs...)
 		errs.Add(me.addLetDefsToNode(origdes.Body, expr, &let))
 		me.defsScope = oldscope
 	case *atmolang.AstExprAppl:
@@ -125,7 +125,7 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 				body := errs.AddVia(me.newAstExprFrom(from)).(IAstExpr)
 				return &me.addLocalDefToScope(body, appl.letPrefix+me.nextPrefix()).Name
 			}
-			me.defsScope, appl.letPrefix = &appl.letDefs, me.nextPrefix()
+			me.defsScope, appl.letPrefix = &appl.Defs, me.nextPrefix()
 			if !atc {
 				appl.AtomicCallee = toatomic(origdes.Callee)
 			}
@@ -155,14 +155,13 @@ func (me *ctxAstInit) nextPrefix() string {
 }
 
 func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, letDefs *AstExprLetBase) (errs atmo.Errors) {
-	if letbase, _ := letBody.(IAstExprWithLetDefs); letbase == nil {
+	if dst := letBody.Let(); dst == nil {
 		errs.AddSyn(&origBody.Toks()[0], "cannot declare local defs for `"+origBody.Toks()[0].Meta.Orig+"`")
 	} else {
-		dst := letbase.astExprLetBase()
 		if dst.letPrefix == "" {
 			dst.letPrefix = me.nextPrefix()
 		}
-		if dst.letDefs = append(dst.letDefs, letDefs.letDefs...); dst.letOrig == nil {
+		if dst.Defs = append(dst.Defs, letDefs.Defs...); dst.letOrig == nil {
 			dst.letOrig = letDefs.letOrig
 		}
 	}

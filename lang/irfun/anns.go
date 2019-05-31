@@ -103,30 +103,33 @@ func (me AnnNamesInScope) copyAndAdd(add interface{}, errs *atmo.Errors) (namesI
 
 func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(node IAstNode) (errs atmo.Errors) {
 	inscope := me
-	if ldx, _ := node.(IAstExprWithLetDefs); ldx != nil {
-		if lds := ldx.LetDefs(); len(lds) > 0 {
-			inscope = inscope.copyAndAdd(lds, &errs)
-			for i := range lds {
-				errs.Add(inscope.RepopulateAstDefsAndIdentsFor(&lds[i]))
+	if let := node.Let(); let != nil {
+		if len(let.Defs) > 0 {
+			inscope = inscope.copyAndAdd(let.Defs, &errs)
+			for i := range let.Defs {
+				errs.Add(inscope.RepopulateAstDefsAndIdentsFor(&let.Defs[i]))
 			}
 		}
-		ldx.astExprLetBase().Anns.NamesInScope = inscope
+		let.Anns.NamesInScope = inscope
 	}
 	switch n := node.(type) {
 	case *AstDef:
 		if n.Arg != nil {
 			inscope = inscope.copyAndAdd(n.Arg, &errs)
+			n.Arg.AstIdentName.Anns.ResolvesTo = []IAstNode{n.Arg}
 		}
+		n.Name.Anns.ResolvesTo = []IAstNode{n}
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.Body))
 	case *AstAppl:
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.AtomicCallee))
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.AtomicArg))
 	case *AstIdentName:
-		n.Anns.ResolvesTo = inscope[n.Val]
-		if tok := n.OrigToks().First(nil); tok != nil {
-			println(len(n.Anns.ResolvesTo), tok.Meta.Position.String())
-		} else {
-			println(len(n.Anns.ResolvesTo), n.Val)
+		if n.Anns.ResolvesTo = inscope[n.Val]; len(n.Anns.ResolvesTo) == 0 {
+			if tok := n.OrigToks().First(nil); tok != nil {
+				println(len(n.Anns.ResolvesTo), tok.Meta.Position.String())
+			} else {
+				println(len(n.Anns.ResolvesTo), n.Val)
+			}
 		}
 	}
 	return
