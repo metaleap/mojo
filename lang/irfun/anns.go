@@ -123,6 +123,14 @@ func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(node IAstNode) (errs atm
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.AtomicArg))
 	case *AstIdentName:
 		n.Anns.ResolvesTo = inscope[n.Val]
+		if tok := n.OrigToks().First(nil); tok != nil {
+			println(len(n.Anns.ResolvesTo), tok.Meta.Position.String())
+		} else {
+			println(len(n.Anns.ResolvesTo), n.Val)
+		}
+		if len(n.Anns.ResolvesTo) > 1 {
+			panic(432)
+		}
 	}
 	return
 }
