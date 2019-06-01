@@ -112,8 +112,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 			var numremoved int
 			for i := 0; i < len(me.Kits.All); i++ {
-				if kit := me.Kits.All[i]; !ustr.In(kit.DirPath, fauxKitDirs...) &&
-					((!ufs.IsDir(kit.DirPath)) || !ufs.HasFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
+				if kit := me.Kits.All[i]; (!ustr.In(kit.DirPath, fauxKitDirs...)) && (!ufs.DoesDirHaveFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
 					delete(shouldrefresh, kit.DirPath)
 					me.Kits.All.removeAt(i)
 					i, numremoved = i-1, numremoved+1

@@ -116,7 +116,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		if err == nil {
 			var autokitexists bool
 			for _, kd := range kitsdirs {
-				if autokitexists = ufs.HasFilesWithSuffix(filepath.Join(kd, atmo.NameAutoKit), atmo.SrcFileExt); autokitexists {
+				if autokitexists = ufs.DoesDirHaveFilesWithSuffix(filepath.Join(kd, atmo.NameAutoKit), atmo.SrcFileExt); autokitexists {
 					break
 				}
 			}
@@ -164,7 +164,7 @@ func (me *Ctx) fauxKitsAddDir(alreadyLocked bool, dirPath string, forceAcceptEve
 		err = &os.PathError{Path: dirPath, Op: "directory", Err: os.ErrNotExist}
 	}
 	if err == nil {
-		if dirHasSrcFiles = ufs.HasFilesWithSuffix(dirPath, atmo.SrcFileExt); dirHasSrcFiles || forceAcceptEvenIfNoSrcFiles {
+		if dirHasSrcFiles = ufs.DoesDirHaveFilesWithSuffix(dirPath, atmo.SrcFileExt); dirHasSrcFiles || forceAcceptEvenIfNoSrcFiles {
 			var in bool
 			for _, kitsdirpath := range me.Dirs.Kits {
 				if in = ustr.Pref(dirPath, kitsdirpath+string(os.PathSeparator)); in {
