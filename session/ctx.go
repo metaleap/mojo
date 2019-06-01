@@ -126,7 +126,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		}
 		if err == nil {
 			if me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
-				err = me.fauxKitsAddDir(true, sessionFauxKitDir)
+				_, err = me.fauxKitsAddDir(true, sessionFauxKitDir, true)
 			}
 		}
 		if err == nil {
@@ -141,13 +141,13 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 
 func (me *Ctx) FauxKitsAdd(dirPath string) (err error) {
 	me.Dirs.fauxKitsMutex.Lock()
-	err = me.fauxKitsAddDir(true, dirPath)
+	_, err = me.fauxKitsAddDir(true, dirPath, false)
 	me.Dirs.fauxKitsMutex.Unlock()
 	me.catchUpOnFileMods(true)
 	return
 }
 
-func (me *Ctx) fauxKitsAddDir(alreadyLocked bool, dirPath string) (err error) {
+func (me *Ctx) fauxKitsAddDir(alreadyLocked bool, dirPath string, forceAcceptEvenIfNoSrcFiles bool) (dirHasSrcFiles bool, err error) {
 	if dirPath == "" || dirPath == "." {
 		dirPath, err = os.Getwd()
 	} else if dirPath[0] == '~' {
@@ -164,23 +164,25 @@ func (me *Ctx) fauxKitsAddDir(alreadyLocked bool, dirPath string) (err error) {
 		err = &os.PathError{Path: dirPath, Op: "directory", Err: os.ErrNotExist}
 	}
 	if err == nil {
-		var in bool
-		for _, kitsdirpath := range me.Dirs.Kits {
-			if in = ustr.Pref(dirPath, kitsdirpath+string(os.PathSeparator)); in {
-				break
+		if dirHasSrcFiles = ufs.HasFilesWithSuffix(dirPath, atmo.SrcFileExt); dirHasSrcFiles || forceAcceptEvenIfNoSrcFiles {
+			var in bool
+			for _, kitsdirpath := range me.Dirs.Kits {
+				if in = ustr.Pref(dirPath, kitsdirpath+string(os.PathSeparator)); in {
+					break
+				}
 			}
-		}
-		if !alreadyLocked {
-			me.Dirs.fauxKitsMutex.Lock()
-		}
-		if !in {
-			in = ustr.In(dirPath, me.Dirs.fauxKits...)
-		}
-		if !in {
-			me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
-		}
-		if !alreadyLocked {
-			me.Dirs.fauxKitsMutex.Unlock()
+			if !alreadyLocked {
+				me.Dirs.fauxKitsMutex.Lock()
+			}
+			if !in {
+				in = ustr.In(dirPath, me.Dirs.fauxKits...)
+			}
+			if !in {
+				me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
+			}
+			if !alreadyLocked {
+				me.Dirs.fauxKitsMutex.Unlock()
+			}
 		}
 	}
 	return
