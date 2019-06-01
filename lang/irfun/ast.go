@@ -36,7 +36,7 @@ type AstDef struct {
 	astNodeBase
 	OrigDef *atmolang.AstDef
 
-	Name AstIdentName
+	Name AstIdentBase
 	Arg  *AstDefArg
 	Body IAstExpr
 }
@@ -44,10 +44,8 @@ type AstDef struct {
 func (me *AstDef) find(self IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
 	if orig == me.OrigDef {
 		nodes = []IAstNode{self}
-	} else {
-		if nodes = me.Name.find(&me.Name, orig); len(nodes) > 0 {
-			nodes = append(nodes, self)
-		} else if nodes = me.Body.find(me.Body, orig); len(nodes) > 0 {
+	} else if nodes = me.Name.find(self, orig); len(nodes) == 0 {
+		if nodes = me.Body.find(me.Body, orig); len(nodes) > 0 {
 			nodes = append(nodes, self)
 		} else if me.Arg != nil {
 			if nodes = me.Arg.find(me.Arg, orig); len(nodes) > 0 {
@@ -74,7 +72,7 @@ func (me *AstDef) RefersTo(name string) bool          { return me.Body.RefersTo(
 func (me *AstDef) RefsTo(name string) []*AstIdentName { return me.Body.RefsTo(name) }
 func (me *AstDef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
-	return cmp != nil && cmp.Name.EquivTo(&me.Name) && cmp.Body.EquivTo(me.Body) &&
+	return cmp != nil && cmp.Name.Val == me.Name.Val && cmp.Body.EquivTo(me.Body) &&
 		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.EquivTo(cmp.Arg))
 }
 

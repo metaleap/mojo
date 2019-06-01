@@ -34,7 +34,7 @@ func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExpr {
 	if expr.IsAtomic() {
 		return expr
 	}
-	return &me.addLocalDefToScope(expr, me.nextPrefix()).Name
+	return &AstIdentName{AstIdentBase: me.addLocalDefToScope(expr, me.nextPrefix()).Name}
 }
 
 func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr, errs atmo.Errors) {
@@ -123,7 +123,7 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 		if expr = &appl; !(atc && ata) {
 			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IAstExpr {
 				body := errs.AddVia(me.newAstExprFrom(from)).(IAstExpr)
-				return &me.addLocalDefToScope(body, appl.letPrefix+me.nextPrefix()).Name
+				return &AstIdentName{AstIdentBase: me.addLocalDefToScope(body, appl.letPrefix+me.nextPrefix()).Name}
 			}
 			me.defsScope, appl.letPrefix = &appl.Defs, me.nextPrefix()
 			if !atc {

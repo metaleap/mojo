@@ -25,11 +25,11 @@ func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	ident, errs = ctx.newAstExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*AstIdentName); name == nil && tok != nil /* else, it's dyn. gen. stuff */ {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or Undef or placeholder etc..
-	} else if me.Name = *name; name.Val == "" && tok != nil {
+	} else if me.Name = name.AstIdentBase; name.Val == "" && tok != nil {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 	}
 	if me.OrigDef.NameAffix != nil {
-		ctx.addCoercion(&me.Name, errs.AddVia(ctx.newAstExprFrom(me.OrigDef.NameAffix)).(IAstExpr))
+		ctx.addCoercion(me, errs.AddVia(ctx.newAstExprFrom(me.OrigDef.NameAffix)).(IAstExpr))
 	}
 	return
 }
@@ -57,7 +57,7 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.Syn_If), newbody, me.Body, B.LitUndef()), coerceorig, false)
 			}
 		}
-		if coerce := ctx.coerceCallables[&me.Name]; coerce != nil {
+		if coerce := ctx.coerceCallables[me]; coerce != nil {
 			oldbody, coerceorig := ctx.ensureAstAtomFor(me.Body), coerce.astExprBase().Orig
 			newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), oldbody), coerceorig, true)
 			newbody = appl(B.ApplN(ctx, opeq, oldbody, newbody), coerceorig, true)

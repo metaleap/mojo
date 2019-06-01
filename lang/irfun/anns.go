@@ -116,9 +116,7 @@ func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(node IAstNode) (errs atm
 	case *AstDef:
 		if n.Arg != nil {
 			inscope = inscope.copyAndAdd(n.Arg, &errs)
-			// n.Arg.AstIdentBase.Anns.ResolvesTo = []IAstNode{n.Arg}
 		}
-		n.Name.Anns.ResolvesTo = []IAstNode{n}
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.Body))
 	case *AstAppl:
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(n.AtomicCallee))
