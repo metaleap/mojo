@@ -139,11 +139,16 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 	return
 }
 
-func (me *Ctx) FauxKitsAdd(dirPath string) (err error) {
+func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error) {
 	me.Dirs.fauxKitsMutex.Lock()
-	_, err = me.fauxKitsAddDir(true, dirPath, false)
+	was := ustr.In(dirPath, me.Dirs.fauxKits...)
+	if is = was; is {
+		is, err = me.fauxKitsAddDir(true, dirPath, false)
+	}
 	me.Dirs.fauxKitsMutex.Unlock()
-	me.catchUpOnFileMods(true)
+	if is && !was {
+		me.catchUpOnFileMods(true)
+	}
 	return
 }
 

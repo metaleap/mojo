@@ -85,7 +85,7 @@ func (me *Ctx) Eval(kit *Kit, src string) (str string, errs atmo.Errors)
 #### func (*Ctx) FauxKitsAdd
 
 ```go
-func (me *Ctx) FauxKitsAdd(dirPath string) (err error)
+func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error)
 ```
 
 #### func (*Ctx) FauxKitsHas

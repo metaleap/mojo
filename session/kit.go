@@ -75,8 +75,9 @@ func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
 
 func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) {
 	if kit = me.Kits.All.ByDirPath(dirPath); kit == nil && tryToAddToFauxKits {
-		me.FauxKitsAdd(dirPath)
-		kit = me.Kits.All.ByDirPath(dirPath)
+		if ok, _ := me.FauxKitsAdd(dirPath); ok {
+			kit = me.Kits.All.ByDirPath(dirPath)
+		}
 	}
 	return
 }
