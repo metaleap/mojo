@@ -53,9 +53,9 @@ func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr
 		errs.AddSyn(&orig.Tokens[0], "misplaced placeholder: only legal in def-args or call expressions")
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
-	} else if orig.Val[0] == '_' && orig.Val[1] != '_' {
+	} else if orig.Val[0] == '_' && orig.Val[1] != '_' /* if multiple underscores prefix, it's dyn-gen stuff from desugarings */ {
 		var ident AstIdentVar
-		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+		ret, ident.Val, ident.Orig = &ident, orig.Val[1:], orig
 
 	} else {
 		var ident AstIdentName

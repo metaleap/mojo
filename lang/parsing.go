@@ -2,6 +2,7 @@ package atmolang
 
 import (
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 )
 
@@ -215,7 +216,11 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				case ":=":
 					err = atmo.ErrSyn(&toks[0], ErrMsgDefNotExpr)
 				default:
-					exprcur = me.parseExprIdent(toks, false)
+					ident := me.parseExprIdent(toks, false)
+					if len(ident.Val) > 1 && ident.Val[0] == '_' && ident.Val[1] == '_' && !ustr.IsRepeat(ident.Val, '_') {
+						err = atmo.ErrNaming(&toks[0], "too many underscores: more than one is reserved for internal use")
+					}
+					exprcur = ident
 					toks = toks[1:]
 				}
 			default:

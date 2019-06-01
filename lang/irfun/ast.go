@@ -16,7 +16,7 @@ type IAstNode interface {
 	IsDefWithArg() bool
 	Let() *AstExprLetBase
 	RefersTo(string) bool
-	RefsTo(string) []*AstIdentName
+	refsTo(string) []IAstExpr
 }
 
 type IAstExpr interface {
@@ -61,15 +61,18 @@ func (me *AstDef) Origin() atmolang.IAstNode { return me.OrigDef }
 func (me *AstDef) OrigToks() (toks udevlex.Tokens) {
 	if me.OrigDef != nil && me.OrigDef.Tokens != nil {
 		toks = me.OrigDef.Tokens
-	} else if toks = me.Body.OrigToks(); len(toks) == 0 {
-		if toks = me.Name.OrigToks(); len(toks) == 0 {
+	} else if toks = me.Name.OrigToks(); len(toks) == 0 {
+		if me.Body != nil {
+			toks = me.Body.OrigToks()
+		}
+		if len(toks) == 0 && me.Arg != nil {
 			toks = me.Arg.OrigToks()
 		}
 	}
 	return
 }
-func (me *AstDef) RefersTo(name string) bool          { return me.Body.RefersTo(name) }
-func (me *AstDef) RefsTo(name string) []*AstIdentName { return me.Body.RefsTo(name) }
+func (me *AstDef) RefersTo(name string) bool     { return me.Body.RefersTo(name) }
+func (me *AstDef) refsTo(name string) []IAstExpr { return me.Body.refsTo(name) }
 func (me *AstDef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
 	return cmp != nil && cmp.Name.Val == me.Name.Val && cmp.Body.EquivTo(me.Body) &&
@@ -97,12 +100,17 @@ func (me *AstDefTop) RefersTo(name string) (refersTo bool) {
 	}
 	return
 }
-func (me *AstDefTop) RefsTo(name string) (refs []*AstIdentName) {
+func (me *AstDefTop) RefsTo(name string) (refs []IAstExpr) {
+	for len(name) > 0 && name[0] == '_' {
+		name = name[1:]
+	}
 	// leverage the bool cache already in place two ways, though we dont cache the occurrences
 	// in detail (they're usually for editor or error-message scenarios, not hi-perf paths)
-	if refersto, known := me.refersTo[name]; refersto || !known {
-		if refs = me.AstDef.RefsTo(name); !known {
-			me.refersTo[name] = (len(refs) > 0)
+	if len(name) > 0 {
+		if refersto, known := me.refersTo[name]; refersto || !known {
+			if refs = me.AstDef.refsTo(name); !known {
+				me.refersTo[name] = (len(refs) > 0)
+			}
 		}
 	}
 	return
@@ -167,9 +175,9 @@ func (me *AstExprAtomBase) find(self IAstNode, orig atmolang.IAstNode) (nodes []
 	}
 	return
 }
-func (me *AstExprAtomBase) IsAtomic() bool                { return true }
-func (me *AstExprAtomBase) RefersTo(string) bool          { return false }
-func (me *AstExprAtomBase) RefsTo(string) []*AstIdentName { return nil }
+func (me *AstExprAtomBase) IsAtomic() bool           { return true }
+func (me *AstExprAtomBase) RefersTo(string) bool     { return false }
+func (me *AstExprAtomBase) refsTo(string) []IAstExpr { return nil }
 
 type AstLitBase struct {
 	AstExprAtomBase
@@ -267,9 +275,9 @@ func (me *AstExprLetBase) letDefsReferTo(name string) (refers bool) {
 	}
 	return
 }
-func (me *AstExprLetBase) letDefsRefsTo(name string) (refs []*AstIdentName) {
+func (me *AstExprLetBase) letDefsRefsTo(name string) (refs []IAstExpr) {
 	for i := range me.Defs {
-		refs = append(refs, me.Defs[i].RefsTo(name)...)
+		refs = append(refs, me.Defs[i].refsTo(name)...)
 	}
 	return
 }
@@ -296,6 +304,12 @@ func (me *AstIdentVar) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentVar)
 	return cmp != nil && cmp.Val == me.Val
 }
+func (me *AstIdentVar) refsTo(name string) (refs []IAstExpr) {
+	if me.Val == name {
+		refs = append(refs, me)
+	}
+	return
+}
 
 type AstIdentTag struct {
 	AstIdentBase
@@ -304,6 +318,12 @@ type AstIdentTag struct {
 func (me *AstIdentTag) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstIdentTag)
 	return cmp != nil && cmp.Val == me.Val
+}
+func (me *AstIdentTag) refsTo(name string) (refs []IAstExpr) {
+	if me.Val == name {
+		refs = append(refs, me)
+	}
+	return
 }
 
 type AstIdentName struct {
@@ -331,7 +351,7 @@ func (me *AstIdentName) OrigToks() (toks udevlex.Tokens) {
 func (me *AstIdentName) RefersTo(name string) bool {
 	return me.Val == name || me.letDefsReferTo(name)
 }
-func (me *AstIdentName) RefsTo(name string) (refs []*AstIdentName) {
+func (me *AstIdentName) refsTo(name string) (refs []IAstExpr) {
 	if refs = me.letDefsRefsTo(name); me.Val == name {
 		refs = append(refs, me)
 	}
@@ -400,6 +420,6 @@ func (me *AstAppl) Let() *AstExprLetBase { return &me.AstExprLetBase }
 func (me *AstAppl) RefersTo(name string) bool {
 	return me.AtomicCallee.RefersTo(name) || me.AtomicArg.RefersTo(name) || me.letDefsReferTo(name)
 }
-func (me *AstAppl) RefsTo(name string) []*AstIdentName {
-	return append(me.AtomicCallee.RefsTo(name), append(me.AtomicArg.RefsTo(name), me.letDefsRefsTo(name)...)...)
+func (me *AstAppl) refsTo(name string) []IAstExpr {
+	return append(me.AtomicCallee.refsTo(name), append(me.AtomicArg.refsTo(name), me.letDefsRefsTo(name)...)...)
 }

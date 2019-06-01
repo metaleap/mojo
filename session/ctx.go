@@ -142,7 +142,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error) {
 	me.Dirs.fauxKitsMutex.Lock()
 	was := ustr.In(dirPath, me.Dirs.fauxKits...)
-	if is = was; is {
+	if is = was; !is {
 		is, err = me.fauxKitsAddDir(true, dirPath, false)
 	}
 	me.Dirs.fauxKitsMutex.Unlock()

@@ -21,9 +21,12 @@ func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Er
 
 func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	tok := me.OrigDef.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
+	if tok == nil {
+		tok = me.OrigToks().First(nil)
+	}
 	var ident IAstExpr
 	ident, errs = ctx.newAstExprFromIdent(&me.OrigDef.Name)
-	if name, _ := ident.(*AstIdentName); name == nil && tok != nil /* else, it's dyn. gen. stuff */ {
+	if name, _ := ident.(*AstIdentName); name == nil && tok != nil {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or Undef or placeholder etc..
 	} else if me.Name = name.AstIdentBase; name.Val == "" && tok != nil {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
