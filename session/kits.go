@@ -188,6 +188,9 @@ func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFul
 }
 
 func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstExpr {
+	if name == "" {
+		return nil
+	}
 	if forceLoadAllKnownKits {
 		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}

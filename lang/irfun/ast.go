@@ -183,6 +183,13 @@ type AstLitBase struct {
 	AstExprAtomBase
 }
 
+func (me *AstLitBase) refsTo(self IAstExpr, s string) []IAstExpr {
+	if atom, _ := me.Orig.(atmolang.IAstExprAtomic); atom != nil && atom.String() == s {
+		return []IAstExpr{self}
+	}
+	return nil
+}
+
 type AstLitRune struct {
 	AstLitBase
 	Val rune
@@ -192,6 +199,7 @@ func (me *AstLitRune) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitRune)
 	return cmp != nil && cmp.Val == me.Val
 }
+func (me *AstLitRune) refsTo(s string) []IAstExpr { return me.AstLitBase.refsTo(me, s) }
 
 type AstLitStr struct {
 	AstLitBase
@@ -202,6 +210,7 @@ func (me *AstLitStr) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitStr)
 	return cmp != nil && cmp.Val == me.Val
 }
+func (me *AstLitStr) refsTo(s string) []IAstExpr { return me.AstLitBase.refsTo(me, s) }
 
 type AstLitUint struct {
 	AstLitBase
@@ -212,6 +221,7 @@ func (me *AstLitUint) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitUint)
 	return cmp != nil && cmp.Val == me.Val
 }
+func (me *AstLitUint) refsTo(s string) []IAstExpr { return me.AstLitBase.refsTo(me, s) }
 
 type AstLitFloat struct {
 	AstLitBase
@@ -222,6 +232,7 @@ func (me *AstLitFloat) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitFloat)
 	return cmp != nil && cmp.Val == me.Val
 }
+func (me *AstLitFloat) refsTo(s string) []IAstExpr { return me.AstLitBase.refsTo(me, s) }
 
 type AstLitUndef struct {
 	AstLitBase
@@ -230,6 +241,12 @@ type AstLitUndef struct {
 func (me *AstLitUndef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstLitUndef)
 	return cmp != nil
+}
+func (me *AstLitUndef) refsTo(name string) []IAstExpr {
+	if name == "()" {
+		return []IAstExpr{me}
+	}
+	return nil
 }
 
 type AstExprLetBase struct {
