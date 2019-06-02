@@ -8,9 +8,6 @@ import (
 
 func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.OrigDef = orig.ToUnary()
-	if orig.Name.Val == "ok" {
-		atmolang.PrintTo(orig, me.OrigDef, nil, true, 1)
-	}
 	errs.Add(me.initName(ctx))
 	errs.Add(me.initArg(ctx))
 	errs.Add(me.initMetas(ctx))
