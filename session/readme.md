@@ -161,6 +161,18 @@ func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string)
 ```
 KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
 
+#### func (*Ctx) WithInMemFileMod
+
+```go
+func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (recoveredPanic interface{})
+```
+
+#### func (*Ctx) WithInMemFileMods
+
+```go
+func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do func()) (recoveredPanic interface{})
+```
+
 #### type CtxBgMsg
 
 ```go

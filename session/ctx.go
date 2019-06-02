@@ -11,6 +11,7 @@ import (
 	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
 	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/lang"
 )
 
 type CtxBgMsg struct {
@@ -255,4 +256,33 @@ func (me *Ctx) catchUpOnFileMods(checkForFileModsNow bool) {
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
 	me.state.fileModsWatch.latestMutex.Unlock()
 	me.fileModsHandle(me.Dirs.Kits, fauxkitdirpaths, latest)
+}
+
+func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (recoveredPanic interface{}) {
+	return me.WithInMemFileMods(map[string]string{srcFilePath: altSrc}, do)
+}
+
+func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do func()) (recoveredPanic interface{}) {
+	if len(srcFilePathsAndAltSrcs) > 0 {
+		srcfiles := make(atmolang.AstFiles, 0, len(srcFilePathsAndAltSrcs))
+		restoreFinally := func() {
+			recoveredPanic = recover()
+			for _, srcfile := range srcfiles {
+				srcfile.Options.TmpAltSrc = ""
+			}
+			me.catchUpOnFileMods(true)
+		}
+		defer restoreFinally()
+
+		for srcfilepath, altsrc := range srcFilePathsAndAltSrcs {
+			if kit := me.KitByDirPath(filepath.Dir(srcfilepath), false); kit != nil {
+				if srcfile := kit.SrcFiles.ByFilePath(srcfilepath); srcfile != nil {
+					srcfiles, srcfile.Options.TmpAltSrc = append(srcfiles, srcfile), altsrc
+				}
+			}
+		}
+		me.catchUpOnFileMods(true)
+	}
+	do()
+	return
 }

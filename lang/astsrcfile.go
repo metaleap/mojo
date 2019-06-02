@@ -22,6 +22,7 @@ type AstFile struct {
 	}
 	Options struct {
 		ApplStyle ApplStyle
+		TmpAltSrc string
 	}
 	SrcFilePath string
 

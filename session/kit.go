@@ -41,13 +41,15 @@ type Kit struct {
 	}
 }
 
-func (me *Ctx) kitEnsureLoaded(kit *Kit) {
+func (me *Ctx) kitEnsureLoaded(kit *Kit, thenReprocessAffectedDefsIfAnyKitsReloaded bool) {
 	me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, !kit.WasEverToBeLoaded)
+	if thenReprocessAffectedDefsIfAnyKitsReloaded {
+		me.reprocessAffectedDefsIfAnyKitsReloaded()
+	}
 }
 
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
-	me.kitEnsureLoaded(kit)
-	me.reprocessAffectedDefsIfAnyKitsReloaded()
+	me.kitEnsureLoaded(kit, true)
 }
 
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
@@ -62,7 +64,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 	if len(kitImpPaths) > 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
-				me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, true)
+				me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, !kit.WasEverToBeLoaded)
 			}
 		}
 		me.reprocessAffectedDefsIfAnyKitsReloaded()
@@ -135,7 +137,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 			if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
 				kit.Errs.Stage0BadImports = append(kit.Errs.Stage0BadImports, errors.New("import not found: `"+imp+"`"))
 			} else {
-				me.kitEnsureLoaded(kimp)
+				me.kitEnsureLoaded(kimp, false)
 			}
 		}
 		if len(kit.Errs.Stage0BadImports) > 0 {
