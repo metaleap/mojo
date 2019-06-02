@@ -52,7 +52,7 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	me.kitEnsureLoaded(kit, true)
 }
 
-func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
+func (me *Ctx) KitsEnsureLoadedAstsOnly(plusSessDirFauxKits bool, kitImpPaths ...string) (lenKitImpPaths int) {
 	me.maybeInitPanic(false)
 	if plusSessDirFauxKits {
 		for _, dirsess := range me.Dirs.fauxKits {
@@ -67,6 +67,12 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 				me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, !kit.WasEverToBeLoaded)
 			}
 		}
+	}
+	return len(kitImpPaths)
+}
+
+func (me *Ctx) KitsEnsureLoadedFully(plusSessDirFauxKits bool, kitImpPaths ...string) {
+	if me.KitsEnsureLoadedAstsOnly(plusSessDirFauxKits, kitImpPaths...) > 0 {
 		me.reprocessAffectedDefsIfAnyKitsReloaded()
 	}
 }

@@ -192,14 +192,14 @@ func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) ma
 		return nil
 	}
 	if forceLoadAllKnownKits {
-		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
+		me.KitsEnsureLoadedAstsOnly(true, me.KnownKitImpPaths()...)
 	}
 	return me.Kits.All.collectReferences(name)
 }
 
 func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (dependantsDefIds map[string]*Kit) {
 	if forceLoadAllKnownKits {
-		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
+		me.KitsEnsureLoadedAstsOnly(true, me.KnownKitImpPaths()...)
 	}
 	dependantsDefIds = make(map[string]*Kit)
 	var dones atmo.StringsUnorderedButUnique

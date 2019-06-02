@@ -139,10 +139,16 @@ func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.S
 func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstExpr
 ```
 
-#### func (*Ctx) KitsEnsureLoaded
+#### func (*Ctx) KitsEnsureLoadedAstsOnly
 
 ```go
-func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
+func (me *Ctx) KitsEnsureLoadedAstsOnly(plusSessDirFauxKits bool, kitImpPaths ...string) (lenKitImpPaths int)
+```
+
+#### func (*Ctx) KitsEnsureLoadedFully
+
+```go
+func (me *Ctx) KitsEnsureLoadedFully(plusSessDirFauxKits bool, kitImpPaths ...string)
 ```
 
 #### func (*Ctx) KitsReloadModifiedsUnlessAlreadyWatching
