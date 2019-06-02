@@ -5,8 +5,8 @@ import (
 	"strconv"
 )
 
-type Empty struct{}
-type StringsUnorderedButUnique map[string]Empty
+type Exist struct{}
+type StringsUnorderedButUnique map[string]Exist
 
 func (me StringsUnorderedButUnique) String() (s string) {
 	s = "{"
@@ -31,13 +31,15 @@ const (
 	KnownIdentIf     = "if"
 	KnownIdentEq     = "=="
 	KnownIdentNEq    = "/="
+	KnownIdentDot    = "."
+	KnownIdentColon  = ":"
 )
 
 var (
 	KnownIdents = StringsUnorderedButUnique{KnownIdentI: Є, KnownIdentK: Є, KnownIdentCoerce: Є, KnownIdentOpAnd: Є, KnownIdentOpOr: Є, KnownIdentOpNeg: Є, KnownIdentUndef: Є, KnownIdentIf: Є, KnownIdentEq: Є, KnownIdentNEq: Є}
 
 	// ∈ aka "exists"
-	Є       = Empty{}
+	Є       = Exist{}
 	Options struct {
 		// sorted errors, kits, source files, defs etc:
 		// should be enabled for consistency in user-facing tools such as REPLs or language servers.

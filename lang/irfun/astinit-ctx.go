@@ -34,7 +34,7 @@ func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExpr {
 	if expr.IsAtomic() {
 		return expr
 	}
-	return &AstIdentName{AstIdentBase: me.addLocalDefToScope(expr, me.nextPrefix()).Name}
+	return me.addLocalDefToOwnScope(me.nextPrefix(), expr)
 }
 
 func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr, errs atmo.Errors) {
@@ -109,23 +109,23 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 		me.defsScope = oldscope
 	case *atmolang.AstExprAppl:
 		origdes = origdes.ToUnary()
-		appl, atc, ata := AstAppl{Orig: origdes}, origdes.Callee.IsAtomic(), origdes.Args[0].IsAtomic()
-		if atc {
+		appl, isatomiccallee, isatomicarg := AstAppl{Orig: origdes}, origdes.Callee.IsAtomic(), origdes.Args[0].IsAtomic()
+		if isatomiccallee {
 			appl.AtomicCallee = errs.AddVia(me.newAstExprFrom(origdes.Callee)).(IAstExpr)
 		}
-		if ata {
+		if isatomicarg {
 			appl.AtomicArg = errs.AddVia(me.newAstExprFrom(origdes.Args[0])).(IAstExpr)
 		}
-		if expr = &appl; !(atc && ata) {
+		if expr = &appl; !(isatomiccallee && isatomicarg) {
 			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IAstExpr {
 				body := errs.AddVia(me.newAstExprFrom(from)).(IAstExpr)
-				return &AstIdentName{AstIdentBase: me.addLocalDefToScope(body, appl.letPrefix+me.nextPrefix()).Name}
+				return me.addLocalDefToOwnScope(appl.letPrefix+me.nextPrefix(), body)
 			}
 			me.defsScope, appl.letPrefix = &appl.Defs, me.nextPrefix()
-			if !atc {
+			if !isatomiccallee {
 				appl.AtomicCallee = toatomic(origdes.Callee)
 			}
-			if !ata {
+			if !isatomicarg {
 				appl.AtomicArg = toatomic(origdes.Args[0])
 			}
 			me.defsScope = oldscope
@@ -165,7 +165,16 @@ func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstE
 	return
 }
 
-func (me *ctxAstInit) addLocalDefToScope(body IAstExpr, name string) (def *AstDef) {
+func (me *ctxAstInit) addLocalDefToOwnScope(name string, body IAstExpr) *AstIdentName {
+	var ident AstIdentName
+	oldscope := me.defsScope
+	me.defsScope = &ident.Defs
+	ident.AstIdentBase = me.addLocalDefToScope(name, body).Name
+	me.defsScope = oldscope
+	return &ident
+}
+
+func (me *ctxAstInit) addLocalDefToScope(name string, body IAstExpr) (def *AstDef) {
 	def = me.defsScope.add(body)
 	def.Name.Val = name
 	return

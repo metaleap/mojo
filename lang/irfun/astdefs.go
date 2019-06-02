@@ -52,7 +52,7 @@ func (me AstTopDefs) IndexByID(id string) int {
 }
 
 func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs []error) {
-	this, newdefs, oldunchangeds := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]atmo.Empty, len(*me))
+	this, newdefs, oldunchangeds := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]atmo.Exist, len(*me))
 
 	// gather what's "new" (newly added or source-wise modified) and what's "old" (source-wise unchanged)
 	for i := range kitSrcFiles {
