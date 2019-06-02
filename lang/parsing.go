@@ -217,8 +217,8 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 					err = atmo.ErrSyn(&toks[0], ErrMsgDefNotExpr)
 				default:
 					ident := me.parseExprIdent(toks, false)
-					if len(ident.Val) > 1 && ident.Val[0] == '_' && ident.Val[1] == '_' && !ustr.IsRepeat(ident.Val, '_') {
-						err = atmo.ErrNaming(&toks[0], "too many underscores: more than one is reserved for internal use")
+					if len(ident.Val) > 1 && ident.Val[0] == '_' && ident.Val[1] == '_' && !ident.IsPlaceholder() {
+						err = atmo.ErrNaming(&toks[0], ustr.Int(ustr.CountPrefixRunes(ident.Val, '_'))+" leading underscores in identifier: this is reserved for internal use")
 					}
 					exprcur = ident
 					toks = toks[1:]

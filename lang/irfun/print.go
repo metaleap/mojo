@@ -22,7 +22,6 @@ func (me *AstIdentBase) Print() atmolang.IAstNode { return atmolang.B.Ident(me.V
 func (me *AstIdentName) Print() atmolang.IAstNode {
 	return me.AstExprLetBase.print(me.AstIdentBase.Print().(atmolang.IAstExpr))
 }
-func (me *AstLitUndef) Print() atmolang.IAstNode { return atmolang.B.Ident("()") }
 
 func (me *AstAppl) Print() atmolang.IAstNode {
 	return me.AstExprLetBase.print(atmolang.B.Appl(me.AtomicCallee.Print().(atmolang.IAstExpr), me.AtomicArg.Print().(atmolang.IAstExpr)))

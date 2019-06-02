@@ -104,9 +104,9 @@ func (me *AstDefTop) RefsTo(name string) (refs []IAstExpr) {
 	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}
-	// leverage the bool cache already in place two ways, though we dont cache the occurrences
-	// in detail (they're usually for editor or error-message scenarios, not hi-perf paths)
 	if len(name) > 0 {
+		// leverage the bool cache already in place two ways, though we dont cache the occurrences
+		// in detail (they're usually for editor or error-message scenarios, not hi-perf paths)
 		if refersto, known := me.refersTo[name]; refersto || !known {
 			if refs = me.AstDef.refsTo(name); !known {
 				me.refersTo[name] = (len(refs) > 0)
@@ -233,21 +233,6 @@ func (me *AstLitFloat) EquivTo(node IAstNode) bool {
 	return cmp != nil && cmp.Val == me.Val
 }
 func (me *AstLitFloat) refsTo(s string) []IAstExpr { return me.AstLitBase.refsTo(me, s) }
-
-type AstLitUndef struct {
-	AstLitBase
-}
-
-func (me *AstLitUndef) EquivTo(node IAstNode) bool {
-	cmp, _ := node.(*AstLitUndef)
-	return cmp != nil
-}
-func (me *AstLitUndef) refsTo(name string) []IAstExpr {
-	if name == "()" {
-		return []IAstExpr{me}
-	}
-	return nil
-}
 
 type AstExprLetBase struct {
 	Defs      AstDefs

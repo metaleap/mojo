@@ -194,7 +194,11 @@ type AstIdent struct {
 func (me *AstIdent) IsName(opishOk bool) bool {
 	return ((!me.IsOpish) || opishOk) && (!me.IsTag) && me.Val[0] != '_'
 }
-func (me *AstIdent) String() string { return me.Val }
+func (me *AstIdent) IsVar() bool {
+	return len(me.Val) > 1 && me.Val[0] == '_' && me.Val[1] != '_'
+}
+func (me *AstIdent) IsPlaceholder() bool { return ustr.IsRepeat(me.Val, '_') }
+func (me *AstIdent) String() string      { return me.Val }
 
 type AstExprAppl struct {
 	AstBaseExpr
@@ -352,18 +356,6 @@ func (me *AstExprAppl) ToUnary() (unary *AstExprAppl) {
 		unary = &appl
 	}
 	return
-}
-
-func (me *AstDef) Argless(prefix func() string) *AstDef {
-	if len(me.Args) == 0 {
-		return me
-	}
-	def, let := *me, &AstExprLet{Defs: make([]AstDef, 1)}
-	let.Tokens, let.Defs[0].Tokens, let.Defs[0].Args, def.Args, let.Defs[0].Name =
-		me.Tokens, me.Tokens, def.Args, nil, def.Name
-	let.Defs[0].Name.Val, let.Defs[0].Body, let.Body, def.Body =
-		prefix()+let.Defs[0].Name.Val, def.Body, &let.Defs[0].Name, let
-	return &def
 }
 
 func (me *AstDef) ensureUnary(origName string) {

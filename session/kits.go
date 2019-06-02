@@ -106,7 +106,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 					me.Kits.All = append(me.Kits.All, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
 						SrcFiles: make(atmolang.AstFiles, 0, numfilesguess), defsFacts: make(map[string]*defNameFacts, numfilesguess*8)})
 				}
-				shouldrefresh[kitdirpath] = atmo.Exists
+				shouldrefresh[kitdirpath] = atmo.Є
 			}
 			// remove kits that have vanished from the file-system
 			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
@@ -331,7 +331,7 @@ func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, refer
 				if tld.RefersTo(defname) {
 					if referencerDefIds[tld.Id] = kit; indirects {
 						if _, donealready := defNames[tld.Name.Val]; !donealready {
-							morenames[tld.Name.Val] = atmo.Exists
+							morenames[tld.Name.Val] = atmo.Є
 						}
 					}
 				}

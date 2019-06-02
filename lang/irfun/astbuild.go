@@ -1,10 +1,7 @@
 package atmolang_irfun
 
 var (
-	B                 AstBuilder
-	builderSingletons struct {
-		litUndef AstLitUndef
-	}
+	B AstBuilder
 )
 
 type AstBuilder struct{}
@@ -47,5 +44,3 @@ func (AstBuilder) IdentVar(name string) *AstIdentVar {
 func (AstBuilder) IdentTag(name string) *AstIdentTag {
 	return &AstIdentTag{AstIdentBase{Val: name}}
 }
-
-func (AstBuilder) LitUndef() *AstLitUndef { return &builderSingletons.litUndef }

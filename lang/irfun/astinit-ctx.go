@@ -44,16 +44,12 @@ func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr
 	} else if t1 != t2 {
 		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + ustr.If(len(orig.Tokens) == 0, "<dyn>", orig.Tokens[0].Meta.Position.String()) + ")")
 
-	} else if orig.IsOpish && orig.Val == atmo.Syn_Undef {
-		var ident AstLitUndef
-		ret, ident.Orig = &ident, orig
-
-	} else if ustr.IsRepeat(orig.Val, '_') {
+	} else if orig.IsPlaceholder() {
 		var ident AstIdentVar // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
 		errs.AddSyn(&orig.Tokens[0], "misplaced placeholder: only legal in def-args or call expressions")
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 
-	} else if orig.Val[0] == '_' && orig.Val[1] != '_' /* if multiple underscores prefix, it's dyn-gen stuff from desugarings */ {
+	} else if orig.IsVar() {
 		var ident AstIdentVar
 		ret, ident.Val, ident.Orig = &ident, orig.Val[1:], orig
 
@@ -154,15 +150,16 @@ func (me *ctxAstInit) nextPrefix() string {
 	return "__" + string(ustr.RepeatB(me.counter.val, me.counter.times))
 }
 
-func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, letDefs *AstExprLetBase) (errs atmo.Errors) {
+func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, let *AstExprLetBase) (errs atmo.Errors) {
 	if dst := letBody.Let(); dst == nil {
-		errs.AddSyn(&origBody.Toks()[0], "cannot declare local defs for `"+origBody.Toks()[0].Meta.Orig+"`")
+		tok := origBody.Toks().First(nil)
+		errs.AddSyn(tok, "cannot declare local defs for `"+tok.Meta.Orig+"`")
 	} else {
 		if dst.letPrefix == "" {
 			dst.letPrefix = me.nextPrefix()
 		}
-		if dst.Defs = append(dst.Defs, letDefs.Defs...); dst.letOrig == nil {
-			dst.letOrig = letDefs.letOrig
+		if dst.Defs = append(dst.Defs, let.Defs...); dst.letOrig == nil {
+			dst.letOrig = let.letOrig
 		}
 	}
 	return

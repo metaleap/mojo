@@ -39,13 +39,13 @@ func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 
 func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 	// fast-track special case: "func signature expression" aka body-less def acts as notation for a func type
-	if toks := me.OrigDef.Body.Toks(); len(toks) == 1 && toks[0].Meta.Orig == "_" {
+	if ident, _ := me.OrigDef.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
 		// no-op: me.Body remains `nil`, this is preserved also in any `if`s from the below coerce-propagations, if any
 	} else {
 		me.Body, errs = ctx.newAstExprFrom(me.OrigDef.Body)
 	}
 	if len(ctx.coerceCallables) > 0 {
-		opeq, appl := B.IdentName(atmo.Syn_Eq), func(applexpr IAstExpr, orig atmolang.IAstExpr, atomic bool) IAstExpr {
+		opeq, appl := B.IdentName(atmo.KnownIdentEq), func(applexpr IAstExpr, orig atmolang.IAstExpr, atomic bool) IAstExpr {
 			if applexpr.astExprBase().Orig = orig; atomic {
 				applexpr = ctx.ensureAstAtomFor(applexpr)
 				applexpr.astExprBase().Orig = orig
@@ -57,14 +57,14 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 				coerceorig := coerce.astExprBase().Orig
 				newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}), coerceorig, true)
 				newbody = appl(B.ApplN(ctx, opeq, &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}, newbody), coerceorig, true)
-				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.Syn_If), newbody, me.Body, B.LitUndef()), coerceorig, false)
+				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, me.Body, B.IdentName(atmo.KnownIdentUndef)), coerceorig, false)
 			}
 		}
 		if coerce := ctx.coerceCallables[me]; coerce != nil {
 			oldbody, coerceorig := ctx.ensureAstAtomFor(me.Body), coerce.astExprBase().Orig
 			newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), oldbody), coerceorig, true)
 			newbody = appl(B.ApplN(ctx, opeq, oldbody, newbody), coerceorig, true)
-			me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.Syn_If), newbody, oldbody, B.LitUndef()), coerceorig, false)
+			me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, oldbody, B.IdentName(atmo.KnownIdentUndef)), coerceorig, false)
 		}
 	}
 	return
@@ -95,8 +95,8 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	var isconstexpr bool
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
-		if isconstexpr = true; !(v.IsTag || v.Val == atmo.Syn_Undef || ( /*AstIdentVar*/ v.Val[0] == '_' && len(v.Val) > 1 && v.Val[1] != '_')) {
-			if ustr.IsRepeat(v.Val, '_') {
+		if isconstexpr = true; !(v.IsTag || v.IsVar()) {
+			if v.IsPlaceholder() {
 				if isconstexpr, me.AstIdentBase.Val, me.AstIdentBase.Orig = false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v; len(v.Val) > 1 {
 					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
 				}

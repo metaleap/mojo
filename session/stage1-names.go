@@ -20,14 +20,14 @@ func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn
 			if kit.WasEverToBeLoaded {
 				if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 {
 					for defid, defname := range kit.state.defsGoneIdsNames {
-						namesofchange[defname] = atmo.Exists
+						namesofchange[defname] = atmo.Є
 						if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil {
 							defnamefacts.overloadDrop(defid)
 						}
 					}
 					for defid, defname := range kit.state.defsBornIdsNames {
 						defIdsBorn[defid] = kit
-						namesofchange[defname] = atmo.Exists
+						namesofchange[defname] = atmo.Є
 						if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil && defnamefacts.overloadById(defid) != nil {
 							panic(defid) // tells us we have a bug in our housekeeping
 						}
@@ -35,7 +35,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn
 
 					kit.Errs.Stage1BadNames = kit.Errs.Stage1BadNames[0:0]
 					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn =
-						atmo.Exists, nil, make(atmolang_irfun.AnnNamesInScope, len(kit.topLevelDefs))
+						atmo.Є, nil, make(atmolang_irfun.AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
 						kit.lookups.namesInScopeOwn.Add(&kit.Errs.Stage1BadNames, tld.Name.Val, tld)
 					}
@@ -60,7 +60,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScopeAndCollectAffectedDefs() (defIdsBorn
 							kit.Errs.Stage1BadNames = kit.Errs.Stage1BadNames[0:0]
 						}
 						kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt =
-							atmo.Exists, nil, make(atmolang_irfun.AnnNamesInScope, totaldefscount)
+							atmo.Є, nil, make(atmolang_irfun.AnnNamesInScope, totaldefscount)
 						for _, kimp := range kimps {
 							for k, v := range kimp.lookups.namesInScopeOwn {
 								nodes := make([]atmolang_irfun.IAstNode, len(v))

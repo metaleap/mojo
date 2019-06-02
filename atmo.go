@@ -20,14 +20,24 @@ const (
 	EnvVarKitsDirs = "ATMO_KITS_DIRS"
 	NameAutoKit    = "omni"
 	SrcFileExt     = ".at"
-	Syn_Undef      = "()"
-	Syn_If         = "if"
-	Syn_Or         = "||"
-	Syn_Eq         = "=="
+
+	KnownIdentI      = "it"
+	KnownIdentK      = "ever"
+	KnownIdentCoerce = "§"
+	KnownIdentOpAnd  = "&&"
+	KnownIdentOpOr   = "||"
+	KnownIdentOpNeg  = "~"
+	KnownIdentUndef  = "÷0"
+	KnownIdentIf     = "if"
+	KnownIdentEq     = "=="
+	KnownIdentNEq    = "/="
 )
 
 var (
-	Exists  = Empty{}
+	KnownIdents = StringsUnorderedButUnique{KnownIdentI: Є, KnownIdentK: Є, KnownIdentCoerce: Є, KnownIdentOpAnd: Є, KnownIdentOpOr: Є, KnownIdentOpNeg: Є, KnownIdentUndef: Є, KnownIdentIf: Є, KnownIdentEq: Є, KnownIdentNEq: Є}
+
+	// ∈ aka "exists"
+	Є       = Empty{}
 	Options struct {
 		// sorted errors, kits, source files, defs etc:
 		// should be enabled for consistency in user-facing tools such as REPLs or language servers.

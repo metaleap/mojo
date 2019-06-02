@@ -2,6 +2,7 @@ package atmolang
 
 import (
 	"io"
+	"os"
 	"strconv"
 
 	"github.com/go-leap/std"
@@ -28,7 +29,7 @@ type IPrintFmt interface {
 }
 
 func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebugPurposes bool, applStyle ApplStyle) {
-	ctxp := &CtxPrint{NoComments: true, CurTopLevel: curTopLevel}
+	ctxp := &CtxPrint{NoComments: true, CurTopLevel: curTopLevel, OneIndentLevel: "    "}
 	ctxp.Fmt = &PrintFmtPretty{}
 	ctxp.ApplStyle = applStyle
 	ctxp.Fmt.SetCtxPrint(ctxp)
@@ -36,6 +37,9 @@ func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebu
 	data := ctxp.BytesWriter.Data
 	if prominentForDebugPurposes {
 		data = append(append([]byte("\n\n\n▓▓▓"), data...), "▓▓▓\n\n\n"...)
+	}
+	if out == nil {
+		out = os.Stderr
 	}
 	out.Write(data)
 }

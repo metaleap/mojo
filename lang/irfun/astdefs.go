@@ -59,7 +59,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 		for j := range kitSrcFiles[i].TopLevel {
 			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
 				if defidx := this.IndexByID(tl.Id()); defidx >= 0 {
-					oldunchangeds[defidx], this[defidx].OrigTopLevelChunk, this[defidx].OrigDef = atmo.Exists, tl, tl.Ast.Def.Orig
+					oldunchangeds[defidx], this[defidx].OrigTopLevelChunk, this[defidx].OrigDef = atmo.Є, tl, tl.Ast.Def.Orig
 				} else if !tl.HasErrors() { // any source chunk with parse/lex errs doesn't exist for us anymore at this point
 					newdefs = append(newdefs, tl)
 				}
