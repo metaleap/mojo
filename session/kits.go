@@ -197,12 +197,16 @@ func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) ma
 	return me.Kits.All.collectReferences(name)
 }
 
-func (me *Ctx) KitsCollectReferencers(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (referencerDefIds map[string]*Kit) {
+func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (dependantsDefIds map[string]*Kit) {
 	if forceLoadAllKnownKits {
 		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}
-	referencerDefIds = make(map[string]*Kit)
-	me.Kits.All.collectReferencers(defNames, referencerDefIds, indirects)
+	dependantsDefIds = make(map[string]*Kit)
+	var dones atmo.StringsUnorderedButUnique
+	if indirects {
+		dones = make(atmo.StringsUnorderedButUnique, len(defNames))
+	}
+	me.Kits.All.collectDependants(defNames, dependantsDefIds, dones)
 	return
 }
 
@@ -217,8 +221,10 @@ func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
 	if me.state.kitsReprocessing.needed {
 		me.state.kitsReprocessing.needed = false
-		defidsborn, defidsdepsofnames, errs := me.kitsRepopulateAstNamesInScopeAndCollectAffectedDefs()
-		me.onErrs(errs, me.substantiateKitsDefsFactsAsNeeded(defidsborn, defidsdepsofnames))
+		namesofchange, defidsborn, errs := me.kitsRepopulateAstNamesInScope()
+		defidsdependantsofnames := make(map[string]*Kit)
+		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnames, make(atmo.StringsUnorderedButUnique, len(namesofchange)))
+		me.onErrs(errs, me.substantiateKitsDefsFactsAsNeeded(defidsborn, defidsdependantsofnames))
 	}
 }
 
@@ -317,20 +323,25 @@ func (me Kits) collectReferences(name string) (refs map[*atmolang_irfun.AstDefTo
 	return
 }
 
-func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, referencerDefIds map[string]*Kit, indirects bool) {
+func (me Kits) collectDependants(defNames atmo.StringsUnorderedButUnique, dependantsDefIds map[string]*Kit, doneAlready atmo.StringsUnorderedButUnique) {
 	if len(defNames) == 0 {
 		return
 	}
+	indirects := (doneAlready != nil)
 	var morenames atmo.StringsUnorderedButUnique
 	if indirects {
 		morenames = make(atmo.StringsUnorderedButUnique, 4)
 	}
-	for _, kit := range me {
-		for _, tld := range kit.topLevelDefs {
-			for defname := range defNames {
+
+	for defname := range defNames {
+		if indirects {
+			doneAlready[defname] = atmo.Є
+		}
+		for _, kit := range me {
+			for _, tld := range kit.topLevelDefs {
 				if tld.RefersTo(defname) {
-					if referencerDefIds[tld.Id] = kit; indirects {
-						if _, donealready := defNames[tld.Name.Val]; !donealready {
+					if dependantsDefIds[tld.Id] = kit; indirects {
+						if _, doneearlier := doneAlready[tld.Name.Val]; !doneearlier {
 							morenames[tld.Name.Val] = atmo.Є
 						}
 					}
@@ -339,6 +350,6 @@ func (me Kits) collectReferencers(defNames atmo.StringsUnorderedButUnique, refer
 		}
 	}
 	if indirects {
-		me.collectReferencers(morenames, referencerDefIds, true)
+		me.collectDependants(morenames, dependantsDefIds, doneAlready)
 	}
 }

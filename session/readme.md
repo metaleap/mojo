@@ -127,10 +127,10 @@ func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts
 func (me *Ctx) KitEnsureLoaded(kit *Kit)
 ```
 
-#### func (*Ctx) KitsCollectReferencers
+#### func (*Ctx) KitsCollectDependants
 
 ```go
-func (me *Ctx) KitsCollectReferencers(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (referencerDefIds map[string]*Kit)
+func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (dependantsDefIds map[string]*Kit)
 ```
 
 #### func (*Ctx) KitsCollectReferences

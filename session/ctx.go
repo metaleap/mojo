@@ -278,7 +278,11 @@ func (me *Ctx) catchUpOnFileMods(checkForFileModsNow bool, ensureFilesMarkedAsCh
 }
 
 func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (recoveredPanic interface{}) {
-	return me.WithInMemFileMods(map[string]string{srcFilePath: altSrc}, do)
+	var one map[string]string
+	if altSrc != "" {
+		one = map[string]string{srcFilePath: altSrc}
+	}
+	return me.WithInMemFileMods(one, do)
 }
 
 func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do func()) (recoveredPanic interface{}) {
@@ -287,7 +291,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 		restoreFinally := func() {
 			recoveredPanic = recover()
 			for _, srcfile := range srcfiles {
-				srcfile.Options.TmpAltSrc = ""
+				srcfile.Options.TmpAltSrc = nil
 			}
 			me.catchUpOnFileMods(true, srcfiles)
 		}
@@ -296,7 +300,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 		for srcfilepath, altsrc := range srcFilePathsAndAltSrcs {
 			if kit := me.KitByDirPath(filepath.Dir(srcfilepath), false); kit != nil {
 				if srcfile := kit.SrcFiles.ByFilePath(srcfilepath); srcfile != nil {
-					srcfiles, srcfile.Options.TmpAltSrc = append(srcfiles, srcfile), altsrc
+					srcfiles, srcfile.Options.TmpAltSrc = append(srcfiles, srcfile), []byte(altsrc)
 				}
 			}
 		}

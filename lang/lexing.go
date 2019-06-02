@@ -11,8 +11,10 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFilePathSet bool) (freshErrs []error) {
-	if me.SrcFilePath != "" {
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool) (freshErrs []error) {
+	if me.Options.TmpAltSrc != nil {
+		me.LastLoad.Time = 0
+	} else if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
 			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
 				if modtime := srcfileinfo.ModTime().UnixNano(); modtime > 0 && me.LastLoad.Time > modtime {
@@ -22,18 +24,22 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 		}
 	}
 
-	var srcfile *os.File
-	if me._errs, me.errs.loading = nil, nil; me.SrcFilePath != "" {
+	var reader io.Reader
+	if me._errs, me.errs.loading = nil, nil; me.Options.TmpAltSrc != nil {
+		reader = &ustd.BytesReader{Data: me.Options.TmpAltSrc}
+	} else if me.SrcFilePath != "" {
+		var srcfile *os.File
 		if srcfile, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
+			reader = srcfile
 			defer srcfile.Close()
 		} else {
 			freshErrs = append(freshErrs, me.errs.loading)
 		}
-	} else if stdinIfNoSrcFilePathSet {
-		srcfile = os.Stdin
+	} else if stdinIfNoSrcFile {
+		reader = os.Stdin
 	}
-	if me.errs.loading == nil && srcfile != nil {
-		freshErrs = append(freshErrs, me.LexAndParseSrc(srcfile)...)
+	if me.errs.loading == nil && reader != nil {
+		freshErrs = append(freshErrs, me.LexAndParseSrc(reader)...)
 	}
 	return
 }
