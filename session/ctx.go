@@ -148,7 +148,7 @@ func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error) {
 	}
 	me.Dirs.fauxKitsMutex.Unlock()
 	if is && !was {
-		me.catchUpOnFileMods(true)
+		me.catchUpOnFileMods(true, nil)
 	}
 	return
 }
@@ -241,10 +241,10 @@ func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
 }
 
 func (me *Ctx) CatchUp(checkForFileModsNow bool) {
-	me.catchUpOnFileMods(checkForFileModsNow)
+	me.catchUpOnFileMods(checkForFileModsNow, nil)
 }
 
-func (me *Ctx) catchUpOnFileMods(checkForFileModsNow bool) {
+func (me *Ctx) catchUpOnFileMods(checkForFileModsNow bool, ensureFilesMarkedAsChanged atmolang.AstFiles) {
 	me.Dirs.fauxKitsMutex.Lock()
 	fauxkitdirpaths := me.Dirs.fauxKits
 	me.Dirs.fauxKitsMutex.Unlock()
@@ -255,6 +255,25 @@ func (me *Ctx) catchUpOnFileMods(checkForFileModsNow bool) {
 	me.state.fileModsWatch.latestMutex.Lock()
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
 	me.state.fileModsWatch.latestMutex.Unlock()
+	if len(ensureFilesMarkedAsChanged) > 0 {
+		extra := make(map[string]os.FileInfo, len(ensureFilesMarkedAsChanged))
+		for _, srcfile := range ensureFilesMarkedAsChanged {
+			var have bool
+			for _, modset := range latest {
+				if _, have = modset[srcfile.SrcFilePath]; have {
+					break
+				}
+			}
+			if !have {
+				if fileinfo, _ := os.Stat(srcfile.SrcFilePath); fileinfo != nil {
+					extra[srcfile.SrcFilePath] = fileinfo
+				}
+			}
+		}
+		if len(extra) > 0 {
+			latest = append(latest, extra)
+		}
+	}
 	me.fileModsHandle(me.Dirs.Kits, fauxkitdirpaths, latest)
 }
 
@@ -270,7 +289,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 			for _, srcfile := range srcfiles {
 				srcfile.Options.TmpAltSrc = ""
 			}
-			me.catchUpOnFileMods(true)
+			me.catchUpOnFileMods(true, srcfiles)
 		}
 		defer restoreFinally()
 
@@ -281,7 +300,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 				}
 			}
 		}
-		me.catchUpOnFileMods(true)
+		me.catchUpOnFileMods(true, srcfiles)
 	}
 	do()
 	return

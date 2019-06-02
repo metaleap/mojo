@@ -51,7 +51,7 @@ func (me *Ctx) initKits() {
 			_ = me.state.fileModsWatch.manuallyCollectFileModsForNextCatchup(me.Dirs.Kits, fauxkitdirpaths)
 		},
 	)
-	if me.catchUpOnFileMods(false); modswatchstart != nil {
+	if me.catchUpOnFileMods(false, nil); modswatchstart != nil {
 		me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, me.state.cleanUps =
 			true, append(me.state.cleanUps, modswatchcancel)
 		go modswatchstart()
@@ -211,7 +211,7 @@ func (me *Ctx) KitsCollectReferencers(forceLoadAllKnownKits bool, defNames atmo.
 // and refreshes the `Ctx`'s internal represenation of `Kits` if any were noted.
 func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
 	me.maybeInitPanic(false)
-	me.catchUpOnFileMods(!me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically)
+	me.catchUpOnFileMods(!me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, nil)
 }
 
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
