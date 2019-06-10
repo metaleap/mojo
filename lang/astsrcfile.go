@@ -9,14 +9,14 @@ import (
 type AstFiles []*AstFile
 
 type AstFile struct {
-	TopLevel []AstFileTopLevelChunk
+	TopLevel []SrcTopChunk
 	errs     struct {
 		loading error
 	}
 	LastLoad struct {
 		Src                  []byte
 		Time                 int64
-		Size                 int64
+		FileSize             int64
 		TokCountInitialGuess int
 		NumLines             int
 	}
@@ -30,12 +30,12 @@ type AstFile struct {
 	_errs []error
 }
 
-type AstFileTopLevelChunk struct {
+type SrcTopChunk struct {
 	Src     []byte
 	SrcFile *AstFile
-	Offset  struct {
-		Line int
-		Pos  int
+	offset  struct {
+		Ln int
+		B  int
 	}
 	id       [3]uint64
 	_id      string
@@ -48,15 +48,21 @@ type AstFileTopLevelChunk struct {
 	Ast AstTopLevel
 }
 
-func (me *AstFileTopLevelChunk) At(pos int) []IAstNode {
-	return me.Ast.at(&me.Ast, pos)
+// PosOffsetLine implements `atmo.IErrPosOffsets`.
+func (me *SrcTopChunk) PosOffsetLine() int { return me.offset.Ln }
+
+// PosOffsetByte implements `atmo.IErrPosOffsets`.
+func (me *SrcTopChunk) PosOffsetByte() int { return me.offset.B }
+
+func (me *SrcTopChunk) At(byte0PosOffsetInSrcFile int) []IAstNode {
+	return me.Ast.at(&me.Ast, byte0PosOffsetInSrcFile-me.offset.B)
 }
 
-func (me *AstFileTopLevelChunk) HasErrors() bool {
+func (me *SrcTopChunk) HasErrors() bool {
 	return me.errs.parsing != nil || len(me.errs.lexing) > 0
 }
 
-func (me *AstFileTopLevelChunk) Errs() atmo.Errors {
+func (me *SrcTopChunk) Errs() atmo.Errors {
 	if me._errs == nil {
 		me._errs = make(atmo.Errors, 0, len(me.errs.lexing)+1)
 		if me._errs.Add(me.errs.lexing); me.errs.parsing != nil {
@@ -131,8 +137,8 @@ func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 		if tld := &me.TopLevel[i]; (!onlyCountErrless) || (!tld.HasErrors()) {
 			if def := tld.Ast.Def.Orig; def != nil {
 				for t := range def.Tokens {
-					if tok := &def.Tokens[t]; tok.Meta.Line != lastline && tok.Kind() != udevlex.TOKEN_COMMENT {
-						lastline, sloc = tok.Meta.Line, sloc+1
+					if tok := &def.Tokens[t]; tok.Meta.Pos.Line != lastline && tok.Kind() != udevlex.TOKEN_COMMENT {
+						lastline, sloc = tok.Meta.Pos.Line, sloc+1
 					}
 				}
 			}
@@ -141,16 +147,19 @@ func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 	return
 }
 
-func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *AstFileTopLevelChunk {
+func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *SrcTopChunk {
+	ilast := len(me.TopLevel) - 1
 	for i := range me.TopLevel {
-		if tlc := &me.TopLevel[i]; tlc.Ast.Tokens.AreEnclosing(pos0ByteOffset) {
-			return tlc
+		if pos0ByteOffset == me.TopLevel[i].offset.B || (i == ilast && pos0ByteOffset > me.TopLevel[i].offset.B) {
+			return &me.TopLevel[i]
+		} else if i > 0 && me.TopLevel[i].offset.B > pos0ByteOffset {
+			return &me.TopLevel[i-1]
 		}
 	}
 	return nil
 }
 
-func (me *AstFileTopLevelChunk) Id() string {
+func (me *SrcTopChunk) Id() string {
 	if me._id == "" {
 		me._id = ustr.Uint64s('-', me.id[:])
 	}

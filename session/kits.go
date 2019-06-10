@@ -3,23 +3,17 @@ package atmosess
 import (
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/go-leap/fs"
-	"github.com/go-leap/std"
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 	"github.com/metaleap/atmo/lang/irfun"
 )
 
-// KitsWatchInterval is the default file-watching interval that is picked up
-// by each `Ctx.Init` call and then used throughout the `Ctx`'s life time.
-var KitsWatchInterval time.Duration
-
 type Kits []*Kit
 
-func init() { ufs.WalkReadDirFunc = ufs.Dir }
+func init() { ufs.ReadDirFunc = ufs.Dir }
 
 // KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
@@ -32,124 +26,111 @@ func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
 }
 
 func (me *Ctx) initKits() {
-	me.state.fileModsWatch.manuallyCollectFileModsForNextCatchup = ufs.ModificationsWatcher(atmo.SrcFileExt, me.fileModsDirOk, 0,
+	me.state.fileModsWatch.collectFileModsForNextCatchup = ufs.ModificationsWatcher(atmo.SrcFileExt, me.fileModsDirOk, 0,
 		func(mods map[string]os.FileInfo, starttime int64, wasfirstrun bool) {
-			// isconcurrent := me.state.fileModsWatch.runningAutomaticallyPeriodically && (!wasfirstrun)
 			if len(mods) > 0 {
-				me.state.fileModsWatch.latestMutex.Lock()
 				me.state.fileModsWatch.latest = append(me.state.fileModsWatch.latest, mods)
-				me.state.fileModsWatch.latestMutex.Unlock()
 			}
 		},
 	)
-	modswatchstart, modswatchcancel := ustd.DoNowAndThenEvery(KitsWatchInterval,
-		me.Kits.RecurringBackgroundWatch.ShouldNow,
-		func() {
-			me.Dirs.fauxKitsMutex.Lock()
-			fauxkitdirpaths := me.Dirs.fauxKits
-			me.Dirs.fauxKitsMutex.Unlock()
-			_ = me.state.fileModsWatch.manuallyCollectFileModsForNextCatchup(me.Dirs.Kits, fauxkitdirpaths)
-		},
-	)
-	if me.catchUpOnFileMods(false, nil); modswatchstart != nil {
-		me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, me.state.cleanUps =
-			true, append(me.state.cleanUps, modswatchcancel)
-		go modswatchstart()
-	}
+	me.catchUpOnFileMods(nil)
 }
 
 func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo) {
-	for _, latestfilemods := range latest {
-		modkitdirs := map[string]int{}
-		for fullpath, fileinfo := range latestfilemods {
-			if fileinfo.IsDir() {
-				me.fileModsHandleDir(kitsDirs, fauxKitDirs, fullpath, modkitdirs)
-			} else if dp := filepath.Dir(fullpath); !ustr.In(dp, kitsDirs...) {
-				modkitdirs[dp] = modkitdirs[dp] + 1
-			}
+	latestfilemods := make(map[string]os.FileInfo, len(latest[0]))
+	for i := range latest {
+		for k, v := range latest[i] {
+			latestfilemods[k] = v
 		}
-		if len(me.Kits.All) == 0 {
-			for _, dirsess := range fauxKitDirs {
-				modkitdirs[dirsess] = 1
-			}
+	}
+
+	modkitdirs := map[string]int{}
+	for fullpath, fileinfo := range latestfilemods {
+		if fileinfo.IsDir() {
+			me.fileModsHandleDir(kitsDirs, fauxKitDirs, fullpath, modkitdirs)
+		} else if dp := filepath.Dir(fullpath); !ustr.In(dp, kitsDirs...) {
+			modkitdirs[dp] = modkitdirs[dp] + 1
 		}
-		if len(modkitdirs) > 0 {
-			shouldrefresh := make(atmo.StringsUnorderedButUnique, len(modkitdirs))
-			// handle new-or-modified kits
-			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
-			for kitdirpath, numfilesguess := range modkitdirs {
-				if me.Kits.All.IndexDirPath(kitdirpath) < 0 {
-					if numfilesguess < 2 {
-						numfilesguess = 2
+	}
+	if len(me.Kits.All) == 0 {
+		for _, dirsess := range fauxKitDirs {
+			modkitdirs[dirsess] = 1
+		}
+	}
+
+	if len(modkitdirs) > 0 {
+		shouldrefresh := make(atmo.StringsUnorderedButUnique, len(modkitdirs))
+		// handle new-or-modified kits
+		// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
+		for kitdirpath, numfilesguess := range modkitdirs {
+			if me.Kits.All.IndexDirPath(kitdirpath) < 0 {
+				if numfilesguess < 2 {
+					numfilesguess = 2
+				}
+				var kitimppath string
+				for _, ldp := range kitsDirs {
+					if ustr.Pref(kitdirpath, ldp+string(os.PathSeparator)) {
+						if kitimppath = filepath.Clean(kitdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
+							kitimppath = ustr.Replace(kitimppath, string(os.PathSeparator), "/")
+						}
+						break
 					}
-					var kitimppath string
-					for _, ldp := range kitsDirs {
-						if ustr.Pref(kitdirpath, ldp+string(os.PathSeparator)) {
-							if kitimppath = filepath.Clean(kitdirpath[len(ldp)+1:]); os.PathSeparator != '/' {
-								kitimppath = ustr.Replace(kitimppath, string(os.PathSeparator), "/")
-							}
+				}
+				if kitimppath == "" {
+					for _, dirsess := range fauxKitDirs {
+						if dirsess == kitdirpath {
+							kitimppath = ustr.Replace(kitdirpath, "/", "·")
 							break
 						}
 					}
-					if kitimppath == "" {
-						for _, dirsess := range fauxKitDirs {
-							if dirsess == kitdirpath {
-								kitimppath = ustr.Replace(kitdirpath, "/", "·")
-								break
-							}
-						}
-					}
-					kitimps := []string{atmo.NameAutoKit}
-					if kitimppath == atmo.NameAutoKit {
-						kitimps = nil
-					}
-					me.Kits.All = append(me.Kits.All, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
-						SrcFiles: make(atmolang.AstFiles, 0, numfilesguess), defsFacts: make(map[string]*defNameFacts, numfilesguess*8)})
 				}
-				shouldrefresh[kitdirpath] = atmo.Є
-			}
-			// remove kits that have vanished from the file-system
-			// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
-			var numremoved int
-			for i := 0; i < len(me.Kits.All); i++ {
-				if kit := me.Kits.All[i]; (!ustr.In(kit.DirPath, fauxKitDirs...)) && (!ufs.DoesDirHaveFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
-					delete(shouldrefresh, kit.DirPath)
-					me.Kits.All.removeAt(i)
-					i, numremoved = i-1, numremoved+1
+				kitimps := []string{atmo.NameAutoKit}
+				if kitimppath == atmo.NameAutoKit {
+					kitimps = nil
 				}
+				me.Kits.All = append(me.Kits.All, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
+					SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
 			}
-			// ensure no duplicate imp-paths
-			for i := len(me.Kits.All) - 1; i >= 0; i-- {
-				kit := me.Kits.All[i]
-				if idx := me.Kits.All.IndexImpPath(kit.ImpPath); idx != i {
-					delete(shouldrefresh, kit.DirPath)
-					delete(shouldrefresh, me.Kits.All[idx].DirPath)
-					me.bgMsg(true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.kitsDirPath(), "and "+me.Kits.All[idx].kitsDirPath(), "─── both will not load until fixed")
-					if idx > i {
-						me.Kits.All.removeAt(idx)
-						me.Kits.All.removeAt(i)
-					} else {
-						me.Kits.All.removeAt(i)
-						me.Kits.All.removeAt(idx)
-					}
-					i--
-				}
-			}
-			// for stable listings etc.
-			atmo.SortMaybe(me.Kits.All)
-			// per-file refresher
-			for kitdirpath := range shouldrefresh {
-				if idx := me.Kits.All.IndexDirPath(kitdirpath); idx >= 0 {
-					me.kitRefreshFilesAndMaybeReload(me.Kits.All[idx], true, false)
-				} else {
-					panic(kitdirpath)
-				}
-			}
-			me.reprocessAffectedDefsIfAnyKitsReloaded()
-			if me.state.fileModsWatch.emitMsgsIfManual {
-				me.bgMsg(false, "Modifications in "+ustr.Plu(len(modkitdirs), "kit")+" led to dropping "+ustr.Plu(numremoved, "kit"), "and then (re)loading "+ustr.Plu(len(shouldrefresh), "kit")+".")
+			shouldrefresh[kitdirpath] = atmo.Є
+		}
+		// remove kits that have vanished from the file-system
+		// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
+		var numremoved int
+		for i := 0; i < len(me.Kits.All); i++ {
+			if kit := me.Kits.All[i]; (!ustr.In(kit.DirPath, fauxKitDirs...)) && (!ufs.DoesDirHaveFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
+				delete(shouldrefresh, kit.DirPath)
+				me.Kits.All.removeAt(i)
+				i, numremoved = i-1, numremoved+1
 			}
 		}
+		// ensure no duplicate imp-paths
+		for i := len(me.Kits.All) - 1; i >= 0; i-- {
+			kit := me.Kits.All[i]
+			if idx := me.Kits.All.IndexImpPath(kit.ImpPath); idx != i {
+				delete(shouldrefresh, kit.DirPath)
+				delete(shouldrefresh, me.Kits.All[idx].DirPath)
+				me.bgMsg(true, "duplicate import path `"+kit.ImpPath+"`", "in "+kit.kitsDirPath(), "and "+me.Kits.All[idx].kitsDirPath(), "─── both will not load until fixed")
+				if idx > i {
+					me.Kits.All.removeAt(idx)
+					me.Kits.All.removeAt(i)
+				} else {
+					me.Kits.All.removeAt(i)
+					me.Kits.All.removeAt(idx)
+				}
+				i--
+			}
+		}
+		// for stable listings etc.
+		atmo.SortMaybe(me.Kits.All)
+		// per-file refresher
+		for kitdirpath := range shouldrefresh {
+			if idx := me.Kits.All.IndexDirPath(kitdirpath); idx >= 0 {
+				me.kitRefreshFilesAndMaybeReload(me.Kits.All[idx], false)
+			} else {
+				panic(kitdirpath)
+			}
+		}
+		me.reprocessAffectedDefsIfAnyKitsReloaded()
 	}
 }
 
@@ -192,14 +173,14 @@ func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) ma
 		return nil
 	}
 	if forceLoadAllKnownKits {
-		me.KitsEnsureLoadedAstsOnly(true, me.KnownKitImpPaths()...)
+		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}
 	return me.Kits.All.collectReferences(name)
 }
 
 func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (dependantsDefIds map[string]*Kit) {
 	if forceLoadAllKnownKits {
-		me.KitsEnsureLoadedAstsOnly(true, me.KnownKitImpPaths()...)
+		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}
 	dependantsDefIds = make(map[string]*Kit)
 	var dones atmo.StringsUnorderedButUnique
@@ -210,21 +191,35 @@ func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.S
 	return
 }
 
-// KitsReloadModifiedsUnlessAlreadyWatching returns -1 if file-watching is
-// enabled, otherwise it scans all currently-known kits-dirs for modifications
-// and refreshes the `Ctx`'s internal represenation of `Kits` if any were noted.
+func (me Kits) SrcFilePaths() (srcFilePaths []string) {
+	var count int
+	for _, kit := range me {
+		count += len(kit.SrcFiles)
+	}
+	srcFilePaths = make([]string, 0, count)
+	for _, kit := range me {
+		for _, srcfile := range kit.SrcFiles {
+			srcFilePaths = append(srcFilePaths, srcfile.SrcFilePath)
+		}
+	}
+	return
+}
+
 func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
 	me.maybeInitPanic(false)
-	me.catchUpOnFileMods(!me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, nil)
+	me.catchUpOnFileMods(nil)
 }
 
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
-	if me.state.kitsReprocessing.needed {
-		me.state.kitsReprocessing.needed = false
-		namesofchange, defidsborn, errs := me.kitsRepopulateAstNamesInScope()
+	if me.Kits.reprocessingNeeded {
+		me.Kits.reprocessingNeeded = false
+		namesofchange /*defidsborn*/, _, errs := me.kitsRepopulateAstNamesInScope()
 		defidsdependantsofnames := make(map[string]*Kit)
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnames, make(atmo.StringsUnorderedButUnique, len(namesofchange)))
-		me.onErrs(errs, me.substantiateKitsDefsFactsAsNeeded(defidsborn, defidsdependantsofnames))
+		// substerrs := me.substantiateKitsDefsFactsAsNeeded(defidsborn, defidsdependantsofnames)
+
+		me.Kits.All.ensureErrTldPosOffsets()
+		me.onErrs(errs /*substerrs*/, nil)
 	}
 }
 
@@ -351,5 +346,11 @@ func (me Kits) collectDependants(defNames atmo.StringsUnorderedButUnique, depend
 	}
 	if indirects {
 		me.collectDependants(morenames, dependantsDefIds, doneAlready)
+	}
+}
+
+func (me Kits) ensureErrTldPosOffsets() {
+	for _, kit := range me {
+		kit.ensureErrTldPosOffsets()
 	}
 }

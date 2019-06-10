@@ -11,16 +11,20 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool) (freshErrs []error) {
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool, noChangesDetected *bool) (freshErrs []error) {
 	if me.Options.TmpAltSrc != nil {
-		me.LastLoad.Time = 0
+		me.LastLoad.Time, me.LastLoad.FileSize = 0, 0
 	} else if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
-			if me.LastLoad.Size = srcfileinfo.Size(); onlyIfModifiedSinceLastLoad && me.errs.loading == nil {
+			if onlyIfModifiedSinceLastLoad && me.errs.loading == nil && srcfileinfo.Size() == me.LastLoad.FileSize {
 				if modtime := srcfileinfo.ModTime().UnixNano(); modtime > 0 && me.LastLoad.Time > modtime {
+					if noChangesDetected != nil {
+						*noChangesDetected = true
+					}
 					return
 				}
 			}
+			me.LastLoad.FileSize = srcfileinfo.Size()
 		}
 	}
 
@@ -39,13 +43,13 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 		reader = os.Stdin
 	}
 	if me.errs.loading == nil && reader != nil {
-		freshErrs = append(freshErrs, me.LexAndParseSrc(reader)...)
+		freshErrs = append(freshErrs, me.LexAndParseSrc(reader, noChangesDetected)...)
 	}
 	return
 }
 
 func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, *atmo.Error) {
-	toks, errs := udevlex.Lex(&ustd.BytesReader{Data: src}, fauxSrcFileNameForErrs, 0, 0, 64)
+	toks, errs := udevlex.Lex(&ustd.BytesReader{Data: src}, fauxSrcFileNameForErrs, 64)
 	for _, e := range errs {
 		return nil, atmo.ErrLex(&e.Pos, e.Msg)
 	}
@@ -57,21 +61,30 @@ func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, *atmo
 	}
 }
 
-func (me *AstFile) LexAndParseSrc(r io.Reader) (freshErrs []error) {
+func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs []error) {
 	var src []byte
-	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.Size); me.errs.loading != nil {
+	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.FileSize); me.errs.loading != nil {
 		freshErrs = append(freshErrs, me.errs.loading)
 	} else {
-		if me.LastLoad.Size = int64(len(src)); bytes.Equal(src, me.LastLoad.Src) {
+		if bytes.Equal(src, me.LastLoad.Src) {
+			if noChangesDetected != nil {
+				*noChangesDetected = true
+			}
 			return
 		}
 		me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src
-		me.populateTopLevelChunksFrom(src)
+		if me.populateTopLevelChunksFrom(src) {
+			if noChangesDetected != nil {
+				*noChangesDetected = true
+			}
+			return
+		}
+
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.srcDirty {
 				this.srcDirty, this.errs.parsing, this.errs.lexing, this.Ast.Def.Orig, this.Ast.comments.Leading, this.Ast.comments.Trailing = false, nil, nil, nil, nil, nil
 				toks, errs := udevlex.Lex(&ustd.BytesReader{Data: this.Src},
-					me.SrcFilePath, this.Offset.Line, this.Offset.Pos, me.LastLoad.TokCountInitialGuess)
+					me.SrcFilePath, me.LastLoad.TokCountInitialGuess)
 				if this.Ast.Tokens = toks; len(errs) > 0 {
 					for _, e := range errs {
 						this.errs.lexing.AddLex(&e.Pos, e.Msg)
@@ -86,13 +99,13 @@ func (me *AstFile) LexAndParseSrc(r io.Reader) (freshErrs []error) {
 	return
 }
 
-func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
-	type _topLevelChunk struct {
+func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
+	type topLevelChunk struct {
 		src  []byte
 		pos  int
 		line int
 	}
-	tlchunks := make([]_topLevelChunk, 0, 32)
+	tlchunks := make([]topLevelChunk, 0, 32)
 
 	// stage ONE: go over all src bytes and gather `tlchunks`
 
@@ -124,7 +137,7 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 				istoplevelfulllinecomment = isntlast && ch == '/' && src[i+1] == '/'
 				// naive at first: every non-indented line begins its own new chunk. after the loop we merge comments directly prefixed to defs
 				if lastpos != i {
-					tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:i], pos: lastpos, line: lastln})
+					tlchunks = append(tlchunks, topLevelChunk{src: src[lastpos:i], pos: lastpos, line: lastln})
 				}
 				lastpos, lastln = i, curline
 			}
@@ -134,7 +147,7 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 		chlast = ch
 	}
 	if me.LastLoad.NumLines = curline; lastpos < il {
-		tlchunks = append(tlchunks, _topLevelChunk{src: src[lastpos:], pos: lastpos, line: lastln})
+		tlchunks = append(tlchunks, topLevelChunk{src: src[lastpos:], pos: lastpos, line: lastln})
 	}
 	// fix naive tlchunks: stitch together what belongs together
 	for i := len(tlchunks) - 1; i > 0; i-- {
@@ -166,35 +179,39 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) {
 	srcsame := make(map[int]int, len(tlchunks))
 	for oldidx := range me.TopLevel {
 		for newidx := range tlchunks {
-			if bytes.Equal(me.TopLevel[oldidx].Src, tlchunks[newidx].src) {
+			if stale, fresh := &me.TopLevel[oldidx], &tlchunks[newidx]; bytes.Equal(stale.Src, fresh.src) {
 				srcsame[newidx] = oldidx
 				break
 			}
 		}
 	}
-	allthesame := len(srcsame) == len(me.TopLevel) && len(me.TopLevel) == len(tlchunks)
-	if allthesame {
+	allTheSame = len(srcsame) == len(me.TopLevel) && len(me.TopLevel) == len(tlchunks)
+	if allTheSame {
 		for newidx, oldidx := range srcsame {
 			if newidx != oldidx {
-				allthesame = false
+				allTheSame = false
 				break
 			}
 		}
 	}
-	if !allthesame {
+	if !allTheSame {
 		oldtlc := me.TopLevel
-		me._toks, me.TopLevel = nil, make([]AstFileTopLevelChunk, len(tlchunks))
-		for i := range tlchunks {
-			if oldidx, ok := srcsame[i]; ok {
-				me.TopLevel[i] = oldtlc[oldidx]
+		me._toks, me.TopLevel = nil, make([]SrcTopChunk, len(tlchunks))
+		for newidx := range tlchunks {
+			if oldidx, ok := srcsame[newidx]; ok {
+				me.TopLevel[newidx] = oldtlc[oldidx]
 			} else {
-				me.TopLevel[i].srcDirty, me.TopLevel[i]._id, me.TopLevel[i]._errs, me.TopLevel[i].Src =
-					true, "", nil, tlchunks[i].src
-				me.TopLevel[i].id[1], me.TopLevel[i].id[2], _ = ustd.HashTwo(0, 0, me.TopLevel[i].Src)
-				me.TopLevel[i].id[0] = uint64(len(me.TopLevel[i].Src))
+				me.TopLevel[newidx].srcDirty, me.TopLevel[newidx]._id, me.TopLevel[newidx]._errs, me.TopLevel[newidx].Src =
+					true, "", nil, tlchunks[newidx].src
+				me.TopLevel[newidx].id[1], me.TopLevel[newidx].id[2], _ = ustd.HashTwo(0, 0, me.TopLevel[newidx].Src)
+				me.TopLevel[newidx].id[0] = uint64(len(me.TopLevel[newidx].Src))
 			}
-			me.TopLevel[i].Offset.Line, me.TopLevel[i].Offset.Pos, me.TopLevel[i].SrcFile =
-				tlchunks[i].line, tlchunks[i].pos, me
+			me.TopLevel[newidx].SrcFile = me
 		}
 	}
+	for newidx := range tlchunks {
+		me.TopLevel[newidx].offset.Ln, me.TopLevel[newidx].offset.B =
+			tlchunks[newidx].line, tlchunks[newidx].pos
+	}
+	return
 }

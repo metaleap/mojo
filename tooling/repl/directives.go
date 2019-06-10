@@ -121,10 +121,10 @@ func (me *Repl) dListKits() {
 	kits := me.Ctx.Kits.All
 	me.IO.writeLns("", "Found "+ustr.Plu(len(kits), "kit")+":")
 	for _, kit := range kits {
-		numerrs := len(kit.Errors())
+		numerrs := len(kit.Errors(nil))
 		me.decoAddNotice(false, "", true, "["+ustr.If(kit.WasEverToBeLoaded, "×", "_")+"] "+kit.ImpPath+ustr.If(numerrs == 0, "", " ── "+ustr.Plu(numerrs, "issue")))
 	}
-	me.IO.writeLns("", "Legend: [_] = unloaded, [×] = loaded or load attempted", "(To see kit details, use `:info ‹kit›`.)")
+	me.IO.writeLns("", "Legend: [_] = unloaded, [×] = loaded or load attempted", "(To see kit details, use `:info ‹kit›`)")
 }
 
 func (me *Repl) dListDefs(whatKit string) {
@@ -141,8 +141,8 @@ func (me *Repl) dListDefs(whatKit string) {
 					if tld := &sf.TopLevel[d]; !tld.HasErrors() {
 						if def := tld.Ast.Def.Orig; def != nil {
 							numdefs++
-							pos := ustr.If(!def.Name.Tokens[0].Meta.Position.IsValid(), "",
-								"(line "+ustr.Int(def.Name.Tokens[0].Meta.Position.Line)+")")
+							pos := ustr.If(!def.Name.Tokens[0].Meta.Pos.IsValid(), "",
+								"(line "+ustr.Int(def.Name.Tokens[0].Pos(tld.PosOffsetLine(), tld.PosOffsetByte()).Line)+")")
 							me.decoAddNotice(false, "", true, ustr.Combine(ustr.If(tld.Ast.Def.IsUnexported, "_", "")+def.Name.Val, " ─── ", pos))
 						}
 					}
@@ -195,28 +195,19 @@ func (me *Repl) dInfoKit(whatKit string) {
 		me.IO.writeLns("Total:", "    "+ustr.Plu(numlines, "line")+" ("+ustr.Int(numlinesnet)+" sloc), "+ustr.Plu(numdefs, "top-level def")+", "+ustr.Int(numdefs-numdefsinternal)+" exported",
 			"    (Counts exclude failed-to-parse defs, if any.)")
 
-		if kiterrs := kit.Errors(); len(kiterrs) > 0 {
+		if kiterrs := kit.Errors(nil); len(kiterrs) > 0 {
 			me.IO.writeLns("", ustr.Plu(len(kiterrs), "issue")+" in kit `"+whatKit+"`:")
 			for i := range kiterrs {
 				me.decoMsgNotice(false, kiterrs[i].Error())
 			}
 		}
-		me.IO.writeLns("", "", "(To see kit defs, use `:list "+whatKit+"`.)")
+		me.IO.writeLns("", "", "(To see kit defs, use `:list "+whatKit+"`)")
 	}
 }
 
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
 	me.withKitDefs(whatKit, whatName, "info", func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
-		findings := me.Ctx.KitDefFacts(kit, def)
-		errs := findings.Errs()
-		if len(errs) > 0 {
-			me.IO.writeLns(errs.Strings()...)
-		}
-		if str := findings.String(); str != "" {
-			me.IO.writeLns(str)
-		} else if len(errs) == 0 {
-			me.IO.writeLns("‹in progress›")
-		}
+		me.IO.writeLns("TODO")
 	})
 }
 
@@ -231,7 +222,7 @@ func (me *Repl) DSrcs(what string) bool {
 			def.OrigTopLevelChunk.Print(&ctxp)
 			ctxp.WriteTo(me.IO.Stdout)
 			ctxp.Reset()
-			if len(def.Errs) == 0 {
+			if len(def.Errors()) == 0 {
 				ir2lang := def.Print().(*atmolang.AstDef)
 				me.decoAddNotice(false, "", true, "internal representation:", "")
 				ctxp.ApplStyle = atmolang.APPLSTYLE_VSO

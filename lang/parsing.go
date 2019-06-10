@@ -17,11 +17,10 @@ const (
 )
 
 func init() {
-	udevlex.StandaloneSeps, udevlex.SepsForChunking, udevlex.RestrictedWhitespace, udevlex.SanitizeDirtyFloatsNextToOpishs =
+	udevlex.StandaloneSeps, udevlex.SepsForChunking, udevlex.RestrictedWhitespace, udevlex.SanitizeDirtyFloatsNextToDotOpishs =
 		[]string{"(", ")"}, "([{}])", true, true
 }
-
-func (me *AstFile) parse(this *AstFileTopLevelChunk) (freshErrs []error) {
+func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
 	toks := this.Ast.Tokens
 	if this.Ast.comments.Leading, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
 		if this.Ast.Def.Orig, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing != nil {
@@ -59,7 +58,7 @@ func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, err *at
 func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error) {
 	istopleveldef := me.atTopLevelStill
 	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
-		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Position.Column == 1 {
+		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Pos.Column == 1 {
 			err = atmo.ErrSyn(t, "missing: definition body following `:=`")
 		} else {
 			err = atmo.ErrSyn(t, "at this indentation level, expected a def")
@@ -70,8 +69,8 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else {
 		me.exprWillBeDefBody, toksbody = toksbody.BreakOnLeadingComments()
-		if me.indentHintForLet = 0; toksbody[0].Meta.Position.Line == tokheadbodysep.Meta.Line {
-			me.indentHintForLet = toksbody[0].Meta.Position.Column - 1
+		if me.indentHintForLet = 0; toksbody[0].Meta.Pos.Line == tokheadbodysep.Meta.Pos.Line {
+			me.indentHintForLet = toksbody[0].Meta.Pos.Column - 1
 		}
 		if def.Tokens = toks; istopleveldef {
 			me.curDef, def.IsTopLevel = def, true
@@ -148,7 +147,7 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 }
 
 func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
-	indhint := toks[0].Meta.Position.Column - 1
+	indhint := toks[0].Meta.Pos.Column - 1
 	if me.indentHintForLet != 0 {
 		indhint, me.indentHintForLet = me.indentHintForLet, 0
 	}
@@ -163,10 +162,10 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 		}
 	}
 
-	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.ChunkedBySpacing('(', ')', func(i int) (isbreaker bool) {
+	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.CrampedOnes('(', ')', func(i int) (isbreaker bool) {
 		isbreaker = (toks[i].Meta.Orig == ",")
 		if (!isbreaker) && toks[i].Meta.Orig == ":" { /* special exception for ergonomic `fn: arg arg` --- suspends language integrity but if (fn:) was really wanted as standalone expression (hardly ever), can still parenthesize */
-			return i < len(toks)-1 && toks[i+1].Meta.Offset > toks[i].Meta.Offset+1
+			return i < len(toks)-1 && toks[i+1].Meta.Pos.Offset > toks[i].Meta.Pos.Offset+1
 		}
 		return
 	})
@@ -224,7 +223,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 					toks = toks[1:]
 				}
 			default:
-				err = atmo.ErrSyn(&toks[0], "the impossible: unrecognized token (new bug in parser, parseExpr needs updating) at "+toks[0].Meta.Position.String()+", `"+toks[0].Meta.Orig+"`")
+				panic("the impossible: unrecognized token (new bug in parser, parseExpr needs updating) at " + toks[0].Meta.Pos.String() + ", `" + toks[0].Meta.Orig + "`")
 			}
 		}
 		if err == nil && exprcur != nil {

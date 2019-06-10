@@ -20,7 +20,7 @@ func mainFmt() {
 		return 1
 	}
 
-	astfile.LexAndParseFile(false, true)
+	astfile.LexAndParseFile(false, true, nil)
 	if errs := astfile.Errors(); len(errs) > 0 {
 		for _, e := range errs {
 			println(e.Error())

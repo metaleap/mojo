@@ -25,7 +25,7 @@ func mainRepl() {
 	if err := repl.Ctx.Init(false, replDirSession); err == nil {
 		usys.OnSigint(func() {
 			repl.QuitNonDirectiveInitiated(true)
-			repl.Ctx.Dispose()
+			// repl.Ctx.Dispose()
 			os.Exit(0)
 		})
 		atmorepl.Ux.WelcomeMsgLines = []string{
@@ -41,7 +41,7 @@ func mainRepl() {
 			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— every "+ustr.Plu(atmorepl.Ux.MoreLines, "line")+", further output is held back", "  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.Ux.MoreLinesPrompt))+"` prompt shown")
 		}
 		repl.Run(true, true)
-		repl.Ctx.Dispose()
+		// repl.Ctx.Dispose()
 	} else {
 		println(err.Error())
 	}

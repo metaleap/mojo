@@ -6,6 +6,12 @@ import (
 	"github.com/go-leap/dev/lex"
 )
 
+type IErrPosOffsets interface {
+	Id() string
+	PosOffsetLine() int
+	PosOffsetByte() int
+}
+
 type ErrorCategory int
 
 const (
@@ -15,9 +21,30 @@ const (
 	ErrCatParsing
 	ErrCatNaming
 	ErrCatSubst
+	ErrCatUnreachable
 )
 
+func (me ErrorCategory) String() string {
+	switch me {
+	case ErrCatTodo:
+		return "TODO"
+	case ErrCatLexing:
+		return "lexical"
+	case ErrCatParsing:
+		return "syntax"
+	case ErrCatNaming:
+		return "naming"
+	case ErrCatSubst:
+		return "substantiation"
+	case ErrCatUnreachable:
+		return "unreachable"
+	}
+	return "other"
+}
+
 type Error struct {
+	tldOff IErrPosOffsets
+
 	ref *Error
 	msg string
 	pos scanner.Position
@@ -25,60 +52,86 @@ type Error struct {
 	cat ErrorCategory
 }
 
+func (me *Error) Cat() ErrorCategory {
+	if me.ref != nil {
+		return me.ref.Cat()
+	}
+	return me.cat
+}
+
+func (me *Error) Len() int {
+	if me.ref != nil {
+		return me.ref.Len()
+	}
+	return me.len
+}
+
+func (me *Error) Msg() string {
+	if me.ref != nil {
+		return me.ref.Msg()
+	}
+	return me.msg
+}
+
 func (me *Error) Pos() *scanner.Position {
 	if me.ref != nil {
 		return me.ref.Pos()
 	}
-	return &me.pos
+	pos := me.pos
+	pos.Line, pos.Offset = pos.Line+me.tldOff.PosOffsetLine(), pos.Offset+me.tldOff.PosOffsetByte()
+	return &pos
 }
 
-func (me *Error) Error() (msg string) {
+func (me *Error) Error() string {
 	if me.ref != nil {
 		return me.ref.Error()
 	}
-	msg = me.pos.String() + ": "
-	switch me.cat {
-	case ErrCatTodo:
-		msg += "[──TODO──] not yet implemented: "
-	case ErrCatLexing:
-		msg += "[lexical] "
-	case ErrCatParsing:
-		msg += "[syntax] "
-	case ErrCatNaming:
-		msg += "[naming] "
-	case ErrCatSubst:
-		msg += "[substantiation] "
-	default:
-		msg += "[other] "
-	}
-	msg += me.msg
-	return
+	return me.Pos().String() + ": [" + me.cat.String() + "] " + me.msg
 }
 
 func (me *Error) IsRef() bool { return me.ref != nil }
 
-func ErrAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
-	return &Error{msg: msg, pos: *pos, len: length, cat: cat}
+func (me *Error) UpdatePosOffsets(offsets IErrPosOffsets) {
+	me.tldOff = offsets
+}
+
+func ErrAtPos(cat ErrorCategory, pos *scanner.Position, length int, msg string) (err *Error) {
+	err = &Error{msg: msg, len: length, cat: cat}
+	if pos != nil {
+		err.pos = *pos
+	}
+	return
+}
+
+func ErrAtTok(cat ErrorCategory, tok *udevlex.Token, msg string) *Error {
+	if tok == nil {
+		return ErrAtPos(cat, nil, 0, msg)
+	}
+	return ErrAtPos(cat, &tok.Meta.Pos, len(tok.Meta.Orig), msg)
 }
 
 func ErrLex(pos *scanner.Position, msg string) *Error {
-	return ErrAt(ErrCatLexing, pos, 1, msg)
+	return ErrAtPos(ErrCatLexing, pos, 1, msg)
 }
 
 func ErrNaming(tok *udevlex.Token, msg string) *Error {
-	return ErrAt(ErrCatNaming, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+	return ErrAtTok(ErrCatNaming, tok, msg)
 }
 
 func ErrSubst(tok *udevlex.Token, msg string) *Error {
-	return ErrAt(ErrCatSubst, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+	return ErrAtTok(ErrCatSubst, tok, msg)
+}
+
+func ErrUnreach(tok *udevlex.Token, msg string) *Error {
+	return ErrAtTok(ErrCatUnreachable, tok, msg)
 }
 
 func ErrSyn(tok *udevlex.Token, msg string) *Error {
-	return ErrAt(ErrCatParsing, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+	return ErrAtTok(ErrCatParsing, tok, msg)
 }
 
 func ErrTodo(tok *udevlex.Token, msg string) *Error {
-	return ErrAt(ErrCatTodo, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+	return ErrAtTok(ErrCatTodo, tok, msg)
 }
 
 func ErrRef(err *Error) *Error {
@@ -90,6 +143,12 @@ func ErrRef(err *Error) *Error {
 
 type Errors []*Error
 
+func (me Errors) UpdatePosOffsets(offsets IErrPosOffsets) {
+	for i := range me {
+		me[i].UpdatePosOffsets(offsets)
+	}
+}
+
 func (me *Errors) Add(errs Errors) (anyAdded bool) {
 	if anyAdded = len(errs) > 0; anyAdded {
 		*me = append(*me, errs...)
@@ -99,8 +158,13 @@ func (me *Errors) Add(errs Errors) (anyAdded bool) {
 
 func (me *Errors) AddVia(v interface{}, errs Errors) interface{} { me.Add(errs); return v }
 
-func (me *Errors) AddAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) {
-	*me = append(*me, &Error{msg: msg, pos: *pos, len: length, cat: cat})
+func (me *Errors) AddAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
+	err := &Error{msg: msg, len: length, cat: cat}
+	if pos != nil {
+		err.pos = *pos
+	}
+	*me = append(*me, err)
+	return err
 }
 
 func (me *Errors) AddLex(pos *scanner.Position, msg string) {
@@ -123,8 +187,17 @@ func (me *Errors) AddSubst(tok *udevlex.Token, msg string) {
 	me.AddFrom(ErrCatSubst, tok, msg)
 }
 
-func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) {
-	me.AddAt(cat, &tok.Meta.Position, len(tok.Meta.Orig), msg)
+func (me *Errors) AddUnreach(tok *udevlex.Token, msg string, len int) {
+	if e := me.AddFrom(ErrCatUnreachable, tok, msg); len > 1 {
+		e.len = len
+	}
+}
+
+func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) *Error {
+	if tok == nil {
+		return me.AddAt(cat, nil, 0, msg)
+	}
+	return me.AddAt(cat, &tok.Meta.Pos, len(tok.Meta.Orig), msg)
 }
 
 func (me Errors) Errors() (errs []error) {
@@ -151,15 +224,21 @@ func (me Errors) Refs() (refs Errors) {
 	return
 }
 
-func (me Errors) Len() int          { return len(me) }
+// Len implements `sort.Interface`.
+func (me Errors) Len() int { return len(me) }
+
+// Swap implements `sort.Interface`.
 func (me Errors) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+
+// Less implements `sort.Interface`.
 func (me Errors) Less(i int, j int) bool {
 	ei, ej := me[i], me[j]
-	if ei.pos.Filename == ej.pos.Filename {
-		if ei.pos.Offset == ej.pos.Offset {
+	pei, pej := ei.Pos(), ej.Pos()
+	if pei.Filename == pej.Filename {
+		if pei.Offset == pej.Offset {
 			return ei.msg < ej.msg
 		}
-		return ei.pos.Offset < ej.pos.Offset
+		return pei.Offset < pej.Offset
 	}
-	return ei.pos.Filename < ej.pos.Filename
+	return pei.Filename < pej.Filename
 }

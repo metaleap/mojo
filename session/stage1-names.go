@@ -19,25 +19,25 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringsUnorde
 		for _, kit := range me.Kits.All {
 			if kit.WasEverToBeLoaded {
 				if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 {
-					for defid, defname := range kit.state.defsGoneIdsNames {
+					for /*defid*/ _, defname := range kit.state.defsGoneIdsNames {
 						namesOfChange[defname] = atmo.Є
-						if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil {
-							defnamefacts.overloadDrop(defid)
-						}
+						// if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil {
+						// 	defnamefacts.overloadDrop(defid)
+						// }
 					}
 					for defid, defname := range kit.state.defsBornIdsNames {
 						defIdsBorn[defid] = kit
 						namesOfChange[defname] = atmo.Є
-						if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil && defnamefacts.overloadById(defid) != nil {
-							panic(defid) // tells us we have a bug in our housekeeping
-						}
+						// if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil && defnamefacts.overloadById(defid) != nil {
+						// 	panic(defid) // tells us we have a bug in our housekeeping
+						// }
 					}
 
-					kit.Errs.Stage1BadNames = kit.Errs.Stage1BadNames[0:0]
 					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn =
 						atmo.Є, nil, make(atmolang_irfun.AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
-						kit.lookups.namesInScopeOwn.Add(&kit.Errs.Stage1BadNames, tld.Name.Val, tld)
+						tld.Errs.Stage1BadNames = nil
+						kit.lookups.namesInScopeOwn.Add(tld, &tld.Errs.Stage1BadNames, tld.Name.Val, tld)
 					}
 				}
 			}
@@ -56,8 +56,10 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringsUnorde
 						return
 					})
 					if anychangesinkimps || len(kit.lookups.namesInScopeExt) == 0 {
-						if _, ok := kitrepops[kit]; !ok {
-							kit.Errs.Stage1BadNames = kit.Errs.Stage1BadNames[0:0]
+						if _, alreadymarked := kitrepops[kit]; !alreadymarked {
+							for _, tld := range kit.topLevelDefs {
+								tld.Errs.Stage1BadNames = nil
+							}
 						}
 						kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt =
 							atmo.Є, nil, make(atmolang_irfun.AnnNamesInScope, totaldefscount)
@@ -68,7 +70,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringsUnorde
 									nodes[i] = AstDefRef{KitImpPath: kimp.ImpPath,
 										AstDefTop: n.(*atmolang_irfun.AstDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
 								}
-								kit.lookups.namesInScopeExt.Add(&kit.Errs.Stage1BadNames, k, nodes...)
+								kit.lookups.namesInScopeExt.Add(nil, nil, k, nodes...)
 							}
 						}
 					}
@@ -89,9 +91,9 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringsUnorde
 			kit.lookups.namesInScopeAll[k] = append(kit.lookups.namesInScopeAll[k], v...)
 		}
 		for _, tld := range kit.topLevelDefs {
-			kit.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateAstDefsAndIdentsFor(&tld.AstDef))
+			tld.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateAstDefsAndIdentsFor(tld, &tld.AstDef))
+			errs.Add(tld.Errs.Stage1BadNames)
 		}
-		errs.Add(kit.Errs.Stage1BadNames)
 	}
 	return
 }

@@ -22,7 +22,7 @@ func (AstBuilder) ApplN(ctx *ctxAstInit, atomicCallee IAstExpr, atomicArgs ...IA
 	}
 	for i := range atomicArgs {
 		if !atomicArgs[i].IsAtomic() {
-			panic(atomicArgs[i])
+			panic(i)
 		}
 		if i == 0 {
 			appl = &AstAppl{AtomicCallee: atomicCallee, AtomicArg: atomicArgs[i]}

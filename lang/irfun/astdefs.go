@@ -39,7 +39,16 @@ func (me AstTopDefs) Len() int          { return len(me) }
 func (me AstTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me AstTopDefs) Less(i int, j int) bool {
 	dis, dat := &me[i].OrigDef.Tokens[0].Meta, &me[j].OrigDef.Tokens[0].Meta
-	return (dis.Filename == dat.Filename && dis.Offset < dat.Offset) || dis.Filename < dat.Filename
+	return (dis.Pos.Filename == dat.Pos.Filename && me[i].OrigTopLevelChunk.PosOffsetByte() < me[j].OrigTopLevelChunk.PosOffsetByte()) || dis.Pos.Filename < dat.Pos.Filename
+}
+
+func (me AstTopDefs) ByName(name string) (defs []*AstDefTop) {
+	for _, tld := range me {
+		if tld.Name.Val == name {
+			defs = append(defs, tld)
+		}
+	}
+	return
 }
 
 func (me AstTopDefs) IndexByID(id string) int {
@@ -52,7 +61,7 @@ func (me AstTopDefs) IndexByID(id string) int {
 }
 
 func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs []error) {
-	this, newdefs, oldunchangeds := *me, make([]*atmolang.AstFileTopLevelChunk, 0, 2), make(map[int]atmo.Exist, len(*me))
+	this, newdefs, oldunchangeds := *me, make([]*atmolang.SrcTopChunk, 0, 2), make(map[int]atmo.Exist, len(*me))
 
 	// gather what's "new" (newly added or source-wise modified) and what's "old" (source-wise unchanged)
 	for i := range kitSrcFiles {
@@ -97,14 +106,13 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 			var let AstExprLetBase
 			var ctxastinit ctxAstInit
 			let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevelDef = ctxastinit.nextPrefix(), &let.Defs, def
-			def.Errs.Add(def.initFrom(&ctxastinit, def.OrigDef))
+			def.Errs.Stage0Init.Add(def.initFrom(&ctxastinit, def.OrigDef))
 			if len(let.Defs) > 0 {
-				def.Errs.Add(ctxastinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let))
+				def.Errs.Stage0Init.Add(ctxastinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let))
 			}
-			if len(def.Errs) > 0 {
-				freshErrs = append(freshErrs, def.Errs.Errors()...)
+			if len(def.Errs.Stage0Init) > 0 {
+				freshErrs = append(freshErrs, def.Errs.Stage0Init.Errors()...)
 			}
-			atmo.SortMaybe(def.Errs)
 		}
 	}
 	atmo.SortMaybe(this)

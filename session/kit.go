@@ -21,7 +21,6 @@ type Kit struct {
 	Imports           []string
 
 	topLevelDefs atmolang_irfun.AstTopDefs
-	defsFacts    map[string]*defNameFacts
 	SrcFiles     atmolang.AstFiles
 	state        struct {
 		defsGoneIdsNames map[string]string
@@ -37,12 +36,11 @@ type Kit struct {
 	Errs struct {
 		Stage0DirAccessDuringRefresh error
 		Stage0BadImports             []error
-		Stage1BadNames               atmo.Errors
 	}
 }
 
 func (me *Ctx) kitEnsureLoaded(kit *Kit, thenReprocessAffectedDefsIfAnyKitsReloaded bool) {
-	me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, !kit.WasEverToBeLoaded)
+	me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
 	if thenReprocessAffectedDefsIfAnyKitsReloaded {
 		me.reprocessAffectedDefsIfAnyKitsReloaded()
 	}
@@ -52,7 +50,7 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	me.kitEnsureLoaded(kit, true)
 }
 
-func (me *Ctx) KitsEnsureLoadedAstsOnly(plusSessDirFauxKits bool, kitImpPaths ...string) (lenKitImpPaths int) {
+func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
 	me.maybeInitPanic(false)
 	if plusSessDirFauxKits {
 		for _, dirsess := range me.Dirs.fauxKits {
@@ -61,24 +59,16 @@ func (me *Ctx) KitsEnsureLoadedAstsOnly(plusSessDirFauxKits bool, kitImpPaths ..
 			}
 		}
 	}
+
 	if len(kitImpPaths) > 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
-				me.kitRefreshFilesAndMaybeReload(kit, !me.state.fileModsWatch.collectingFileModsAutomaticallyPeriodically, !kit.WasEverToBeLoaded)
+				me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
 			}
 		}
 	}
-	return len(kitImpPaths)
-}
 
-func (me *Ctx) KitsEnsureLoadedFully(plusSessDirFauxKits bool, kitImpPaths ...string) {
-	if me.KitsEnsureLoadedAstsOnly(plusSessDirFauxKits, kitImpPaths...) > 0 {
-		me.reprocessAffectedDefsIfAnyKitsReloaded()
-	}
-}
-
-func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts {
-	return ValFacts{valFacts: me.substantiateKitTopLevelDefFacts(kit, def.Id, false).valFacts}
+	me.reprocessAffectedDefsIfAnyKitsReloaded()
 }
 
 func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) {
@@ -104,9 +94,11 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit {
 	return nil
 }
 
-func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, forceReload bool) {
+func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) {
 	var fresherrs []error
-	if forceFilesCheck {
+	var srcfileschanged bool
+
+	{ // step 1: files refresh
 		var diritems []os.FileInfo
 		if diritems, kit.Errs.Stage0DirAccessDuringRefresh = ufs.Dir(kit.DirPath); kit.Errs.Stage0DirAccessDuringRefresh != nil {
 			kit.SrcFiles, kit.topLevelDefs, fresherrs = nil, nil, append(fresherrs, kit.Errs.Stage0DirAccessDuringRefresh)
@@ -117,7 +109,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		for i := 0; i < len(kit.SrcFiles); i++ {
 			if kit.SrcFiles[i].SrcFilePath != "" && !ufs.IsFile(kit.SrcFiles[i].SrcFilePath) {
 				kit.SrcFiles.RemoveAt(i)
-				i--
+				i, srcfileschanged = i-1, true
 			}
 		}
 
@@ -125,77 +117,95 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, forceFilesCheck bool, for
 		for _, file := range diritems {
 			if (!file.IsDir()) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
 				if fp := filepath.Join(kit.DirPath, file.Name()); kit.SrcFiles.Index(fp) < 0 {
-					kit.SrcFiles = append(kit.SrcFiles, &atmolang.AstFile{SrcFilePath: fp})
+					srcfileschanged, kit.SrcFiles = true, append(kit.SrcFiles, &atmolang.AstFile{SrcFilePath: fp})
 				}
 			}
 		}
-		atmo.SortMaybe(kit.SrcFiles)
+		if srcfileschanged {
+			atmo.SortMaybe(kit.SrcFiles)
+		}
 	}
-	if kit.WasEverToBeLoaded || forceReload || me.Kits.AlwaysEnsureLoadedAsSoonAsDiscovered {
-		kit.WasEverToBeLoaded, kit.Errs.Stage0BadImports, kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID =
-			true, nil, nil, nil
 
-		for _, sf := range kit.SrcFiles {
-			fresherrs = append(fresherrs, sf.LexAndParseFile(true, false)...)
-		}
+	{ // step 2: maybe (re)load
+		if kit.WasEverToBeLoaded || reloadForceInsteadOfAuto {
+			kit.WasEverToBeLoaded, kit.Errs.Stage0BadImports =
+				true, nil
 
-		for _, imp := range kit.Imports {
-			if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
-				kit.Errs.Stage0BadImports = append(kit.Errs.Stage0BadImports, errors.New("import not found: `"+imp+"`"))
-			} else {
-				me.kitEnsureLoaded(kimp, false)
+			allunchanged := !srcfileschanged
+			for _, sf := range kit.SrcFiles {
+				var nochanges bool
+				fresherrs = append(fresherrs, sf.LexAndParseFile(true, false, &nochanges)...)
+				allunchanged = allunchanged && nochanges
 			}
-		}
-		if len(kit.Errs.Stage0BadImports) > 0 {
-			fresherrs = append(fresherrs, kit.Errs.Stage0BadImports...)
-		}
 
-		{
-			od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
-			kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, fresherrs = od, nd, append(fresherrs, fe...)
-			if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
-				me.state.kitsReprocessing.needed = true
+			for _, imp := range kit.Imports {
+				if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
+					kit.Errs.Stage0BadImports = append(kit.Errs.Stage0BadImports, errors.New("import not found: `"+imp+"`"))
+				} else {
+					me.kitEnsureLoaded(kimp, false)
+				}
 			}
-		}
-		kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevelDefs))
-		for _, tldef := range kit.topLevelDefs {
-			kit.lookups.tlDefsByID[tldef.Id] = tldef
-			if n, ok := kit.lookups.tlDefIDsByName[tldef.Name.Val]; !ok {
-				kit.lookups.tlDefIDsByName[tldef.Name.Val] = []string{tldef.Id}
-			} else {
-				kit.lookups.tlDefIDsByName[tldef.Name.Val] = append(n, tldef.Id)
+			if len(kit.Errs.Stage0BadImports) > 0 {
+				fresherrs = append(fresherrs, kit.Errs.Stage0BadImports...)
+			}
+
+			if allunchanged && !reloadForceInsteadOfAuto {
+				goto end
+			}
+			{
+				od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
+				kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, fresherrs = od, nd, append(fresherrs, fe...)
+				if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
+					me.Kits.reprocessingNeeded = true
+				}
+			}
+			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevelDefs))
+			for _, tldef := range kit.topLevelDefs {
+				kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Name.Val] =
+					tldef, append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.Id)
 			}
 		}
 	}
 end:
+	kit.ensureErrTldPosOffsets()
 	me.onErrs(nil, fresherrs)
+}
+
+func (me *Kit) ensureErrTldPosOffsets() {
+	for _, srcfile := range me.SrcFiles {
+		for i := range srcfile.TopLevel {
+			tlc := &srcfile.TopLevel[i]
+			tlc.Errs().UpdatePosOffsets(tlc)
+		}
+	}
+	for _, tld := range me.topLevelDefs {
+		tld.Errs.Stage0Init.UpdatePosOffsets(tld.OrigTopLevelChunk)
+		tld.Errs.Stage1BadNames.UpdatePosOffsets(tld.OrigTopLevelChunk)
+	}
 }
 
 // Errors collects whatever issues exist in any of the `Kit`'s source files
 // (file-system errors, lexing/parsing errors, semantic errors etc).
-func (me *Kit) Errors() (errs []error) {
+func (me *Kit) Errors(maybeErrsToSrcs map[error][]byte) (errs []error) {
 	if me.Errs.Stage0DirAccessDuringRefresh != nil {
 		errs = append(errs, me.Errs.Stage0DirAccessDuringRefresh)
 	}
 	errs = append(errs, me.Errs.Stage0BadImports...)
 	for i := range me.SrcFiles {
 		for _, e := range me.SrcFiles[i].Errors() {
-			errs = append(errs, e)
+			if errs = append(errs, e); maybeErrsToSrcs != nil {
+				maybeErrsToSrcs[e] = me.SrcFiles[i].LastLoad.Src
+			}
 		}
 	}
 	for i := range me.topLevelDefs {
-		errs = append(errs, me.topLevelDefs[i].Errs.Errors()...)
-	}
-	errs = append(errs, me.Errs.Stage1BadNames.Errors()...)
-	for _, dins := range me.defsFacts {
-		for _, dol := range dins.overloads {
-			dolerrs := dol.Errs()
-			for _, e := range dolerrs {
-				if !e.IsRef() {
-					errs = append(errs, e)
-				}
+		deferrs := append(me.topLevelDefs[i].Errs.Stage0Init.Errors(), me.topLevelDefs[i].Errs.Stage1BadNames.Errors()...)
+		if maybeErrsToSrcs != nil {
+			for _, e := range deferrs {
+				maybeErrsToSrcs[e] = me.topLevelDefs[i].OrigTopLevelChunk.SrcFile.LastLoad.Src
 			}
 		}
+		errs = append(errs, deferrs...)
 	}
 	return
 }
@@ -223,7 +233,7 @@ func (me *Kit) Defs(name string) (defs atmolang_irfun.AstTopDefs) {
 	return
 }
 
-func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.AstFileTopLevelChunk, theNodeAndItsAncestors []atmolang.IAstNode) {
+func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.SrcTopChunk, theNodeAndItsAncestors []atmolang.IAstNode) {
 	if srcfile := me.SrcFiles.ByFilePath(srcFilePath); srcfile != nil {
 		if topLevelChunk = srcfile.TopLevelChunkAt(pos0ByteOffset); topLevelChunk != nil {
 			theNodeAndItsAncestors = topLevelChunk.At(pos0ByteOffset)
@@ -232,9 +242,9 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 	return
 }
 
-func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (theNodeAndItsAncestors []atmolang_irfun.IAstNode) {
-	if astdeftop := me.lookups.tlDefsByID[defId]; astdeftop != nil {
-		theNodeAndItsAncestors = astdeftop.Find(origNode)
+func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (astDefTop *atmolang_irfun.AstDefTop, theNodeAndItsAncestors []atmolang_irfun.IAstNode) {
+	if astDefTop = me.lookups.tlDefsByID[defId]; astDefTop != nil {
+		theNodeAndItsAncestors = astDefTop.FindByOrig(origNode)
 	}
 	return
 }

@@ -5,12 +5,6 @@
 
 ## Usage
 
-```go
-var KitsWatchInterval time.Duration
-```
-KitsWatchInterval is the default file-watching interval that is picked up by
-each `Ctx.Init` call and then used throughout the `Ctx`'s life time.
-
 #### func  CtxDefaultCacheDirPath
 
 ```go
@@ -40,11 +34,7 @@ type Ctx struct {
 		Kits  []string
 	}
 	Kits struct {
-		All                                  Kits
-		AlwaysEnsureLoadedAsSoonAsDiscovered bool
-		RecurringBackgroundWatch             struct {
-			ShouldNow func() bool
-		}
+		All Kits
 	}
 }
 ```
@@ -63,18 +53,11 @@ func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg)
 func (me *Ctx) BackgroundMessagesCount() (count int)
 ```
 
-#### func (*Ctx) CatchUp
+#### func (*Ctx) CatchUpOnFileMods
 
 ```go
-func (me *Ctx) CatchUp(checkForFileModsNow bool)
+func (me *Ctx) CatchUpOnFileMods()
 ```
-
-#### func (*Ctx) Dispose
-
-```go
-func (me *Ctx) Dispose()
-```
-Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
 
 #### func (*Ctx) Eval
 
@@ -91,7 +74,7 @@ func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error)
 #### func (*Ctx) FauxKitsHas
 
 ```go
-func (me *Ctx) FauxKitsHas(dirPath string) (isSessionDirFauxKit bool)
+func (me *Ctx) FauxKitsHas(dirPath string) bool
 ```
 
 #### func (*Ctx) Init
@@ -115,12 +98,6 @@ func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit)
 func (me *Ctx) KitByImpPath(impPath string) *Kit
 ```
 
-#### func (*Ctx) KitDefFacts
-
-```go
-func (me *Ctx) KitDefFacts(kit *Kit, def *atmolang_irfun.AstDefTop) ValFacts
-```
-
 #### func (*Ctx) KitEnsureLoaded
 
 ```go
@@ -139,16 +116,10 @@ func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.S
 func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstExpr
 ```
 
-#### func (*Ctx) KitsEnsureLoadedAstsOnly
+#### func (*Ctx) KitsEnsureLoaded
 
 ```go
-func (me *Ctx) KitsEnsureLoadedAstsOnly(plusSessDirFauxKits bool, kitImpPaths ...string) (lenKitImpPaths int)
-```
-
-#### func (*Ctx) KitsEnsureLoadedFully
-
-```go
-func (me *Ctx) KitsEnsureLoadedFully(plusSessDirFauxKits bool, kitImpPaths ...string)
+func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 ```
 
 #### func (*Ctx) KitsReloadModifiedsUnlessAlreadyWatching
@@ -156,9 +127,6 @@ func (me *Ctx) KitsEnsureLoadedFully(plusSessDirFauxKits bool, kitImpPaths ...st
 ```go
 func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching()
 ```
-KitsReloadModifiedsUnlessAlreadyWatching returns -1 if file-watching is enabled,
-otherwise it scans all currently-known kits-dirs for modifications and refreshes
-the `Ctx`'s internal represenation of `Kits` if any were noted.
 
 #### func (*Ctx) KnownKitImpPaths
 
@@ -190,16 +158,6 @@ type CtxBgMsg struct {
 ```
 
 
-#### type IValFact
-
-```go
-type IValFact interface {
-	Errs() atmo.Errors
-	String() string
-}
-```
-
-
 #### type Kit
 
 ```go
@@ -214,7 +172,6 @@ type Kit struct {
 	Errs struct {
 		Stage0DirAccessDuringRefresh error
 		Stage0BadImports             []error
-		Stage1BadNames               atmo.Errors
 	}
 }
 ```
@@ -225,13 +182,13 @@ interpreted or compiled all together as a unit.
 #### func (*Kit) AstNodeAt
 
 ```go
-func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.AstFileTopLevelChunk, theNodeAndItsAncestors []atmolang.IAstNode)
+func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.SrcTopChunk, theNodeAndItsAncestors []atmolang.IAstNode)
 ```
 
 #### func (*Kit) AstNodeIrFunFor
 
 ```go
-func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (theNodeAndItsAncestors []atmolang_irfun.IAstNode)
+func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (astDefTop *atmolang_irfun.AstDefTop, theNodeAndItsAncestors []atmolang_irfun.IAstNode)
 ```
 
 #### func (*Kit) Defs
@@ -243,7 +200,7 @@ func (me *Kit) Defs(name string) (defs atmolang_irfun.AstTopDefs)
 #### func (*Kit) Errors
 
 ```go
-func (me *Kit) Errors() (errs []error)
+func (me *Kit) Errors(maybeErrsToSrcs map[error][]byte) (errs []error)
 ```
 Errors collects whatever issues exist in any of the `Kit`'s source files
 (file-system errors, lexing/parsing errors, semantic errors etc).
@@ -301,6 +258,12 @@ func (me Kits) Less(i int, j int) bool
 ```
 Less implements Go's standard `sort.Interface`.
 
+#### func (Kits) SrcFilePaths
+
+```go
+func (me Kits) SrcFilePaths() (srcFilePaths []string)
+```
+
 #### func (Kits) Swap
 
 ```go
@@ -312,24 +275,4 @@ Swap implements Go's standard `sort.Interface`.
 
 ```go
 func (me Kits) Where(check func(*Kit) bool) (kits Kits)
-```
-
-#### type ValFacts
-
-```go
-type ValFacts struct {
-}
-```
-
-
-#### func (*ValFacts) Errs
-
-```go
-func (me *ValFacts) Errs() atmo.Errors
-```
-
-#### func (ValFacts) String
-
-```go
-func (me ValFacts) String() string
 ```

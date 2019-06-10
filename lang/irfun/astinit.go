@@ -22,13 +22,13 @@ func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Er
 func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	tok := me.OrigDef.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
 	if tok == nil {
-		tok = me.OrigToks().First(nil)
+		tok = me.origToks().First(nil)
 	}
 	var ident IAstExpr
 	ident, errs = ctx.newAstExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*AstIdentName); name == nil && tok != nil {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or Undef or placeholder etc..
-	} else if me.Name = name.AstIdentBase; name.Val == "" && tok != nil {
+	} else if me.Name.AstIdentBase = name.AstIdentBase; name.Val == "" && tok != nil {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 	}
 	if me.OrigDef.NameAffix != nil {
@@ -57,7 +57,7 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 				coerceorig := coerce.astExprBase().Orig
 				newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}), coerceorig, true)
 				newbody = appl(B.ApplN(ctx, opeq, &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}, newbody), coerceorig, true)
-				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, me.Body, B.IdentName(atmo.KnownIdentUndef)), coerceorig, false)
+				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, ctx.ensureAstAtomFor(me.Body), B.IdentName(atmo.KnownIdentUndef)), coerceorig, false)
 			}
 		}
 		if coerce := ctx.coerceCallables[me]; coerce != nil {

@@ -12,7 +12,7 @@ import (
 // formatters it'll be best to embed this and then override specifics.
 type IPrintFmt interface {
 	SetCtxPrint(*CtxPrint)
-	OnTopLevelChunk(*AstFileTopLevelChunk, *AstTopLevel)
+	OnTopLevelChunk(*SrcTopChunk, *AstTopLevel)
 	OnDef(*AstTopLevel, *AstDef)
 	OnDefName(*AstDef, *AstIdent)
 	OnDefArg(*AstDef, int, *AstDefArg)
@@ -99,7 +99,7 @@ func (me *AstFile) Print(fmt IPrintFmt) []byte {
 	return pctx.BytesWriter.Data
 }
 
-func (me *AstFileTopLevelChunk) Print(p *CtxPrint) {
+func (me *SrcTopChunk) Print(p *CtxPrint) {
 	if p.CurIndentLevel, p.CurTopLevel = 0, me.Ast.Def.Orig; !p.fmtCtxSet {
 		p.fmtCtxSet = true
 		p.Fmt.SetCtxPrint(p)
@@ -277,7 +277,7 @@ type PrintFmtMinimal struct{ *CtxPrint }
 type PrintFmtPretty struct{ PrintFmtMinimal }
 
 func (me *PrintFmtMinimal) SetCtxPrint(ctxPrint *CtxPrint) { me.CtxPrint = ctxPrint }
-func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
+func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *SrcTopChunk, node *AstTopLevel) {
 	if isntfirst := (tlc != &tlc.SrcFile.TopLevel[0]); isntfirst {
 		me.WriteByte('\n')
 	}
@@ -362,7 +362,7 @@ func (me *PrintFmtMinimal) PrintInParensIf(node IAstNode, ifCases bool, ifNotAto
 	}
 }
 
-func (me *PrintFmtPretty) OnTopLevelChunk(tlc *AstFileTopLevelChunk, node *AstTopLevel) {
+func (me *PrintFmtPretty) OnTopLevelChunk(tlc *SrcTopChunk, node *AstTopLevel) {
 	me.WriteByte('\n')
 	me.Print(node)
 	me.WriteString("\n\n")

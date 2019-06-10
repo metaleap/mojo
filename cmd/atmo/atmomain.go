@@ -15,7 +15,7 @@ var (
 )
 
 func main() {
-	ustd.FlagsAddShortNames, ustd.FlagsOnErr = true, func(_ string, _ string, e error) { panic(e) }
+	ustd.Flags.AddShortNames, ustd.Flags.OnErr = true, func(_ string, _ string, e error) { panic(e) }
 	replDirSession = ustd.FlagOfString("repl-dir-session", replDirSession,
 		"    format: text (a dir path)\n    treats the given dir as a (\"faux\") kit even if not in a kits-dir search path")
 	replDirCache = ustd.FlagOfString("repl-dir-cache", replDirCache,
@@ -52,7 +52,7 @@ func main() {
 			"  atmo version", "")
 	}
 
-	if f := ustd.Flags; showinfoargs {
+	if f := ustd.Flags.Known; showinfoargs {
 		writeLns("", "Optional flags:", "")
 		for i := range f {
 			if f[i].Desc != "" {

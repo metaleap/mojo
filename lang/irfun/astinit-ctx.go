@@ -42,7 +42,7 @@ func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr
 		var ident AstIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 	} else if t1 != t2 {
-		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + ustr.If(len(orig.Tokens) == 0, "<dyn>", orig.Tokens[0].Meta.Position.String()) + ")")
+		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + ustr.If(len(orig.Tokens) == 0, "<dyn>", orig.Tokens[0].Meta.Pos.String()) + ")")
 
 	} else if orig.IsPlaceholder() {
 		var ident AstIdentVar // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
@@ -132,7 +132,7 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 		}
 	default:
 		if tok := origin.Toks().First(nil); tok != nil {
-			panic(tok.Meta.Position.String())
+			panic(tok.Meta.Pos.String())
 		}
 		panic(origdes)
 	}
@@ -153,7 +153,13 @@ func (me *ctxAstInit) nextPrefix() string {
 func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, let *AstExprLetBase) (errs atmo.Errors) {
 	if dst := letBody.Let(); dst == nil {
 		tok := origBody.Toks().First(nil)
-		errs.AddSyn(tok, "cannot declare local defs for `"+tok.Meta.Orig+"`")
+		tokd, tokl := tok, 0
+		if let.letOrig != nil && len(let.letOrig.Defs) > 0 {
+			tokd = let.letOrig.Defs[0].Tokens.First(nil)
+			toklast := let.letOrig.Defs[len(let.letOrig.Defs)-1].Tokens.Last(nil)
+			tokl = (toklast.Meta.Pos.Offset + len(toklast.Meta.Orig)) - tokd.Meta.Pos.Offset
+		}
+		errs.AddUnreach(tokd, "can never be used: "+ustr.Plu(len(let.Defs), "local def")+" scoped only for `"+tok.Meta.Orig+"`", tokl)
 	} else {
 		if dst.letPrefix == "" {
 			dst.letPrefix = me.nextPrefix()
@@ -169,7 +175,7 @@ func (me *ctxAstInit) addLocalDefToOwnScope(name string, body IAstExpr) *AstIden
 	var ident AstIdentName
 	oldscope := me.defsScope
 	me.defsScope = &ident.Defs
-	ident.AstIdentBase = me.addLocalDefToScope(name, body).Name
+	ident.AstIdentBase = me.addLocalDefToScope(name, body).Name.AstIdentBase
 	me.defsScope = oldscope
 	return &ident
 }

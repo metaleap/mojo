@@ -72,7 +72,7 @@ func (me *Repl) decoInputDoneBut(altStyle bool, showMsgsIfAny bool, caretPos int
 	}
 	me.IO.writeLns(ustr.If(altStyle, "╚", "└") + sepline)
 	me.uxMore(true)
-	if me.Ctx.CatchUp(true); showMsgsIfAny {
+	if me.Ctx.CatchUpOnFileMods(); showMsgsIfAny {
 		me.decoCtxMsgsIfAny(false)
 	}
 }

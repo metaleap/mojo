@@ -51,7 +51,7 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 		me.decoWelcomeMsgAnim()
 	}
 
-	me.Ctx.KitsEnsureLoadedFully(loadSessDirFauxKit, append([]string{ /*atmo.NameAutoKit*/ },
+	me.Ctx.KitsEnsureLoaded(loadSessDirFauxKit, append([]string{ /*atmo.NameAutoKit*/ },
 		ustr.Sans(loadKitsByImpPaths, atmo.NameAutoKit)...)...)
 
 	me.decoInputStart(false, false)

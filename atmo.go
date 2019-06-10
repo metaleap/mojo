@@ -49,7 +49,7 @@ var (
 )
 
 func SortMaybe(s sort.Interface) {
-	if Options.Sorts {
+	if Options.Sorts && s != nil {
 		sort.Sort(s)
 	}
 }

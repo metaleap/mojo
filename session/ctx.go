@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/go-leap/fs"
@@ -23,30 +22,19 @@ type CtxBgMsg struct {
 // Ctx fields must never be written to from the outside after the `Ctx.Init` call.
 type Ctx struct {
 	Dirs struct {
-		fauxKitsMutex sync.Mutex
-		fauxKits      []string
-		Cache         string
-		Kits          []string
+		fauxKits []string
+		Cache    string
+		Kits     []string
 	}
 	Kits struct {
-		All                                  Kits
-		AlwaysEnsureLoadedAsSoonAsDiscovered bool
-		RecurringBackgroundWatch             struct {
-			ShouldNow func() bool
-		}
+		All                Kits
+		reprocessingNeeded bool
 	}
 	state struct {
-		cleanUps      []func()
 		bgMsgs        []CtxBgMsg
 		fileModsWatch struct {
-			latestMutex                                 sync.Mutex
-			latest                                      []map[string]os.FileInfo
-			manuallyCollectFileModsForNextCatchup       func([]string, []string) int
-			collectingFileModsAutomaticallyPeriodically bool
-			emitMsgsIfManual                            bool
-		}
-		kitsReprocessing struct {
-			needed bool
+			latest                        []map[string]os.FileInfo
+			collectFileModsForNextCatchup func([]string, []string) int
 		}
 		initCalled bool
 	}
@@ -127,7 +115,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		}
 		if err == nil {
 			if me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
-				_, err = me.fauxKitsAddDir(true, sessionFauxKitDir, true)
+				_, err = me.fauxKitsAddDir(sessionFauxKitDir, true)
 			}
 		}
 		if err == nil {
@@ -141,19 +129,17 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 }
 
 func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error) {
-	me.Dirs.fauxKitsMutex.Lock()
 	was := ustr.In(dirPath, me.Dirs.fauxKits...)
 	if is = was; !is {
-		is, err = me.fauxKitsAddDir(true, dirPath, false)
+		is, err = me.fauxKitsAddDir(dirPath, false)
 	}
-	me.Dirs.fauxKitsMutex.Unlock()
 	if is && !was {
-		me.catchUpOnFileMods(true, nil)
+		me.catchUpOnFileMods(nil)
 	}
 	return
 }
 
-func (me *Ctx) fauxKitsAddDir(alreadyLocked bool, dirPath string, forceAcceptEvenIfNoSrcFiles bool) (dirHasSrcFiles bool, err error) {
+func (me *Ctx) fauxKitsAddDir(dirPath string, forceAcceptEvenIfNoSrcFiles bool) (dirHasSrcFiles bool, err error) {
 	if dirPath == "" || dirPath == "." {
 		dirPath, err = os.Getwd()
 	} else if dirPath[0] == '~' {
@@ -177,39 +163,19 @@ func (me *Ctx) fauxKitsAddDir(alreadyLocked bool, dirPath string, forceAcceptEve
 					break
 				}
 			}
-			if !alreadyLocked {
-				me.Dirs.fauxKitsMutex.Lock()
-			}
 			if !in {
 				in = ustr.In(dirPath, me.Dirs.fauxKits...)
 			}
 			if !in {
 				me.Dirs.fauxKits = append(me.Dirs.fauxKits, dirPath)
 			}
-			if !alreadyLocked {
-				me.Dirs.fauxKitsMutex.Unlock()
-			}
 		}
 	}
 	return
 }
 
-func (me *Ctx) FauxKitsHas(dirPath string) (isSessionDirFauxKit bool) {
-	me.Dirs.fauxKitsMutex.Lock()
-	isSessionDirFauxKit = ustr.In(dirPath, me.Dirs.fauxKits...)
-	me.Dirs.fauxKitsMutex.Unlock()
-	return
-}
-
-// Dispose is called when done with the `Ctx`. There may be tickers to halt, etc.
-func (me *Ctx) Dispose() {
-	me.maybeInitPanic(false)
-	for _, cleanup := range me.state.cleanUps {
-		if cleanup != nil {
-			cleanup()
-		}
-	}
-	me.state.cleanUps = nil
+func (me *Ctx) FauxKitsHas(dirPath string) bool {
+	return ustr.In(dirPath, me.Dirs.fauxKits...)
 }
 
 func (me *Ctx) bgMsg(issue bool, lines ...string) {
@@ -232,6 +198,7 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 }
 
 func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
+	atmo.SortMaybe(errors)
 	for i := range errors {
 		me.bgMsg(true, errors[i].Error())
 	}
@@ -240,21 +207,15 @@ func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
 	}
 }
 
-func (me *Ctx) CatchUp(checkForFileModsNow bool) {
-	me.catchUpOnFileMods(checkForFileModsNow, nil)
+func (me *Ctx) CatchUpOnFileMods() {
+	me.catchUpOnFileMods(nil)
 }
 
-func (me *Ctx) catchUpOnFileMods(checkForFileModsNow bool, ensureFilesMarkedAsChanged atmolang.AstFiles) {
-	me.Dirs.fauxKitsMutex.Lock()
-	fauxkitdirpaths := me.Dirs.fauxKits
-	me.Dirs.fauxKitsMutex.Unlock()
-	if checkForFileModsNow {
-		me.state.fileModsWatch.manuallyCollectFileModsForNextCatchup(me.Dirs.Kits, fauxkitdirpaths)
-	}
+func (me *Ctx) catchUpOnFileMods(ensureFilesMarkedAsChanged atmolang.AstFiles) {
+	me.state.fileModsWatch.collectFileModsForNextCatchup(me.Dirs.Kits, me.Dirs.fauxKits)
+
 	var latest []map[string]os.FileInfo
-	me.state.fileModsWatch.latestMutex.Lock()
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
-	me.state.fileModsWatch.latestMutex.Unlock()
 	if len(ensureFilesMarkedAsChanged) > 0 {
 		extra := make(map[string]os.FileInfo, len(ensureFilesMarkedAsChanged))
 		for _, srcfile := range ensureFilesMarkedAsChanged {
@@ -274,7 +235,10 @@ func (me *Ctx) catchUpOnFileMods(checkForFileModsNow bool, ensureFilesMarkedAsCh
 			latest = append(latest, extra)
 		}
 	}
-	me.fileModsHandle(me.Dirs.Kits, fauxkitdirpaths, latest)
+	if len(latest) > 0 {
+		me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest)
+	}
+	me.Kits.All.ensureErrTldPosOffsets()
 }
 
 func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (recoveredPanic interface{}) {
@@ -293,7 +257,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 			for _, srcfile := range srcfiles {
 				srcfile.Options.TmpAltSrc = nil
 			}
-			me.catchUpOnFileMods(true, srcfiles)
+			me.catchUpOnFileMods(srcfiles)
 		}
 		defer restoreFinally()
 
@@ -304,7 +268,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 				}
 			}
 		}
-		me.catchUpOnFileMods(true, srcfiles)
+		me.catchUpOnFileMods(srcfiles)
 	}
 	do()
 	return
