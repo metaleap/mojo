@@ -6,8 +6,8 @@ import (
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/il"
 	"github.com/metaleap/atmo/lang"
-	"github.com/metaleap/atmo/lang/irfun"
 	"github.com/metaleap/atmo/session"
 )
 
@@ -206,7 +206,7 @@ func (me *Repl) dInfoKit(whatKit string) {
 }
 
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
-	me.withKitDefs(whatKit, whatName, "info", func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
+	me.withKitDefs(whatKit, whatName, "info", func(kit *atmosess.Kit, def *atmoil.AstDefTop) {
 		me.IO.writeLns("TODO")
 	})
 }
@@ -216,7 +216,7 @@ func (me *Repl) DSrcs(what string) bool {
 		ctxp := atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
 			ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
-		me.withKitDefs(whatkit, whatname, "srcs", func(kit *atmosess.Kit, def *atmolang_irfun.AstDefTop) {
+		me.withKitDefs(whatkit, whatname, "srcs", func(kit *atmosess.Kit, def *atmoil.AstDefTop) {
 			me.decoAddNotice(false, "", true, def.OrigTopLevelChunk.SrcFile.SrcFilePath)
 			ctxp.ApplStyle = def.OrigTopLevelChunk.SrcFile.Options.ApplStyle
 			def.OrigTopLevelChunk.Print(&ctxp)
@@ -238,7 +238,7 @@ func (me *Repl) DSrcs(what string) bool {
 	return false
 }
 
-func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*atmosess.Kit, *atmolang_irfun.AstDefTop)) {
+func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*atmosess.Kit, *atmoil.AstDefTop)) {
 	kits := me.Ctx.Kits.All
 	var kit *atmosess.Kit
 	if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {

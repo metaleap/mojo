@@ -3,38 +3,33 @@ package atmosess
 import (
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/lang/irfun"
+	"github.com/metaleap/atmo/il"
 )
 
 type AstDefRef struct {
-	*atmolang_irfun.AstDefTop
+	*atmoil.AstDefTop
 	KitImpPath string
 }
 
-func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringsUnorderedButUnique, defIdsBorn map[string]*Kit, errs atmo.Errors) {
+func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs atmo.Errors) {
 	kitrepops := make(map[*Kit]atmo.Exist, len(me.Kits.All))
-	defIdsBorn, namesOfChange = make(map[string]*Kit, 2), make(atmo.StringsUnorderedButUnique, 4)
+	defIdsBorn, namesOfChange = make(map[string]*Kit, 2), make(atmo.StringKeys, 4)
 
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.All {
 			if kit.WasEverToBeLoaded {
 				if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 {
-					for /*defid*/ _, defname := range kit.state.defsGoneIdsNames {
+					for defid, defname := range kit.state.defsGoneIdsNames {
+						defIdsGone[defid] = kit
 						namesOfChange[defname] = atmo.Є
-						// if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil {
-						// 	defnamefacts.overloadDrop(defid)
-						// }
 					}
 					for defid, defname := range kit.state.defsBornIdsNames {
 						defIdsBorn[defid] = kit
 						namesOfChange[defname] = atmo.Є
-						// if defnamefacts := kit.defsFacts[defname]; defnamefacts != nil && defnamefacts.overloadById(defid) != nil {
-						// 	panic(defid) // tells us we have a bug in our housekeeping
-						// }
 					}
 
 					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn =
-						atmo.Є, nil, make(atmolang_irfun.AnnNamesInScope, len(kit.topLevelDefs))
+						atmo.Є, nil, make(atmoil.AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
 						tld.Errs.Stage1BadNames = nil
 						kit.lookups.namesInScopeOwn.Add(tld, &tld.Errs.Stage1BadNames, tld.Name.Val, tld)
@@ -62,13 +57,13 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringsUnorde
 							}
 						}
 						kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt =
-							atmo.Є, nil, make(atmolang_irfun.AnnNamesInScope, totaldefscount)
+							atmo.Є, nil, make(atmoil.AnnNamesInScope, totaldefscount)
 						for _, kimp := range kimps {
 							for k, v := range kimp.lookups.namesInScopeOwn {
-								nodes := make([]atmolang_irfun.IAstNode, len(v))
+								nodes := make([]atmoil.IAstNode, len(v))
 								for i, n := range v {
 									nodes[i] = AstDefRef{KitImpPath: kimp.ImpPath,
-										AstDefTop: n.(*atmolang_irfun.AstDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
+										AstDefTop: n.(*atmoil.AstDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
 								}
 								kit.lookups.namesInScopeExt.Add(nil, nil, k, nodes...)
 							}
@@ -81,9 +76,9 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringsUnorde
 
 	for kit := range kitrepops {
 		kit.state.defsBornIdsNames, kit.state.defsGoneIdsNames = nil, nil
-		kit.lookups.namesInScopeAll = make(atmolang_irfun.AnnNamesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
+		kit.lookups.namesInScopeAll = make(atmoil.AnnNamesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
 		for k, v := range kit.lookups.namesInScopeOwn {
-			nodes := make([]atmolang_irfun.IAstNode, len(v))
+			nodes := make([]atmoil.IAstNode, len(v))
 			copy(nodes, v)
 			kit.lookups.namesInScopeAll[k] = nodes
 		}

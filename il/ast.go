@@ -1,4 +1,4 @@
-package atmolang_irfun
+package atmoil
 
 import (
 	"github.com/go-leap/dev/lex"

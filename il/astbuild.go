@@ -1,4 +1,4 @@
-package atmolang_irfun
+package atmoil
 
 var (
 	B AstBuilder

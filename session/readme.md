@@ -19,7 +19,7 @@ home directory.
 
 ```go
 type AstDefRef struct {
-	*atmolang_irfun.AstDefTop
+	*atmoil.AstDefTop
 	KitImpPath string
 }
 ```
@@ -107,13 +107,13 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit)
 #### func (*Ctx) KitsCollectDependants
 
 ```go
-func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (dependantsDefIds map[string]*Kit)
+func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (dependantsDefIds map[string]*Kit)
 ```
 
 #### func (*Ctx) KitsCollectReferences
 
 ```go
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstExpr
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.AstDefTop][]atmoil.IAstExpr
 ```
 
 #### func (*Ctx) KitsEnsureLoaded
@@ -188,13 +188,13 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 #### func (*Kit) AstNodeIrFunFor
 
 ```go
-func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (astDefTop *atmolang_irfun.AstDefTop, theNodeAndItsAncestors []atmolang_irfun.IAstNode)
+func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.AstDefTop, theNodeAndItsAncestors []atmoil.IAstNode)
 ```
 
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string) (defs atmolang_irfun.AstTopDefs)
+func (me *Kit) Defs(name string) (defs atmoil.AstTopDefs)
 ```
 
 #### func (*Kit) Errors

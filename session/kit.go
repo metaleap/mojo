@@ -8,8 +8,8 @@ import (
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/il"
 	"github.com/metaleap/atmo/lang"
-	"github.com/metaleap/atmo/lang/irfun"
 )
 
 // Kit is a pile of atmo source files residing in the same directory and
@@ -20,18 +20,18 @@ type Kit struct {
 	WasEverToBeLoaded bool
 	Imports           []string
 
-	topLevelDefs atmolang_irfun.AstTopDefs
+	topLevelDefs atmoil.AstTopDefs
 	SrcFiles     atmolang.AstFiles
 	state        struct {
 		defsGoneIdsNames map[string]string
 		defsBornIdsNames map[string]string
 	}
 	lookups struct {
-		tlDefsByID      map[string]*atmolang_irfun.AstDefTop
+		tlDefsByID      map[string]*atmoil.AstDefTop
 		tlDefIDsByName  map[string][]string
-		namesInScopeOwn atmolang_irfun.AnnNamesInScope
-		namesInScopeExt atmolang_irfun.AnnNamesInScope
-		namesInScopeAll atmolang_irfun.AnnNamesInScope
+		namesInScopeOwn atmoil.AnnNamesInScope
+		namesInScopeExt atmoil.AnnNamesInScope
+		namesInScopeAll atmoil.AnnNamesInScope
 	}
 	Errs struct {
 		Stage0DirAccessDuringRefresh error
@@ -159,7 +159,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 					me.Kits.reprocessingNeeded = true
 				}
 			}
-			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmolang_irfun.AstDefTop, len(kit.topLevelDefs))
+			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmoil.AstDefTop, len(kit.topLevelDefs))
 			for _, tldef := range kit.topLevelDefs {
 				kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Name.Val] =
 					tldef, append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.Id)
@@ -219,7 +219,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return len(me.lookups.tlDefIDsByName[name]) > 0
 }
 
-func (me *Kit) Defs(name string) (defs atmolang_irfun.AstTopDefs) {
+func (me *Kit) Defs(name string) (defs atmoil.AstTopDefs) {
 	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}
@@ -242,7 +242,7 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 	return
 }
 
-func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (astDefTop *atmolang_irfun.AstDefTop, theNodeAndItsAncestors []atmolang_irfun.IAstNode) {
+func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.AstDefTop, theNodeAndItsAncestors []atmoil.IAstNode) {
 	if astDefTop = me.lookups.tlDefsByID[defId]; astDefTop != nil {
 		theNodeAndItsAncestors = astDefTop.FindByOrig(origNode)
 	}

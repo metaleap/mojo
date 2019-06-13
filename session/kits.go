@@ -7,8 +7,8 @@ import (
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/il"
 	"github.com/metaleap/atmo/lang"
-	"github.com/metaleap/atmo/lang/irfun"
 )
 
 type Kits []*Kit
@@ -59,7 +59,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 	}
 
 	if len(modkitdirs) > 0 {
-		shouldrefresh := make(atmo.StringsUnorderedButUnique, len(modkitdirs))
+		shouldrefresh := make(atmo.StringKeys, len(modkitdirs))
 		// handle new-or-modified kits
 		// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 		for kitdirpath, numfilesguess := range modkitdirs {
@@ -168,7 +168,7 @@ func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFul
 	}
 }
 
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstExpr {
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.AstDefTop][]atmoil.IAstExpr {
 	if name == "" {
 		return nil
 	}
@@ -178,14 +178,14 @@ func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) ma
 	return me.Kits.All.collectReferences(name)
 }
 
-func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringsUnorderedButUnique, indirects bool) (dependantsDefIds map[string]*Kit) {
+func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (dependantsDefIds map[string]*Kit) {
 	if forceLoadAllKnownKits {
 		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}
 	dependantsDefIds = make(map[string]*Kit)
-	var dones atmo.StringsUnorderedButUnique
+	var dones atmo.StringKeys
 	if indirects {
-		dones = make(atmo.StringsUnorderedButUnique, len(defNames))
+		dones = make(atmo.StringKeys, len(defNames))
 	}
 	me.Kits.All.collectDependants(defNames, dependantsDefIds, dones)
 	return
@@ -213,13 +213,15 @@ func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
-		namesofchange /*defidsborn*/, _, errs := me.kitsRepopulateAstNamesInScope()
-		defidsdependantsofnames := make(map[string]*Kit)
-		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnames, make(atmo.StringsUnorderedButUnique, len(namesofchange)))
-		// substerrs := me.substantiateKitsDefsFactsAsNeeded(defidsborn, defidsdependantsofnames)
+		namesofchange, defidsborn, defidsgone, freshnameerrs := me.kitsRepopulateAstNamesInScope()
+
+		defidsdependantsofnamesofchange := make(map[string]*Kit)
+		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
+
+		freshfacterrs := me.refreshDefsFacts(defidsborn, defidsgone, defidsdependantsofnamesofchange)
 
 		me.Kits.All.ensureErrTldPosOffsets()
-		me.onErrs(errs /*substerrs*/, nil)
+		me.onErrs(freshnameerrs, freshfacterrs)
 	}
 }
 
@@ -304,12 +306,12 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 	return
 }
 
-func (me Kits) collectReferences(name string) (refs map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstExpr) {
+func (me Kits) collectReferences(name string) (refs map[*atmoil.AstDefTop][]atmoil.IAstExpr) {
 	for _, kit := range me {
 		for _, tld := range kit.topLevelDefs {
 			if nodes := tld.RefsTo(name); len(nodes) > 0 {
 				if refs == nil {
-					refs = make(map[*atmolang_irfun.AstDefTop][]atmolang_irfun.IAstExpr)
+					refs = make(map[*atmoil.AstDefTop][]atmoil.IAstExpr)
 				}
 				refs[tld] = nodes
 			}
@@ -318,14 +320,14 @@ func (me Kits) collectReferences(name string) (refs map[*atmolang_irfun.AstDefTo
 	return
 }
 
-func (me Kits) collectDependants(defNames atmo.StringsUnorderedButUnique, dependantsDefIds map[string]*Kit, doneAlready atmo.StringsUnorderedButUnique) {
+func (me Kits) collectDependants(defNames atmo.StringKeys, dependantsDefIds map[string]*Kit, doneAlready atmo.StringKeys) {
 	if len(defNames) == 0 {
 		return
 	}
 	indirects := (doneAlready != nil)
-	var morenames atmo.StringsUnorderedButUnique
+	var morenames atmo.StringKeys
 	if indirects {
-		morenames = make(atmo.StringsUnorderedButUnique, 4)
+		morenames = make(atmo.StringKeys, 4)
 	}
 
 	for defname := range defNames {

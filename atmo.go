@@ -6,9 +6,9 @@ import (
 )
 
 type Exist struct{}
-type StringsUnorderedButUnique map[string]Exist
+type StringKeys map[string]Exist
 
-func (me StringsUnorderedButUnique) String() (s string) {
+func (me StringKeys) String() (s string) {
 	s = "{"
 	for k := range me {
 		s += strconv.Quote(k) + ","
@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	KnownIdents = StringsUnorderedButUnique{KnownIdentI: Є, KnownIdentK: Є, KnownIdentCoerce: Є, KnownIdentOpAnd: Є, KnownIdentOpOr: Є, KnownIdentOpNeg: Є, KnownIdentUndef: Є, KnownIdentIf: Є, KnownIdentEq: Є, KnownIdentNEq: Є}
+	KnownIdents = StringKeys{KnownIdentI: Є, KnownIdentK: Є, KnownIdentCoerce: Є, KnownIdentOpAnd: Є, KnownIdentOpOr: Є, KnownIdentOpNeg: Є, KnownIdentUndef: Є, KnownIdentIf: Є, KnownIdentEq: Є, KnownIdentNEq: Є}
 
 	// ∈ aka "exists"
 	Є       = Exist{}
