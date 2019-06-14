@@ -7,6 +7,7 @@ import (
 )
 
 type IAstNode interface {
+	Facts() *FactAll
 	Print() atmolang.IAstNode
 	Origin() atmolang.IAstNode
 	origToks() udevlex.Tokens
@@ -27,8 +28,10 @@ type IAstExpr interface {
 }
 
 type astNodeBase struct {
+	facts FactAll
 }
 
+func (me *astNodeBase) Facts() *FactAll   { return &me.facts }
 func (*astNodeBase) Let() *AstExprLetBase { return nil }
 func (*astNodeBase) IsDef() *AstDef       { return nil }
 func (*astNodeBase) IsDefWithArg() bool   { return false }

@@ -213,15 +213,15 @@ func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
-		namesofchange, defidsborn, defidsgone, freshnameerrs := me.kitsRepopulateAstNamesInScope()
 
+		namesofchange, defidsborn, defidsgone, fresherrs := me.kitsRepopulateAstNamesInScope()
 		defidsdependantsofnamesofchange := make(map[string]*Kit)
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
 
-		freshfacterrs := me.refreshDefsFacts(defidsborn, defidsgone, defidsdependantsofnamesofchange)
+		fresherrs.Add(me.refreshDefsFacts(defidsborn, defidsgone, defidsdependantsofnamesofchange))
 
 		me.Kits.All.ensureErrTldPosOffsets()
-		me.onErrs(freshnameerrs, freshfacterrs)
+		me.onErrs(fresherrs, nil)
 	}
 }
 

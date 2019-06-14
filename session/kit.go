@@ -145,6 +145,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 					me.kitEnsureLoaded(kimp, false)
 				}
 			}
+
 			if len(kit.Errs.Stage0BadImports) > 0 {
 				fresherrs = append(fresherrs, kit.Errs.Stage0BadImports...)
 			}
@@ -166,6 +167,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			}
 		}
 	}
+
 end:
 	kit.ensureErrTldPosOffsets()
 	me.onErrs(nil, fresherrs)

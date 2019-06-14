@@ -13,7 +13,7 @@ type AstDefRef struct {
 
 func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs atmo.Errors) {
 	kitrepops := make(map[*Kit]atmo.Exist, len(me.Kits.All))
-	defIdsBorn, namesOfChange = make(map[string]*Kit, 2), make(atmo.StringKeys, 4)
+	defIdsBorn, defIdsGone, namesOfChange = make(map[string]*Kit, 2), make(map[string]*Kit, 2), make(atmo.StringKeys, 4)
 
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.All {
