@@ -59,6 +59,7 @@ func (me *AstDef) findByOrig(self IAstNode, orig atmolang.IAstNode) (nodes []IAs
 	}
 	return
 }
+func (me *AstDef) Facts() *FactAll           { return me.Body.Facts() }
 func (me *AstDef) IsDef() *AstDef            { return me }
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *AstDef) Origin() atmolang.IAstNode { return me.OrigDef }

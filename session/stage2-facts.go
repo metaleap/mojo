@@ -2,30 +2,44 @@ package atmosess
 
 import (
 	"github.com/metaleap/atmo"
+	"github.com/metaleap/atmo/il"
 )
 
-func (me *Ctx) refreshDefsFacts(defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, defIdsDependantsOfNamesOfChange map[string]*Kit) (freshFactsErrs atmo.Errors) {
+type ctxFacts struct {
+	kit    *Kit
+	done   map[string]bool
+	defTop *atmoil.AstDefTop
+}
+
+func (me *Ctx) refreshFacsForTopLevelDefs(defIdsBorn map[string]*Kit, defIdsDependantsOfNamesOfChange map[string]*Kit) (freshFactsErrs atmo.Errors) {
 	done := make(map[string]bool, len(defIdsBorn)+len(defIdsDependantsOfNamesOfChange))
 	for defid, kit := range defIdsBorn {
-		me.refreshDefFacts(kit, defid, done)
+		me.refreshFacsForTopLevelDef(&ctxFacts{kit: kit, done: done, defTop: kit.lookups.tlDefsByID[defid]})
 	}
 	for defid, kit := range defIdsDependantsOfNamesOfChange {
-		me.refreshDefFacts(kit, defid, done)
+		me.refreshFacsForTopLevelDef(&ctxFacts{kit: kit, done: done, defTop: kit.lookups.tlDefsByID[defid]})
 	}
 
 	return
 }
 
-func (me *Ctx) refreshDefFacts(kit *Kit, defId string, done map[string]bool) {
-	if isdone, isdoing := done[defId]; isdone {
+func (me *Ctx) refreshFacsForTopLevelDef(ctx *ctxFacts) {
+	if isdone, isdoing := ctx.done[ctx.defTop.Id]; isdone {
 		return
 	} else if isdoing {
 		panic("TODO: handle circular dependencies aka recursion!")
 	}
-	done[defId] = false
+	ctx.done[ctx.defTop.Id] = false // marks as "doing", at the end `true` marks as "done"
+	me.refreshFactsForDef(ctx, &ctx.defTop.AstDef, nil)
+	ctx.done[ctx.defTop.Id] = true
+}
 
-	def := kit.lookups.tlDefsByID[defId]
-	def.Facts().Facts = nil
+func (me *Ctx) refreshFactsForDef(ctx *ctxFacts, node *atmoil.AstDef, ancestors []atmoil.IAstNode) {
+	me.refreshFactsForExpr(ctx, node.Body, append(ancestors, node))
+	node.Facts().AllFacts = node.Body.Facts().AllFacts
+}
 
-	done[defId] = true
+func (me *Ctx) refreshFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, ancestors []atmoil.IAstNode) {
+	facts := node.Facts()
+	facts.AllFacts = nil
 }

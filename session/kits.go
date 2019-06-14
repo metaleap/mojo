@@ -214,11 +214,11 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
 
-		namesofchange, defidsborn, defidsgone, fresherrs := me.kitsRepopulateAstNamesInScope()
+		namesofchange, defidsborn, _, fresherrs := me.kitsRepopulateAstNamesInScope()
 		defidsdependantsofnamesofchange := make(map[string]*Kit)
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
 
-		fresherrs.Add(me.refreshDefsFacts(defidsborn, defidsgone, defidsdependantsofnamesofchange))
+		fresherrs.Add(me.refreshFacsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange))
 
 		me.Kits.All.ensureErrTldPosOffsets()
 		me.onErrs(fresherrs, nil)
