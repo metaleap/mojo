@@ -25,7 +25,7 @@ func (me *AnnFactAll) All() (all AnnFacts) {
 func (me *AnnFactAll) Description() string { return me.description("") }
 
 func (me *AnnFactAll) description(p string) (d string) {
-	return me.Derived.describe("ALL OF:", p, me.Core)
+	return me.Derived.describe("ALL OF... (first is core, others derived)", p, me.Core)
 }
 
 func (me *AnnFactAll) Reset() { me.Core, me.Derived = nil, nil }
