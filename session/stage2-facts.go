@@ -7,7 +7,6 @@ import (
 
 type ctxFacts struct {
 	kit    *Kit
-	done   map[string]bool
 	defTop *atmoil.AstDefTop
 }
 
@@ -17,9 +16,9 @@ func (me *Ctx) refreshFactsForTopLevelDefs(defIdsBorn map[string]*Kit, defIdsDep
 
 	for _, m := range []map[string]*Kit{defIdsBorn, defIdsDependantsOfNamesOfChange} {
 		for defid, kit := range m {
-			ctx := &ctxFacts{kit: kit, done: done, defTop: kit.lookups.tlDefsByID[defid]}
-			if me.refreshCoreFactsForTopLevelDef(ctx) {
-				inorder, ctx.done = append(inorder, ctx), nil
+			ctx := &ctxFacts{kit: kit, defTop: kit.lookups.tlDefsByID[defid]}
+			if me.refreshCoreFactsForTopLevelDef(ctx, done) {
+				inorder = append(inorder, ctx)
 			}
 		}
 	}
@@ -31,15 +30,15 @@ func (me *Ctx) refreshFactsForTopLevelDefs(defIdsBorn map[string]*Kit, defIdsDep
 	return
 }
 
-func (me *Ctx) refreshCoreFactsForTopLevelDef(ctx *ctxFacts) bool {
-	if isdone, isdoing := ctx.done[ctx.defTop.Id]; isdone {
+func (me *Ctx) refreshCoreFactsForTopLevelDef(ctx *ctxFacts, done map[string]bool) bool {
+	if isdone, isdoing := done[ctx.defTop.Id]; isdone {
 		return false
 	} else if isdoing {
 		panic("TODO for refreshCoreFactsForTopLevelDef: handle circular dependencies aka recursion!")
 	}
-	ctx.done[ctx.defTop.Id] = false // marks as "doing", at the end `true` marks as "done"
+	done[ctx.defTop.Id] = false // marks as "doing", at the end `true` marks as "done"
 	me.refreshCoreFactsForDef(ctx, &ctx.defTop.AstDef, nil)
-	ctx.done[ctx.defTop.Id] = true
+	done[ctx.defTop.Id] = true
 	return true
 }
 
