@@ -59,7 +59,6 @@ func (me *AstDef) findByOrig(self IAstNode, orig atmolang.IAstNode) (nodes []IAs
 	}
 	return
 }
-func (me *AstDef) Facts() *AnnFactAll        { return me.Body.Facts() }
 func (me *AstDef) IsDef() *AstDef            { return me }
 func (me *AstDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *AstDef) Origin() atmolang.IAstNode { return me.OrigDef }
@@ -371,24 +370,18 @@ func (me *AstIdentBase) findByOrig(self IAstNode, orig atmolang.IAstNode) (nodes
 	return
 }
 
-type AstIdentBad struct {
-	AstIdentBase
+type AstUndef struct {
+	AstExprAtomBase
 }
 
-func (me *AstIdentBad) EquivTo(node IAstNode) bool {
-	cmp, _ := node.(*AstIdentBad)
-	return cmp != nil && cmp.Val == me.Val
+func (me *AstUndef) EquivTo(node IAstNode) bool {
+	cmp, _ := node.(*AstUndef)
+	return (cmp == nil) == (me == nil)
 }
-func (me *AstIdentBad) refsTo(name string) (refs []IAstExpr) {
-	if me.Val == name {
-		refs = append(refs, me)
-	}
-	return
+func (me *AstUndef) findByOrig(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+	return me.AstExprAtomBase.findByOrig(me, orig)
 }
-func (me *AstIdentBad) findByOrig(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
-	return me.AstIdentBase.findByOrig(me, orig)
-}
-func (me *AstIdentBad) walk(ancestors []IAstNode, self IAstNode, on func([]IAstNode, IAstNode, ...IAstNode) bool) {
+func (me *AstUndef) walk(ancestors []IAstNode, self IAstNode, on func([]IAstNode, IAstNode, ...IAstNode) bool) {
 	me.AstExprAtomBase.walk(ancestors, me, on)
 }
 

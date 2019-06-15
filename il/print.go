@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/go-leap/str"
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
 
@@ -14,6 +15,7 @@ func DbgPrintToString(node IAstNode) string {
 	return buf.String()
 }
 
+func (me *AstUndef) Print() atmolang.IAstNode     { return atmolang.B.Ident(atmo.KnownIdentUndef) }
 func (me *AstLitFloat) Print() atmolang.IAstNode  { return atmolang.B.LitFloat(me.Val) }
 func (me *AstLitUint) Print() atmolang.IAstNode   { return atmolang.B.LitUint(me.Val) }
 func (me *AstLitRune) Print() atmolang.IAstNode   { return atmolang.B.LitRune(me.Val) }

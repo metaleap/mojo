@@ -3,20 +3,22 @@ package atmosess
 import (
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/il"
+	"github.com/metaleap/atmo/lang"
 )
 
 type ctxFacts struct {
-	kit    *Kit
-	defTop *atmoil.AstDefTop
+	kit           *Kit
+	defTop        *atmoil.AstDefTop
+	nodesInvolved map[atmoil.IAstNode]atmo.Exist
 }
 
 func (me *Ctx) refreshFactsForTopLevelDefs(defIdsBorn map[string]*Kit, defIdsDependantsOfNamesOfChange map[string]*Kit) (freshFactsErrs atmo.Errors) {
-	done := make(map[string]bool, len(defIdsBorn)+len(defIdsDependantsOfNamesOfChange))
-	inorder := make([]*ctxFacts, 0, len(defIdsBorn)+len(defIdsDependantsOfNamesOfChange))
+	l := len(defIdsBorn) + len(defIdsDependantsOfNamesOfChange)
+	done, inorder, allnodes := make(map[string]bool, l), make([]*ctxFacts, 0, l), make(map[atmoil.IAstNode]atmo.Exist, l*3)
 
 	for _, m := range []map[string]*Kit{defIdsBorn, defIdsDependantsOfNamesOfChange} {
 		for defid, kit := range m {
-			ctx := &ctxFacts{kit: kit, defTop: kit.lookups.tlDefsByID[defid]}
+			ctx := &ctxFacts{kit: kit, defTop: kit.lookups.tlDefsByID[defid], nodesInvolved: allnodes}
 			if me.refreshCoreFactsForTopLevelDef(ctx, done) {
 				inorder = append(inorder, ctx)
 			}
@@ -24,7 +26,7 @@ func (me *Ctx) refreshFactsForTopLevelDefs(defIdsBorn map[string]*Kit, defIdsDep
 	}
 
 	for _, ctx := range inorder {
-		me.refreshDerivedFactsForTopLevelDef(ctx)
+		me.refreshDerivedFactsForDef(ctx, &ctx.defTop.AstDef, nil)
 	}
 
 	return
@@ -43,6 +45,7 @@ func (me *Ctx) refreshCoreFactsForTopLevelDef(ctx *ctxFacts, done map[string]boo
 }
 
 func (me *Ctx) refreshCoreFactsForDef(ctx *ctxFacts, node *atmoil.AstDef, ancestors []atmoil.IAstNode) {
+	ctx.nodesInvolved[node] = atmo.Є
 	facts := node.Facts()
 	facts.Reset()
 
@@ -57,6 +60,7 @@ func (me *Ctx) refreshCoreFactsForDef(ctx *ctxFacts, node *atmoil.AstDef, ancest
 }
 
 func (me *Ctx) refreshCoreFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, ancestors []atmoil.IAstNode) {
+	ctx.nodesInvolved[node] = atmo.Є
 	facts := node.Facts()
 	facts.Reset()
 
@@ -71,21 +75,21 @@ func (me *Ctx) refreshCoreFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, ance
 
 	switch n := node.(type) {
 	case *atmoil.AstLitFloat:
-		facts.Core = &atmoil.AnnFactLit{Value: n.Val}
+		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
 	case *atmoil.AstLitRune:
-		facts.Core = &atmoil.AnnFactLit{Value: n.Val}
+		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
 	case *atmoil.AstLitStr:
-		facts.Core = &atmoil.AnnFactLit{Value: n.Val}
+		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
 	case *atmoil.AstLitUint:
-		facts.Core = &atmoil.AnnFactLit{Value: n.Val}
+		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
 	case *atmoil.AstIdentTag:
 		facts.Core = &atmoil.AnnFactTag{Value: n.Val}
-	case *atmoil.AstIdentBad:
-		facts.Core = &atmoil.AnnFactBad{}
+	case *atmoil.AstUndef:
+		facts.Core = &atmoil.AnnFactUndef{}
 	case *atmoil.AstIdentName:
 		switch l := len(n.Anns.ResolvesTo); l {
 		case 0:
-			facts.Core = &atmoil.AnnFactBad{}
+			facts.Core = &atmoil.AnnFactUndef{}
 		case 1:
 			facts.Core = &atmoil.AnnFactRef{To: n.Anns.ResolvesTo[0]}
 		default:
@@ -107,6 +111,47 @@ func (me *Ctx) refreshCoreFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, ance
 	}
 }
 
-func (me *Ctx) refreshDerivedFactsForTopLevelDef(ctx *ctxFacts) {
-	// me.refreshDerivedFactsForDef(ctx, &ctx.defTop.AstDef, nil)
+func (me *Ctx) refreshDerivedFactsForDef(ctx *ctxFacts, node *atmoil.AstDef, ancestors []atmoil.IAstNode) {
+	facts := node.Facts()
+
+	me.refreshDerivedFactsForExpr(ctx, node.Body, append(ancestors, node))
+	facts.Derived.Add(node.Body.Facts().All())
+	if node.Arg != nil {
+
+	}
+}
+
+func (me *Ctx) refreshDerivedFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, ancestors []atmoil.IAstNode) {
+	facts := node.Facts()
+
+	var ancestorswithnode []atmoil.IAstNode
+	let := node.Let()
+	if let != nil && len(let.Defs) > 0 {
+		ancestorswithnode = append(ancestors, node)
+		for i := range let.Defs {
+			me.refreshDerivedFactsForDef(ctx, &let.Defs[i], ancestorswithnode)
+		}
+	}
+
+	switch n := node.(type) {
+	case *atmoil.AstIdentName:
+		switch fc := facts.Core.(type) {
+		case *atmoil.AnnFactRef:
+			facts.Derived.Add(fc.To.Facts().All()...)
+		case *atmoil.AnnFactAlts:
+			alts := &atmoil.AnnFactAlts{Possibilities: make(atmoil.AnnFacts, len(fc.Possibilities))}
+			for i, fcp := range fc.Possibilities {
+				fcr := fcp.(*atmoil.AnnFactRef)
+				alts.Possibilities[i] = fcr.To.Facts().All()
+			}
+			facts.Derived.Add(alts)
+		}
+	case *atmoil.AstAppl:
+		// fc := facts.Core.(*atmoil.AnnFactCall)
+		if ancestorswithnode == nil {
+			ancestorswithnode = append(ancestors, node)
+		}
+		me.refreshDerivedFactsForExpr(ctx, n.AtomicCallee, ancestorswithnode)
+		me.refreshDerivedFactsForExpr(ctx, n.AtomicArg, ancestorswithnode)
+	}
 }

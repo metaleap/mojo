@@ -42,17 +42,17 @@ func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr
 		var ident AstIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 	} else if t1 != t2 {
-		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + ustr.If(len(orig.Tokens) == 0, "<dyn>", orig.Tokens[0].Meta.Pos.String()) + ")")
+		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + orig.Tokens.First(nil).Meta.Pos.String() + ")")
 
 	} else if orig.IsPlaceholder() {
-		var ident AstIdentBad // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
+		var ident AstUndef // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
 		errs.AddSyn(&orig.Tokens[0], "misplaced placeholder: only legal in def-args or call expressions")
-		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+		ret /*ident.Val,*/, ident.Orig = &ident /*orig.Val,*/, orig
 
 	} else if orig.IsVar() {
-		var ident AstIdentBad
+		var ident AstUndef
 		errs.AddSyn(&orig.Tokens[0], "bug, not your fault: encountered a var expression that wasn't desugared")
-		ret, ident.Val, ident.Orig = &ident, orig.Val[1:], orig
+		ret /* ident.Val,*/, ident.Orig = &ident /*orig.Val[1:],*/, orig
 
 	} else {
 		var ident AstIdentName
