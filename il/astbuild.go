@@ -37,10 +37,6 @@ func (AstBuilder) IdentName(name string) *AstIdentName {
 	return &AstIdentName{AstIdentBase: AstIdentBase{Val: name}}
 }
 
-func (AstBuilder) IdentVar(name string) *AstIdentVar {
-	return &AstIdentVar{AstIdentBase{Val: name}}
-}
-
 func (AstBuilder) IdentTag(name string) *AstIdentTag {
 	return &AstIdentTag{AstIdentBase{Val: name}}
 }

@@ -218,7 +218,7 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
 		defidsdependantsofnamesofchange := make(map[string]*Kit)
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
 
-		fresherrs.Add(me.refreshFacsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange))
+		fresherrs.Add(me.refreshFactsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange))
 
 		me.Kits.All.ensureErrTldPosOffsets()
 		me.onErrs(fresherrs, nil)
