@@ -1,25 +1,25 @@
 package atmoil
 
 import (
-	"os"
-
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
 )
 
-func DbgPrintToStderr(node IAstNode) { atmolang.PrintTo(nil, node.Print(), os.Stderr, true, 1) }
+func DbgPrintToStderr(node IAstNode) { atmolang.DbgPrintToStderr(node.Print()) }
 func DbgPrintToString(node IAstNode) string {
 	var buf ustr.Buf
 	atmolang.PrintTo(nil, node.Print(), &buf.BytesWriter, false, 1)
 	return buf.String()
 }
 
-func (me *AstUndef) Print() atmolang.IAstNode {
-	if me.FromInvalidToken {
+func (me *AstSpecial) Print() atmolang.IAstNode {
+	if me.OneOf.Undefined {
+		return atmolang.B.Ident(atmo.KnownIdentUndef)
+	} else if me.Orig != nil && len(me.Orig.Toks()) > 0 {
 		return atmolang.B.Ident(me.Orig.Toks().First(nil).Meta.Orig)
 	}
-	return atmolang.B.Ident(atmo.KnownIdentUndef)
+	return atmolang.B.Ident("SpecialBadlyInitialized")
 }
 func (me *AstLitFloat) Print() atmolang.IAstNode  { return atmolang.B.LitFloat(me.Val) }
 func (me *AstLitUint) Print() atmolang.IAstNode   { return atmolang.B.LitUint(me.Val) }
@@ -50,6 +50,9 @@ func (me *AstDef) Print() atmolang.IAstNode {
 	var argnames []string
 	if me.Arg != nil {
 		argnames = []string{me.Arg.Val}
+	}
+	if me.Body == nil {
+		return atmolang.B.Def(me.Name.Val, atmolang.B.Ident("?!?!?!"), argnames...)
 	}
 	return atmolang.B.Def(me.Name.Val, me.Body.Print().(atmolang.IAstExpr), argnames...)
 }

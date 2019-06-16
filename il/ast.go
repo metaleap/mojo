@@ -66,10 +66,7 @@ func (me *AstDef) origToks() (toks udevlex.Tokens) {
 	if me.OrigDef != nil && me.OrigDef.Tokens != nil {
 		toks = me.OrigDef.Tokens
 	} else if toks = me.Name.origToks(); len(toks) == 0 {
-		if me.Body != nil {
-			toks = me.Body.origToks()
-		}
-		if len(toks) == 0 && me.Arg != nil {
+		if toks = me.Body.origToks(); len(toks) == 0 && me.Arg != nil {
 			toks = me.Arg.origToks()
 		}
 	}
@@ -79,7 +76,7 @@ func (me *AstDef) RefersTo(name string) bool     { return me.Body.RefersTo(name)
 func (me *AstDef) refsTo(name string) []IAstExpr { return me.Body.refsTo(name) }
 func (me *AstDef) EquivTo(node IAstNode) bool {
 	cmp, _ := node.(*AstDef)
-	return cmp != nil && cmp.Name.Val == me.Name.Val && cmp.Body.EquivTo(me.Body) &&
+	return cmp != nil && cmp.Name.Val == me.Name.Val && me.Body.EquivTo(cmp.Body) &&
 		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.EquivTo(cmp.Arg))
 }
 func (me *AstDef) walk(ancestors []IAstNode, self IAstNode, on func([]IAstNode, IAstNode, ...IAstNode) bool) {
@@ -89,9 +86,7 @@ func (me *AstDef) walk(ancestors []IAstNode, self IAstNode, on func([]IAstNode, 
 		if me.Arg != nil {
 			me.Arg.walk(ancestors, me.Arg, on)
 		}
-		if me.Body != nil {
-			me.Body.walk(ancestors, me.Body, on)
-		}
+		me.Body.walk(ancestors, me.Body, on)
 	}
 }
 
@@ -312,7 +307,7 @@ type AstExprLetBase struct {
 	letPrefix string
 
 	Anns struct {
-		// like `AstIdentName.Anns.ResolvesTo`, contains the following `IAstNode` types:
+		// like `AstIdentName.Anns.Candidates`, contains the following `IAstNode` types:
 		// *atmoil.AstDef, *atmoil.AstDefArg, *atmoil.AstDefTop, atmosess.AstDefRef
 		NamesInScope AnnNamesInScope
 	}
@@ -372,19 +367,23 @@ func (me *AstIdentBase) findByOrig(self IAstNode, orig atmolang.IAstNode) (nodes
 	return
 }
 
-type AstUndef struct {
+type AstSpecial struct {
 	AstExprAtomBase
-	FromInvalidToken bool
+	OneOf struct {
+		InvalidToken         bool
+		Undefined            bool
+		DefArgfulButBodyless bool
+	}
 }
 
-func (me *AstUndef) EquivTo(node IAstNode) bool {
-	cmp, _ := node.(*AstUndef)
-	return (cmp == nil) == (me == nil)
+func (me *AstSpecial) EquivTo(node IAstNode) bool {
+	cmp, _ := node.(*AstSpecial)
+	return (cmp == nil) == (me == nil) && ((me == nil) || me.OneOf == cmp.OneOf)
 }
-func (me *AstUndef) findByOrig(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
+func (me *AstSpecial) findByOrig(_ IAstNode, orig atmolang.IAstNode) (nodes []IAstNode) {
 	return me.AstExprAtomBase.findByOrig(me, orig)
 }
-func (me *AstUndef) walk(ancestors []IAstNode, self IAstNode, on func([]IAstNode, IAstNode, ...IAstNode) bool) {
+func (me *AstSpecial) walk(ancestors []IAstNode, self IAstNode, on func([]IAstNode, IAstNode, ...IAstNode) bool) {
 	me.AstExprAtomBase.walk(ancestors, me, on)
 }
 
@@ -431,7 +430,7 @@ type AstIdentName struct {
 	Anns struct {
 		// like `AstExprLetBase.Anns.NamesInScope`, contains the following `IAstNode` types:
 		// *atmoil.AstDef, *atmoil.AstDefArg, *atmoil.AstDefTop, atmosess.AstDefRef
-		ResolvesTo []IAstNode
+		Candidates []IAstNode
 	}
 }
 

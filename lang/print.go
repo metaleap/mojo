@@ -28,6 +28,8 @@ type IPrintFmt interface {
 	OnComment(IAstNode, IAstNode, *AstComment)
 }
 
+func DbgPrintToStderr(node IAstNode) { PrintTo(nil, node, os.Stderr, true, 1) }
+
 func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebugPurposes bool, applStyle ApplStyle) {
 	ctxp := &CtxPrint{NoComments: true, CurTopLevel: curTopLevel, OneIndentLevel: "    "}
 	ctxp.Fmt = &PrintFmtPretty{}

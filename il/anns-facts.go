@@ -24,7 +24,7 @@ func (me *AnnFactAll) description(p string) (d string) {
 
 func (me *AnnFactAll) Reset() { me.Core, me.Derived = nil, nil }
 
-// this originates from `AstIdentName`s (due to their `Anns.ResolvesTo`)
+// this originates from `AstIdentName`s (due to their `Anns.Candidates`)
 // but may as a consequence also show up in the ancestors
 type AnnFactAlts struct {
 	Possibilities AnnFacts

@@ -21,23 +21,14 @@ const (
 	NameAutoKit    = "omni"
 	SrcFileExt     = ".at"
 
-	KnownIdentI      = "it"
-	KnownIdentK      = "ever"
 	KnownIdentCoerce = "§"
-	KnownIdentOpAnd  = "&&"
 	KnownIdentOpOr   = "||"
-	KnownIdentOpNeg  = "~"
 	KnownIdentUndef  = "÷0"
 	KnownIdentIf     = "if"
 	KnownIdentEq     = "=="
-	KnownIdentNEq    = "/="
-	KnownIdentDot    = "."
-	KnownIdentColon  = ":"
 )
 
 var (
-	KnownIdents = StringKeys{KnownIdentI: Є, KnownIdentK: Є, KnownIdentCoerce: Є, KnownIdentOpAnd: Є, KnownIdentOpOr: Є, KnownIdentOpNeg: Є, KnownIdentUndef: Є, KnownIdentIf: Є, KnownIdentEq: Є, KnownIdentNEq: Є}
-
 	// ∈ aka "exists"
 	Є       = Exist{}
 	Options struct {

@@ -125,7 +125,7 @@ func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(tld *AstDefTop, node IAs
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.AtomicCallee))
 		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.AtomicArg))
 	case *AstIdentName:
-		if n.Anns.ResolvesTo = inscope[n.Val]; len(n.Anns.ResolvesTo) == 0 {
+		if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
 			me.errUnknownName(tld, &errs, n)
 		}
 	}

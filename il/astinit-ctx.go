@@ -45,18 +45,18 @@ func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr
 		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + orig.Tokens.First(nil).Meta.Pos.String() + ")")
 
 	} else if orig.IsPlaceholder() {
-		var ident AstUndef // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
+		var ident AstSpecial // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
+		ret, ident.OneOf.InvalidToken, ident.Orig = &ident, true, orig
 		errs.AddSyn(&orig.Tokens[0], "misplaced placeholder: only legal in def-args or call expressions")
-		ret, ident.FromInvalidToken, ident.Orig = &ident, true, orig
 
 	} else if orig.IsVar() {
-		var ident AstUndef
+		var ident AstSpecial
+		ret, ident.OneOf.InvalidToken, ident.Orig = &ident, true, orig
 		errs.AddSyn(&orig.Tokens[0], "our bug, not your fault: encountered a var expression that wasn't desugared")
-		ret, ident.FromInvalidToken, ident.Orig = &ident, true, orig
 
 	} else if orig.Val == atmo.KnownIdentUndef {
-		var ident AstUndef
-		ret, ident.Orig = &ident, orig
+		var ident AstSpecial
+		ret, ident.OneOf.Undefined, ident.Orig = &ident, true, orig
 
 	} else {
 		var ident AstIdentName

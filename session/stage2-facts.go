@@ -86,18 +86,18 @@ func (me *ctxFacts) refreshCoreFactsForExpr(node atmoil.IAstExpr, ancestors []at
 		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
 	case *atmoil.AstIdentTag:
 		facts.Core = &atmoil.AnnFactTag{Value: n.Val}
-	case *atmoil.AstUndef:
+	case *atmoil.AstSpecial:
 		facts.Core = &atmoil.AnnFactUndef{}
 	case *atmoil.AstIdentName:
-		switch l := len(n.Anns.ResolvesTo); l {
+		switch l := len(n.Anns.Candidates); l {
 		case 0:
 			facts.Core = &atmoil.AnnFactUndef{}
 		case 1:
-			facts.Core = &atmoil.AnnFactRef{To: n.Anns.ResolvesTo[0]}
+			facts.Core = &atmoil.AnnFactRef{To: n.Anns.Candidates[0]}
 		default:
-			cases := &atmoil.AnnFactAlts{Possibilities: make(atmoil.AnnFacts, len(n.Anns.ResolvesTo))}
+			cases := &atmoil.AnnFactAlts{Possibilities: make(atmoil.AnnFacts, len(n.Anns.Candidates))}
 			for i := range cases.Possibilities {
-				cases.Possibilities[i] = &atmoil.AnnFactRef{To: n.Anns.ResolvesTo[i]}
+				cases.Possibilities[i] = &atmoil.AnnFactRef{To: n.Anns.Candidates[i]}
 			}
 			facts.Core = cases
 		}
@@ -124,8 +124,10 @@ func (me *ctxFacts) refreshedDerivedFactsForRef(node atmoil.IAstNode) atmoil.Ann
 		case AstDefRef:
 			node = &n.AstDef
 			if nodeancestors, ispartofrefresh = ctx.nodesWithAncestors[node]; !ispartofrefresh {
-				ctx = ctx.allRefrCtxs[n.Id]
-				nodeancestors, ispartofrefresh = ctx.nodesWithAncestors[node]
+				if c, _ := ctx.allRefrCtxs[n.Id]; c != nil {
+					ctx = c
+					nodeancestors, ispartofrefresh = ctx.nodesWithAncestors[node]
+				}
 			}
 		}
 	}
@@ -148,6 +150,7 @@ func (me *ctxFacts) refreshDerivedFactsForDef(node *atmoil.AstDef) {
 	if (!ispartofrefresh) || nodeancestors == nil {
 		return
 	}
+	me.nodesWithAncestors[node] = nil
 	facts := node.Facts()
 
 	me.refreshDerivedFactsForExpr(node.Body)
@@ -157,8 +160,6 @@ func (me *ctxFacts) refreshDerivedFactsForDef(node *atmoil.AstDef) {
 	case *atmoil.AnnFactCallable:
 		facts.Derived.Add(me.refreshedDerivedFactsForRef(fc.Ret.To))
 	}
-
-	me.nodesWithAncestors[node] = nil
 }
 
 func (me *ctxFacts) refreshDerivedFactsForExpr(node atmoil.IAstExpr) {
@@ -166,6 +167,7 @@ func (me *ctxFacts) refreshDerivedFactsForExpr(node atmoil.IAstExpr) {
 	if (!ispartofrefresh) || nodeancestors == nil {
 		return
 	}
+	me.nodesWithAncestors[node] = nil
 	facts := node.Facts()
 
 	let := node.Let()
@@ -196,6 +198,4 @@ func (me *ctxFacts) refreshDerivedFactsForExpr(node atmoil.IAstExpr) {
 	default:
 		facts.Derived.Add(facts.Core)
 	}
-
-	me.nodesWithAncestors[node] = nil
 }

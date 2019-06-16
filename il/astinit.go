@@ -22,7 +22,9 @@ func (me *AstDef) initFrom(ctx *ctxAstInit, orig *atmolang.AstDef) (errs atmo.Er
 func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 	tok := me.OrigDef.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
 	if tok == nil {
-		tok = me.origToks().First(nil)
+		if tok = me.OrigDef.Tokens.First(nil); tok == nil {
+			tok = me.OrigDef.Body.Toks().First(nil)
+		}
 	}
 	var ident IAstExpr
 	ident, errs = ctx.newAstExprFromIdent(&me.OrigDef.Name)
@@ -38,9 +40,13 @@ func (me *AstDef) initName(ctx *ctxAstInit) (errs atmo.Errors) {
 }
 
 func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
-	// fast-track special case: "func signature expression" aka body-less def acts as notation for a func type
+	// fast-track special case: "func signature expression" aka body-less def
+	// (also for ffi / builtin-primops) acts as notation for a func type
 	if ident, _ := me.OrigDef.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
-		// no-op: me.Body remains `nil`, this is preserved also in any `if`s from the below coerce-propagations, if any
+		var body AstSpecial
+		if me.Body, body.Orig, body.OneOf.DefArgfulButBodyless = &body, ident, me.Arg != nil; me.Arg == nil {
+			errs.AddSyn(ident.Tokens.First(nil), "illegal placeholder placement")
+		}
 	} else {
 		me.Body, errs = ctx.newAstExprFrom(me.OrigDef.Body)
 	}
@@ -57,14 +63,14 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 				coerceorig := coerce.astExprBase().Orig
 				newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}), coerceorig, true)
 				newbody = appl(B.ApplN(ctx, opeq, &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}, newbody), coerceorig, true)
-				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, ctx.ensureAstAtomFor(me.Body), &AstUndef{}), coerceorig, false)
+				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, ctx.ensureAstAtomFor(me.Body), &AstSpecial{}), coerceorig, false)
 			}
 		}
 		if coerce := ctx.coerceCallables[me]; coerce != nil {
 			oldbody, coerceorig := ctx.ensureAstAtomFor(me.Body), coerce.astExprBase().Orig
 			newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), oldbody), coerceorig, true)
 			newbody = appl(B.ApplN(ctx, opeq, oldbody, newbody), coerceorig, true)
-			me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, oldbody, &AstUndef{}), coerceorig, false)
+			me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, oldbody, &AstSpecial{}), coerceorig, false)
 		}
 	}
 	return
@@ -116,7 +122,7 @@ func (me *AstDefArg) initFrom(ctx *ctxAstInit, orig *atmolang.AstDefArg) (errs a
 	}
 	if isconstexpr {
 		me.AstIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
-		appl := B.Appl1(B.IdentName("§"), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr)))
+		appl := B.Appl1(B.IdentName(atmo.KnownIdentCoerce), ctx.ensureAstAtomFor(errs.AddVia(ctx.newAstExprFrom(orig.NameOrConstVal)).(IAstExpr)))
 		appl.AstExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)
 	}
