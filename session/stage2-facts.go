@@ -8,26 +8,27 @@ import (
 
 type ctxFacts struct {
 	// ctxSess          *Ctx
-	defTop           *atmoil.AstDefTop
-	kit              *Kit
-	nodesRefrDerived map[atmoil.IAstNode][]atmoil.IAstNode
+	defTop             *atmoil.AstDefTop
+	kit                *Kit
+	nodesWithAncestors map[atmoil.IAstNode][]atmoil.IAstNode
+	allRefrCtxs        map[string]*ctxFacts
 }
 
 func (me *Ctx) refreshFactsForTopLevelDefs(defIdsBorn map[string]*Kit, defIdsDependantsOfNamesOfChange map[string]*Kit) (freshFactsErrs atmo.Errors) {
 	l := len(defIdsBorn) + len(defIdsDependantsOfNamesOfChange)
-	done, inorder, allnodes := make(map[string]bool, l), make([]*ctxFacts, 0, l), make(map[atmoil.IAstNode][]atmoil.IAstNode, l*3)
+	done, inorder, allnodes, allctxs := make(map[string]bool, l), make([]*ctxFacts, 0, l), make(map[atmoil.IAstNode][]atmoil.IAstNode, l*3), make(map[string]*ctxFacts, l)
 
 	for _, m := range []map[string]*Kit{defIdsBorn, defIdsDependantsOfNamesOfChange} {
 		for defid, kit := range m {
-			ctx := &ctxFacts{ /*ctxSess: me,*/ defTop: kit.lookups.tlDefsByID[defid], kit: kit, nodesRefrDerived: allnodes}
-			if ctx.refreshCoreFactsForTopLevelDef(done) {
+			ctx := &ctxFacts{ /*ctxSess: me,*/ defTop: kit.lookups.tlDefsByID[defid], kit: kit, nodesWithAncestors: allnodes, allRefrCtxs: allctxs}
+			if allctxs[defid] = ctx; ctx.refreshCoreFactsForTopLevelDef(done) {
 				inorder = append(inorder, ctx)
 			}
 		}
 	}
 
 	for _, ctx := range inorder {
-		ctx.refreshDerivedFactsForDef(&ctx.defTop.AstDef, nil)
+		ctx.refreshDerivedFactsForDef(&ctx.defTop.AstDef)
 	}
 
 	return
@@ -46,7 +47,7 @@ func (me *ctxFacts) refreshCoreFactsForTopLevelDef(done map[string]bool) bool {
 }
 
 func (me *ctxFacts) refreshCoreFactsForDef(node *atmoil.AstDef, ancestors []atmoil.IAstNode) {
-	me.nodesRefrDerived[node] = ancestors
+	me.nodesWithAncestors[node] = ancestors
 	facts := node.Facts()
 	facts.Reset()
 
@@ -61,7 +62,7 @@ func (me *ctxFacts) refreshCoreFactsForDef(node *atmoil.AstDef, ancestors []atmo
 }
 
 func (me *ctxFacts) refreshCoreFactsForExpr(node atmoil.IAstExpr, ancestors []atmoil.IAstNode) {
-	me.nodesRefrDerived[node] = ancestors
+	me.nodesWithAncestors[node] = ancestors
 	facts := node.Facts()
 	facts.Reset()
 
@@ -113,49 +114,73 @@ func (me *ctxFacts) refreshCoreFactsForExpr(node atmoil.IAstExpr, ancestors []at
 }
 
 func (me *ctxFacts) refreshedDerivedFactsForRef(node atmoil.IAstNode) atmoil.AnnFacts {
-	if nodeancestors, ispartofrefresh := me.nodesRefrDerived[node]; ispartofrefresh && nodeancestors != nil {
+	ctx := me
+	nodeancestors, ispartofrefresh := ctx.nodesWithAncestors[node]
+	if !ispartofrefresh {
+		switch n := node.(type) {
+		case *atmoil.AstDefTop:
+			node = &n.AstDef
+			nodeancestors, ispartofrefresh = ctx.nodesWithAncestors[node]
+		case AstDefRef:
+			node = &n.AstDef
+			if nodeancestors, ispartofrefresh = ctx.nodesWithAncestors[node]; !ispartofrefresh {
+				ctx = ctx.allRefrCtxs[n.Id]
+				nodeancestors, ispartofrefresh = ctx.nodesWithAncestors[node]
+			}
+		}
+	}
+
+	if ispartofrefresh && nodeancestors != nil {
 		switch n := node.(type) {
 		case *atmoil.AstDef:
-			me.refreshDerivedFactsForDef(n, nodeancestors)
+			ctx.refreshDerivedFactsForDef(n)
 		case atmoil.IAstExpr:
-			me.refreshDerivedFactsForExpr(n, nodeancestors)
+			ctx.refreshDerivedFactsForExpr(n)
+		default:
+			panic(n)
 		}
 	}
 	return node.Facts().Derived
 }
 
-func (me *ctxFacts) refreshDerivedFactsForDef(node *atmoil.AstDef, ancestors []atmoil.IAstNode) {
-	me.nodesRefrDerived[node] = nil
+func (me *ctxFacts) refreshDerivedFactsForDef(node *atmoil.AstDef) {
+	nodeancestors, ispartofrefresh := me.nodesWithAncestors[node]
+	if (!ispartofrefresh) || nodeancestors == nil {
+		return
+	}
 	facts := node.Facts()
 
-	me.refreshDerivedFactsForExpr(node.Body, append(ancestors, node))
+	me.refreshDerivedFactsForExpr(node.Body)
 	switch fc := facts.Core.(type) {
 	case *atmoil.AnnFactRef:
-		facts.Derived.Add(me.refreshedDerivedFactsForRef(fc.To)...)
+		facts.Derived.Add(me.refreshedDerivedFactsForRef(fc.To))
 	case *atmoil.AnnFactCallable:
-		facts.Derived.Add(me.refreshedDerivedFactsForRef(fc.Ret.To)...)
+		facts.Derived.Add(me.refreshedDerivedFactsForRef(fc.Ret.To))
 	}
+
+	me.nodesWithAncestors[node] = nil
 }
 
-func (me *ctxFacts) refreshDerivedFactsForExpr(node atmoil.IAstExpr, ancestors []atmoil.IAstNode) {
-	me.nodesRefrDerived[node] = nil
+func (me *ctxFacts) refreshDerivedFactsForExpr(node atmoil.IAstExpr) {
+	nodeancestors, ispartofrefresh := me.nodesWithAncestors[node]
+	if (!ispartofrefresh) || nodeancestors == nil {
+		return
+	}
 	facts := node.Facts()
 
-	var ancestorswithnode []atmoil.IAstNode
 	let := node.Let()
 	if let != nil && len(let.Defs) > 0 {
-		ancestorswithnode = append(ancestors, node)
 		for i := range let.Defs {
-			me.refreshDerivedFactsForDef(&let.Defs[i], ancestorswithnode)
+			me.refreshDerivedFactsForDef(&let.Defs[i])
 		}
 	}
 
-	facts.Derived.Add(facts.Core)
 	switch n := node.(type) {
 	case *atmoil.AstIdentName:
 		switch fc := facts.Core.(type) {
 		case *atmoil.AnnFactRef:
-			facts.Derived.Add(me.refreshedDerivedFactsForRef(fc.To)...)
+			d := me.refreshedDerivedFactsForRef(fc.To)
+			facts.Derived.Add(d)
 		case *atmoil.AnnFactAlts:
 			alts := &atmoil.AnnFactAlts{Possibilities: make(atmoil.AnnFacts, len(fc.Possibilities))}
 			for i, fcp := range fc.Possibilities {
@@ -166,10 +191,11 @@ func (me *ctxFacts) refreshDerivedFactsForExpr(node atmoil.IAstExpr, ancestors [
 		}
 	case *atmoil.AstAppl:
 		// fc := facts.Core.(*atmoil.AnnFactCall)
-		if ancestorswithnode == nil {
-			ancestorswithnode = append(ancestors, node)
-		}
-		me.refreshDerivedFactsForExpr(n.AtomicCallee, ancestorswithnode)
-		me.refreshDerivedFactsForExpr(n.AtomicArg, ancestorswithnode)
+		me.refreshDerivedFactsForExpr(n.AtomicCallee)
+		me.refreshDerivedFactsForExpr(n.AtomicArg)
+	default:
+		facts.Derived.Add(facts.Core)
 	}
+
+	me.nodesWithAncestors[node] = nil
 }

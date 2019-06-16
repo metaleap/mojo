@@ -47,12 +47,16 @@ func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr
 	} else if orig.IsPlaceholder() {
 		var ident AstUndef // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
 		errs.AddSyn(&orig.Tokens[0], "misplaced placeholder: only legal in def-args or call expressions")
-		ret /*ident.Val,*/, ident.Orig = &ident /*orig.Val,*/, orig
+		ret, ident.FromInvalidToken, ident.Orig = &ident, true, orig
 
 	} else if orig.IsVar() {
 		var ident AstUndef
-		errs.AddSyn(&orig.Tokens[0], "bug, not your fault: encountered a var expression that wasn't desugared")
-		ret /* ident.Val,*/, ident.Orig = &ident /*orig.Val[1:],*/, orig
+		errs.AddSyn(&orig.Tokens[0], "our bug, not your fault: encountered a var expression that wasn't desugared")
+		ret, ident.FromInvalidToken, ident.Orig = &ident, true, orig
+
+	} else if orig.Val == atmo.KnownIdentUndef {
+		var ident AstUndef
+		ret, ident.Orig = &ident, orig
 
 	} else {
 		var ident AstIdentName

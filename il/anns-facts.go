@@ -18,8 +18,8 @@ type AnnFactAll struct {
 func (me *AnnFactAll) Description() string { return me.description("") }
 
 func (me *AnnFactAll) description(p string) (d string) {
-	pref := p + annFactDescIndent
-	return p + "CORE / INTRINSIC:\n" + me.Core.description(pref) + "\n" + me.Derived.describe("(DERIVED) ALL OF:", p)
+	// pref := p + annFactDescIndent
+	return /*p + "CORE / INTRINSIC:\n" + me.Core.description(pref) + "\n" +*/ me.Derived.describe("(DERIVED) ALL OF:", p)
 }
 
 func (me *AnnFactAll) Reset() { me.Core, me.Derived = nil, nil }
@@ -41,6 +41,12 @@ type AnnFactLit struct {
 }
 
 func (me *AnnFactLit) description(p string) string { return p + "always equals: " + me.Str() }
+
+type AnnFactDbg struct {
+	Msg string
+}
+
+func (me *AnnFactDbg) description(p string) string { return p + "‹dbg›" + me.Msg }
 
 type AnnFactTag struct {
 	Value string
@@ -87,7 +93,27 @@ func (me *AnnFactCallable) description(p string) (d string) {
 type AnnFacts []IAnnFact
 
 func (me *AnnFacts) Add(facts ...IAnnFact) {
-	*me = append(*me, facts...)
+	// *me = append(*me, facts...)
+	// return
+	this := *me
+	var merge bool
+	for _, f := range facts {
+		if _, merge = f.(AnnFacts); merge {
+			break
+		}
+	}
+	if !merge {
+		this = append(this, facts...)
+	} else {
+		for _, f := range facts {
+			if fs, ok := f.(AnnFacts); ok {
+				this = append(this, fs...)
+			} else {
+				this = append(this, f)
+			}
+		}
+	}
+	*me = this
 }
 
 func (me AnnFacts) description(p string) string {

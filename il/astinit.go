@@ -57,14 +57,14 @@ func (me *AstDef) initBody(ctx *ctxAstInit) (errs atmo.Errors) {
 				coerceorig := coerce.astExprBase().Orig
 				newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}), coerceorig, true)
 				newbody = appl(B.ApplN(ctx, opeq, &AstIdentName{AstIdentBase: me.Arg.AstIdentBase}, newbody), coerceorig, true)
-				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, ctx.ensureAstAtomFor(me.Body), B.IdentName(atmo.KnownIdentUndef)), coerceorig, false)
+				me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, ctx.ensureAstAtomFor(me.Body), &AstUndef{}), coerceorig, false)
 			}
 		}
 		if coerce := ctx.coerceCallables[me]; coerce != nil {
 			oldbody, coerceorig := ctx.ensureAstAtomFor(me.Body), coerce.astExprBase().Orig
 			newbody := appl(B.Appl1(ctx.ensureAstAtomFor(coerce), oldbody), coerceorig, true)
 			newbody = appl(B.ApplN(ctx, opeq, oldbody, newbody), coerceorig, true)
-			me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, oldbody, B.IdentName(atmo.KnownIdentUndef)), coerceorig, false)
+			me.Body = appl(B.ApplN(ctx, B.IdentName(atmo.KnownIdentIf), newbody, oldbody, &AstUndef{}), coerceorig, false)
 		}
 	}
 	return

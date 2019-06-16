@@ -312,6 +312,8 @@ type AstExprLetBase struct {
 	letPrefix string
 
 	Anns struct {
+		// like `AstIdentName.Anns.ResolvesTo`, contains the following `IAstNode` types:
+		// *atmoil.AstDef, *atmoil.AstDefArg, *atmoil.AstDefTop, atmosess.AstDefRef
 		NamesInScope AnnNamesInScope
 	}
 }
@@ -372,6 +374,7 @@ func (me *AstIdentBase) findByOrig(self IAstNode, orig atmolang.IAstNode) (nodes
 
 type AstUndef struct {
 	AstExprAtomBase
+	FromInvalidToken bool
 }
 
 func (me *AstUndef) EquivTo(node IAstNode) bool {
@@ -426,6 +429,8 @@ type AstIdentName struct {
 	AstExprLetBase
 
 	Anns struct {
+		// like `AstExprLetBase.Anns.NamesInScope`, contains the following `IAstNode` types:
+		// *atmoil.AstDef, *atmoil.AstDefArg, *atmoil.AstDefTop, atmosess.AstDefRef
 		ResolvesTo []IAstNode
 	}
 }
