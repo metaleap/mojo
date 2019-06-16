@@ -7,18 +7,18 @@ import (
 )
 
 type ctxFacts struct {
-	kit           *Kit
-	defTop        *atmoil.AstDefTop
-	nodesInvolved map[atmoil.IAstNode]atmo.Exist
+	kit              *Kit
+	defTop           *atmoil.AstDefTop
+	nodesRefrDerived map[atmoil.IAstNode][]atmoil.IAstNode
 }
 
 func (me *Ctx) refreshFactsForTopLevelDefs(defIdsBorn map[string]*Kit, defIdsDependantsOfNamesOfChange map[string]*Kit) (freshFactsErrs atmo.Errors) {
 	l := len(defIdsBorn) + len(defIdsDependantsOfNamesOfChange)
-	done, inorder, allnodes := make(map[string]bool, l), make([]*ctxFacts, 0, l), make(map[atmoil.IAstNode]atmo.Exist, l*3)
+	done, inorder, allnodes := make(map[string]bool, l), make([]*ctxFacts, 0, l), make(map[atmoil.IAstNode][]atmoil.IAstNode, l*3)
 
 	for _, m := range []map[string]*Kit{defIdsBorn, defIdsDependantsOfNamesOfChange} {
 		for defid, kit := range m {
-			ctx := &ctxFacts{kit: kit, defTop: kit.lookups.tlDefsByID[defid], nodesInvolved: allnodes}
+			ctx := &ctxFacts{kit: kit, defTop: kit.lookups.tlDefsByID[defid], nodesRefrDerived: allnodes}
 			if me.refreshCoreFactsForTopLevelDef(ctx, done) {
 				inorder = append(inorder, ctx)
 			}
@@ -39,13 +39,13 @@ func (me *Ctx) refreshCoreFactsForTopLevelDef(ctx *ctxFacts, done map[string]boo
 		panic("TODO for refreshCoreFactsForTopLevelDef: handle circular dependencies aka recursion!")
 	}
 	done[ctx.defTop.Id] = false // marks as "doing", at the end `true` marks as "done"
-	me.refreshCoreFactsForDef(ctx, &ctx.defTop.AstDef, nil)
+	me.refreshCoreFactsForDef(ctx, &ctx.defTop.AstDef, make([]atmoil.IAstNode, 0))
 	done[ctx.defTop.Id] = true
 	return true
 }
 
 func (me *Ctx) refreshCoreFactsForDef(ctx *ctxFacts, node *atmoil.AstDef, ancestors []atmoil.IAstNode) {
-	ctx.nodesInvolved[node] = atmo.Є
+	ctx.nodesRefrDerived[node] = ancestors
 	facts := node.Facts()
 	facts.Reset()
 
@@ -60,7 +60,7 @@ func (me *Ctx) refreshCoreFactsForDef(ctx *ctxFacts, node *atmoil.AstDef, ancest
 }
 
 func (me *Ctx) refreshCoreFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, ancestors []atmoil.IAstNode) {
-	ctx.nodesInvolved[node] = atmo.Є
+	ctx.nodesRefrDerived[node] = ancestors
 	facts := node.Facts()
 	facts.Reset()
 
@@ -111,17 +111,33 @@ func (me *Ctx) refreshCoreFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, ance
 	}
 }
 
+func (me *Ctx) refreshedDerivedFactsForRef(ctx *ctxFacts, node atmoil.IAstNode) atmoil.AnnFacts {
+	if nodeancestors, ispartofrefresh := ctx.nodesRefrDerived[node]; ispartofrefresh && nodeancestors != nil {
+		switch n := node.(type) {
+		case *atmoil.AstDef:
+			me.refreshDerivedFactsForDef(ctx, n, nodeancestors)
+		case atmoil.IAstExpr:
+			me.refreshDerivedFactsForExpr(ctx, n, nodeancestors)
+		}
+	}
+	return node.Facts().Derived
+}
+
 func (me *Ctx) refreshDerivedFactsForDef(ctx *ctxFacts, node *atmoil.AstDef, ancestors []atmoil.IAstNode) {
+	ctx.nodesRefrDerived[node] = nil
 	facts := node.Facts()
 
 	me.refreshDerivedFactsForExpr(ctx, node.Body, append(ancestors, node))
-	facts.Derived.Add(node.Body.Facts().All())
-	if node.Arg != nil {
-
+	switch fc := facts.Core.(type) {
+	case *atmoil.AnnFactRef:
+		facts.Derived.Add(me.refreshedDerivedFactsForRef(ctx, fc.To)...)
+	case *atmoil.AnnFactCallable:
+		facts.Derived.Add(me.refreshedDerivedFactsForRef(ctx, fc.Ret.To)...)
 	}
 }
 
 func (me *Ctx) refreshDerivedFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, ancestors []atmoil.IAstNode) {
+	ctx.nodesRefrDerived[node] = nil
 	facts := node.Facts()
 
 	var ancestorswithnode []atmoil.IAstNode
@@ -133,16 +149,17 @@ func (me *Ctx) refreshDerivedFactsForExpr(ctx *ctxFacts, node atmoil.IAstExpr, a
 		}
 	}
 
+	facts.Derived.Add(facts.Core)
 	switch n := node.(type) {
 	case *atmoil.AstIdentName:
 		switch fc := facts.Core.(type) {
 		case *atmoil.AnnFactRef:
-			facts.Derived.Add(fc.To.Facts().All()...)
+			facts.Derived.Add(me.refreshedDerivedFactsForRef(ctx, fc.To)...)
 		case *atmoil.AnnFactAlts:
 			alts := &atmoil.AnnFactAlts{Possibilities: make(atmoil.AnnFacts, len(fc.Possibilities))}
 			for i, fcp := range fc.Possibilities {
 				fcr := fcp.(*atmoil.AnnFactRef)
-				alts.Possibilities[i] = fcr.To.Facts().All()
+				alts.Possibilities[i] = me.refreshedDerivedFactsForRef(ctx, fcr.To)
 			}
 			facts.Derived.Add(alts)
 		}

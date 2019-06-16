@@ -15,17 +15,11 @@ type AnnFactAll struct {
 	Derived AnnFacts
 }
 
-func (me *AnnFactAll) All() (all AnnFacts) {
-	all = make(AnnFacts, 1, len(me.Derived)+1)
-	all[0] = me.Core
-	all = append(all, me.Derived...)
-	return
-}
-
 func (me *AnnFactAll) Description() string { return me.description("") }
 
 func (me *AnnFactAll) description(p string) (d string) {
-	return me.Derived.describe("ALL OF... (first is core, others derived)", p, me.Core)
+	pref := p + annFactDescIndent
+	return p + "CORE / INTRINSIC:\n" + me.Core.description(pref) + "\n" + me.Derived.describe("(DERIVED) ALL OF:", p)
 }
 
 func (me *AnnFactAll) Reset() { me.Core, me.Derived = nil, nil }
@@ -37,7 +31,7 @@ type AnnFactAlts struct {
 }
 
 func (me *AnnFactAlts) description(p string) (d string) {
-	return me.Possibilities.describe("ONE OF:", p, nil)
+	return me.Possibilities.describe("ONE OF:", p)
 }
 
 // rune or string or uint64 or float64
@@ -97,15 +91,12 @@ func (me *AnnFacts) Add(facts ...IAnnFact) {
 }
 
 func (me AnnFacts) description(p string) string {
-	return me.describe("MANY:", p, nil)
+	return me.describe("MANY:", p)
 }
 
-func (me AnnFacts) describe(label string, p string, prior IAnnFact) (d string) {
+func (me AnnFacts) describe(label string, p string) (d string) {
 	d = p + label
 	pref := p + "->"
-	if prior != nil {
-		d += "\n" + prior.description(pref)
-	}
 	for i := range me {
 		d += "\n" + me[i].description(pref)
 	}
