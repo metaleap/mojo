@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"github.com/go-leap/fs"
@@ -134,7 +135,7 @@ func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error) {
 		is, err = me.fauxKitsAddDir(dirPath, false)
 	}
 	if is && !was {
-		me.catchUpOnFileMods(nil)
+		me.CatchUpOnFileMods()
 	}
 	return
 }
@@ -207,11 +208,7 @@ func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
 	}
 }
 
-func (me *Ctx) CatchUpOnFileMods() {
-	me.catchUpOnFileMods(nil)
-}
-
-func (me *Ctx) catchUpOnFileMods(ensureFilesMarkedAsChanged atmolang.AstFiles) {
+func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
 	me.state.fileModsWatch.collectFileModsForNextCatchup(me.Dirs.Kits, me.Dirs.fauxKits)
 
 	var latest []map[string]os.FileInfo
@@ -253,11 +250,13 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 	if len(srcFilePathsAndAltSrcs) > 0 {
 		srcfiles := make(atmolang.AstFiles, 0, len(srcFilePathsAndAltSrcs))
 		restoreFinally := func() {
-			recoveredPanic = recover()
+			if recoveredPanic = recover(); recoveredPanic != nil {
+				debug.PrintStack()
+			}
 			for _, srcfile := range srcfiles {
 				srcfile.Options.TmpAltSrc = nil
 			}
-			me.catchUpOnFileMods(srcfiles)
+			me.CatchUpOnFileMods(srcfiles...)
 		}
 		defer restoreFinally()
 
@@ -268,7 +267,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 				}
 			}
 		}
-		me.catchUpOnFileMods(srcfiles)
+		me.CatchUpOnFileMods(srcfiles...)
 	}
 	do()
 	return

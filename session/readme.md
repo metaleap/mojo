@@ -56,7 +56,7 @@ func (me *Ctx) BackgroundMessagesCount() (count int)
 #### func (*Ctx) CatchUpOnFileMods
 
 ```go
-func (me *Ctx) CatchUpOnFileMods()
+func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile)
 ```
 
 #### func (*Ctx) Eval

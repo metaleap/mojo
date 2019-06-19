@@ -33,7 +33,7 @@ func (me *Ctx) initKits() {
 			}
 		},
 	)
-	me.catchUpOnFileMods(nil)
+	me.CatchUpOnFileMods()
 }
 
 func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo) {
@@ -207,7 +207,7 @@ func (me Kits) SrcFilePaths() (srcFilePaths []string) {
 
 func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
 	me.maybeInitPanic(false)
-	me.catchUpOnFileMods(nil)
+	me.CatchUpOnFileMods()
 }
 
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
