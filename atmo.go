@@ -8,6 +8,13 @@ import (
 type Exist struct{}
 type StringKeys map[string]Exist
 
+func (me StringKeys) Exists(s string) (ok bool) {
+	if me != nil {
+		_, ok = me[s]
+	}
+	return
+}
+
 func (me StringKeys) String() (s string) {
 	s = "{"
 	for k := range me {
