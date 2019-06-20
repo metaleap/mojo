@@ -60,6 +60,7 @@ type AstTopLevel struct {
 	AstBaseComments
 	Def struct {
 		Orig         *AstDef
+		NameIfErr    string
 		IsUnexported bool
 	}
 }

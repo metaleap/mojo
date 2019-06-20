@@ -104,13 +104,13 @@ func (me AnnNamesInScope) copyAndAdd(tld *AstDefTop, add interface{}, errs *atmo
 	return
 }
 
-func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(tld *AstDefTop, node IAstNode) (errs atmo.Errors) {
+func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(tld *AstDefTop, node IAstNode, currentlyErroneousButKnownGlobalsNames atmo.StringKeys) (errs atmo.Errors) {
 	inscope := me
 	if let := node.Let(); let != nil {
 		if len(let.Defs) > 0 {
 			inscope = inscope.copyAndAdd(tld, let.Defs, &errs)
 			for i := range let.Defs {
-				errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, &let.Defs[i]))
+				errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, &let.Defs[i], currentlyErroneousButKnownGlobalsNames))
 			}
 		}
 		let.Anns.NamesInScope = inscope
@@ -120,13 +120,14 @@ func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(tld *AstDefTop, node IAs
 		if n.Arg != nil {
 			inscope = inscope.copyAndAdd(tld, n.Arg, &errs)
 		}
-		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.Body))
+		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames))
 	case *AstAppl:
-		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.AtomicCallee))
-		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.AtomicArg))
+		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.AtomicCallee, currentlyErroneousButKnownGlobalsNames))
+		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames))
 	case *AstIdentName:
 		if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
-			me.errUnknownName(tld, &errs, n)
+			_, existsthough := currentlyErroneousButKnownGlobalsNames[n.Val]
+			me.errUnknownName(tld, &errs, n, existsthough)
 		}
 	}
 	return
@@ -140,6 +141,11 @@ func (AnnNamesInScope) errDuplName(maybeTld *AstDefTop, errs *atmo.Errors, n IAs
 	errs.AddNaming(toks.First(nil), "nullary name `"+name+"` already in scope (rename required)")
 }
 
-func (AnnNamesInScope) errUnknownName(tld *AstDefTop, errs *atmo.Errors, n *AstIdentName) {
-	errs.AddNaming(tld.OrigToks(n).First(nil), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
+func (AnnNamesInScope) errUnknownName(tld *AstDefTop, errs *atmo.Errors, n *AstIdentName, currentlyErroneousButKnown bool) {
+	tok := tld.OrigToks(n).First(nil)
+	if currentlyErroneousButKnown {
+		errs.AddUnreach(tok, "name `"+n.Val+"` has syntax errors", len(tok.Meta.Orig))
+	} else {
+		errs.AddNaming(tok, "name `"+n.Val+"` not in scope (possible typo or missing import?)")
+	}
 }

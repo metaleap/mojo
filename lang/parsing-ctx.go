@@ -8,10 +8,8 @@ import (
 type (
 	ctxTldParse struct {
 		file              *AstFile
-		curDef            *AstDef
 		indentHintForLet  int
 		parensLevel       int
-		atTopLevelStill   bool
 		exprWillBeDefBody udevlex.Tokens // nil-ness as falsy, non-nil truthy even if empty
 	}
 )

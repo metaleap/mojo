@@ -72,13 +72,13 @@ func (me *SrcTopChunk) Errs() atmo.Errors {
 	return me._errs
 }
 
-func (me *AstFile) HasDefs(name string) bool {
+func (me *AstFile) HasDefs(name string, includeUnparsed bool) bool {
 	if name[0] == '_' {
 		name = name[1:]
 	}
 	for i := range me.TopLevel {
 		if tld := &me.TopLevel[i]; (!tld.HasErrors()) && tld.Ast.Def.Orig != nil {
-			if tld.Ast.Def.Orig.Name.Val == name {
+			if tld.Ast.Def.Orig.Name.Val == name || (includeUnparsed && tld.Ast.Def.NameIfErr == name) {
 				return true
 			}
 		}

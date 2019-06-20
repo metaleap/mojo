@@ -23,7 +23,7 @@ func init() {
 func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
 	toks := this.Ast.Tokens
 	if this.Ast.comments.Leading, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
-		if this.Ast.Def.Orig, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing != nil {
+		if this.Ast.Def.Orig, this.Ast.Def.NameIfErr, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing != nil {
 			freshErrs = append(freshErrs, this.errs.parsing)
 		} else if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
 			this.Ast.Def.Orig.Name.Val = this.Ast.Def.Orig.Name.Val[1:]
@@ -46,17 +46,19 @@ func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []AstComm
 	return
 }
 
-func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, err *atmo.Error) {
-	ctx := ctxTldParse{file: me, atTopLevelStill: true}
-	var astdef AstDef
+func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, nameOnlyIfErr string, err *atmo.Error) {
+	ctx := ctxTldParse{file: me}
+	astdef := AstDef{IsTopLevel: true}
 	if err = ctx.parseDef(tokens, &astdef); err == nil {
 		def = &astdef
+	} else {
+		nameOnlyIfErr = astdef.Name.Val
 	}
 	return
 }
 
 func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error) {
-	istopleveldef := me.atTopLevelStill
+	def.Tokens = toks
 	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
 		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Pos.Column == 1 {
 			err = atmo.ErrSyn(t, "missing: definition body following `:=`")
@@ -67,21 +69,15 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `:=`")
 	} else if toksheads := tokshead.Chunked(",", ""); len(toksheads[0]) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
-	} else {
+	} else if err = me.parseDefHeadSig(toksheads[0], def); err == nil {
 		me.exprWillBeDefBody, toksbody = toksbody.BreakOnLeadingComments()
 		if me.indentHintForLet = 0; toksbody[0].Meta.Pos.Line == tokheadbodysep.Meta.Pos.Line {
 			me.indentHintForLet = toksbody[0].Meta.Pos.Column - 1
 		}
-		if def.Tokens = toks; istopleveldef {
-			me.curDef, def.IsTopLevel = def, true
-		}
 		if def.Body, err = me.parseExpr(toksbody); err == nil {
 			if len(toksheads) > 1 {
-				if def.Meta, err = me.parseMetas(toksheads[1:]); err != nil {
-					return
-				}
+				def.Meta, err = me.parseMetas(toksheads[1:])
 			}
-			err = me.parseDefHeadSig(toksheads[0], def)
 		}
 	}
 	return
@@ -150,9 +146,6 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 	indhint := toks[0].Meta.Pos.Column - 1
 	if me.indentHintForLet != 0 {
 		indhint, me.indentHintForLet = me.indentHintForLet, 0
-	}
-	if me.atTopLevelStill {
-		me.atTopLevelStill = false
 	}
 	if me.exprWillBeDefBody != nil {
 		me.exprWillBeDefBody = nil

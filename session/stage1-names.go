@@ -12,7 +12,7 @@ type AstDefRef struct {
 }
 
 func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs atmo.Errors) {
-	kitrepops := make(map[*Kit]atmo.Exist, len(me.Kits.All))
+	kitrepops := make(map[*Kit]atmo.StringKeys, len(me.Kits.All))
 	defIdsBorn, defIdsGone, namesOfChange = make(map[string]*Kit, 2), make(map[string]*Kit, 2), make(atmo.StringKeys, 4)
 
 	{ // FIRST: namesInScopeOwn
@@ -29,7 +29,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, d
 					}
 
 					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn =
-						atmo.Є, nil, make(atmoil.AnnNamesInScope, len(kit.topLevelDefs))
+						atmo.StringKeys{}, nil, make(atmoil.AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
 						tld.Errs.Stage1BadNames = nil
 						kit.lookups.namesInScopeOwn.Add(tld, &tld.Errs.Stage1BadNames, tld.Name.Val, tld)
@@ -52,12 +52,13 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, d
 					})
 					if anychangesinkimps || len(kit.lookups.namesInScopeExt) == 0 {
 						if _, alreadymarked := kitrepops[kit]; !alreadymarked {
+							kitrepops[kit] = atmo.StringKeys{}
 							for _, tld := range kit.topLevelDefs {
 								tld.Errs.Stage1BadNames = nil
 							}
 						}
-						kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt =
-							atmo.Є, nil, make(atmoil.AnnNamesInScope, totaldefscount)
+						kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt =
+							nil, make(atmoil.AnnNamesInScope, totaldefscount)
 						for _, kimp := range kimps {
 							for k, v := range kimp.lookups.namesInScopeOwn {
 								nodes := make([]atmoil.IAstNode, len(v))
@@ -74,7 +75,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, d
 		}
 	}
 
-	for kit := range kitrepops {
+	for kit, badglobalsnames := range kitrepops {
 		kit.state.defsBornIdsNames, kit.state.defsGoneIdsNames = nil, nil
 		kit.lookups.namesInScopeAll = make(atmoil.AnnNamesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
 		for k, v := range kit.lookups.namesInScopeOwn {
@@ -85,10 +86,12 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, d
 		for k, v := range kit.lookups.namesInScopeExt {
 			kit.lookups.namesInScopeAll[k] = append(kit.lookups.namesInScopeAll[k], v...)
 		}
+		me.kitGatherAllUnparsedGlobalsNames(kit, badglobalsnames)
 		for _, tld := range kit.topLevelDefs {
-			tld.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateAstDefsAndIdentsFor(tld, &tld.AstDef))
+			tld.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateAstDefsAndIdentsFor(tld, &tld.AstDef, badglobalsnames))
 			errs.Add(tld.Errs.Stage1BadNames)
 		}
 	}
+
 	return
 }

@@ -94,6 +94,26 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit {
 	return nil
 }
 
+func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames atmo.StringKeys) {
+	kits := make(Kits, 1, 1+len(kit.Imports))
+	kits[0] = kit
+	for _, imppath := range kit.Imports {
+		if kitimp := me.Kits.All.ByImpPath(imppath); kitimp != nil {
+			kits = append(kits, kitimp)
+		}
+	}
+	for _, kit = range kits {
+		for _, srcfile := range kit.SrcFiles {
+			for i := range srcfile.TopLevel {
+				if tld := &srcfile.TopLevel[i].Ast.Def; tld.NameIfErr != "" {
+					unparsedGlobalsNames[tld.NameIfErr] = atmo.Є
+				}
+			}
+		}
+	}
+	return
+}
+
 func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) {
 	var fresherrs []error
 	var srcfileschanged bool
