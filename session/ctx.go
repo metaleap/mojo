@@ -29,6 +29,7 @@ type Ctx struct {
 	}
 	Kits struct {
 		All                Kits
+		OnFreshErrs        func()
 		OnSomeReprocessed  func()
 		reprocessingNeeded bool
 	}
@@ -206,6 +207,9 @@ func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
 	}
 	for _, e := range errs {
 		me.bgMsg(true, e.Error())
+	}
+	if me.Kits.OnFreshErrs != nil {
+		me.Kits.OnFreshErrs()
 	}
 }
 

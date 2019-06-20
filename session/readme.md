@@ -35,6 +35,7 @@ type Ctx struct {
 	}
 	Kits struct {
 		All               Kits
+		OnFreshErrs       func()
 		OnSomeReprocessed func()
 	}
 }
