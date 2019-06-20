@@ -29,6 +29,7 @@ type Ctx struct {
 	}
 	Kits struct {
 		All                Kits
+		OnSomeReprocessed  func()
 		reprocessingNeeded bool
 	}
 	state struct {
@@ -213,6 +214,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 
 	var latest []map[string]os.FileInfo
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
+
 	if len(ensureFilesMarkedAsChanged) > 0 {
 		extra := make(map[string]os.FileInfo, len(ensureFilesMarkedAsChanged))
 		for _, srcfile := range ensureFilesMarkedAsChanged {
@@ -232,10 +234,11 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 			latest = append(latest, extra)
 		}
 	}
+
 	if len(latest) > 0 {
 		me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest)
+		me.Kits.All.ensureErrTldPosOffsets()
 	}
-	me.Kits.All.ensureErrTldPosOffsets()
 }
 
 func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (recoveredPanic interface{}) {

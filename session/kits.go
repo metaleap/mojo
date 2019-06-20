@@ -197,6 +197,7 @@ func (me Kits) SrcFilePaths() (srcFilePaths []string) {
 		count += len(kit.SrcFiles)
 	}
 	srcFilePaths = make([]string, 0, count)
+
 	for _, kit := range me {
 		for _, srcfile := range kit.SrcFiles {
 			srcFilePaths = append(srcFilePaths, srcfile.SrcFilePath)
@@ -222,6 +223,9 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
 
 		me.Kits.All.ensureErrTldPosOffsets()
 		me.onErrs(fresherrs, nil)
+		if me.Kits.OnSomeReprocessed != nil {
+			me.Kits.OnSomeReprocessed()
+		}
 	}
 }
 

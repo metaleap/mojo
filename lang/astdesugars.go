@@ -53,15 +53,17 @@ func (me *AstExprAppl) desugarToLetExprIfPlaceholders(prefix func() string) *Ast
 		def.Args[i].NameOrConstVal = B.Ident(ustr.Int(i) + "_")
 	}
 	var appl AstExprAppl
-	appl.Callee, appl.Args = me.Callee, make([]IAstExpr, len(me.Args))
-	if lamc != "" {
+	if appl.Callee = me.Callee; lamc != "" {
 		appl.Callee = B.Ident(lamc)
 	}
-	for i := range appl.Args {
-		if la := lama[i]; la != "" {
-			appl.Args[i] = B.Ident(la)
-		} else {
-			appl.Args[i] = me.Args[i]
+	if appl.Args = me.Args; lama != nil {
+		appl.Args = make([]IAstExpr, len(me.Args))
+		for i := range appl.Args {
+			if la := lama[i]; la != "" {
+				appl.Args[i] = B.Ident(la)
+			} else {
+				appl.Args[i] = me.Args[i]
+			}
 		}
 	}
 	def.Body = &appl

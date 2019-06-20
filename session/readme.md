@@ -34,7 +34,8 @@ type Ctx struct {
 		Kits  []string
 	}
 	Kits struct {
-		All Kits
+		All               Kits
+		OnSomeReprocessed func()
 	}
 }
 ```
