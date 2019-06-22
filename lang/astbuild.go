@@ -5,41 +5,41 @@ import (
 )
 
 var (
-	B AstBuilder
+	Build Builder
 )
 
-type AstBuilder struct{}
+type Builder struct{}
 
-func (AstBuilder) Ident(val string) *AstIdent {
+func (Builder) Ident(val string) *AstIdent {
 	isnotopish := val[0] == '_' || ustr.BeginsLetter(val)
 	return &AstIdent{Val: val, IsTag: ustr.BeginsUpper(val), IsOpish: !isnotopish}
 }
 
-func (AstBuilder) LitFloat(val float64) *AstExprLitFloat {
+func (Builder) LitFloat(val float64) *AstExprLitFloat {
 	return &AstExprLitFloat{Val: val}
 }
 
-func (AstBuilder) LitUint(val uint64) *AstExprLitUint {
+func (Builder) LitUint(val uint64) *AstExprLitUint {
 	return &AstExprLitUint{Val: val}
 }
 
-func (AstBuilder) LitRune(val rune) *AstExprLitRune {
+func (Builder) LitRune(val rune) *AstExprLitRune {
 	return &AstExprLitRune{Val: val}
 }
 
-func (AstBuilder) LitStr(val string) *AstExprLitStr {
+func (Builder) LitStr(val string) *AstExprLitStr {
 	return &AstExprLitStr{Val: val}
 }
 
-func (AstBuilder) Let(body IAstExpr, defs ...AstDef) *AstExprLet {
+func (Builder) Let(body IAstExpr, defs ...AstDef) *AstExprLet {
 	return &AstExprLet{Body: body, Defs: defs}
 }
 
-func (AstBuilder) Appl(callee IAstExpr, args ...IAstExpr) *AstExprAppl {
+func (Builder) Appl(callee IAstExpr, args ...IAstExpr) *AstExprAppl {
 	return &AstExprAppl{Callee: callee, Args: args}
 }
 
-func (AstBuilder) Def(name string, body IAstExpr, argNames ...string) *AstDef {
+func (Builder) Def(name string, body IAstExpr, argNames ...string) *AstDef {
 	def := AstDef{Body: body, Args: make([]AstDefArg, len(argNames))}
 	def.Name.Val = name
 	for i := range argNames {
@@ -48,11 +48,11 @@ func (AstBuilder) Def(name string, body IAstExpr, argNames ...string) *AstDef {
 	return &def
 }
 
-func (AstBuilder) Arg(nameOrConstVal IAstExprAtomic, affix IAstExpr) *AstDefArg {
+func (Builder) Arg(nameOrConstVal IAstExprAtomic, affix IAstExpr) *AstDefArg {
 	return &AstDefArg{NameOrConstVal: nameOrConstVal, Affix: affix}
 }
 
-func (AstBuilder) Cases(scrutinee IAstExpr, alts ...AstCase) *AstExprCases {
+func (Builder) Cases(scrutinee IAstExpr, alts ...AstCase) *AstExprCases {
 	defaultindex := -1
 	for i := range alts {
 		if len(alts[i].Conds) == 0 {

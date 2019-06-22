@@ -48,19 +48,19 @@ type SrcTopChunk struct {
 	Ast AstTopLevel
 }
 
+func (me *SrcTopChunk) At(byte0PosOffsetInSrcFile int) []IAstNode {
+	return me.Ast.at(&me.Ast, byte0PosOffsetInSrcFile-me.offset.B)
+}
+
+func (me *SrcTopChunk) Encloses(byte0PosOffsetInSrcFile int) bool {
+	return me.Ast.Tokens.AreEnclosing(byte0PosOffsetInSrcFile - me.offset.B)
+}
+
 // PosOffsetLine implements `atmo.IErrPosOffsets`.
 func (me *SrcTopChunk) PosOffsetLine() int { return me.offset.Ln }
 
 // PosOffsetByte implements `atmo.IErrPosOffsets`.
 func (me *SrcTopChunk) PosOffsetByte() int { return me.offset.B }
-
-func (me *SrcTopChunk) At(byte0PosOffsetInSrcFile int) []IAstNode {
-	return me.Ast.at(&me.Ast, byte0PosOffsetInSrcFile-me.offset.B)
-}
-
-func (me *SrcTopChunk) HasErrors() bool {
-	return me.errs.parsing != nil || len(me.errs.lexing) > 0
-}
 
 func (me *SrcTopChunk) Errs() atmo.Errors {
 	if me._errs == nil {
@@ -70,6 +70,10 @@ func (me *SrcTopChunk) Errs() atmo.Errors {
 		}
 	}
 	return me._errs
+}
+
+func (me *SrcTopChunk) HasErrors() bool {
+	return me.errs.parsing != nil || len(me.errs.lexing) > 0
 }
 
 func (me *AstFile) HasDefs(name string, includeUnparsed bool) bool {

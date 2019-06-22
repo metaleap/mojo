@@ -15,16 +15,6 @@ CtxDefaultCacheDirPath returns the default used by `Ctx.Init` if
 `~/.cache/atmo`, `~/.config/atmo` etc. or in the worst case the current user's
 home directory.
 
-#### type AstDefRef
-
-```go
-type AstDefRef struct {
-	*atmoil.AstDefTop
-	KitImpPath string
-}
-```
-
-
 #### type Ctx
 
 ```go
@@ -119,7 +109,7 @@ func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.S
 #### func (*Ctx) KitsCollectReferences
 
 ```go
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.AstDefTop][]atmoil.IAstExpr
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.IrDefTop][]atmoil.IIrExpr
 ```
 
 #### func (*Ctx) KitsEnsureLoaded
@@ -164,6 +154,16 @@ type CtxBgMsg struct {
 ```
 
 
+#### type IrDefRef
+
+```go
+type IrDefRef struct {
+	*atmoil.IrDefTop
+	KitImpPath string
+}
+```
+
+
 #### type Kit
 
 ```go
@@ -191,16 +191,10 @@ interpreted or compiled all together as a unit.
 func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.SrcTopChunk, theNodeAndItsAncestors []atmolang.IAstNode)
 ```
 
-#### func (*Kit) AstNodeIrFunFor
-
-```go
-func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.AstDefTop, theNodeAndItsAncestors []atmoil.IAstNode)
-```
-
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string) (defs atmoil.AstTopDefs)
+func (me *Kit) Defs(name string) (defs atmoil.IrTopDefs)
 ```
 
 #### func (*Kit) Errors
@@ -217,6 +211,12 @@ Errors collects whatever issues exist in any of the `Kit`'s source files
 func (me *Kit) HasDefs(name string) bool
 ```
 HasDefs returns whether any of the `Kit`'s source files define `name`.
+
+#### func (*Kit) IrNodeOfAstNode
+
+```go
+func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.IIrNode)
+```
 
 #### type Kits
 

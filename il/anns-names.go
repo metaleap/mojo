@@ -5,13 +5,13 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-type AnnNamesInScope map[string][]IAstNode
+type AnnNamesInScope map[string][]IIrNode
 
-func (me AnnNamesInScope) Add(maybeTld *AstDefTop, errs *atmo.Errors, k string, v ...IAstNode) {
+func (me AnnNamesInScope) Add(maybeTld *IrDefTop, errs *atmo.Errors, k string, v ...IIrNode) {
 	if errs == nil && maybeTld != nil {
 		errs = &maybeTld.Errs.Stage1BadNames
 	}
-	var nonargdef IAstNode
+	var nonargdef IIrNode
 	for i, n := range v {
 		if !n.IsDefWithArg() {
 			if nonargdef = n; errs != nil && len(v) > 1 {
@@ -43,23 +43,23 @@ func (me AnnNamesInScope) Add(maybeTld *AstDefTop, errs *atmo.Errors, k string, 
 	}
 }
 
-func (me AnnNamesInScope) add(k string, v ...IAstNode) {
+func (me AnnNamesInScope) add(k string, v ...IIrNode) {
 	me[k] = append(me[k], v...)
 }
 
-func (me AnnNamesInScope) copyAndAdd(tld *AstDefTop, add interface{}, errs *atmo.Errors) (namesInScopeCopy AnnNamesInScope) {
-	var addarg *AstDefArg
-	var adddefs AstDefs
+func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.Errors) (namesInScopeCopy AnnNamesInScope) {
+	var addarg *IrDefArg
+	var adddefs IrDefs
 	var namestoadd []string
 	var numerrs int
 	switch addwhat := add.(type) {
-	case *AstDefArg:
-		addarg, namestoadd = addwhat, []string{addwhat.AstIdentBase.Val}
+	case *IrDefArg:
+		addarg, namestoadd = addwhat, []string{addwhat.IrIdentBase.Val}
 		if cands := me[namestoadd[0]]; len(cands) > 0 {
 			me.errDuplName(tld, errs, addarg, namestoadd[0], 0, cands[0])
 			numerrs++
 		}
-	case AstDefs:
+	case IrDefs:
 		adddefs, namestoadd = addwhat, make([]string, len(addwhat))
 		for i := range adddefs {
 			namestoadd[i] = adddefs[i].Name.Val
@@ -91,7 +91,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *AstDefTop, add interface{}, errs *atmo
 	}
 	// add new names:
 	if addarg != nil {
-		k, v := addarg.AstIdentBase.Val, addarg
+		k, v := addarg.IrIdentBase.Val, addarg
 		namesInScopeCopy.add(k, v)
 	} else {
 		for i := range adddefs {
@@ -104,27 +104,27 @@ func (me AnnNamesInScope) copyAndAdd(tld *AstDefTop, add interface{}, errs *atmo
 	return
 }
 
-func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(tld *AstDefTop, node IAstNode, currentlyErroneousButKnownGlobalsNames atmo.StringKeys) (errs atmo.Errors) {
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode, currentlyErroneousButKnownGlobalsNames atmo.StringKeys) (errs atmo.Errors) {
 	inscope := me
 	if let := node.Let(); let != nil {
 		if len(let.Defs) > 0 {
 			inscope = inscope.copyAndAdd(tld, let.Defs, &errs)
 			for i := range let.Defs {
-				errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, &let.Defs[i], currentlyErroneousButKnownGlobalsNames))
+				errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, &let.Defs[i], currentlyErroneousButKnownGlobalsNames))
 			}
 		}
 		let.Anns.NamesInScope = inscope
 	}
 	switch n := node.(type) {
-	case *AstDef:
+	case *IrDef:
 		if n.Arg != nil {
 			inscope = inscope.copyAndAdd(tld, n.Arg, &errs)
 		}
-		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames))
-	case *AstAppl:
-		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.AtomicCallee, currentlyErroneousButKnownGlobalsNames))
-		errs.Add(inscope.RepopulateAstDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames))
-	case *AstIdentName:
+		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames))
+	case *IrAppl:
+		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicCallee, currentlyErroneousButKnownGlobalsNames))
+		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames))
+	case *IrIdentName:
 		if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
 			_, existsthough := currentlyErroneousButKnownGlobalsNames[n.Val]
 			me.errUnknownName(tld, &errs, n, existsthough)
@@ -133,7 +133,7 @@ func (me AnnNamesInScope) RepopulateAstDefsAndIdentsFor(tld *AstDefTop, node IAs
 	return
 }
 
-func (AnnNamesInScope) errDuplName(maybeTld *AstDefTop, errs *atmo.Errors, n IAstNode, name string, cIdx int, cands ...IAstNode) {
+func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, n IIrNode, name string, cIdx int, cands ...IIrNode) {
 	toks := n.origToks()
 	if len(toks) == 0 && maybeTld != nil {
 		toks = maybeTld.OrigToks(n)
@@ -141,7 +141,7 @@ func (AnnNamesInScope) errDuplName(maybeTld *AstDefTop, errs *atmo.Errors, n IAs
 	errs.AddNaming(toks.First(nil), "nullary name `"+name+"` already in scope (rename required)")
 }
 
-func (AnnNamesInScope) errUnknownName(tld *AstDefTop, errs *atmo.Errors, n *AstIdentName, currentlyErroneousButKnown bool) {
+func (AnnNamesInScope) errUnknownName(tld *IrDefTop, errs *atmo.Errors, n *IrIdentName, currentlyErroneousButKnown bool) {
 	tok := tld.OrigToks(n).First(nil)
 	if currentlyErroneousButKnown {
 		errs.AddUnreach(tok, "name `"+n.Val+"` has syntax errors", len(tok.Meta.Orig))

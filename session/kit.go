@@ -20,14 +20,14 @@ type Kit struct {
 	WasEverToBeLoaded bool
 	Imports           []string
 
-	topLevelDefs atmoil.AstTopDefs
+	topLevelDefs atmoil.IrTopDefs
 	SrcFiles     atmolang.AstFiles
 	state        struct {
 		defsGoneIdsNames map[string]string
 		defsBornIdsNames map[string]string
 	}
 	lookups struct {
-		tlDefsByID      map[string]*atmoil.AstDefTop
+		tlDefsByID      map[string]*atmoil.IrDefTop
 		tlDefIDsByName  map[string][]string
 		namesInScopeOwn atmoil.AnnNamesInScope
 		namesInScopeExt atmoil.AnnNamesInScope
@@ -182,7 +182,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 					me.Kits.reprocessingNeeded = true
 				}
 			}
-			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmoil.AstDefTop, len(kit.topLevelDefs))
+			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmoil.IrDefTop, len(kit.topLevelDefs))
 			for _, tldef := range kit.topLevelDefs {
 				kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Name.Val] =
 					tldef, append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.Id)
@@ -240,7 +240,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return len(me.lookups.tlDefIDsByName[name]) > 0
 }
 
-func (me *Kit) Defs(name string) (defs atmoil.AstTopDefs) {
+func (me *Kit) Defs(name string) (defs atmoil.IrTopDefs) {
 	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}
@@ -263,7 +263,7 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 	return
 }
 
-func (me *Kit) AstNodeIrFunFor(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.AstDefTop, theNodeAndItsAncestors []atmoil.IAstNode) {
+func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.IIrNode) {
 	if astDefTop = me.lookups.tlDefsByID[defId]; astDefTop != nil {
 		theNodeAndItsAncestors = astDefTop.FindByOrig(origNode)
 	}

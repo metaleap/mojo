@@ -8,7 +8,7 @@ type IAnnFact interface {
 
 // collection of facts that "all must be true based on analysis",
 // if they contradict we'll find out later, in here they're just all collected.
-// for the `astNodeBase.facts` usage of `AnnFactAll`, the first is "the one
+// for the `irNodeBase.facts` usage of `AnnFactAll`, the first is "the one
 // indisputable core truth" about the node and others are derived from context
 type AnnFactAll struct {
 	Core    IAnnFact
@@ -24,7 +24,7 @@ func (me *AnnFactAll) description(p string) (d string) {
 
 func (me *AnnFactAll) Reset() { me.Core, me.Derived = nil, nil }
 
-// this originates from `AstIdentName`s (due to their `Anns.Candidates`)
+// this originates from `IrIdentName`s (due to their `Anns.Candidates`)
 // but may as a consequence also show up in the ancestors
 type AnnFactAlts struct {
 	Possibilities AnnFacts
@@ -61,7 +61,7 @@ func (me *AnnFactUndef) description(p string) string { return p + "undefined / u
 
 // reference: all facts for `To` are my facts
 type AnnFactRef struct {
-	To IAstNode
+	To IIrNode
 }
 
 func (me *AnnFactRef) description(p string) string {

@@ -8,58 +8,58 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type ctxAstInit struct {
-	curTopLevelDef  *AstDefTop
-	defsScope       *AstDefs
-	coerceCallables map[IAstNode]IAstExpr
+type ctxIrInit struct {
+	curTopLevelDef  *IrDefTop
+	defsScope       *IrDefs
+	coerceCallables map[IIrNode]IIrExpr
 	counter         struct {
 		val   byte
 		times int
 	}
 }
 
-func ExprFrom(orig atmolang.IAstExpr) (IAstExpr, atmo.Errors) {
-	var ctx ctxAstInit
-	return ctx.newAstExprFrom(orig)
+func ExprFrom(orig atmolang.IAstExpr) (IIrExpr, atmo.Errors) {
+	var ctx ctxIrInit
+	return ctx.newExprFrom(orig)
 }
 
-func (me *ctxAstInit) addCoercion(on IAstNode, coerce IAstExpr) {
+func (me *ctxIrInit) addCoercion(on IIrNode, coerce IIrExpr) {
 	if me.coerceCallables == nil {
-		me.coerceCallables = map[IAstNode]IAstExpr{on: coerce}
+		me.coerceCallables = map[IIrNode]IIrExpr{on: coerce}
 	} else {
 		me.coerceCallables[on] = coerce
 	}
 }
-func (me *ctxAstInit) ensureAstAtomFor(expr IAstExpr) IAstExpr {
+func (me *ctxIrInit) ensureAtomic(expr IIrExpr) IIrExpr {
 	if expr.IsAtomic() {
 		return expr
 	}
 	return me.addLocalDefToOwnScope(me.nextPrefix(), expr)
 }
 
-func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr, errs atmo.Errors) {
+func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IIrExpr, errs atmo.Errors) {
 	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
-		var ident AstIdentTag
+		var ident IrIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 	} else if t1 != t2 {
 		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + orig.Tokens.First(nil).Meta.Pos.String() + ")")
 
 	} else if orig.IsPlaceholder() {
-		var ident AstSpecial // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
+		var ident IrSpecial // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
 		ret, ident.OneOf.InvalidToken, ident.Orig = &ident, true, orig
 		errs.AddSyn(&orig.Tokens[0], "misplaced placeholder: only legal in def-args or call expressions")
 
 	} else if orig.IsVar() {
-		var ident AstSpecial
+		var ident IrSpecial
 		ret, ident.OneOf.InvalidToken, ident.Orig = &ident, true, orig
 		errs.AddSyn(&orig.Tokens[0], "our bug, not your fault: encountered a var expression that wasn't desugared")
 
 	} else if orig.Val == atmo.KnownIdentUndef {
-		var ident AstSpecial
+		var ident IrSpecial
 		ret, ident.OneOf.Undefined, ident.Orig = &ident, true, orig
 
 	} else {
-		var ident AstIdentName
+		var ident IrIdentName
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 		// me.curTopLevelDef.refersTo[ident.Val] = true
 
@@ -67,7 +67,7 @@ func (me *ctxAstInit) newAstExprFromIdent(orig *atmolang.AstIdent) (ret IAstExpr
 	return
 }
 
-func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, errs atmo.Errors) {
+func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IIrExpr, errs atmo.Errors) {
 	var origdesugared atmolang.IAstExpr
 	var wasdesugared bool
 	if origdesugared, errs = origin.Desugared(me.nextPrefix); origdesugared == nil {
@@ -84,46 +84,46 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 
 	switch origdes := origdesugared.(type) {
 	case *atmolang.AstIdent:
-		expr = errs.AddVia(me.newAstExprFromIdent(origdes)).(IAstExpr)
+		expr = errs.AddVia(me.newExprFromIdent(origdes)).(IIrExpr)
 	case *atmolang.AstExprLitFloat:
-		var lit AstLitFloat
+		var lit IrLitFloat
 		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLitUint:
-		var lit AstLitUint
+		var lit IrLitUint
 		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLitRune:
-		var lit AstLitRune
+		var lit IrLitRune
 		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLitStr:
-		var lit AstLitStr
+		var lit IrLitStr
 		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLet:
 		oldscope, sidedefs, let :=
-			me.defsScope, AstDefs{}, AstExprLetBase{letOrig: origdes, letPrefix: me.nextPrefix(), Defs: make(AstDefs, len(origdes.Defs))}
+			me.defsScope, IrDefs{}, IrExprLetBase{letOrig: origdes, letPrefix: me.nextPrefix(), Defs: make(IrDefs, len(origdes.Defs))}
 		me.defsScope = &sidedefs
 		for i := range origdes.Defs {
 			errs.Add(let.Defs[i].initFrom(me, &origdes.Defs[i]))
 		}
-		expr = errs.AddVia(me.newAstExprFrom(origdes.Body)).(IAstExpr)
+		expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IIrExpr)
 		let.Defs = append(let.Defs, sidedefs...)
 		errs.Add(me.addLetDefsToNode(origdes.Body, expr, &let))
 		me.defsScope = oldscope
 	case *atmolang.AstExprAppl:
 		origdes = origdes.ToUnary()
-		appl, isatomiccallee, isatomicarg := AstAppl{Orig: origdes}, origdes.Callee.IsAtomic(), origdes.Args[0].IsAtomic()
+		appl, isatomiccallee, isatomicarg := IrAppl{Orig: origdes}, origdes.Callee.IsAtomic(), origdes.Args[0].IsAtomic()
 		if isatomiccallee {
-			appl.AtomicCallee = errs.AddVia(me.newAstExprFrom(origdes.Callee)).(IAstExpr)
+			appl.AtomicCallee = errs.AddVia(me.newExprFrom(origdes.Callee)).(IIrExpr)
 		}
 		if isatomicarg {
-			appl.AtomicArg = errs.AddVia(me.newAstExprFrom(origdes.Args[0])).(IAstExpr)
+			appl.AtomicArg = errs.AddVia(me.newExprFrom(origdes.Args[0])).(IIrExpr)
 		}
 		if expr = &appl; !(isatomiccallee && isatomicarg) {
-			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IAstExpr {
-				body := errs.AddVia(me.newAstExprFrom(from)).(IAstExpr)
+			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IIrExpr {
+				body := errs.AddVia(me.newExprFrom(from)).(IIrExpr)
 				return me.addLocalDefToOwnScope(appl.letPrefix+me.nextPrefix(), body)
 			}
 			me.defsScope, appl.letPrefix = &appl.Defs, me.nextPrefix()
@@ -141,13 +141,13 @@ func (me *ctxAstInit) newAstExprFrom(origin atmolang.IAstExpr) (expr IAstExpr, e
 		}
 		panic(origdes)
 	}
-	if exprbase := expr.astExprBase(); wasdesugared || exprbase.Orig == nil {
+	if exprbase := expr.exprBase(); wasdesugared || exprbase.Orig == nil {
 		exprbase.Orig = origin
 	}
 	return
 }
 
-func (me *ctxAstInit) nextPrefix() string {
+func (me *ctxIrInit) nextPrefix() string {
 	if me.counter.val == 122 || me.counter.val == 0 {
 		me.counter.val, me.counter.times = 96, me.counter.times+1
 	}
@@ -155,7 +155,7 @@ func (me *ctxAstInit) nextPrefix() string {
 	return "__" + string(ustr.RepeatB(me.counter.val, me.counter.times))
 }
 
-func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstExpr, let *AstExprLetBase) (errs atmo.Errors) {
+func (me *ctxIrInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IIrExpr, let *IrExprLetBase) (errs atmo.Errors) {
 	if dst := letBody.Let(); dst == nil {
 		tok := origBody.Toks().First(nil)
 		tokd, tokl := tok, 0
@@ -176,16 +176,16 @@ func (me *ctxAstInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IAstE
 	return
 }
 
-func (me *ctxAstInit) addLocalDefToOwnScope(name string, body IAstExpr) *AstIdentName {
-	var ident AstIdentName
+func (me *ctxIrInit) addLocalDefToOwnScope(name string, body IIrExpr) *IrIdentName {
+	var ident IrIdentName
 	oldscope := me.defsScope
 	me.defsScope = &ident.Defs
-	ident.AstIdentBase = me.addLocalDefToScope(name, body).Name.AstIdentBase
+	ident.IrIdentBase = me.addLocalDefToScope(name, body).Name.IrIdentBase
 	me.defsScope = oldscope
 	return &ident
 }
 
-func (me *ctxAstInit) addLocalDefToScope(name string, body IAstExpr) (def *AstDef) {
+func (me *ctxIrInit) addLocalDefToScope(name string, body IIrExpr) (def *IrDef) {
 	def = me.defsScope.add(body)
 	def.Name.Val = name
 	return

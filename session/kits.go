@@ -176,7 +176,7 @@ func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFul
 	}
 }
 
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.AstDefTop][]atmoil.IAstExpr {
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.IrDefTop][]atmoil.IIrExpr {
 	if name == "" {
 		return nil
 	}
@@ -223,7 +223,7 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) 
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
 
-		namesofchange, defidsborn, _, ferrs := me.kitsRepopulateAstNamesInScope()
+		namesofchange, defidsborn, _, ferrs := me.kitsRepopulateNamesInScope()
 		freshErrs = ferrs
 		defidsdependantsofnamesofchange := make(map[string]*Kit)
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
@@ -314,12 +314,12 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 	return
 }
 
-func (me Kits) collectReferences(name string) (refs map[*atmoil.AstDefTop][]atmoil.IAstExpr) {
+func (me Kits) collectReferences(name string) (refs map[*atmoil.IrDefTop][]atmoil.IIrExpr) {
 	for _, kit := range me {
 		for _, tld := range kit.topLevelDefs {
 			if nodes := tld.RefsTo(name); len(nodes) > 0 {
 				if refs == nil {
-					refs = make(map[*atmoil.AstDefTop][]atmoil.IAstExpr)
+					refs = make(map[*atmoil.IrDefTop][]atmoil.IIrExpr)
 				}
 				refs[tld] = nodes
 			}

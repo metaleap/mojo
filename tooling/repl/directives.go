@@ -206,7 +206,7 @@ func (me *Repl) dInfoKit(whatKit string) {
 }
 
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
-	me.withKitDefs(whatKit, whatName, "info", func(kit *atmosess.Kit, def *atmoil.AstDefTop) {
+	me.withKitDefs(whatKit, whatName, "info", func(kit *atmosess.Kit, def *atmoil.IrDefTop) {
 		me.IO.writeLns("TODO")
 	})
 }
@@ -216,7 +216,7 @@ func (me *Repl) DSrcs(what string) bool {
 		ctxp := atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
 			ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
-		me.withKitDefs(whatkit, whatname, "srcs", func(kit *atmosess.Kit, def *atmoil.AstDefTop) {
+		me.withKitDefs(whatkit, whatname, "srcs", func(kit *atmosess.Kit, def *atmoil.IrDefTop) {
 			me.decoAddNotice(false, "", true, def.OrigTopLevelChunk.SrcFile.SrcFilePath)
 			ctxp.ApplStyle = def.OrigTopLevelChunk.SrcFile.Options.ApplStyle
 			def.OrigTopLevelChunk.Print(&ctxp)
@@ -238,7 +238,7 @@ func (me *Repl) DSrcs(what string) bool {
 	return false
 }
 
-func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*atmosess.Kit, *atmoil.AstDefTop)) {
+func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*atmosess.Kit, *atmoil.IrDefTop)) {
 	kits := me.Ctx.Kits.All
 	var kit *atmosess.Kit
 	if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {

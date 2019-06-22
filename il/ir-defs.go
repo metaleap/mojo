@@ -5,9 +5,9 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type AstDefs []AstDef
+type IrDefs []IrDef
 
-func (me AstDefs) byName(name string) *AstDef {
+func (me IrDefs) byName(name string) *IrDef {
 	for i := range me {
 		if me[i].Name.Val == name {
 			return &me[i]
@@ -16,15 +16,15 @@ func (me AstDefs) byName(name string) *AstDef {
 	return nil
 }
 
-func (me *AstDefs) add(body IAstExpr) (def *AstDef) {
+func (me *IrDefs) add(body IIrExpr) (def *IrDef) {
 	this := *me
 	idx := len(this)
-	this = append(this, AstDef{Body: body})
+	this = append(this, IrDef{Body: body})
 	*me, def = this, &this[idx]
 	return
 }
 
-func (me AstDefs) index(name string) int {
+func (me IrDefs) index(name string) int {
 	for i := range me {
 		if me[i].Name.Val == name {
 			return i
@@ -33,16 +33,16 @@ func (me AstDefs) index(name string) int {
 	return -1
 }
 
-type AstTopDefs []*AstDefTop
+type IrTopDefs []*IrDefTop
 
-func (me AstTopDefs) Len() int          { return len(me) }
-func (me AstTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
-func (me AstTopDefs) Less(i int, j int) bool {
+func (me IrTopDefs) Len() int          { return len(me) }
+func (me IrTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+func (me IrTopDefs) Less(i int, j int) bool {
 	dis, dat := &me[i].OrigDef.Tokens[0].Meta, &me[j].OrigDef.Tokens[0].Meta
 	return (dis.Pos.Filename == dat.Pos.Filename && me[i].OrigTopLevelChunk.PosOffsetByte() < me[j].OrigTopLevelChunk.PosOffsetByte()) || dis.Pos.Filename < dat.Pos.Filename
 }
 
-func (me AstTopDefs) ByName(name string) (defs []*AstDefTop) {
+func (me IrTopDefs) ByName(name string) (defs []*IrDefTop) {
 	for _, tld := range me {
 		if tld.Name.Val == name {
 			defs = append(defs, tld)
@@ -51,7 +51,7 @@ func (me AstTopDefs) ByName(name string) (defs []*AstDefTop) {
 	return
 }
 
-func (me AstTopDefs) IndexByID(id string) int {
+func (me IrTopDefs) IndexByID(id string) int {
 	for i := range me {
 		if me[i].Id == id {
 			return i
@@ -60,7 +60,7 @@ func (me AstTopDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs []error) {
+func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs []error) {
 	this, newdefs, oldunchangeds := *me, make([]*atmolang.SrcTopChunk, 0, 2), make(map[int]atmo.Exist, len(*me))
 
 	// gather what's "new" (newly added or source-wise modified) and what's "old" (source-wise unchanged)
@@ -82,7 +82,7 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 
 	// drop what's gone
 	if l := len(oldunchangeds); l < len(this) { // either some (l>0) or all (l==0) are gone, the latter will occur too seldomly in practice to optimize for
-		thiswithout := make(AstTopDefs, 0, l+len(newdefs))
+		thiswithout := make(IrTopDefs, 0, l+len(newdefs))
 		droppedTopLevelDefIdsAndNames = make(map[string]string, len(this)-l)
 		for i := range this {
 			if _, oldunchanged := oldunchangeds[i]; oldunchanged {
@@ -99,16 +99,16 @@ func (me *AstTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevel
 		newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
 		for _, tlc := range newdefs {
 			// add the def skeleton
-			def := &AstDefTop{OrigTopLevelChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool)}
+			def := &IrDefTop{OrigTopLevelChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool)}
 			this, def.OrigDef, newTopLevelDefIdsAndNames[def.Id] =
 				append(this, def), tlc.Ast.Def.Orig, tlc.Ast.Def.Orig.Name.Val
 			// populate it
-			var let AstExprLetBase
-			var ctxastinit ctxAstInit
-			let.letPrefix, ctxastinit.defsScope, ctxastinit.curTopLevelDef = ctxastinit.nextPrefix(), &let.Defs, def
-			def.Errs.Stage0Init.Add(def.initFrom(&ctxastinit, def.OrigDef))
+			var let IrExprLetBase
+			var ctxinit ctxIrInit
+			let.letPrefix, ctxinit.defsScope, ctxinit.curTopLevelDef = ctxinit.nextPrefix(), &let.Defs, def
+			def.Errs.Stage0Init.Add(def.initFrom(&ctxinit, def.OrigDef))
 			if len(let.Defs) > 0 {
-				def.Errs.Stage0Init.Add(ctxastinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let))
+				def.Errs.Stage0Init.Add(ctxinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let))
 			}
 			if len(def.Errs.Stage0Init) > 0 {
 				freshErrs = append(freshErrs, def.Errs.Stage0Init.Errors()...)

@@ -6,12 +6,12 @@ import (
 	"github.com/metaleap/atmo/il"
 )
 
-type AstDefRef struct {
-	*atmoil.AstDefTop
+type IrDefRef struct {
+	*atmoil.IrDefTop
 	KitImpPath string
 }
 
-func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs atmo.Errors) {
+func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs atmo.Errors) {
 	kitrepops := make(map[*Kit]atmo.StringKeys, len(me.Kits.All))
 	defIdsBorn, defIdsGone, namesOfChange = make(map[string]*Kit, 2), make(map[string]*Kit, 2), make(atmo.StringKeys, 4)
 
@@ -61,10 +61,10 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, d
 							nil, make(atmoil.AnnNamesInScope, totaldefscount)
 						for _, kimp := range kimps {
 							for k, v := range kimp.lookups.namesInScopeOwn {
-								nodes := make([]atmoil.IAstNode, len(v))
+								nodes := make([]atmoil.IIrNode, len(v))
 								for i, n := range v {
-									nodes[i] = AstDefRef{KitImpPath: kimp.ImpPath,
-										AstDefTop: n.(*atmoil.AstDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
+									nodes[i] = IrDefRef{KitImpPath: kimp.ImpPath,
+										IrDefTop: n.(*atmoil.IrDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
 								}
 								kit.lookups.namesInScopeExt.Add(nil, nil, k, nodes...)
 							}
@@ -79,7 +79,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, d
 		kit.state.defsBornIdsNames, kit.state.defsGoneIdsNames = nil, nil
 		kit.lookups.namesInScopeAll = make(atmoil.AnnNamesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
 		for k, v := range kit.lookups.namesInScopeOwn {
-			nodes := make([]atmoil.IAstNode, len(v))
+			nodes := make([]atmoil.IIrNode, len(v))
 			copy(nodes, v)
 			kit.lookups.namesInScopeAll[k] = nodes
 		}
@@ -88,7 +88,7 @@ func (me *Ctx) kitsRepopulateAstNamesInScope() (namesOfChange atmo.StringKeys, d
 		}
 		me.kitGatherAllUnparsedGlobalsNames(kit, badglobalsnames)
 		for _, tld := range kit.topLevelDefs {
-			tld.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateAstDefsAndIdentsFor(tld, &tld.AstDef, badglobalsnames))
+			tld.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateDefsAndIdentsFor(tld, &tld.IrDef, badglobalsnames))
 			errs.Add(tld.Errs.Stage1BadNames)
 		}
 	}
