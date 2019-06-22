@@ -29,7 +29,7 @@ type Ctx struct {
 	}
 	Kits struct {
 		All                Kits
-		OnFreshErrs        func()
+		OnRefreshed        func(bool)
 		reprocessingNeeded bool
 	}
 	Options struct {
@@ -185,10 +185,9 @@ func (me *Ctx) FauxKitsHas(dirPath string) bool {
 	return ustr.In(dirPath, me.Dirs.fauxKits...)
 }
 
-func (me *Ctx) bgMsg(issue bool, lines ...string) *CtxBgMsg {
-	i, msg := len(me.state.bgMsgs), CtxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
+func (me *Ctx) bgMsg(issue bool, lines ...string) {
+	msg := CtxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
 	me.state.bgMsgs = append(me.state.bgMsgs, msg)
-	return &me.state.bgMsgs[i]
 }
 
 func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg) {
@@ -205,19 +204,22 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 	return
 }
 
-func (me *Ctx) onFreshErrs(stage0Errs []error, stage1AndBeyondErrs atmo.Errors) {
-	me.Kits.All.ensureErrTldPosOffsets()
-	if me.Options.BgMsgs.IncludeKitsErrs {
-		for _, e := range stage0Errs {
-			me.bgMsg(true, e.Error())
-		}
-		atmo.SortMaybe(stage1AndBeyondErrs)
-		for i := range stage1AndBeyondErrs {
-			me.bgMsg(true, stage1AndBeyondErrs[i].Error())
+func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs []error, freshStage1AndBeyondErrs atmo.Errors) {
+	hadfresherrs := len(freshStage0Errs) > 0 || len(freshStage1AndBeyondErrs) > 0
+	if hadfresherrs {
+		me.Kits.All.ensureErrTldPosOffsets()
+		if me.Options.BgMsgs.IncludeKitsErrs {
+			for _, e := range freshStage0Errs {
+				me.bgMsg(true, e.Error())
+			}
+			atmo.SortMaybe(freshStage1AndBeyondErrs)
+			for i := range freshStage1AndBeyondErrs {
+				me.bgMsg(true, freshStage1AndBeyondErrs[i].Error())
+			}
 		}
 	}
-	if me.Kits.OnFreshErrs != nil {
-		me.Kits.OnFreshErrs()
+	if me.Kits.OnRefreshed != nil {
+		me.Kits.OnRefreshed(hadfresherrs)
 	}
 }
 

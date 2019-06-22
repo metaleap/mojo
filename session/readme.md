@@ -35,7 +35,7 @@ type Ctx struct {
 	}
 	Kits struct {
 		All         Kits
-		OnFreshErrs func()
+		OnRefreshed func(bool)
 	}
 	Options struct {
 		BgMsgs struct {

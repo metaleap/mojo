@@ -45,7 +45,7 @@ func (me *Ctx) kitEnsureLoaded(kit *Kit, thenReprocessAffectedDefsIfAnyKitsReloa
 	if thenReprocessAffectedDefsIfAnyKitsReloaded {
 		stage1andbeyonderrs = me.reprocessAffectedDefsIfAnyKitsReloaded()
 	}
-	me.onFreshErrs(stage0errs, stage1andbeyonderrs)
+	me.onSomeOrAllKitsPartiallyOrFullyRefreshed(stage0errs, stage1andbeyonderrs)
 }
 
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
@@ -71,7 +71,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 		}
 	}
 
-	me.onFreshErrs(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
+	me.onSomeOrAllKitsPartiallyOrFullyRefreshed(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
 }
 
 func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) {

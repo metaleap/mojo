@@ -138,7 +138,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 		}
 
 		// reprocess maybe
-		me.onFreshErrs(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
+		me.onSomeOrAllKitsPartiallyOrFullyRefreshed(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
 	}
 }
 
