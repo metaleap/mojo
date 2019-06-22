@@ -2,7 +2,7 @@ package atmoil
 
 const annFactDescIndent = "  "
 
-type IAnnFact interface {
+type iAnnFact interface {
 	description(string) string
 }
 
@@ -11,7 +11,7 @@ type IAnnFact interface {
 // for the `irNodeBase.facts` usage of `AnnFactAll`, the first is "the one
 // indisputable core truth" about the node and others are derived from context
 type AnnFactAll struct {
-	Core    IAnnFact
+	Core    iAnnFact
 	Derived AnnFacts
 }
 
@@ -61,7 +61,7 @@ func (me *AnnFactUndef) description(p string) string { return p + "undefined / u
 
 // reference: all facts for `To` are my facts
 type AnnFactRef struct {
-	To IIrNode
+	To INode
 }
 
 func (me *AnnFactRef) description(p string) string {
@@ -90,9 +90,9 @@ func (me *AnnFactCallable) description(p string) (d string) {
 	return
 }
 
-type AnnFacts []IAnnFact
+type AnnFacts []iAnnFact
 
-func (me *AnnFacts) Add(facts ...IAnnFact) {
+func (me *AnnFacts) Add(facts ...iAnnFact) {
 	// *me = append(*me, facts...)
 	// return
 	this := *me

@@ -5,13 +5,13 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-type AnnNamesInScope map[string][]IIrNode
+type AnnNamesInScope map[string][]INode
 
-func (me AnnNamesInScope) Add(maybeTld *IrDefTop, errs *atmo.Errors, k string, v ...IIrNode) {
+func (me AnnNamesInScope) Add(maybeTld *IrDefTop, errs *atmo.Errors, k string, v ...INode) {
 	if errs == nil && maybeTld != nil {
 		errs = &maybeTld.Errs.Stage1BadNames
 	}
-	var nonargdef IIrNode
+	var nonargdef INode
 	for i, n := range v {
 		if !n.IsDefWithArg() {
 			if nonargdef = n; errs != nil && len(v) > 1 {
@@ -43,7 +43,7 @@ func (me AnnNamesInScope) Add(maybeTld *IrDefTop, errs *atmo.Errors, k string, v
 	}
 }
 
-func (me AnnNamesInScope) add(k string, v ...IIrNode) {
+func (me AnnNamesInScope) add(k string, v ...INode) {
 	me[k] = append(me[k], v...)
 }
 
@@ -104,7 +104,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.
 	return
 }
 
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode, currentlyErroneousButKnownGlobalsNames atmo.StringKeys) (errs atmo.Errors) {
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, currentlyErroneousButKnownGlobalsNames atmo.StringKeys) (errs atmo.Errors) {
 	inscope := me
 	if let := node.Let(); let != nil {
 		if len(let.Defs) > 0 {
@@ -133,7 +133,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode
 	return
 }
 
-func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, n IIrNode, name string, cIdx int, cands ...IIrNode) {
+func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, n INode, name string, cIdx int, cands ...INode) {
 	toks := n.origToks()
 	if len(toks) == 0 && maybeTld != nil {
 		toks = maybeTld.OrigToks(n)

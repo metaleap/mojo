@@ -16,7 +16,7 @@ func (me IrDefs) byName(name string) *IrDef {
 	return nil
 }
 
-func (me *IrDefs) add(body IIrExpr) (def *IrDef) {
+func (me *IrDefs) add(body IExpr) (def *IrDef) {
 	this := *me
 	idx := len(this)
 	this = append(this, IrDef{Body: body})

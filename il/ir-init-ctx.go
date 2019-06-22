@@ -11,33 +11,33 @@ import (
 type ctxIrInit struct {
 	curTopLevelDef  *IrDefTop
 	defsScope       *IrDefs
-	coerceCallables map[IIrNode]IIrExpr
+	coerceCallables map[INode]IExpr
 	counter         struct {
 		val   byte
 		times int
 	}
 }
 
-func ExprFrom(orig atmolang.IAstExpr) (IIrExpr, atmo.Errors) {
+func ExprFrom(orig atmolang.IAstExpr) (IExpr, atmo.Errors) {
 	var ctx ctxIrInit
 	return ctx.newExprFrom(orig)
 }
 
-func (me *ctxIrInit) addCoercion(on IIrNode, coerce IIrExpr) {
+func (me *ctxIrInit) addCoercion(on INode, coerce IExpr) {
 	if me.coerceCallables == nil {
-		me.coerceCallables = map[IIrNode]IIrExpr{on: coerce}
+		me.coerceCallables = map[INode]IExpr{on: coerce}
 	} else {
 		me.coerceCallables[on] = coerce
 	}
 }
-func (me *ctxIrInit) ensureAtomic(expr IIrExpr) IIrExpr {
+func (me *ctxIrInit) ensureAtomic(expr IExpr) IExpr {
 	if expr.IsAtomic() {
 		return expr
 	}
 	return me.addLocalDefToOwnScope(me.nextPrefix(), expr)
 }
 
-func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IIrExpr, errs atmo.Errors) {
+func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs atmo.Errors) {
 	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
 		var ident IrIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
@@ -67,7 +67,7 @@ func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IIrExpr, err
 	return
 }
 
-func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IIrExpr, errs atmo.Errors) {
+func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs atmo.Errors) {
 	var origdesugared atmolang.IAstExpr
 	var wasdesugared bool
 	if origdesugared, errs = origin.Desugared(me.nextPrefix); origdesugared == nil {
@@ -84,7 +84,7 @@ func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IIrExpr, errs a
 
 	switch origdes := origdesugared.(type) {
 	case *atmolang.AstIdent:
-		expr = errs.AddVia(me.newExprFromIdent(origdes)).(IIrExpr)
+		expr = errs.AddVia(me.newExprFromIdent(origdes)).(IExpr)
 	case *atmolang.AstExprLitFloat:
 		var lit IrLitFloat
 		lit.initFrom(me, origdes)
@@ -108,7 +108,7 @@ func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IIrExpr, errs a
 		for i := range origdes.Defs {
 			errs.Add(let.Defs[i].initFrom(me, &origdes.Defs[i]))
 		}
-		expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IIrExpr)
+		expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IExpr)
 		let.Defs = append(let.Defs, sidedefs...)
 		errs.Add(me.addLetDefsToNode(origdes.Body, expr, &let))
 		me.defsScope = oldscope
@@ -116,14 +116,14 @@ func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IIrExpr, errs a
 		origdes = origdes.ToUnary()
 		appl, isatomiccallee, isatomicarg := IrAppl{Orig: origdes}, origdes.Callee.IsAtomic(), origdes.Args[0].IsAtomic()
 		if isatomiccallee {
-			appl.AtomicCallee = errs.AddVia(me.newExprFrom(origdes.Callee)).(IIrExpr)
+			appl.AtomicCallee = errs.AddVia(me.newExprFrom(origdes.Callee)).(IExpr)
 		}
 		if isatomicarg {
-			appl.AtomicArg = errs.AddVia(me.newExprFrom(origdes.Args[0])).(IIrExpr)
+			appl.AtomicArg = errs.AddVia(me.newExprFrom(origdes.Args[0])).(IExpr)
 		}
 		if expr = &appl; !(isatomiccallee && isatomicarg) {
-			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IIrExpr {
-				body := errs.AddVia(me.newExprFrom(from)).(IIrExpr)
+			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IExpr {
+				body := errs.AddVia(me.newExprFrom(from)).(IExpr)
 				return me.addLocalDefToOwnScope(appl.letPrefix+me.nextPrefix(), body)
 			}
 			me.defsScope, appl.letPrefix = &appl.Defs, me.nextPrefix()
@@ -155,7 +155,7 @@ func (me *ctxIrInit) nextPrefix() string {
 	return "__" + string(ustr.RepeatB(me.counter.val, me.counter.times))
 }
 
-func (me *ctxIrInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IIrExpr, let *IrExprLetBase) (errs atmo.Errors) {
+func (me *ctxIrInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IExpr, let *IrExprLetBase) (errs atmo.Errors) {
 	if dst := letBody.Let(); dst == nil {
 		tok := origBody.Toks().First(nil)
 		tokd, tokl := tok, 0
@@ -176,7 +176,7 @@ func (me *ctxIrInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IIrExp
 	return
 }
 
-func (me *ctxIrInit) addLocalDefToOwnScope(name string, body IIrExpr) *IrIdentName {
+func (me *ctxIrInit) addLocalDefToOwnScope(name string, body IExpr) *IrIdentName {
 	var ident IrIdentName
 	oldscope := me.defsScope
 	me.defsScope = &ident.Defs
@@ -185,7 +185,7 @@ func (me *ctxIrInit) addLocalDefToOwnScope(name string, body IIrExpr) *IrIdentNa
 	return &ident
 }
 
-func (me *ctxIrInit) addLocalDefToScope(name string, body IIrExpr) (def *IrDef) {
+func (me *ctxIrInit) addLocalDefToScope(name string, body IExpr) (def *IrDef) {
 	def = me.defsScope.add(body)
 	def.Name.Val = name
 	return

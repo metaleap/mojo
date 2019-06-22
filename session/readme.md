@@ -109,7 +109,7 @@ func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.S
 #### func (*Ctx) KitsCollectReferences
 
 ```go
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.IrDefTop][]atmoil.IIrExpr
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.IrDefTop][]atmoil.IExpr
 ```
 
 #### func (*Ctx) KitsEnsureLoaded
@@ -215,7 +215,13 @@ HasDefs returns whether any of the `Kit`'s source files define `name`.
 #### func (*Kit) IrNodeOfAstNode
 
 ```go
-func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.IIrNode)
+func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.INode)
+```
+
+#### func (*Kit) SelectNodes
+
+```go
+func (me *Kit) SelectNodes(tldOk func(*atmoil.IrDefTop) bool, nodeOk func([]atmoil.INode, atmoil.INode, []atmoil.INode) (ismatch bool, descend bool, tlddone bool, alldone bool)) (matches map[atmoil.INode]*atmoil.IrDefTop)
 ```
 
 #### type Kits

@@ -176,7 +176,7 @@ func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFul
 	}
 }
 
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.IrDefTop][]atmoil.IIrExpr {
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.IrDefTop][]atmoil.IExpr {
 	if name == "" {
 		return nil
 	}
@@ -314,12 +314,12 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 	return
 }
 
-func (me Kits) collectReferences(name string) (refs map[*atmoil.IrDefTop][]atmoil.IIrExpr) {
+func (me Kits) collectReferences(name string) (refs map[*atmoil.IrDefTop][]atmoil.IExpr) {
 	for _, kit := range me {
 		for _, tld := range kit.topLevelDefs {
 			if nodes := tld.RefsTo(name); len(nodes) > 0 {
 				if refs == nil {
-					refs = make(map[*atmoil.IrDefTop][]atmoil.IIrExpr)
+					refs = make(map[*atmoil.IrDefTop][]atmoil.IExpr)
 				}
 				refs[tld] = nodes
 			}

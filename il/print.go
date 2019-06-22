@@ -6,8 +6,8 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-func DbgPrintToStderr(node IIrNode) { atmolang.DbgPrintToStderr(node.Print()) }
-func DbgPrintToString(node IIrNode) string {
+func DbgPrintToStderr(node INode) { atmolang.DbgPrintToStderr(node.Print()) }
+func DbgPrintToString(node INode) string {
 	var buf ustr.Buf
 	atmolang.PrintTo(nil, node.Print(), &buf.BytesWriter, false, 1)
 	return buf.String()

@@ -61,7 +61,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 							nil, make(atmoil.AnnNamesInScope, totaldefscount)
 						for _, kimp := range kimps {
 							for k, v := range kimp.lookups.namesInScopeOwn {
-								nodes := make([]atmoil.IIrNode, len(v))
+								nodes := make([]atmoil.INode, len(v))
 								for i, n := range v {
 									nodes[i] = IrDefRef{KitImpPath: kimp.ImpPath,
 										IrDefTop: n.(*atmoil.IrDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
@@ -79,7 +79,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 		kit.state.defsBornIdsNames, kit.state.defsGoneIdsNames = nil, nil
 		kit.lookups.namesInScopeAll = make(atmoil.AnnNamesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
 		for k, v := range kit.lookups.namesInScopeOwn {
-			nodes := make([]atmoil.IIrNode, len(v))
+			nodes := make([]atmoil.INode, len(v))
 			copy(nodes, v)
 			kit.lookups.namesInScopeAll[k] = nodes
 		}

@@ -263,9 +263,32 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 	return
 }
 
-func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.IIrNode) {
+func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.INode) {
 	if astDefTop = me.lookups.tlDefsByID[defId]; astDefTop != nil {
 		theNodeAndItsAncestors = astDefTop.FindByOrig(origNode)
+	}
+	return
+}
+
+func (me *Kit) SelectNodes(tldOk func(*atmoil.IrDefTop) bool, nodeOk func([]atmoil.INode, atmoil.INode, []atmoil.INode) (ismatch bool, descend bool, tlddone bool, alldone bool)) (matches map[atmoil.INode]*atmoil.IrDefTop) {
+	var alldone bool
+	matches = map[atmoil.INode]*atmoil.IrDefTop{}
+	for _, tld := range me.topLevelDefs {
+		if tldOk(tld) {
+			tld.Walk(func(curnodeancestors []atmoil.INode, curnode atmoil.INode, curnodedescendantsthatwillbetraversedifreturningtrue ...atmoil.INode) (traverse bool) {
+				ismatch, descend, donetld, doneall := nodeOk(curnodeancestors, curnode, curnodedescendantsthatwillbetraversedifreturningtrue)
+				if doneall {
+					alldone = true
+				}
+				if ismatch {
+					matches[curnode] = tld
+				}
+				return descend && !(donetld || doneall)
+			})
+			if alldone {
+				break
+			}
+		}
 	}
 	return
 }

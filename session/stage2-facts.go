@@ -10,13 +10,13 @@ type ctxFacts struct {
 	// ctxSess          *Ctx
 	defTop             *atmoil.IrDefTop
 	kit                *Kit
-	nodesWithAncestors map[atmoil.IIrNode][]atmoil.IIrNode
+	nodesWithAncestors map[atmoil.INode][]atmoil.INode
 	allRefrCtxs        map[string]*ctxFacts
 }
 
 func (me *Ctx) refreshFactsForTopLevelDefs(defIdsBorn map[string]*Kit, defIdsDependantsOfNamesOfChange map[string]*Kit) (freshFactsErrs atmo.Errors) {
 	l := len(defIdsBorn) + len(defIdsDependantsOfNamesOfChange)
-	done, inorder, allnodes, allctxs := make(map[string]bool, l), make([]*ctxFacts, 0, l), make(map[atmoil.IIrNode][]atmoil.IIrNode, l*3), make(map[string]*ctxFacts, l)
+	done, inorder, allnodes, allctxs := make(map[string]bool, l), make([]*ctxFacts, 0, l), make(map[atmoil.INode][]atmoil.INode, l*3), make(map[string]*ctxFacts, l)
 
 	for _, m := range []map[string]*Kit{defIdsBorn, defIdsDependantsOfNamesOfChange} {
 		for defid, kit := range m {
@@ -41,12 +41,12 @@ func (me *ctxFacts) refreshCoreFactsForTopLevelDef(done map[string]bool) bool {
 		panic("TODO for refreshCoreFactsForTopLevelDef: handle circular dependencies aka recursion!")
 	}
 	done[me.defTop.Id] = false // marks as "doing", at the end `true` marks as "done"
-	me.refreshCoreFactsForDef(&me.defTop.IrDef, make([]atmoil.IIrNode, 0, 1))
+	me.refreshCoreFactsForDef(&me.defTop.IrDef, make([]atmoil.INode, 0, 1))
 	done[me.defTop.Id] = true
 	return true
 }
 
-func (me *ctxFacts) refreshCoreFactsForDef(node *atmoil.IrDef, ancestors []atmoil.IIrNode) {
+func (me *ctxFacts) refreshCoreFactsForDef(node *atmoil.IrDef, ancestors []atmoil.INode) {
 	me.nodesWithAncestors[node] = ancestors
 	facts := node.Facts()
 	facts.Reset()
@@ -61,12 +61,12 @@ func (me *ctxFacts) refreshCoreFactsForDef(node *atmoil.IrDef, ancestors []atmoi
 	me.refreshCoreFactsForExpr(node.Body, append(ancestors, node))
 }
 
-func (me *ctxFacts) refreshCoreFactsForExpr(node atmoil.IIrExpr, ancestors []atmoil.IIrNode) {
+func (me *ctxFacts) refreshCoreFactsForExpr(node atmoil.IExpr, ancestors []atmoil.INode) {
 	me.nodesWithAncestors[node] = ancestors
 	facts := node.Facts()
 	facts.Reset()
 
-	var ancestorswithnode []atmoil.IIrNode
+	var ancestorswithnode []atmoil.INode
 	let := node.Let()
 	if let != nil && len(let.Defs) > 0 {
 		ancestorswithnode = append(ancestors, node)
@@ -113,7 +113,7 @@ func (me *ctxFacts) refreshCoreFactsForExpr(node atmoil.IIrExpr, ancestors []atm
 	}
 }
 
-func (me *ctxFacts) refreshedDerivedFactsForRef(node atmoil.IIrNode) atmoil.AnnFacts {
+func (me *ctxFacts) refreshedDerivedFactsForRef(node atmoil.INode) atmoil.AnnFacts {
 	ctx := me
 	nodeancestors, ispartofrefresh := ctx.nodesWithAncestors[node]
 	if !ispartofrefresh {
@@ -136,7 +136,7 @@ func (me *ctxFacts) refreshedDerivedFactsForRef(node atmoil.IIrNode) atmoil.AnnF
 		switch n := node.(type) {
 		case *atmoil.IrDef:
 			ctx.refreshDerivedFactsForDef(n)
-		case atmoil.IIrExpr:
+		case atmoil.IExpr:
 			ctx.refreshDerivedFactsForExpr(n)
 		default:
 			panic(n)
@@ -162,7 +162,7 @@ func (me *ctxFacts) refreshDerivedFactsForDef(node *atmoil.IrDef) {
 	}
 }
 
-func (me *ctxFacts) refreshDerivedFactsForExpr(node atmoil.IIrExpr) {
+func (me *ctxFacts) refreshDerivedFactsForExpr(node atmoil.IExpr) {
 	nodeancestors, ispartofrefresh := me.nodesWithAncestors[node]
 	if (!ispartofrefresh) || nodeancestors == nil {
 		return

@@ -6,7 +6,7 @@ var (
 
 type Builder struct{}
 
-func (Builder) Appl1(atomicCallee IIrExpr, atomicArg IIrExpr) *IrAppl {
+func (Builder) Appl1(atomicCallee IExpr, atomicArg IExpr) *IrAppl {
 	if !atomicCallee.IsAtomic() {
 		panic(atomicCallee)
 	}
@@ -16,7 +16,7 @@ func (Builder) Appl1(atomicCallee IIrExpr, atomicArg IIrExpr) *IrAppl {
 	return &IrAppl{AtomicCallee: atomicCallee, AtomicArg: atomicArg}
 }
 
-func (Builder) ApplN(ctx *ctxIrInit, atomicCallee IIrExpr, atomicArgs ...IIrExpr) (appl *IrAppl) {
+func (Builder) ApplN(ctx *ctxIrInit, atomicCallee IExpr, atomicArgs ...IExpr) (appl *IrAppl) {
 	if !atomicCallee.IsAtomic() {
 		panic(atomicCallee)
 	}

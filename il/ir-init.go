@@ -26,7 +26,7 @@ func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
 			tok = me.OrigDef.Body.Toks().First(nil)
 		}
 	}
-	var ident IIrExpr
+	var ident IExpr
 	ident, errs = ctx.newExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*IrIdentName); name == nil && tok != nil {
 		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or Undef or placeholder etc..
@@ -34,7 +34,7 @@ func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
 	}
 	if me.OrigDef.NameAffix != nil {
-		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(me.OrigDef.NameAffix)).(IIrExpr))
+		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(me.OrigDef.NameAffix)).(IExpr))
 	}
 	return
 }
@@ -51,7 +51,7 @@ func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
 		me.Body, errs = ctx.newExprFrom(me.OrigDef.Body)
 	}
 	if len(ctx.coerceCallables) > 0 {
-		opeq, appl := Build.IdentName(atmo.KnownIdentEq), func(applexpr IIrExpr, orig atmolang.IAstExpr, atomic bool) IIrExpr {
+		opeq, appl := Build.IdentName(atmo.KnownIdentEq), func(applexpr IExpr, orig atmolang.IAstExpr, atomic bool) IExpr {
 			if applexpr.exprBase().Orig = orig; atomic {
 				applexpr = ctx.ensureAtomic(applexpr)
 				applexpr.exprBase().Orig = orig
@@ -118,11 +118,11 @@ func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atm
 		errs.AddSyn(&orig.Affix.Toks()[0], "def-arg affix illegal where the arg is itself a constant value")
 	}
 	if orig.Affix != nil {
-		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(orig.Affix)).(IIrExpr))
+		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(orig.Affix)).(IExpr))
 	}
 	if isconstexpr {
 		me.IrIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
-		appl := Build.Appl1(Build.IdentName(atmo.KnownIdentCoerce), ctx.ensureAtomic(errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IIrExpr)))
+		appl := Build.Appl1(Build.IdentName(atmo.KnownIdentCoerce), ctx.ensureAtomic(errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IExpr)))
 		appl.IrExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)
 	}
