@@ -455,10 +455,7 @@ func (me *IrIdentName) refsTo(name string) (refs []IExpr) {
 	}
 	return
 }
-func (me *IrIdentName) ResolvesToDefinitely(n INode) bool {
-	return len(me.Anns.Candidates) == 1 && me.Anns.Candidates[0] == n
-}
-func (me *IrIdentName) ResolvesToPotentially(n INode) bool {
+func (me *IrIdentName) ResolvesTo(n INode) bool {
 	for _, cand := range me.Anns.Candidates {
 		if cand == n {
 			return true

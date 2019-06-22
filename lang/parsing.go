@@ -155,7 +155,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 		}
 	}
 
-	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.CrampedOnes('(', ')', func(i int) (isbreaker bool) {
+	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.CrampedOnes(func(i int) (isbreaker bool) {
 		isbreaker = (toks[i].Meta.Orig == ",")
 		if (!isbreaker) && toks[i].Meta.Orig == ":" { /* special exception for ergonomic `fn: arg arg` --- suspends language integrity but if (fn:) was really wanted as standalone expression (hardly ever), can still parenthesize */
 			return i < len(toks)-1 && toks[i+1].Meta.Pos.Offset > toks[i].Meta.Pos.Offset+1
@@ -326,32 +326,42 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 }
 
 func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
-	tokcomma, precomma := &toks[0], me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
+	tokcomma := &toks[0]
+	if len(accum) == 0 {
+		err = atmo.ErrSyn(tokcomma, "this part cannot begin with a comma")
+		return
+	}
+	precomma := me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
-	numdefs, chunks := 0, toks.Chunked(",", "")
-	if len(chunks[len(chunks)-1]) == 0 { // allow trailing comma
+	numdefs, numothers, chunks := 0, 0, toks.Chunked(",", "")
+	for len(chunks) > 0 && len(chunks[len(chunks)-1]) == 0 { // allow & drop trailing commas
 		chunks = chunks[:len(chunks)-1]
 	}
 	for i := range chunks {
-		if chunks[i].Has(":=") {
+		if chunks[i].Has(":=", false) {
 			numdefs++
+		} else {
+			numothers++
 		}
 	}
-	if numdefs == len(chunks) && numdefs > 0 {
+	if numdefs > 0 && numothers == 0 {
 		ret, err = me.parseExprLetInner(precomma, chunks, allToks)
-	} else if numdefs != 0 {
-		err = atmo.ErrSyn(tokcomma, "ambiguous comma-separated grouping: mix of expressions and defs (parenthesize to disambiguate)")
+	} else if numdefs > 0 && numothers > 0 {
+		err = atmo.ErrAtPos(atmo.ErrCatParsing, &tokcomma.Meta.Pos,
+			allToks.FromUntil(tokcomma, toks.Last(nil), true).Length(),
+			"cannot group expressions and defs together (parenthesize to disambiguate)")
 	} else { // for now, a comma-sep'd grouping is an appl with callee `,` and all items as args --- to be further desugared down to meaning contextually in irfun
-		lasttok, appl := tokcomma, AstExprAppl{Callee: me.parseExprIdent(allToks.FromUntil(tokcomma, tokcomma, true), false), Args: make([]IAstExpr, 1, 1+len(chunks))}
+		appl := AstExprAppl{Callee: me.parseExprIdent(allToks.FromUntil(tokcomma, tokcomma, true), false), Args: make([]IAstExpr, 1, 1+len(chunks))}
 		appl.Args[0], appl.Tokens = precomma, allToks
 		for i := range chunks {
 			var arg IAstExpr
 			if len(chunks[i]) == 0 {
-				err = atmo.ErrSyn(lasttok, "missing expression between commas")
+				err = atmo.ErrSyn(tokcomma, "missing expression between commas")
+				return
 			} else if arg, err = me.parseExpr(chunks[i]); err != nil {
 				return
 			}
-			lasttok, appl.Args = chunks[i].Last(nil), append(appl.Args, arg)
+			appl.Args = append(appl.Args, arg)
 		}
 		ret = &appl
 	}
