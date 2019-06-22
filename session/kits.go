@@ -60,6 +60,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 
 	if len(modkitdirs) > 0 {
 		shouldrefresh := make(atmo.StringKeys, len(modkitdirs))
+
 		// handle new-or-modified kits
 		// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 		for kitdirpath, numfilesguess := range modkitdirs {
@@ -93,6 +94,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 			}
 			shouldrefresh[kitdirpath] = atmo.Є
 		}
+
 		// remove kits that have vanished from the file-system
 		// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 		var numremoved int
@@ -103,6 +105,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 				i, numremoved = i-1, numremoved+1
 			}
 		}
+
 		// ensure no duplicate imp-paths
 		for i := len(me.Kits.All) - 1; i >= 0; i-- {
 			kit := me.Kits.All[i]
@@ -123,6 +126,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 
 		// for stable listings etc.
 		atmo.SortMaybe(me.Kits.All)
+
 		// per-file refresher
 		var fresherrs []error
 		for kitdirpath := range shouldrefresh {
@@ -132,6 +136,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 				panic(kitdirpath)
 			}
 		}
+
 		// reprocess maybe
 		me.onFreshErrs(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
 	}
@@ -224,11 +229,6 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) 
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
 
 		freshErrs.Add(me.refreshFactsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange))
-
-		me.Kits.All.ensureErrTldPosOffsets()
-		if me.Kits.OnSomeReprocessed != nil {
-			me.Kits.OnSomeReprocessed()
-		}
 	}
 	return
 }

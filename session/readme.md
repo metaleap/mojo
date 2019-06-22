@@ -34,9 +34,13 @@ type Ctx struct {
 		Kits  []string
 	}
 	Kits struct {
-		All               Kits
-		OnFreshErrs       func()
-		OnSomeReprocessed func()
+		All         Kits
+		OnFreshErrs func()
+	}
+	Options struct {
+		BgMsgs struct {
+			IncludeKitsErrs bool
+		}
 	}
 }
 ```

@@ -124,7 +124,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 		var diritems []os.FileInfo
 		if diritems, kit.Errs.Stage0DirAccessDuringRefresh = ufs.Dir(kit.DirPath); kit.Errs.Stage0DirAccessDuringRefresh != nil {
 			kit.SrcFiles, kit.topLevelDefs, freshErrs = nil, nil, append(freshErrs, kit.Errs.Stage0DirAccessDuringRefresh)
-			goto end
+			return
 		}
 
 		// any deleted files get forgotten now
@@ -173,7 +173,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			}
 
 			if allunchanged && !reloadForceInsteadOfAuto {
-				goto end
+				return
 			}
 			{
 				od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
@@ -189,9 +189,6 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			}
 		}
 	}
-
-end:
-	kit.ensureErrTldPosOffsets()
 	return
 }
 

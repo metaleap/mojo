@@ -44,6 +44,7 @@ func (me *Repl) init() {
 			}
 		}
 
+	me.Ctx.Options.BgMsgs.IncludeKitsErrs = true
 	me.initEnsureDefaultDirectives()
 }
 

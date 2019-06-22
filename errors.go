@@ -78,7 +78,9 @@ func (me *Error) Pos() *scanner.Position {
 		return me.ref.Pos()
 	}
 	pos := me.pos
-	pos.Line, pos.Offset = pos.Line+me.tldOff.PosOffsetLine(), pos.Offset+me.tldOff.PosOffsetByte()
+	if me.tldOff != nil {
+		pos.Line, pos.Offset = pos.Line+me.tldOff.PosOffsetLine(), pos.Offset+me.tldOff.PosOffsetByte()
+	}
 	return &pos
 }
 
