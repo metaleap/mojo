@@ -221,7 +221,7 @@ func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDef
 #### func (*Kit) SelectNodes
 
 ```go
-func (me *Kit) SelectNodes(tldOk func(*atmoil.IrDefTop) bool, nodeOk func([]atmoil.INode, atmoil.INode, []atmoil.INode) (ismatch bool, descend bool, tlddone bool, alldone bool)) (matches map[atmoil.INode]*atmoil.IrDefTop)
+func (me *Kit) SelectNodes(tldOk func(*atmoil.IrDefTop) bool, nodeOk func([]atmoil.INode, atmoil.INode, []atmoil.INode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[atmoil.INode]*atmoil.IrDefTop)
 ```
 
 #### type Kits

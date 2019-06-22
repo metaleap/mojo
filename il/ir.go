@@ -455,6 +455,17 @@ func (me *IrIdentName) refsTo(name string) (refs []IExpr) {
 	}
 	return
 }
+func (me *IrIdentName) ResolvesToDefinitely(n INode) bool {
+	return len(me.Anns.Candidates) == 1 && me.Anns.Candidates[0] == n
+}
+func (me *IrIdentName) ResolvesToPotentially(n INode) bool {
+	for _, cand := range me.Anns.Candidates {
+		if cand == n {
+			return true
+		}
+	}
+	return false
+}
 func (me *IrIdentName) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrIdentName)
 	return cmp != nil && cmp.Val == me.Val && cmp.letDefsEquivTo(&me.IrExprLetBase)
