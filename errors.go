@@ -112,6 +112,10 @@ func ErrAtTok(cat ErrorCategory, tok *udevlex.Token, msg string) *Error {
 	return ErrAtPos(cat, &tok.Meta.Pos, len(tok.Meta.Orig), msg)
 }
 
+func ErrAtToks(cat ErrorCategory, toks udevlex.Tokens, msg string) *Error {
+	return ErrAtPos(cat, toks.Pos(), toks.Length(), msg)
+}
+
 func ErrLex(pos *scanner.Position, msg string) *Error {
 	return ErrAtPos(ErrCatLexing, pos, 1, msg)
 }
@@ -120,8 +124,8 @@ func ErrNaming(tok *udevlex.Token, msg string) *Error {
 	return ErrAtTok(ErrCatNaming, tok, msg)
 }
 
-func ErrSubst(tok *udevlex.Token, msg string) *Error {
-	return ErrAtTok(ErrCatSubst, tok, msg)
+func ErrSubst(toks udevlex.Tokens, msg string) *Error {
+	return ErrAtToks(ErrCatSubst, toks, msg)
 }
 
 func ErrUnreach(tok *udevlex.Token, msg string) *Error {
@@ -132,8 +136,8 @@ func ErrSyn(tok *udevlex.Token, msg string) *Error {
 	return ErrAtTok(ErrCatParsing, tok, msg)
 }
 
-func ErrTodo(tok *udevlex.Token, msg string) *Error {
-	return ErrAtTok(ErrCatTodo, tok, msg)
+func ErrTodo(toks udevlex.Tokens, msg string) *Error {
+	return ErrAtToks(ErrCatTodo, toks, msg)
 }
 
 func ErrRef(err *Error) *Error {
@@ -174,32 +178,34 @@ func (me *Errors) AddLex(pos *scanner.Position, msg string) {
 }
 
 func (me *Errors) AddSyn(tok *udevlex.Token, msg string) {
-	me.AddFrom(ErrCatParsing, tok, msg)
+	me.AddFromTok(ErrCatParsing, tok, msg)
 }
 
 func (me *Errors) AddTodo(tok *udevlex.Token, msg string) {
-	me.AddFrom(ErrCatTodo, tok, msg)
+	me.AddFromTok(ErrCatTodo, tok, msg)
 }
 
 func (me *Errors) AddNaming(tok *udevlex.Token, msg string) {
-	me.AddFrom(ErrCatNaming, tok, msg)
+	me.AddFromTok(ErrCatNaming, tok, msg)
 }
 
 func (me *Errors) AddSubst(tok *udevlex.Token, msg string) {
-	me.AddFrom(ErrCatSubst, tok, msg)
+	me.AddFromTok(ErrCatSubst, tok, msg)
 }
 
-func (me *Errors) AddUnreach(tok *udevlex.Token, msg string, len int) {
-	if e := me.AddFrom(ErrCatUnreachable, tok, msg); len > 1 {
-		e.len = len
-	}
+func (me *Errors) AddUnreach(toks udevlex.Tokens, msg string) {
+	me.AddFromToks(ErrCatUnreachable, toks, msg)
 }
 
-func (me *Errors) AddFrom(cat ErrorCategory, tok *udevlex.Token, msg string) *Error {
+func (me *Errors) AddFromTok(cat ErrorCategory, tok *udevlex.Token, msg string) *Error {
 	if tok == nil {
 		return me.AddAt(cat, nil, 0, msg)
 	}
 	return me.AddAt(cat, &tok.Meta.Pos, len(tok.Meta.Orig), msg)
+}
+
+func (me *Errors) AddFromToks(cat ErrorCategory, toks udevlex.Tokens, msg string) *Error {
+	return me.AddAt(cat, toks.Pos(), toks.Length(), msg)
 }
 
 func (me Errors) Errors() (errs []error) {

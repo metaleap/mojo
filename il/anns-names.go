@@ -138,14 +138,13 @@ func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, n INod
 	if len(toks) == 0 && maybeTld != nil {
 		toks = maybeTld.OrigToks(n)
 	}
-	errs.AddNaming(toks.First(nil), "nullary name `"+name+"` already in scope (rename required)")
+	errs.AddNaming(toks.First1(), "nullary name `"+name+"` already in scope (rename required)")
 }
 
 func (AnnNamesInScope) errUnknownName(tld *IrDefTop, errs *atmo.Errors, n *IrIdentName, currentlyErroneousButKnown bool) {
-	tok := tld.OrigToks(n).First(nil)
-	if currentlyErroneousButKnown {
-		errs.AddUnreach(tok, "name `"+n.Val+"` has syntax errors", len(tok.Meta.Orig))
+	if toks := tld.OrigToks(n); currentlyErroneousButKnown {
+		errs.AddUnreach(toks, "name `"+n.Val+"` has syntax errors")
 	} else {
-		errs.AddNaming(tok, "name `"+n.Val+"` not in scope (possible typo or missing import?)")
+		errs.AddNaming(toks.First1(), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
 	}
 }

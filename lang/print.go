@@ -342,7 +342,7 @@ func (me *PrintFmtMinimal) OnComment(leads IAstNode, trails IAstNode, node *AstC
 		}
 		needsnolinebreak :=
 			(tl != nil && tl.Def.Orig == nil && node == &tl.comments.Leading[len(tl.comments.Leading)-1]) ||
-				(leads == nil && trails != nil && me.CurTopLevel != nil && node.Tokens.Last(nil) == me.CurTopLevel.Tokens.Last(nil))
+				(leads == nil && trails != nil && me.CurTopLevel != nil && node.Tokens.Last1() == me.CurTopLevel.Tokens.Last1())
 		if !needsnolinebreak {
 			me.WriteLineBreaksThenIndent(1)
 		}

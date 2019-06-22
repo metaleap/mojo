@@ -20,10 +20,10 @@ func (me *IrDef) initFrom(ctx *ctxIrInit, orig *atmolang.AstDef) (errs atmo.Erro
 }
 
 func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
-	tok := me.OrigDef.Name.Tokens.First(nil) // could have none so dont just Tokens[0]
+	tok := me.OrigDef.Name.Tokens.First1() // could have none so dont just Tokens[0]
 	if tok == nil {
-		if tok = me.OrigDef.Tokens.First(nil); tok == nil {
-			tok = me.OrigDef.Body.Toks().First(nil)
+		if tok = me.OrigDef.Tokens.First1(); tok == nil {
+			tok = me.OrigDef.Body.Toks().First1()
 		}
 	}
 	var ident IExpr
@@ -45,7 +45,7 @@ func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
 	if ident, _ := me.OrigDef.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
 		var body IrSpecial
 		if me.Body, body.Orig, body.OneOf.DefArgfulButBodyless = &body, ident, me.Arg != nil; me.Arg == nil {
-			errs.AddSyn(ident.Tokens.First(nil), "illegal placeholder placement")
+			errs.AddSyn(ident.Tokens.First1(), "illegal placeholder placement")
 		}
 	} else {
 		me.Body, errs = ctx.newExprFrom(me.OrigDef.Body)

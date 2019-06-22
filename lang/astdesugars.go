@@ -98,7 +98,7 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 			for len(alt.Conds) > 1 {
 				cond0, cond1, opor := alt.Conds[0], alt.Conds[1], Build.Ident(atmo.KnownIdentOpOr)
 				cond := Build.Appl(opor, cond0, cond1)
-				cond.Tokens, opor.Tokens = alt.Tokens.FromUntil(cond0.Toks().First(nil), cond1.Toks().Last(nil), true), alt.Tokens.Between(cond0.Toks().Last(nil), cond1.Toks().First(nil))
+				cond.Tokens, opor.Tokens = alt.Tokens.FromUntil(cond0.Toks().First1(), cond1.Toks().Last1(), true), alt.Tokens.Between(cond0.Toks().Last1(), cond1.Toks().First1())
 				alt.Conds = append([]IAstExpr{cond}, alt.Conds[2:]...)
 			}
 			ite := Build.Appl(Build.Ident(atmo.KnownIdentIf), alt.Conds[0], alt.Body, nil)

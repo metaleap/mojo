@@ -348,7 +348,7 @@ func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr
 		ret, err = me.parseExprLetInner(precomma, chunks, allToks)
 	} else if numdefs > 0 && numothers > 0 {
 		err = atmo.ErrAtPos(atmo.ErrCatParsing, &tokcomma.Meta.Pos,
-			allToks.FromUntil(tokcomma, toks.Last(nil), true).Length(),
+			allToks.FromUntil(tokcomma, toks.Last1(), true).Length(),
 			"cannot group expressions and defs together (parenthesize to disambiguate)")
 	} else { // for now, a comma-sep'd grouping is an appl with callee `,` and all items as args --- to be further desugared down to meaning contextually in irfun
 		appl := AstExprAppl{Callee: me.parseExprIdent(allToks.FromUntil(tokcomma, tokcomma, true), false), Args: make([]IAstExpr, 1, 1+len(chunks))}
