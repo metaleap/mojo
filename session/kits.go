@@ -120,17 +120,20 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 				i--
 			}
 		}
+
 		// for stable listings etc.
 		atmo.SortMaybe(me.Kits.All)
 		// per-file refresher
+		var fresherrs []error
 		for kitdirpath := range shouldrefresh {
 			if idx := me.Kits.All.IndexDirPath(kitdirpath); idx >= 0 {
-				me.kitRefreshFilesAndMaybeReload(me.Kits.All[idx], false)
+				fresherrs = append(fresherrs, me.kitRefreshFilesAndMaybeReload(me.Kits.All[idx], false)...)
 			} else {
 				panic(kitdirpath)
 			}
 		}
-		me.reprocessAffectedDefsIfAnyKitsReloaded()
+		// reprocess maybe
+		me.onFreshErrs(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
 	}
 }
 
@@ -211,22 +214,23 @@ func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
 	me.CatchUpOnFileMods()
 }
 
-func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() {
+func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) {
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
 
-		namesofchange, defidsborn, _, fresherrs := me.kitsRepopulateAstNamesInScope()
+		namesofchange, defidsborn, _, ferrs := me.kitsRepopulateAstNamesInScope()
+		freshErrs = ferrs
 		defidsdependantsofnamesofchange := make(map[string]*Kit)
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
 
-		fresherrs.Add(me.refreshFactsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange))
+		freshErrs.Add(me.refreshFactsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange))
 
 		me.Kits.All.ensureErrTldPosOffsets()
-		me.onErrs(fresherrs, nil)
 		if me.Kits.OnSomeReprocessed != nil {
 			me.Kits.OnSomeReprocessed()
 		}
 	}
+	return
 }
 
 func kitsDirPathFrom(kitDirPath string, kitImpPath string) string {

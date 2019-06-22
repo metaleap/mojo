@@ -40,10 +40,12 @@ type Kit struct {
 }
 
 func (me *Ctx) kitEnsureLoaded(kit *Kit, thenReprocessAffectedDefsIfAnyKitsReloaded bool) {
-	me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
+	stage0errs := me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
+	var stage1andbeyonderrs atmo.Errors
 	if thenReprocessAffectedDefsIfAnyKitsReloaded {
-		me.reprocessAffectedDefsIfAnyKitsReloaded()
+		stage1andbeyonderrs = me.reprocessAffectedDefsIfAnyKitsReloaded()
 	}
+	me.onFreshErrs(stage0errs, stage1andbeyonderrs)
 }
 
 func (me *Ctx) KitEnsureLoaded(kit *Kit) {
@@ -60,15 +62,16 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 		}
 	}
 
+	var fresherrs []error
 	if len(kitImpPaths) > 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
-				me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
+				fresherrs = append(fresherrs, me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)...)
 			}
 		}
 	}
 
-	me.reprocessAffectedDefsIfAnyKitsReloaded()
+	me.onFreshErrs(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
 }
 
 func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) {
@@ -114,14 +117,13 @@ func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames a
 	return
 }
 
-func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) {
-	var fresherrs []error
+func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) (freshErrs []error) {
 	var srcfileschanged bool
 
 	{ // step 1: files refresh
 		var diritems []os.FileInfo
 		if diritems, kit.Errs.Stage0DirAccessDuringRefresh = ufs.Dir(kit.DirPath); kit.Errs.Stage0DirAccessDuringRefresh != nil {
-			kit.SrcFiles, kit.topLevelDefs, fresherrs = nil, nil, append(fresherrs, kit.Errs.Stage0DirAccessDuringRefresh)
+			kit.SrcFiles, kit.topLevelDefs, freshErrs = nil, nil, append(freshErrs, kit.Errs.Stage0DirAccessDuringRefresh)
 			goto end
 		}
 
@@ -154,7 +156,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			allunchanged := !srcfileschanged
 			for _, sf := range kit.SrcFiles {
 				var nochanges bool
-				fresherrs = append(fresherrs, sf.LexAndParseFile(true, false, &nochanges)...)
+				freshErrs = append(freshErrs, sf.LexAndParseFile(true, false, &nochanges)...)
 				allunchanged = allunchanged && nochanges
 			}
 
@@ -167,7 +169,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			}
 
 			if len(kit.Errs.Stage0BadImports) > 0 {
-				fresherrs = append(fresherrs, kit.Errs.Stage0BadImports...)
+				freshErrs = append(freshErrs, kit.Errs.Stage0BadImports...)
 			}
 
 			if allunchanged && !reloadForceInsteadOfAuto {
@@ -175,7 +177,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			}
 			{
 				od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
-				kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, fresherrs = od, nd, append(fresherrs, fe...)
+				kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, freshErrs = od, nd, append(freshErrs, fe...)
 				if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
 					me.Kits.reprocessingNeeded = true
 				}
@@ -190,7 +192,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 
 end:
 	kit.ensureErrTldPosOffsets()
-	me.onErrs(nil, fresherrs)
+	return
 }
 
 func (me *Kit) ensureErrTldPosOffsets() {

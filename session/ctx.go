@@ -200,13 +200,13 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 	return
 }
 
-func (me *Ctx) onErrs(errors atmo.Errors, errs []error) {
-	atmo.SortMaybe(errors)
-	for i := range errors {
-		me.bgMsg(true, errors[i].Error())
-	}
-	for _, e := range errs {
+func (me *Ctx) onFreshErrs(stage0Errs []error, stage1AndBeyondErrs atmo.Errors) {
+	atmo.SortMaybe(stage1AndBeyondErrs)
+	for _, e := range stage0Errs {
 		me.bgMsg(true, e.Error())
+	}
+	for i := range stage1AndBeyondErrs {
+		me.bgMsg(true, stage1AndBeyondErrs[i].Error())
 	}
 	if me.Kits.OnFreshErrs != nil {
 		me.Kits.OnFreshErrs()
