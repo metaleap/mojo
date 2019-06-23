@@ -156,20 +156,20 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 		}
 	}
 
-	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.CrampedOnes(func(i int) (isbreaker bool) {
+	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.Cliques(func(i int, idxlast int) (isbreaker bool) {
 		isbreaker = (toks[i].Meta.Orig == ",")
-		if (!isbreaker) && toks[i].Meta.Orig == ":" { /* special exception for ergonomic `fn: arg arg` --- suspends language integrity but if (fn:) was really wanted as standalone expression (hardly ever), can still parenthesize */
-			return i < len(toks)-1 && toks[i+1].Meta.Pos.Offset > toks[i].Meta.Pos.Offset+1
+		if (!isbreaker) && i < idxlast && toks[i].Meta.Orig == ":" { /* special exception for ergonomic `fn: arg arg` --- suspends language integrity but if (fn:) was really wanted as standalone expression (hardly ever), can still parenthesize */
+			isbreaker = toks[i+1].Meta.Pos.Offset > toks[i].Meta.Pos.Offset+1
 		}
 		return
 	})
 	var exprcur IAstExpr
 	var accumcomments []udevlex.Tokens
-	for greed, hasgreeds := 0, greeds != nil; err == nil && len(toks) > 0; exprcur = nil {
+	for greed, hasgreeds := 0, len(greeds) > 0; err == nil && len(toks) > 0; exprcur = nil {
 		if hasgreeds {
 			greed = greeds[&toks[0]]
 		}
-		if greed > 1 {
+		if greed > 0 { // logically should check for >1 but `Cliques` guarantees this already and >0 should be (low-level-wise) slightly less crunchy
 			exprcur, err = me.parseExpr(toks[:greed])
 			toks = toks[greed:]
 		} else {

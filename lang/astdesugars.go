@@ -22,7 +22,7 @@ func (me *AstExprAppl) desugarToLetExprIfUnionTest(prefix func() string) *AstExp
 		for i := range me.Args {
 			check.Alts[0].Conds[i] = me.Args[i]
 		}
-		def := Build.Def("┬"+prefix(), &check, "specimen")
+		def := Build.Def("┬"+prefix(), &check, prefix())
 		check.Scrutinee, check.Alts[0].Body = def.Args[0].NameOrConstVal, def.Args[0].NameOrConstVal
 		return Build.Let(&def.Name, *def)
 	}
