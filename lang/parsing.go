@@ -17,9 +17,10 @@ const (
 )
 
 func init() {
-	udevlex.StandaloneSeps, udevlex.SepsForChunking, udevlex.RestrictedWhitespace, udevlex.SanitizeDirtyFloatsNextToDotOpishs =
-		[]string{"(", ")"}, "([{}])", true, true
+	udevlex.SepsGroupers, udevlex.SepsOthers, udevlex.RestrictedWhitespace, udevlex.SanitizeDirtyFloatsNextToDotOpishs =
+		"([{}])", ",", true, true
 }
+
 func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
 	toks := this.Ast.Tokens
 	if this.Ast.comments.Leading, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
@@ -176,15 +177,6 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 			case udevlex.TOKEN_COMMENT:
 				accumcomments = append(accumcomments, toks[0:1])
 				toks = toks[1:]
-			case udevlex.TOKEN_SEPISH:
-				if sub, rest, e := me.parseParens(toks); e != nil {
-					err = e
-				} else if len(sub) == 0 { // empty parens are otherwise useless so we'll use it as some builtin ident
-					exprcur = me.parseExprIdent(toks[:2], true)
-					toks = rest
-				} else if exprcur, err = me.parseExprInParens(sub); err == nil {
-					toks = rest
-				}
 			case udevlex.TOKEN_FLOAT:
 				exprcur = me.parseExprLitFloat(toks)
 				toks = toks[1:]
@@ -197,11 +189,24 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 			case udevlex.TOKEN_STR:
 				exprcur = me.parseExprLitStr(toks)
 				toks = toks[1:]
-			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
+			case udevlex.TOKEN_SEPISH:
 				switch toks[0].Str {
 				case ",":
 					exprcur, toks, err = me.parseCommaSeparated(toks, accum, alltoks)
 					accum = accum[:0]
+				default:
+
+					if sub, rest, e := me.parseParens(toks); e != nil {
+						err = e
+					} else if len(sub) == 0 { // empty parens are otherwise useless so we'll use it as some builtin ident
+						exprcur = me.parseExprIdent(toks[:2], true)
+						toks = rest
+					} else if exprcur, err = me.parseExprInParens(sub); err == nil {
+						toks = rest
+					}
+				}
+			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
+				switch toks[0].Str {
 				case "?":
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
