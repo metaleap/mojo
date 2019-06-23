@@ -14,11 +14,10 @@ type AstFile struct {
 		loading error
 	}
 	LastLoad struct {
-		Src                  []byte
-		Time                 int64
-		FileSize             int64
-		TokCountInitialGuess int
-		NumLines             int
+		Src      []byte
+		Time     int64
+		FileSize int64
+		NumLines int
 	}
 	Options struct {
 		ApplStyle ApplStyle

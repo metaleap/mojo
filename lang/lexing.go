@@ -82,9 +82,10 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 
 		for i := range me.TopLevel {
 			if this := &me.TopLevel[i]; this.srcDirty {
-				this.srcDirty, this.errs.parsing, this.errs.lexing, this.Ast.Def.Orig, this.Ast.comments.Leading, this.Ast.comments.Trailing = false, nil, nil, nil, nil, nil
+				this.srcDirty, this.errs.parsing, this.errs.lexing, this.Ast.Def.Orig, this.Ast.comments.Leading, this.Ast.comments.Trailing =
+					false, nil, nil, nil, nil, nil
 				toks, errs := udevlex.Lex(&ustd.BytesReader{Data: this.Src},
-					me.SrcFilePath, me.LastLoad.TokCountInitialGuess)
+					me.SrcFilePath, 64)
 				if this.Ast.Tokens = toks; len(errs) > 0 {
 					for _, e := range errs {
 						this.errs.lexing.AddLex(&e.Pos, e.Msg)
@@ -99,6 +100,22 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 	return
 }
 
+type srcTopLevelChunk struct {
+	src   []byte
+	offb0 int
+	line0 int
+}
+
+func (me *AstFile) topLevelChunksFrom(src []byte) (tlChunks []srcTopLevelChunk) {
+	// isnewline := true
+	// var last byte
+	// for i, cur := range src {
+
+	// }
+
+	return
+}
+
 func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
 	type topLevelChunk struct {
 		src  []byte
@@ -109,10 +126,9 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
 
 	// stage ONE: go over all src bytes and gather `tlchunks`
 
-	var newline, istoplevelfulllinecomment, inmultilinecomment, inlinecomment bool
+	var newline, inmultilinecomment, inlinecomment bool
 	var curline, lastpos, lastln int
 	var chlast byte
-	me.LastLoad.TokCountInitialGuess = 0
 	allemptysofar, il := true, len(src)-1
 	for i, ch := range src {
 		if allemptysofar && !(ch == '\n' || ch == ' ') {
@@ -129,20 +145,15 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
 		}
 
 		if ch == '\n' {
-			inlinecomment, istoplevelfulllinecomment, newline, curline =
-				false, false, true, curline+1
+			inlinecomment, newline, curline = false, true, curline+1
 		} else if newline {
 			if newline = false; (!inmultilinecomment) && ch != ' ' {
-				isntlast := i < il
-				istoplevelfulllinecomment = isntlast && ch == '/' && src[i+1] == '/'
 				// naive at first: every non-indented line begins its own new chunk. after the loop we merge comments directly prefixed to defs
 				if lastpos != i {
 					tlchunks = append(tlchunks, topLevelChunk{src: src[lastpos:i], pos: lastpos, line: lastln})
 				}
 				lastpos, lastln = i, curline
 			}
-		} else if (!(istoplevelfulllinecomment || inmultilinecomment || inlinecomment)) && ch == ' ' && chlast != ' ' {
-			me.LastLoad.TokCountInitialGuess++
 		}
 		chlast = ch
 	}
