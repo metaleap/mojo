@@ -85,7 +85,7 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 }
 
 func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (err *atmo.Error) {
-	parseaffix := func(appl *AstExprAppl) IAstExpr {
+	parseaffix := func(appl *AstExprAppl) (IAstExpr, *atmo.Error) {
 		var tsub udevlex.Tokens
 		if len(appl.Args) > 2 {
 			tsub = toksHeadSig.FindSub(appl.Args[1].Toks(), appl.Args[len(appl.Args)-1].Toks())
@@ -106,7 +106,10 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 				var ok bool
 				if colon, ok1 := nx.Callee.(*AstIdent); ok1 && colon.Val == ":" && len(nx.Args) >= 2 {
 					if ident, ok2 := nx.Args[0].(*AstIdent); ok2 {
-						ok, def.Name, def.NameAffix = true, *ident, parseaffix(nx)
+						ok, def.Name = true, *ident
+						if def.NameAffix, err = parseaffix(nx); err != nil {
+							return
+						}
 					}
 				}
 				if !ok {
@@ -124,8 +127,11 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 						if appl, oka := sig.Args[i].(*AstExprAppl); oka {
 							if colon, okc := appl.Callee.(*AstIdent); okc && colon.Val == ":" && len(appl.Args) >= 2 {
 								if atom, okatom = appl.Args[0].(IAstExprAtomic); okatom {
-									def.Args[i].Tokens, def.Args[i].NameOrConstVal, def.Args[i].Affix =
-										appl.Tokens, atom, parseaffix(appl)
+									def.Args[i].Tokens, def.Args[i].NameOrConstVal =
+										appl.Tokens, atom
+									if def.Args[i].Affix, err = parseaffix(appl); err != nil {
+										return
+									}
 								}
 							}
 						}
@@ -232,15 +238,17 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 		}
 	}
 	if err == nil {
-		if ret = me.parseExprApplOrIdent(accum, alltoks); len(accumcomments) > 0 {
+		if ret, err = me.parseExprApplOrIdent(accum, alltoks); err == nil && len(accumcomments) > 0 {
 			ret.Comments().Trailing.initFrom(accumcomments)
 		}
 	}
 	return
 }
 
-func (me *ctxTldParse) parseExprApplOrIdent(accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr) {
-	if len(accum) == 1 {
+func (me *ctxTldParse) parseExprApplOrIdent(accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
+	if len(accum) == 0 {
+		err = atmo.ErrSyn(&allToks[0], "expression expected")
+	} else if len(accum) == 1 {
 		ret = accum[0]
 	} else {
 		var appl AstExprAppl
@@ -276,7 +284,7 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 	}
 	var cases AstExprCases
 	if len(accum) > 0 {
-		cases.Scrutinee = me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
+		cases.Scrutinee, _ = me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
 	}
 	cases.Tokens, cases.defaultIndex = allToks, -1
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
@@ -332,11 +340,10 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 
 func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr, allToks udevlex.Tokens) (ret IAstExpr, rest udevlex.Tokens, err *atmo.Error) {
 	tokcomma := &toks[0]
-	if len(accum) == 0 {
-		err = atmo.ErrSyn(tokcomma, "this part cannot begin with a comma")
+	var precomma IAstExpr
+	if precomma, err = me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false)); err != nil {
 		return
 	}
-	precomma := me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].Meta.LineIndent)
 	numdefs, numothers, chunks := 0, 0, toks.Chunked(",", "")
 	for len(chunks) > 0 && len(chunks[len(chunks)-1]) == 0 { // allow & drop trailing commas
