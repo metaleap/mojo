@@ -337,8 +337,12 @@ func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr
 	for len(chunks) > 0 && len(chunks[len(chunks)-1]) == 0 { // allow & drop trailing commas
 		chunks = chunks[:len(chunks)-1]
 	}
+	toklast := tokcomma
 	for i := range chunks {
-		if chunks[i].Has(":=", false) {
+		if len(chunks[i]) == 0 {
+			err = atmo.ErrSyn(toks.Next(toklast, true), "consecutive commas with nothing between")
+			return
+		} else if toklast = chunks[i].Last1(); chunks[i].Has(":=", false) {
 			numdefs++
 		} else {
 			numothers++
@@ -355,10 +359,7 @@ func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr
 		appl.Args[0], appl.Tokens = precomma, allToks
 		for i := range chunks {
 			var arg IAstExpr
-			if len(chunks[i]) == 0 {
-				err = atmo.ErrSyn(tokcomma, "missing expression between commas")
-				return
-			} else if arg, err = me.parseExpr(chunks[i]); err != nil {
+			if arg, err = me.parseExpr(chunks[i]); err != nil {
 				return
 			}
 			appl.Args = append(appl.Args, arg)

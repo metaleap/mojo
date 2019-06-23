@@ -45,7 +45,7 @@ func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
 	if ident, _ := me.OrigDef.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
 		var body IrSpecial
 		if me.Body, body.Orig, body.OneOf.DefArgfulButBodyless = &body, ident, me.Arg != nil; me.Arg == nil {
-			errs.AddSyn(ident.Tokens.First1(), "illegal placeholder placement")
+			errs.AddSyn(ident.Tokens, "illegal placeholder placement")
 		}
 	} else {
 		me.Body, errs = ctx.newExprFrom(me.OrigDef.Body)
@@ -87,7 +87,7 @@ func (me *IrDef) initArg(ctx *ctxIrInit) (errs atmo.Errors) {
 
 func (me *IrDef) initMetas(ctx *ctxIrInit) (errs atmo.Errors) {
 	if len(me.OrigDef.Meta) > 0 {
-		errs.AddTodo(&me.OrigDef.Meta[0].Toks()[0], "def metas")
+		errs.AddTodo(me.OrigDef.Meta[0].Toks(), "def metas")
 		for i := range me.OrigDef.Meta {
 			_ = errs.AddVia(ctx.newExprFrom(me.OrigDef.Meta[i]))
 		}
@@ -115,7 +115,7 @@ func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atm
 	}
 
 	if isconstexpr && orig.Affix != nil {
-		errs.AddSyn(&orig.Affix.Toks()[0], "def-arg affix illegal where the arg is itself a constant value")
+		errs.AddSyn(orig.Affix.Toks(), "def-arg affix illegal where the arg is itself a constant value")
 	}
 	if orig.Affix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(orig.Affix)).(IExpr))

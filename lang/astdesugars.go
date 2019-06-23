@@ -83,7 +83,7 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 	var defcase IAstExpr
 	for i := range me.Alts {
 		if alt := me.Alts[i]; alt.Body == nil {
-			errs.AddSyn(&alt.Tokens[0], "malformed branching: case has no result expression (or nested branchings should be parenthesized)")
+			errs.AddSyn(alt.Tokens, "malformed branching: case has no result expression (or nested branchings should be parenthesized)")
 		} else if len(alt.Conds) == 0 {
 			defcase = alt.Body
 		} else {
