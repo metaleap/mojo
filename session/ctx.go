@@ -205,9 +205,9 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 }
 
 func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs []error, freshStage1AndBeyondErrs atmo.Errors) {
+	me.Kits.All.ensureErrTldPosOffsets()
 	hadfresherrs := len(freshStage0Errs) > 0 || len(freshStage1AndBeyondErrs) > 0
 	if hadfresherrs {
-		me.Kits.All.ensureErrTldPosOffsets()
 		if me.Options.BgMsgs.IncludeKitsErrs {
 			for _, e := range freshStage0Errs {
 				me.bgMsg(true, e.Error())

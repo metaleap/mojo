@@ -100,22 +100,6 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 	return
 }
 
-type srcTopLevelChunk struct {
-	src   []byte
-	offb0 int
-	line0 int
-}
-
-func (me *AstFile) topLevelChunksFrom(src []byte) (tlChunks []srcTopLevelChunk) {
-	// isnewline := true
-	// var last byte
-	// for i, cur := range src {
-
-	// }
-
-	return
-}
-
 func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
 	type topLevelChunk struct {
 		src  []byte

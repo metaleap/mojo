@@ -172,9 +172,9 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				freshErrs = append(freshErrs, kit.Errs.Stage0BadImports...)
 			}
 
-			if allunchanged && !reloadForceInsteadOfAuto {
-				return
-			}
+			// if allunchanged && !reloadForceInsteadOfAuto {
+			// 	return
+			// }
 			{
 				od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
 				kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, freshErrs = od, nd, append(freshErrs, fe...)
