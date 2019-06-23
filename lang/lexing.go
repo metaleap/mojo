@@ -126,43 +126,56 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
 
 	// stage ONE: go over all src bytes and gather `tlchunks`
 
-	var newline, inmultilinecomment, inlinecomment bool
-	var curline, lastpos, lastln int
-	var chlast byte
+	var newline bool
+	var curline, lastchunkedat, lastchunkedln int
+	var insth1, insth2 []byte
 	allemptysofar, il := true, len(src)-1
 	for i, ch := range src {
-		if allemptysofar && !(ch == '\n' || ch == ' ') {
-			allemptysofar, lastpos, lastln = false, i, curline
+		isnl := (ch == '\n')
+		if isnl {
+			curline++
 		}
-		if inmultilinecomment {
-			if chlast == '*' && ch == '/' {
-				inmultilinecomment = false
+		if allemptysofar && !(isnl || ch == ' ') {
+			allemptysofar, lastchunkedat, lastchunkedln = false, i, curline
+		}
+
+		if insth1 != nil {
+			if i1 := i + 1; bytes.Equal(src[i-len(insth1)+1:i1], insth1) && (insth2 == nil || !bytes.Equal(src[i-len(insth2)+1:i1], insth2)) {
+				insth1, insth2 = nil, nil
+			} else {
+				continue
 			}
-		} else if (!inlinecomment) && chlast == '/' && ch == '*' {
-			inmultilinecomment = true
-		} else if (!inlinecomment) && chlast == '/' && ch == '/' {
-			inlinecomment = true
+		} else if ch == '"' {
+			insth1, insth2 = []byte("\""), []byte("\\\"")
+		} else if ch == '`' {
+			insth1 = []byte("`")
+		} else if ch == '/' && i < il {
+			if chnext := src[i+1]; chnext == '*' {
+				insth1 = []byte("*/")
+			} else if chnext == '/' {
+				insth1 = []byte("\n")
+			}
 		}
 
 		if ch == '\n' {
-			inlinecomment, newline, curline = false, true, curline+1
+			newline = true
 		} else if newline {
-			if newline = false; (!inmultilinecomment) && ch != ' ' {
+			newline = false
+			if ch != ' ' {
 				// naive at first: every non-indented line begins its own new chunk. after the loop we merge comments directly prefixed to defs
-				if lastpos != i {
-					tlchunks = append(tlchunks, topLevelChunk{src: src[lastpos:i], pos: lastpos, line: lastln})
+				if lastchunkedat != i {
+					tlchunks = append(tlchunks, topLevelChunk{src: src[lastchunkedat:i], pos: lastchunkedat, line: lastchunkedln})
 				}
-				lastpos, lastln = i, curline
+				lastchunkedat, lastchunkedln = i, curline
 			}
 		}
-		chlast = ch
 	}
-	if me.LastLoad.NumLines = curline; lastpos < il {
-		tlchunks = append(tlchunks, topLevelChunk{src: src[lastpos:], pos: lastpos, line: lastln})
+	if me.LastLoad.NumLines = curline; lastchunkedat < il {
+		tlchunks = append(tlchunks, topLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln})
 	}
 	// fix naive tlchunks: stitch together what belongs together
 	for i := len(tlchunks) - 1; i > 0; i-- {
-		if tlchunks[i-1].line == tlchunks[i].line-1 && // belong together?
+		if tlchunks[i-1].line == tlchunks[i].line-1 && /* prev chunk is prev line and begins `//`? */
 			len(tlchunks[i-1].src) >= 2 && tlchunks[i-1].src[0] == '/' && tlchunks[i-1].src[1] == '/' {
 			tlchunks[i-1].src = append(tlchunks[i-1].src, tlchunks[i].src...)
 			for j := i; j < len(tlchunks)-1; j++ {
