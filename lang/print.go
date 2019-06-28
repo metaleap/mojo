@@ -198,14 +198,6 @@ func (me *AstExprLitUint) print(p *CtxPrint) {
 	}
 }
 
-func (me *AstExprLitRune) print(p *CtxPrint) {
-	if len(me.Tokens) > 0 {
-		p.Print(&me.AstBaseExprAtomLit)
-	} else {
-		p.WriteString(strconv.QuoteRune(me.Val))
-	}
-}
-
 func (me *AstExprLitStr) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
 		p.Print(&me.AstBaseExprAtomLit)

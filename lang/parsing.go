@@ -190,7 +190,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				exprcur = me.parseExprLitUint(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_RUNE:
-				exprcur = me.parseExprLitRune(toks)
+				exprcur = me.parseExprLitUint(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_STR:
 				exprcur = me.parseExprLitStr(toks)

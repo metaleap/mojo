@@ -23,7 +23,6 @@ func (me *IrSpecial) Print() atmolang.IAstNode {
 }
 func (me *IrLitFloat) Print() atmolang.IAstNode  { return atmolang.Build.LitFloat(me.Val) }
 func (me *IrLitUint) Print() atmolang.IAstNode   { return atmolang.Build.LitUint(me.Val) }
-func (me *IrLitRune) Print() atmolang.IAstNode   { return atmolang.Build.LitRune(me.Val) }
 func (me *IrLitStr) Print() atmolang.IAstNode    { return atmolang.Build.LitStr(me.Val) }
 func (me *IrIdentBase) Print() atmolang.IAstNode { return atmolang.Build.Ident(me.Val) }
 func (me *IrIdentName) Print() atmolang.IAstNode {

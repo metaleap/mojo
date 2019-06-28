@@ -34,7 +34,7 @@ func (me *AnnFactAlts) description(p string) (d string) {
 	return me.Possibilities.describe("ONE OF:", p)
 }
 
-// rune or string or uint64 or float64
+// string or uint64 or float64
 type AnnFactLit struct {
 	Value interface{}
 	Str   func() string

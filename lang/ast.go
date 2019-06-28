@@ -162,6 +162,10 @@ type AstExprLitUint struct {
 	Val uint64
 }
 
+func (me *AstExprLitUint) FromRune() bool {
+	return len(me.Tokens) == 1 && len(me.Tokens[0].Meta.Orig) > 0 && me.Tokens[0].Meta.Orig[0] == '\''
+}
+
 func (me *AstExprLitUint) String() string { return strconv.FormatUint(me.Val, 10) }
 
 type AstExprLitFloat struct {
@@ -170,13 +174,6 @@ type AstExprLitFloat struct {
 }
 
 func (me *AstExprLitFloat) String() string { return strconv.FormatFloat(me.Val, 'g', -1, 64) }
-
-type AstExprLitRune struct {
-	AstBaseExprAtomLit
-	Val rune
-}
-
-func (me *AstExprLitRune) String() string { return strconv.QuoteRune(me.Val) }
 
 type AstExprLitStr struct {
 	AstBaseExprAtomLit

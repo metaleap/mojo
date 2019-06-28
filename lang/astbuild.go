@@ -23,8 +23,8 @@ func (Builder) LitUint(val uint64) *AstExprLitUint {
 	return &AstExprLitUint{Val: val}
 }
 
-func (Builder) LitRune(val rune) *AstExprLitRune {
-	return &AstExprLitRune{Val: val}
+func (Builder) LitRune(val int32) *AstExprLitUint {
+	return &AstExprLitUint{Val: uint64(val)}
 }
 
 func (Builder) LitStr(val string) *AstExprLitStr {

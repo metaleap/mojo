@@ -38,12 +38,6 @@ func (me *ctxTldParse) parseExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
 	return &this
 }
 
-func (me *ctxTldParse) parseExprLitRune(toks udevlex.Tokens) *AstExprLitRune {
-	var this AstExprLitRune
-	this.Tokens, this.Val = toks[0:1], toks[0].Rune()
-	return &this
-}
-
 func (me *ctxTldParse) parseExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	var this AstExprLitStr
 	this.Tokens, this.Val = toks[0:1], toks[0].Str

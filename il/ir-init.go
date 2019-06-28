@@ -110,7 +110,7 @@ func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atm
 				isconstexpr, me.IrIdentBase = false, cxn.IrIdentBase
 			}
 		}
-	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitRune, *atmolang.AstExprLitStr:
+	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitStr:
 		isconstexpr = true
 	}
 
@@ -141,11 +141,6 @@ func (me *IrLitFloat) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {
 func (me *IrLitUint) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {
 	me.irLitBase.initFrom(ctx, orig)
 	me.Val = orig.Toks()[0].Uint
-}
-
-func (me *IrLitRune) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {
-	me.irLitBase.initFrom(ctx, orig)
-	me.Val = orig.Toks()[0].Rune()
 }
 
 func (me *IrLitStr) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {

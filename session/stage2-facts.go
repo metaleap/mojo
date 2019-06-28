@@ -78,8 +78,6 @@ func (me *ctxFacts) refreshCoreFactsForExpr(node atmoil.IExpr, ancestors []atmoi
 	switch n := node.(type) {
 	case *atmoil.IrLitFloat:
 		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
-	case *atmoil.IrLitRune:
-		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
 	case *atmoil.IrLitStr:
 		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
 	case *atmoil.IrLitUint:

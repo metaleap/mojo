@@ -93,10 +93,6 @@ func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs atm
 		var lit IrLitUint
 		lit.initFrom(me, origdes)
 		expr = &lit
-	case *atmolang.AstExprLitRune:
-		var lit IrLitRune
-		lit.initFrom(me, origdes)
-		expr = &lit
 	case *atmolang.AstExprLitStr:
 		var lit IrLitStr
 		lit.initFrom(me, origdes)

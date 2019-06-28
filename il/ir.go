@@ -245,20 +245,6 @@ func (me *irLitBase) refsTo(self IExpr, s string) []IExpr {
 	return nil
 }
 
-type IrLitRune struct {
-	irLitBase
-	Val rune
-}
-
-func (me *IrLitRune) EquivTo(node INode) bool {
-	cmp, _ := node.(*IrLitRune)
-	return cmp != nil && cmp.Val == me.Val
-}
-func (me *IrLitRune) refsTo(s string) []IExpr { return me.irLitBase.refsTo(me, s) }
-func (me *IrLitRune) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	me.IrExprAtomBase.walk(ancestors, me, on)
-}
-
 type IrLitStr struct {
 	irLitBase
 	Val string
