@@ -73,7 +73,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 			return
 		}
 		me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src
-		if me.populateTopLevelChunksFrom(src) {
+		if me.topChunksCompare(me.topLevelChunksGatherFrom(src)) {
 			if noChangesDetected != nil {
 				*noChangesDetected = true
 			}
@@ -100,15 +100,14 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 	return
 }
 
-func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
-	type topLevelChunk struct {
-		src  []byte
-		pos  int
-		line int
-	}
-	tlchunks := make([]topLevelChunk, 0, 32)
+type topLevelChunk struct {
+	src  []byte
+	pos  int
+	line int
+}
 
-	// stage ONE: go over all src bytes and gather `tlchunks`
+func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []topLevelChunk) {
+	tlChunks = make([]topLevelChunk, 0, 32)
 
 	var newline bool
 	var curline, lastchunkedat, lastchunkedln int
@@ -148,52 +147,55 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
 			if ch != ' ' {
 				// naive at first: every non-indented line begins its own new chunk. after the loop we merge comments directly prefixed to defs
 				if lastchunkedat != i {
-					tlchunks = append(tlchunks, topLevelChunk{src: src[lastchunkedat:i], pos: lastchunkedat, line: lastchunkedln})
+					tlChunks = append(tlChunks, topLevelChunk{src: src[lastchunkedat:i], pos: lastchunkedat, line: lastchunkedln})
 				}
 				lastchunkedat, lastchunkedln = i, curline
 			}
 		}
 	}
 	if me.LastLoad.NumLines = curline; lastchunkedat < il {
-		tlchunks = append(tlchunks, topLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln})
+		tlChunks = append(tlChunks, topLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln})
 	}
-	// fix naive tlchunks: stitch together what belongs together
-	for i := len(tlchunks) - 1; i > 0; i-- {
-		if tlchunks[i-1].line == tlchunks[i].line-1 && /* prev chunk is prev line and begins `//`? */
-			len(tlchunks[i-1].src) >= 2 && tlchunks[i-1].src[0] == '/' && tlchunks[i-1].src[1] == '/' {
-			tlchunks[i-1].src = append(tlchunks[i-1].src, tlchunks[i].src...)
-			for j := i; j < len(tlchunks)-1; j++ {
-				tlchunks[j] = tlchunks[j+1]
+	// fix naive tlChunks: stitch together what belongs together
+	for i := len(tlChunks) - 1; i > 0; i-- {
+		if tlChunks[i-1].line == tlChunks[i].line-1 && /* prev chunk is prev line and begins `//`? */
+			len(tlChunks[i-1].src) >= 2 && tlChunks[i-1].src[0] == '/' && tlChunks[i-1].src[1] == '/' {
+			tlChunks[i-1].src = append(tlChunks[i-1].src, tlChunks[i].src...)
+			for j := i; j < len(tlChunks)-1; j++ {
+				tlChunks[j] = tlChunks[j+1]
 			}
-			tlchunks = tlchunks[0 : len(tlchunks)-1]
+			tlChunks = tlChunks[0 : len(tlChunks)-1]
 		}
 	}
 
-	for newidx := range tlchunks { // trim-right \n bytes really helps with not reloading more than necessary
+	for newidx := range tlChunks { // trim-right \n bytes really helps with not reloading more than necessary
 		var numn int
-		for j := len(tlchunks[newidx].src) - 1; j > 0; j-- {
-			if tlchunks[newidx].src[j] == '\n' {
+		for j := len(tlChunks[newidx].src) - 1; j > 0; j-- {
+			if tlChunks[newidx].src[j] == '\n' {
 				numn++
 			} else {
 				break
 			}
 		}
-		tlchunks[newidx].src = tlchunks[newidx].src[:len(tlchunks[newidx].src)-numn]
+		tlChunks[newidx].src = tlChunks[newidx].src[:len(tlChunks[newidx].src)-numn]
 	}
+	return
+}
 
-	// stage TWO: compare gathered `tlchunks` to existing `AstFileTopLevelChunk`s in `me.TopLevel`,
+func (me *AstFile) topChunksCompare(tlChunks []topLevelChunk) (allTheSame bool) {
+	// compare gathered `tlChunks` to existing `AstFileTopLevelChunk`s in `me.TopLevel`,
 	// dropping those that are gone, adding those that are new, and repositioning others as needed
 
-	srcsame := make(map[int]int, len(tlchunks))
+	srcsame := make(map[int]int, len(tlChunks))
 	for oldidx := range me.TopLevel {
-		for newidx := range tlchunks {
-			if stale, fresh := &me.TopLevel[oldidx], &tlchunks[newidx]; bytes.Equal(stale.Src, fresh.src) {
+		for newidx := range tlChunks {
+			if stale, fresh := &me.TopLevel[oldidx], &tlChunks[newidx]; bytes.Equal(stale.Src, fresh.src) {
 				srcsame[newidx] = oldidx
 				break
 			}
 		}
 	}
-	allTheSame = len(srcsame) == len(me.TopLevel) && len(me.TopLevel) == len(tlchunks)
+	allTheSame = (len(srcsame) == len(me.TopLevel)) && (len(me.TopLevel) == len(tlChunks))
 	if allTheSame {
 		for newidx, oldidx := range srcsame {
 			if newidx != oldidx {
@@ -204,22 +206,23 @@ func (me *AstFile) populateTopLevelChunksFrom(src []byte) (allTheSame bool) {
 	}
 	if !allTheSame {
 		oldtlc := me.TopLevel
-		me._toks, me.TopLevel = nil, make([]SrcTopChunk, len(tlchunks))
-		for newidx := range tlchunks {
+		me._toks, me.TopLevel = nil, make([]SrcTopChunk, len(tlChunks))
+		for newidx := range tlChunks {
 			if oldidx, ok := srcsame[newidx]; ok {
 				me.TopLevel[newidx] = oldtlc[oldidx]
 			} else {
 				me.TopLevel[newidx].srcDirty, me.TopLevel[newidx]._id, me.TopLevel[newidx]._errs, me.TopLevel[newidx].Src =
-					true, "", nil, tlchunks[newidx].src
+					true, "", nil, tlChunks[newidx].src
 				me.TopLevel[newidx].id[1], me.TopLevel[newidx].id[2], _ = ustd.HashTwo(0, 0, me.TopLevel[newidx].Src)
 				me.TopLevel[newidx].id[0] = uint64(len(me.TopLevel[newidx].Src))
 			}
 			me.TopLevel[newidx].SrcFile = me
 		}
 	}
-	for newidx := range tlchunks {
+	for newidx := range tlChunks {
 		me.TopLevel[newidx].offset.Ln, me.TopLevel[newidx].offset.B =
-			tlchunks[newidx].line, tlchunks[newidx].pos
+			tlChunks[newidx].line, tlChunks[newidx].pos
 	}
+
 	return
 }
