@@ -1,8 +1,6 @@
 package atmo
 
 import (
-	"text/scanner"
-
 	"github.com/go-leap/dev/lex"
 )
 
@@ -47,7 +45,7 @@ type Error struct {
 
 	ref *Error
 	msg string
-	pos scanner.Position
+	pos udevlex.Pos
 	len int
 	cat ErrorCategory
 }
@@ -73,13 +71,13 @@ func (me *Error) Msg() string {
 	return me.msg
 }
 
-func (me *Error) Pos() *scanner.Position {
+func (me *Error) Pos() *udevlex.Pos {
 	if me.ref != nil {
 		return me.ref.Pos()
 	}
 	pos := me.pos
 	if me.tldOff != nil {
-		pos.Line, pos.Offset = pos.Line+me.tldOff.PosOffsetLine(), pos.Offset+me.tldOff.PosOffsetByte()
+		pos.Ln1, pos.Off0 = pos.Ln1+me.tldOff.PosOffsetLine(), pos.Off0+me.tldOff.PosOffsetByte()
 	}
 	return &pos
 }
@@ -97,7 +95,7 @@ func (me *Error) UpdatePosOffsets(offsets IErrPosOffsets) {
 	me.tldOff = offsets
 }
 
-func ErrAtPos(cat ErrorCategory, pos *scanner.Position, length int, msg string) (err *Error) {
+func ErrAtPos(cat ErrorCategory, pos *udevlex.Pos, length int, msg string) (err *Error) {
 	err = &Error{msg: msg, len: length, cat: cat}
 	if pos != nil {
 		err.pos = *pos
@@ -116,7 +114,7 @@ func ErrAtToks(cat ErrorCategory, toks udevlex.Tokens, msg string) *Error {
 	return ErrAtPos(cat, toks.Pos(), toks.Length(), msg)
 }
 
-func ErrLex(pos *scanner.Position, msg string) *Error {
+func ErrLex(pos *udevlex.Pos, msg string) *Error {
 	return ErrAtPos(ErrCatLexing, pos, 1, msg)
 }
 
@@ -164,7 +162,7 @@ func (me *Errors) Add(errs Errors) (anyAdded bool) {
 
 func (me *Errors) AddVia(v interface{}, errs Errors) interface{} { me.Add(errs); return v }
 
-func (me *Errors) AddAt(cat ErrorCategory, pos *scanner.Position, length int, msg string) *Error {
+func (me *Errors) AddAt(cat ErrorCategory, pos *udevlex.Pos, length int, msg string) *Error {
 	err := &Error{msg: msg, len: length, cat: cat}
 	if pos != nil {
 		err.pos = *pos
@@ -173,7 +171,7 @@ func (me *Errors) AddAt(cat ErrorCategory, pos *scanner.Position, length int, ms
 	return err
 }
 
-func (me *Errors) AddLex(pos *scanner.Position, msg string) {
+func (me *Errors) AddLex(pos *udevlex.Pos, msg string) {
 	me.AddAt(ErrCatLexing, pos, 1, msg)
 }
 
@@ -242,11 +240,11 @@ func (me Errors) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me Errors) Less(i int, j int) bool {
 	ei, ej := me[i], me[j]
 	pei, pej := ei.Pos(), ej.Pos()
-	if pei.Filename == pej.Filename {
-		if pei.Offset == pej.Offset {
+	if pei.FilePath == pej.FilePath {
+		if pei.Off0 == pej.Off0 {
 			return ei.msg < ej.msg
 		}
-		return pei.Offset < pej.Offset
+		return pei.Off0 < pej.Off0
 	}
-	return pei.Filename < pej.Filename
+	return pei.FilePath < pej.FilePath
 }

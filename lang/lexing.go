@@ -49,7 +49,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 }
 
 func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, *atmo.Error) {
-	toks, errs := udevlex.Lex(&ustd.BytesReader{Data: src}, fauxSrcFileNameForErrs, 64)
+	toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 64)
 	for _, e := range errs {
 		return nil, atmo.ErrLex(&e.Pos, e.Msg)
 	}
@@ -84,8 +84,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 			if this := &me.TopLevel[i]; this.srcDirty {
 				this.srcDirty, this.errs.parsing, this.errs.lexing, this.Ast.Def.Orig, this.Ast.comments.Leading, this.Ast.comments.Trailing =
 					false, nil, nil, nil, nil, nil
-				toks, errs := udevlex.Lex2(string(this.Src),
-					me.SrcFilePath, 64)
+				toks, errs := udevlex.Lex(this.Src, me.SrcFilePath, 64)
 				if this.Ast.Tokens = toks; len(errs) > 0 {
 					for _, e := range errs {
 						this.errs.lexing.AddLex(&e.Pos, e.Msg)

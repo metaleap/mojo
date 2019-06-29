@@ -110,8 +110,8 @@ func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpP
 			kit := me.Ctx.KitByImpPath("")
 			str, errs := me.Ctx.Eval(kit, inputln)
 			if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
-				if err0pos := errs[0].Pos(); err0pos.Line == 1 {
-					caretpos = err0pos.Column + numleadingspaces
+				if err0pos := errs[0].Pos(); err0pos.Ln1 == 1 {
+					caretpos = err0pos.Col1 + numleadingspaces
 				}
 			}
 			me.decoInputDoneBut(false, false, caretpos)

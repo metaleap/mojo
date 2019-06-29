@@ -17,8 +17,8 @@ const (
 )
 
 func init() {
-	udevlex.SepsGroupers, udevlex.SepsOthers, udevlex.RestrictedWhitespace, udevlex.SanitizeDirtyFloatsNextToDotOpishs =
-		"([{}])", ",", true, true
+	udevlex.SepsGroupers, udevlex.SepsOthers, udevlex.RestrictedWhitespace =
+		"([{}])", ",", true
 }
 
 func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
@@ -61,7 +61,7 @@ func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, nameOnl
 func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error) {
 	def.Tokens = toks
 	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
-		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Pos.Column == 1 {
+		if t := tokheadbodysep.Or(&toks[0]); toks[0].Meta.Pos.Col1 == 1 {
 			err = atmo.ErrSyn(t, "missing: definition body following `:=`")
 		} else {
 			err = atmo.ErrSyn(t, "at this indentation level, expected a def")
@@ -72,8 +72,8 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else if err = me.parseDefHeadSig(toksheads[0], def); err == nil {
 		me.exprWillBeDefBody, toksbody = toksbody.BreakOnLeadingComments()
-		if me.indentHintForLet = 0; toksbody[0].Meta.Pos.Line == tokheadbodysep.Meta.Pos.Line {
-			me.indentHintForLet = toksbody[0].Meta.Pos.Column - 1
+		if me.indentHintForLet = 0; toksbody[0].Meta.Pos.Ln1 == tokheadbodysep.Meta.Pos.Ln1 {
+			me.indentHintForLet = toksbody[0].Meta.Pos.Col1 - 1
 		}
 		if def.Body, err = me.parseExpr(toksbody); err == nil {
 			if len(toksheads) > 1 {
@@ -150,7 +150,7 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 }
 
 func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
-	indhint := toks[0].Meta.Pos.Column - 1
+	indhint := toks[0].Meta.Pos.Col1 - 1
 	if me.indentHintForLet != 0 {
 		indhint, me.indentHintForLet = me.indentHintForLet, 0
 	}
@@ -165,7 +165,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.Cliques(func(i int, idxlast int) (isbreaker bool) {
 		isbreaker = (toks[i].Meta.Orig == ",")
 		if (!isbreaker) && i < idxlast && toks[i].Meta.Orig == ":" { /* special exception for ergonomic `fn: arg arg` --- suspends language integrity but if (fn:) was really wanted as standalone expression (hardly ever), can still parenthesize */
-			isbreaker = toks[i+1].Meta.Pos.Offset > toks[i].Meta.Pos.Offset+1
+			isbreaker = toks[i+1].Meta.Pos.Off0 > toks[i].Meta.Pos.Off0+1
 		}
 		return
 	})

@@ -141,8 +141,7 @@ func (me *Repl) dListDefs(whatKit string) {
 					if tld := &sf.TopLevel[d]; !tld.HasErrors() {
 						if def := tld.Ast.Def.Orig; def != nil {
 							numdefs++
-							pos := ustr.If(!def.Name.Tokens[0].Meta.Pos.IsValid(), "",
-								"(line "+ustr.Int(def.Name.Tokens[0].Pos(tld.PosOffsetLine(), tld.PosOffsetByte()).Line)+")")
+							pos := "(line " + ustr.Int(def.Name.Tokens[0].Pos(tld.PosOffsetLine(), tld.PosOffsetByte()).Ln1) + ")"
 							me.decoAddNotice(false, "", true, ustr.Combine(ustr.If(tld.Ast.Def.IsUnexported, "_", "")+def.Name.Val, " ─── ", pos))
 						}
 					}
