@@ -129,8 +129,6 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []topLevelChun
 			}
 		} else if ch == '"' {
 			insth1, insth2 = []byte("\""), []byte("\\\"")
-		} else if ch == '`' {
-			insth1 = []byte("`")
 		} else if ch == '/' && i < il {
 			if chnext := src[i+1]; chnext == '*' {
 				insth1 = []byte("*/")

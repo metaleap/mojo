@@ -35,7 +35,7 @@ func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
 
 func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []AstComment, rest udevlex.Tokens) {
 	rest = toks
-	for len(rest) > 0 && rest[0].Kind() == udevlex.TOKEN_COMMENT {
+	for len(rest) > 0 && rest[0].Kind == udevlex.TOKEN_COMMENT {
 		rest = rest[1:]
 	}
 	if count := len(toks) - len(rest); count > 0 {
@@ -113,10 +113,10 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 					}
 				}
 				if !ok {
-					err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
+					err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name: `"+nx.Tokens.Orig()+"`")
 				}
 			default:
-				err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name")
+				err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name: `"+nx.Toks().Orig()+"`")
 			}
 			if err == nil {
 				def.Args = make([]AstDefArg, len(sig.Args))
@@ -179,7 +179,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 			exprcur, err = me.parseExpr(toks[:greed])
 			toks = toks[greed:]
 		} else {
-			switch tkind := toks[0].Kind(); tkind {
+			switch toks[0].Kind {
 			case udevlex.TOKEN_COMMENT:
 				accumcomments = append(accumcomments, toks[0:1])
 				toks = toks[1:]
@@ -187,9 +187,6 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				exprcur = me.parseExprLitFloat(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_UINT:
-				exprcur = me.parseExprLitUint(toks)
-				toks = toks[1:]
-			case udevlex.TOKEN_RUNE:
 				exprcur = me.parseExprLitUint(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_STR:

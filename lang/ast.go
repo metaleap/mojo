@@ -79,8 +79,8 @@ type AstComments []AstComment
 
 type AstComment struct {
 	AstBaseTokens
-	Val               string
-	IsSelfTerminating bool
+	Val           string
+	IsLineComment bool
 }
 
 type AstDef struct {
@@ -301,7 +301,7 @@ func (me *AstComments) initFrom(accumComments []udevlex.Tokens) {
 
 func (me *AstComment) initFrom(tokens udevlex.Tokens, at int) {
 	me.Tokens = tokens[at : at+1]
-	me.Val, me.IsSelfTerminating = me.Tokens[0].Str, me.Tokens[0].IsCommentSelfTerminating()
+	me.Val, me.IsLineComment = me.Tokens[0].Str, me.Tokens[0].IsLineComment()
 }
 
 func (me *AstExprCases) Default() *AstCase {

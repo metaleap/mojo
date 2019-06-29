@@ -117,13 +117,13 @@ func (me *AstTopLevel) print(p *CtxPrint) {
 }
 
 func (me *AstComment) print(p *CtxPrint) {
-	if me.IsSelfTerminating {
+	if me.IsLineComment {
+		p.WriteString("//")
+		p.WriteString(me.Val)
+	} else {
 		p.WriteString("/*")
 		p.WriteString(me.Val)
 		p.WriteString("*/")
-	} else {
-		p.WriteString("//")
-		p.WriteString(me.Val)
 	}
 }
 
@@ -328,7 +328,7 @@ func (me *PrintFmtMinimal) OnExprCasesBody(_ *AstCase, node IAstExpr) {
 }
 func (me *PrintFmtMinimal) OnComment(leads IAstNode, trails IAstNode, node *AstComment) {
 	tl, istoplevelleadingcomment := leads.(*AstTopLevel)
-	if me.Print(node); !node.IsSelfTerminating {
+	if me.Print(node); node.IsLineComment {
 		if !istoplevelleadingcomment {
 			me.CurIndentLevel++
 		}
