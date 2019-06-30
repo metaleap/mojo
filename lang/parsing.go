@@ -64,7 +64,6 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 		if t := tokheadbodysep.Or(&toks[0]); toks[0].Pos.Col1 == 1 {
 			err = atmo.ErrSyn(t, "missing: definition body following `:=`")
 		} else {
-			// panic(123)
 			err = atmo.ErrSyn(t, "expected a def at this indentation level")
 		}
 	} else if len(tokshead) == 0 {
