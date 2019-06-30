@@ -21,25 +21,25 @@ func (me *ctxTldParse) parseExprIdent(toks udevlex.Tokens, emptySeps bool) *AstI
 			toks, toks[0].Meta.Orig+toks[1].Meta.Orig, true, false
 	} else {
 		this.Tokens, this.Val, this.IsOpish, this.IsTag =
-			toks[0:1], toks[0].Str, toks[0].Kind == udevlex.TOKEN_OPISH, ustr.BeginsUpper(toks[0].Str)
+			toks[0:1], toks[0].Meta.Orig, toks[0].Kind == udevlex.TOKEN_OPISH, ustr.BeginsUpper(toks[0].Meta.Orig)
 	}
 	return &this
 }
 
 func (me *ctxTldParse) parseExprLitFloat(toks udevlex.Tokens) *AstExprLitFloat {
 	var this AstExprLitFloat
-	this.Tokens, this.Val = toks[0:1], toks[0].Float
+	this.Tokens, this.Val = toks[0:1], toks[0].Val.(float64)
 	return &this
 }
 
 func (me *ctxTldParse) parseExprLitUint(toks udevlex.Tokens) *AstExprLitUint {
 	var this AstExprLitUint
-	this.Tokens, this.Val = toks[0:1], toks[0].Uint
+	this.Tokens, this.Val = toks[0:1], toks[0].Val.(uint64)
 	return &this
 }
 
 func (me *ctxTldParse) parseExprLitStr(toks udevlex.Tokens) *AstExprLitStr {
 	var this AstExprLitStr
-	this.Tokens, this.Val = toks[0:1], toks[0].Str
+	this.Tokens, this.Val = toks[0:1], toks[0].Val.(string)
 	return &this
 }

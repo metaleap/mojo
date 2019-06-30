@@ -133,17 +133,17 @@ func (me *irLitBase) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {
 	me.Orig = orig
 }
 
-func (me *IrLitFloat) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {
+func (me *IrLitFloat) initFrom(ctx *ctxIrInit, orig *atmolang.AstExprLitFloat) {
 	me.irLitBase.initFrom(ctx, orig)
-	me.Val = orig.Toks()[0].Float
+	me.Val = orig.Val
 }
 
-func (me *IrLitUint) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {
+func (me *IrLitUint) initFrom(ctx *ctxIrInit, orig *atmolang.AstExprLitUint) {
 	me.irLitBase.initFrom(ctx, orig)
-	me.Val = orig.Toks()[0].Uint
+	me.Val = orig.Val
 }
 
-func (me *IrLitStr) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {
+func (me *IrLitStr) initFrom(ctx *ctxIrInit, orig *atmolang.AstExprLitStr) {
 	me.irLitBase.initFrom(ctx, orig)
-	me.Val = orig.Toks()[0].Str
+	me.Val = orig.Val
 }

@@ -193,7 +193,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				exprcur = me.parseExprLitStr(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_SEPISH:
-				switch toks[0].Str {
+				switch toks[0].Meta.Orig {
 				case ",":
 					exprcur, toks, err = me.parseCommaSeparated(toks, accum, alltoks)
 					accum = accum[:0]
@@ -209,7 +209,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 					}
 				}
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
-				switch toks[0].Str {
+				switch toks[0].Meta.Orig {
 				case "?":
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
@@ -416,7 +416,7 @@ func (me *ctxTldParse) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err
 
 func (me *ctxTldParse) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, rest udevlex.Tokens, err *atmo.Error) {
 	var numunclosed int
-	if toks[0].Str == ")" {
+	if toks[0].Meta.Orig == ")" {
 		err = atmo.ErrSyn(&toks[0], "closing parenthesis without matching opening")
 	} else if sub, rest, numunclosed = toks.Sub('(', ')'); len(sub) == 0 && numunclosed != 0 {
 		err = atmo.ErrSyn(&toks[0], "unclosed parenthesis")

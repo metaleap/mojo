@@ -301,7 +301,7 @@ func (me *AstComments) initFrom(accumComments []udevlex.Tokens) {
 
 func (me *AstComment) initFrom(tokens udevlex.Tokens, at int) {
 	me.Tokens = tokens[at : at+1]
-	me.Val, me.IsLineComment = me.Tokens[0].Str, me.Tokens[0].IsLineComment()
+	me.Val, me.IsLineComment = me.Tokens[0].Val.(string), me.Tokens[0].IsLineComment()
 }
 
 func (me *AstExprCases) Default() *AstCase {
