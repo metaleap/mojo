@@ -29,9 +29,9 @@ const (
 	SrcFileExt     = ".at"
 
 	KnownIdentCoerce = "§"
-	KnownIdentOpOr   = "||"
+	KnownIdentOpOr   = "or"
 	KnownIdentUndef  = "÷0"
-	KnownIdentIf     = "if"
+	KnownIdentBranch = "?|"
 	KnownIdentEq     = "=="
 )
 

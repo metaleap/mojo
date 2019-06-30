@@ -63,14 +63,14 @@ func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
 				coerceorig := coerce.exprBase().Orig
 				newbody := appl(Build.Appl1(ctx.ensureAtomic(coerce), &IrIdentName{IrIdentBase: me.Arg.IrIdentBase}), coerceorig, true)
 				newbody = appl(Build.ApplN(ctx, opeq, &IrIdentName{IrIdentBase: me.Arg.IrIdentBase}, newbody), coerceorig, true)
-				me.Body = appl(Build.ApplN(ctx, Build.IdentName(atmo.KnownIdentIf), newbody, ctx.ensureAtomic(me.Body), &IrSpecial{}), coerceorig, false)
+				me.Body = appl(Build.ApplN(ctx, Build.IdentName(atmo.KnownIdentBranch), newbody, ctx.ensureAtomic(me.Body), &IrSpecial{}), coerceorig, false)
 			}
 		}
 		if coerce := ctx.coerceCallables[me]; coerce != nil {
 			oldbody, coerceorig := ctx.ensureAtomic(me.Body), coerce.exprBase().Orig
 			newbody := appl(Build.Appl1(ctx.ensureAtomic(coerce), oldbody), coerceorig, true)
 			newbody = appl(Build.ApplN(ctx, opeq, oldbody, newbody), coerceorig, true)
-			me.Body = appl(Build.ApplN(ctx, Build.IdentName(atmo.KnownIdentIf), newbody, oldbody, &IrSpecial{}), coerceorig, false)
+			me.Body = appl(Build.ApplN(ctx, Build.IdentName(atmo.KnownIdentBranch), newbody, oldbody, &IrSpecial{}), coerceorig, false)
 		}
 	}
 	return

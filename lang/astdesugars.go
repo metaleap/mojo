@@ -101,7 +101,7 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 				cond.Tokens, opor.Tokens = alt.Tokens.FromUntil(cond0.Toks().First1(), cond1.Toks().Last1(), true), alt.Tokens.Between(cond0.Toks().Last1(), cond1.Toks().First1())
 				alt.Conds = append([]IAstExpr{cond}, alt.Conds[2:]...)
 			}
-			ite := Build.Appl(Build.Ident(atmo.KnownIdentIf), alt.Conds[0], alt.Body, nil)
+			ite := Build.Appl(Build.Ident(atmo.KnownIdentBranch), alt.Conds[0], alt.Body, nil)
 			if ite.AstBaseTokens = alt.AstBaseTokens; applcur != nil {
 				applcur.Args[2] = ite
 			}
