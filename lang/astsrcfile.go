@@ -140,8 +140,8 @@ func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 		if tld := &me.TopLevel[i]; (!onlyCountErrless) || (!tld.HasErrors()) {
 			if def := tld.Ast.Def.Orig; def != nil {
 				for t := range def.Tokens {
-					if tok := &def.Tokens[t]; tok.Meta.Pos.Ln1 != lastline && tok.Kind != udevlex.TOKEN_COMMENT {
-						lastline, sloc = tok.Meta.Pos.Ln1, sloc+1
+					if tok := &def.Tokens[t]; tok.Pos.Ln1 != lastline && tok.Kind != udevlex.TOKEN_COMMENT {
+						lastline, sloc = tok.Pos.Ln1, sloc+1
 					}
 				}
 			}

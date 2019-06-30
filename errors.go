@@ -107,7 +107,7 @@ func ErrAtTok(cat ErrorCategory, tok *udevlex.Token, msg string) *Error {
 	if tok == nil {
 		return ErrAtPos(cat, nil, 0, msg)
 	}
-	return ErrAtPos(cat, &tok.Meta.Pos, len(tok.Meta.Orig), msg)
+	return ErrAtPos(cat, &tok.Pos, len(tok.Lexeme), msg)
 }
 
 func ErrAtToks(cat ErrorCategory, toks udevlex.Tokens, msg string) *Error {
@@ -199,7 +199,7 @@ func (me *Errors) AddFromTok(cat ErrorCategory, tok *udevlex.Token, msg string) 
 	if tok == nil {
 		return me.AddAt(cat, nil, 0, msg)
 	}
-	return me.AddAt(cat, &tok.Meta.Pos, len(tok.Meta.Orig), msg)
+	return me.AddAt(cat, &tok.Pos, len(tok.Lexeme), msg)
 }
 
 func (me *Errors) AddFromToks(cat ErrorCategory, toks udevlex.Tokens, msg string) *Error {

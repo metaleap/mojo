@@ -29,9 +29,9 @@ func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
 	var ident IExpr
 	ident, errs = ctx.newExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*IrIdentName); name == nil && tok != nil {
-		errs.AddNaming(tok, "invalid def name: `"+tok.Meta.Orig+"`") // Tag or Undef or placeholder etc..
+		errs.AddNaming(tok, "invalid def name: `"+tok.Lexeme+"`") // Tag or Undef or placeholder etc..
 	} else if me.Name.IrIdentBase = name.IrIdentBase; name.Val == "" && tok != nil {
-		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Meta.Orig+"`")
+		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Lexeme+"`")
 	}
 	if me.OrigDef.NameAffix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(me.OrigDef.NameAffix)).(IExpr))
@@ -121,7 +121,7 @@ func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atm
 		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(orig.Affix)).(IExpr))
 	}
 	if isconstexpr {
-		me.IrIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Meta.Orig
+		me.IrIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
 		appl := Build.Appl1(Build.IdentName(atmo.KnownIdentCoerce), ctx.ensureAtomic(errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IExpr)))
 		appl.IrExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)

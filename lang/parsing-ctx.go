@@ -18,10 +18,10 @@ func (me *ctxTldParse) parseExprIdent(toks udevlex.Tokens, emptySeps bool) *AstI
 	var this AstIdent
 	if emptySeps {
 		this.Tokens, this.Val, this.IsOpish, this.IsTag =
-			toks, toks[0].Meta.Orig+toks[1].Meta.Orig, true, false
+			toks, toks[0].Lexeme+toks[1].Lexeme, true, false
 	} else {
 		this.Tokens, this.Val, this.IsOpish, this.IsTag =
-			toks[0:1], toks[0].Meta.Orig, toks[0].Kind == udevlex.TOKEN_OPISH, ustr.BeginsUpper(toks[0].Meta.Orig)
+			toks[0:1], toks[0].Lexeme, toks[0].Kind == udevlex.TOKEN_OPISH, ustr.BeginsUpper(toks[0].Lexeme)
 	}
 	return &this
 }

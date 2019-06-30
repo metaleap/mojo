@@ -179,7 +179,7 @@ func (me *AstIdent) print(p *CtxPrint) {
 }
 
 func (me *AstBaseExprAtomLit) print(p *CtxPrint) {
-	p.WriteString(me.Tokens[0].Meta.Orig)
+	p.WriteString(me.Tokens[0].Lexeme)
 }
 
 func (me *AstExprLitFloat) print(p *CtxPrint) {

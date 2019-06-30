@@ -38,8 +38,8 @@ type IrTopDefs []*IrDefTop
 func (me IrTopDefs) Len() int          { return len(me) }
 func (me IrTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me IrTopDefs) Less(i int, j int) bool {
-	dis, dat := &me[i].OrigDef.Tokens[0].Meta, &me[j].OrigDef.Tokens[0].Meta
-	return (dis.Pos.FilePath == dat.Pos.FilePath && me[i].OrigTopLevelChunk.PosOffsetByte() < me[j].OrigTopLevelChunk.PosOffsetByte()) || dis.Pos.FilePath < dat.Pos.FilePath
+	dis, dat := &me[i].OrigDef.Tokens[0].Pos, &me[j].OrigDef.Tokens[0].Pos
+	return (dis.FilePath == dat.FilePath && me[i].OrigTopLevelChunk.PosOffsetByte() < me[j].OrigTopLevelChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 
 func (me IrTopDefs) ByName(name string) (defs []*IrDefTop) {

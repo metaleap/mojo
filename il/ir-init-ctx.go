@@ -42,7 +42,7 @@ func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs 
 		var ident IrIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
 	} else if t1 != t2 {
-		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + orig.Tokens.First1().Meta.Pos.String() + ")")
+		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + orig.Tokens.First1().Pos.String() + ")")
 
 	} else if orig.IsPlaceholder() {
 		var ident IrSpecial // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
@@ -133,7 +133,7 @@ func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs atm
 		}
 	default:
 		if tok := origin.Toks().First1(); tok != nil {
-			panic(tok.Meta.Pos.String())
+			panic(tok.Pos.String())
 		}
 		panic(origdes)
 	}
@@ -159,7 +159,7 @@ func (me *ctxIrInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IExpr,
 				toks = toks.FromUntil(leto.Defs[0].Tokens.First1(), toks.Last1(), true)
 			}
 		}
-		errs.AddUnreach(toks, "can never be used: "+ustr.Plu(len(let.Defs), "local def")+" scoped only for `"+origBody.Toks().First1().Meta.Orig+"`")
+		errs.AddUnreach(toks, "can never be used: "+ustr.Plu(len(let.Defs), "local def")+" scoped only for `"+origBody.Toks().First1().Lexeme+"`")
 	} else {
 		if dst.letPrefix == "" {
 			dst.letPrefix = me.nextPrefix()

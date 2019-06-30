@@ -17,7 +17,7 @@ func (me *IrSpecial) Print() atmolang.IAstNode {
 	if me.OneOf.Undefined {
 		return atmolang.Build.Ident(atmo.KnownIdentUndef)
 	} else if me.Orig != nil && len(me.Orig.Toks()) > 0 {
-		return atmolang.Build.Ident(me.Orig.Toks().First1().Meta.Orig)
+		return atmolang.Build.Ident(me.Orig.Toks().First1().Lexeme)
 	}
 	return atmolang.Build.Ident("SpecialBadlyInitialized")
 }

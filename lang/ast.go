@@ -163,7 +163,7 @@ type AstExprLitUint struct {
 }
 
 func (me *AstExprLitUint) FromRune() bool {
-	return len(me.Tokens) == 1 && len(me.Tokens[0].Meta.Orig) > 0 && me.Tokens[0].Meta.Orig[0] == '\''
+	return len(me.Tokens) == 1 && len(me.Tokens[0].Lexeme) > 0 && me.Tokens[0].Lexeme[0] == '\''
 }
 
 func (me *AstExprLitUint) String() string { return strconv.FormatUint(me.Val, 10) }
