@@ -10,7 +10,7 @@ type (
 		file              *AstFile
 		indentHintForLet  int
 		parensLevel       int
-		exprWillBeDefBody udevlex.Tokens // nil-ness as falsy, non-nil truthy even if empty
+		exprWillBeDefBody bool
 	}
 )
 

@@ -23,7 +23,7 @@ func init() {
 
 func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
 	toks := this.Ast.Tokens
-	if this.Ast.comments.Leading, toks = me.parseTopLevelLeadingComments(toks); len(toks) > 0 {
+	if this.Ast.comments.Leading, toks = parseLeadingComments(toks); len(toks) > 0 {
 		if this.Ast.Def.Orig, this.Ast.Def.NameIfErr, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing != nil {
 			freshErrs = append(freshErrs, this.errs.parsing)
 		} else if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
@@ -33,13 +33,10 @@ func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
 	return
 }
 
-func (*AstFile) parseTopLevelLeadingComments(toks udevlex.Tokens) (ret []AstComment, rest udevlex.Tokens) {
-	rest = toks
-	for len(rest) > 0 && rest[0].Kind == udevlex.TOKEN_COMMENT {
-		rest = rest[1:]
-	}
-	if count := len(toks) - len(rest); count > 0 {
-		ret = make([]AstComment, count)
+func parseLeadingComments(toks udevlex.Tokens) (ret []AstComment, rest udevlex.Tokens) {
+	toks, rest = toks.BreakOnLeadingComments()
+	if len(toks) > 0 {
+		ret = make([]AstComment, len(toks))
 		for i := range ret {
 			ret[i].initFrom(toks, i)
 		}
@@ -71,13 +68,22 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 	} else if toksheads := tokshead.Chunked(",", ""); len(toksheads[0]) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else if err = me.parseDefHeadSig(toksheads[0], def); err == nil {
-		me.exprWillBeDefBody, toksbody = toksbody.BreakOnLeadingComments()
+		var toksbodyleadingcomments udevlex.Tokens
+		toksbodyleadingcomments, toksbody = toksbody.BreakOnLeadingComments()
 		if me.indentHintForLet = 0; toksbody[0].Pos.Ln1 == tokheadbodysep.Pos.Ln1 {
 			me.indentHintForLet = toksbody[0].Pos.Col1 - 1
 		}
+		me.exprWillBeDefBody = true
 		if def.Body, err = me.parseExpr(toksbody); err == nil {
 			if len(toksheads) > 1 {
 				def.Meta, err = me.parseMetas(toksheads[1:])
+			}
+			if err == nil {
+				dbc, leadingcomments := def.Body.Comments(), make([]AstComment, len(toksbodyleadingcomments))
+				for i := range leadingcomments {
+					leadingcomments[i].initFrom(toksbodyleadingcomments, i)
+				}
+				dbc.Leading = append(dbc.Leading, leadingcomments...)
 			}
 		}
 	}
@@ -154,8 +160,8 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 	if me.indentHintForLet != 0 {
 		indhint, me.indentHintForLet = me.indentHintForLet, 0
 	}
-	if me.exprWillBeDefBody != nil {
-		me.exprWillBeDefBody = nil
+	if me.exprWillBeDefBody {
+		me.exprWillBeDefBody = false
 		if chunks := toks.IndentBasedChunks(indhint); len(chunks) > 1 {
 			ret, err = me.parseExprLetOuter(toks, chunks)
 			return
