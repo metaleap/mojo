@@ -171,28 +171,28 @@ func (me *Errors) AddAt(cat ErrorCategory, pos *udevlex.Pos, length int, msg str
 	return err
 }
 
-func (me *Errors) AddLex(pos *udevlex.Pos, msg string) {
-	me.AddAt(ErrCatLexing, pos, 1, msg)
+func (me *Errors) AddLex(pos *udevlex.Pos, msg string) *Error {
+	return me.AddAt(ErrCatLexing, pos, 1, msg)
 }
 
-func (me *Errors) AddSyn(toks udevlex.Tokens, msg string) {
-	me.AddFromToks(ErrCatParsing, toks, msg)
+func (me *Errors) AddSyn(toks udevlex.Tokens, msg string) *Error {
+	return me.AddFromToks(ErrCatParsing, toks, msg)
 }
 
-func (me *Errors) AddTodo(toks udevlex.Tokens, msg string) {
-	me.AddFromToks(ErrCatTodo, toks, msg)
+func (me *Errors) AddTodo(toks udevlex.Tokens, msg string) *Error {
+	return me.AddFromToks(ErrCatTodo, toks, msg)
 }
 
-func (me *Errors) AddNaming(tok *udevlex.Token, msg string) {
-	me.AddFromTok(ErrCatNaming, tok, msg)
+func (me *Errors) AddNaming(tok *udevlex.Token, msg string) *Error {
+	return me.AddFromTok(ErrCatNaming, tok, msg)
 }
 
-func (me *Errors) AddSubst(toks udevlex.Tokens, msg string) {
-	me.AddFromToks(ErrCatSubst, toks, msg)
+func (me *Errors) AddSubst(toks udevlex.Tokens, msg string) *Error {
+	return me.AddFromToks(ErrCatSubst, toks, msg)
 }
 
-func (me *Errors) AddUnreach(toks udevlex.Tokens, msg string) {
-	me.AddFromToks(ErrCatUnreachable, toks, msg)
+func (me *Errors) AddUnreach(toks udevlex.Tokens, msg string) *Error {
+	return me.AddFromToks(ErrCatUnreachable, toks, msg)
 }
 
 func (me *Errors) AddFromTok(cat ErrorCategory, tok *udevlex.Token, msg string) *Error {

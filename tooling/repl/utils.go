@@ -125,7 +125,8 @@ func (me *Repl) decoCtxMsgsIfAny(initial bool) {
 			msg := &msgs[i]
 			if lines := msg.Lines; len(lines) > 0 {
 				lines[0] = msg.Time.Format("15:04:05") + ustr.If(msg.Issue, " ══════ ", " ────── ") + lines[0]
-				if me.decoMsgNotice(true, lines...); (!initial) && Ux.AnimsEnabled {
+				me.decoMsgNotice(true, lines...)
+				if (!initial) && Ux.AnimsEnabled {
 					time.Sleep(42 * time.Millisecond) // this is to easier notice they're there
 				}
 			}

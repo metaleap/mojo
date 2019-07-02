@@ -68,18 +68,9 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 	} else if toksheads := tokshead.Chunked(",", ""); len(toksheads[0]) == 0 {
 		err = atmo.ErrSyn(&toks[0], "missing: definition name preceding `,`")
 	} else if err = me.parseDefHeadSig(toksheads[0], def); err == nil {
-		var toksbodyleadingcomments udevlex.Tokens
-		toksbodyleadingcomments, toksbody = toksbody.BreakOnLeadingComments()
 		if err = me.parseDefBodyExpr(toksbody, def); err == nil {
 			if len(toksheads) > 1 {
 				def.Meta, err = me.parseMetas(toksheads[1:])
-			}
-			if err == nil {
-				dbc, leadingcomments := def.Body.Comments(), make([]AstComment, len(toksbodyleadingcomments))
-				for i := range leadingcomments {
-					leadingcomments[i].initFrom(toksbodyleadingcomments, i)
-				}
-				dbc.Leading = append(dbc.Leading, leadingcomments...)
 			}
 		}
 	}

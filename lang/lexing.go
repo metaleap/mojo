@@ -87,8 +87,8 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 				toks, errs := udevlex.Lex(this.Src, me.SrcFilePath, 64)
 				if this.Ast.Tokens = toks; len(errs) > 0 {
 					for _, e := range errs {
-						this.errs.lexing.AddLex(&e.Pos, e.Msg)
-						freshErrs = append(freshErrs, e)
+						freshErrs = append(freshErrs,
+							this.errs.lexing.AddLex(&e.Pos, e.Msg))
 					}
 				} else {
 					freshErrs = append(freshErrs, me.parse(this)...)
