@@ -70,11 +70,7 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 	} else if err = me.parseDefHeadSig(toksheads[0], def); err == nil {
 		var toksbodyleadingcomments udevlex.Tokens
 		toksbodyleadingcomments, toksbody = toksbody.BreakOnLeadingComments()
-		if me.indentHintForLet = 0; toksbody[0].Pos.Ln1 == tokheadbodysep.Pos.Ln1 {
-			me.indentHintForLet = toksbody[0].Pos.Col1 - 1
-		}
-		me.exprWillBeDefBody = true
-		if def.Body, err = me.parseExpr(toksbody); err == nil {
+		if err = me.parseDefBodyExpr(toksbody, def); err == nil {
 			if len(toksheads) > 1 {
 				def.Meta, err = me.parseMetas(toksheads[1:])
 			}
@@ -155,19 +151,20 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 	return
 }
 
-func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
-	indhint := toks[0].Pos.Col1 - 1
-	if me.indentHintForLet != 0 {
-		indhint, me.indentHintForLet = me.indentHintForLet, 0
+func (me *ctxTldParse) parseDefBodyExpr(toksBody udevlex.Tokens, def *AstDef) (err *atmo.Error) {
+	var chunks []udevlex.Tokens
+	if toksBody.MultipleLines() {
+		chunks = toksBody.ChunkedByIndent()
 	}
-	if me.exprWillBeDefBody {
-		me.exprWillBeDefBody = false
-		if chunks := toks.IndentBasedChunks(indhint); len(chunks) > 1 {
-			ret, err = me.parseExprLetOuter(toks, chunks)
-			return
-		}
+	if len(chunks) > 1 {
+		def.Body, err = me.parseExprLetOuter(toksBody, chunks)
+	} else {
+		def.Body, err = me.parseExpr(toksBody)
 	}
+	return
+}
 
+func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
 	alltoks, accum, greeds := toks, make([]IAstExpr, 0, len(toks)), toks.Cliques(func(i int, idxlast int) (isbreaker bool) {
 		isbreaker = (toks[i].Lexeme == ",")
 		if (!isbreaker) && i < idxlast && toks[i].Lexeme == ":" { /* special exception for ergonomic `fn: arg arg` --- suspends language integrity but if (fn:) was really wanted as standalone expression (hardly ever), can still parenthesize */

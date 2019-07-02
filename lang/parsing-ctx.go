@@ -7,10 +7,8 @@ import (
 
 type (
 	ctxTldParse struct {
-		file              *AstFile
-		indentHintForLet  int
-		parensLevel       int
-		exprWillBeDefBody bool
+		file        *AstFile
+		parensLevel int
 	}
 )
 
