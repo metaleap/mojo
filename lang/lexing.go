@@ -19,8 +19,8 @@ func init() {
 
 	udevlex.OnPrepStrLitForUnquote = func(lexeme string) string {
 		/*
-			udevlex reuses strconv.Unquote for string-lits for now. means you
-			can use "" or `` delims -- the former allows escape-codes but no
+			udevlex reuses strconv.Unquote for string-lits for now, which
+			allows "" or `` delims -- the former allows escape-codes but no
 			LFs, the latter vice versa. atmo aims to lex string-lits with both
 			LFs and escape-codes. so rewrite LFs (\n) to escaped LFs (\\n).
 		*/
