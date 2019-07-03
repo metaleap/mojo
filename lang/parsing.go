@@ -16,11 +16,6 @@ const (
 	APPLSTYLE_SOV
 )
 
-func init() {
-	udevlex.SepsGroupers, udevlex.SepsOthers, udevlex.RestrictedWhitespace =
-		"([{}])", ",", true
-}
-
 func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
 	toks := this.Ast.Tokens
 	if this.Ast.comments.Leading, toks = parseLeadingComments(toks); len(toks) > 0 {
