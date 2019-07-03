@@ -14,32 +14,32 @@ import (
 )
 
 func init() {
-	udevlex.SepsGroupers, udevlex.SepsOthers, udevlex.RestrictedWhitespace =
-		"([{}])", ",", true
+	udevlex.SepsGroupers, udevlex.SepsOthers, udevlex.RestrictedWhitespace, udevlex.ScannerStringDelims, udevlex.ScannerStringDelimNoEsc =
+		"([{}])", ",", true, "\"'", '\''
 
-	udevlex.OnPrepStrLitForUnquote = func(lexeme string) string {
+	udevlex.OnPrepMultiLnStrLitForUnquote = func(lexeme string, missingDelim bool) string {
 		/*
 			udevlex reuses strconv.Unquote for string-lits for now, which
 			allows "" or `` delims -- the former allows escape-codes but no
 			LFs, the latter vice versa. atmo aims to lex string-lits with both
 			LFs and escape-codes. so rewrite LFs (\n) to escaped LFs (\\n).
+			this func is in essence a strings.ReplaceByteWithString('\n',"\\n"):
 		*/
-		if idx := strings.IndexByte(lexeme, '\n'); idx > 0 {
-			// this block is in essence a strings.ReplaceByteWithString:
-			buf := make([]byte, 0, len(lexeme)+8)
-			buf = append(buf, lexeme[:idx]...)
-			buf = append(buf, '\\', 'n')
-			for i := idx + 1; i < len(lexeme); i++ {
-				if lexeme[i] == '\n' {
-					buf = append(buf, lexeme[idx+1:i]...)
-					buf = append(buf, '\\', 'n')
-					idx = i
-				}
+		buf, idx := make([]byte, 0, len(lexeme)+8), strings.IndexByte(lexeme, '\n')
+		buf = append(buf, lexeme[:idx]...)
+		buf = append(buf, '\\', 'n')
+		for i := idx + 1; i < len(lexeme); i++ {
+			if lexeme[i] == '\n' {
+				buf = append(buf, lexeme[idx+1:i]...)
+				buf = append(buf, '\\', 'n')
+				idx = i
 			}
-			buf = append(buf, lexeme[idx+1:]...)
-			lexeme = *(*string)(unsafe.Pointer(&buf))
 		}
-		return lexeme
+		buf = append(buf, lexeme[idx+1:]...)
+		if missingDelim {
+			buf = append(buf, '"')
+		}
+		return *(*string)(unsafe.Pointer(&buf))
 	}
 
 }
