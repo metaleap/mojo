@@ -36,9 +36,7 @@ func init() {
 					idx = i
 				}
 			}
-			if idx++; idx < len(lexeme) {
-				buf = append(buf, lexeme[idx:]...)
-			}
+			buf = append(buf, lexeme[idx+1:]...)
 			lexeme = *(*string)(unsafe.Pointer(&buf))
 		}
 		return lexeme
