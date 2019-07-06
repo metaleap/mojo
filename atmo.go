@@ -7,6 +7,7 @@ import (
 
 type Exist struct{}
 type StringKeys map[string]Exist
+type StringCounts map[string]int
 
 func (me StringKeys) Exists(s string) (ok bool) {
 	if me != nil {
@@ -31,7 +32,7 @@ const (
 	KnownIdentCoerce = "§"
 	KnownIdentOpOr   = "or"
 	KnownIdentUndef  = "÷0"
-	KnownIdentBranch = "?|"
+	KnownIdentBranch = "?|" // TODO: should be dropped (also from bools.at) and done directly
 	KnownIdentEq     = "=="
 )
 

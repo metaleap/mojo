@@ -104,7 +104,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.
 	return
 }
 
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, currentlyErroneousButKnownGlobalsNames atmo.StringKeys) (errs atmo.Errors) {
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, currentlyErroneousButKnownGlobalsNames atmo.StringCounts) (errs atmo.Errors) {
 	inscope := me
 	if let := node.Let(); let != nil {
 		if len(let.Defs) > 0 {
@@ -125,9 +125,10 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, 
 		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicCallee, currentlyErroneousButKnownGlobalsNames))
 		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames))
 	case *IrIdentName:
-		if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
-			_, existsthough := currentlyErroneousButKnownGlobalsNames[n.Val]
-			me.errUnknownName(tld, &errs, n, existsthough)
+		if existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed > 0 {
+			errs.AddUnreach(tld.OrigToks(n), "syntax errors in "+ustr.Plu(existsunparsed, "def")+" named `"+n.Val+"`")
+		} else if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
+			me.errUnknownName(tld, &errs, n)
 		}
 	}
 	return
@@ -141,10 +142,6 @@ func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, n INod
 	errs.AddNaming(toks.First1(), "nullary name `"+name+"` already in scope (rename required)")
 }
 
-func (AnnNamesInScope) errUnknownName(tld *IrDefTop, errs *atmo.Errors, n *IrIdentName, currentlyErroneousButKnown bool) {
-	if toks := tld.OrigToks(n); currentlyErroneousButKnown {
-		errs.AddUnreach(toks, "name `"+n.Val+"` has syntax errors")
-	} else {
-		errs.AddNaming(toks.First1(), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
-	}
+func (AnnNamesInScope) errUnknownName(tld *IrDefTop, errs *atmo.Errors, n *IrIdentName) {
+	errs.AddNaming(tld.OrigToks(n).First1(), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
 }

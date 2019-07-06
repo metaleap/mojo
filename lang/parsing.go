@@ -193,6 +193,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 						exprcur = me.parseExprIdent(toks[:2], true)
 						toks = rest
 					} else {
+						me.brackets = append(me.brackets, tok[0])
 						switch tok[0] {
 						case '(':
 							if exprcur, err = me.parseExprInParens(sub); err == nil {
@@ -201,6 +202,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 						default:
 							err = atmo.ErrTodo(sub, "not yet implemented: non-paren brackets such as `"+tok+"`")
 						}
+						me.brackets = me.brackets[:len(me.brackets)-1]
 					}
 				}
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
@@ -403,9 +405,7 @@ func (me *ctxTldParse) parseExprLetOuter(toks udevlex.Tokens, toksChunked []udev
 }
 
 func (me *ctxTldParse) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err *atmo.Error) {
-	me.parensLevel++
 	ret, err = me.parseExpr(toks)
-	me.parensLevel--
 	return
 }
 

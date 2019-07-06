@@ -97,7 +97,7 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit {
 	return nil
 }
 
-func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames atmo.StringKeys) {
+func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames atmo.StringCounts) {
 	kits := make(Kits, 1, 1+len(kit.Imports))
 	kits[0] = kit
 	for _, imppath := range kit.Imports {
@@ -109,7 +109,7 @@ func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames a
 		for _, srcfile := range kit.SrcFiles {
 			for i := range srcfile.TopLevel {
 				if tld := &srcfile.TopLevel[i].Ast.Def; tld.NameIfErr != "" {
-					unparsedGlobalsNames[tld.NameIfErr] = atmo.Є
+					unparsedGlobalsNames[tld.NameIfErr] = 1 + unparsedGlobalsNames[tld.NameIfErr]
 				}
 			}
 		}

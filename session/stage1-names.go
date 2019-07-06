@@ -12,7 +12,7 @@ type IrDefRef struct {
 }
 
 func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs atmo.Errors) {
-	kitrepops := make(map[*Kit]atmo.StringKeys, len(me.Kits.All))
+	kitrepops := make(map[*Kit]atmo.StringCounts, len(me.Kits.All))
 	defIdsBorn, defIdsGone, namesOfChange = make(map[string]*Kit, 2), make(map[string]*Kit, 2), make(atmo.StringKeys, 4)
 
 	{ // FIRST: namesInScopeOwn
@@ -29,7 +29,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 					}
 
 					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn =
-						atmo.StringKeys{}, nil, make(atmoil.AnnNamesInScope, len(kit.topLevelDefs))
+						atmo.StringCounts{}, nil, make(atmoil.AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
 						tld.Errs.Stage1BadNames = nil
 						kit.lookups.namesInScopeOwn.Add(tld, &tld.Errs.Stage1BadNames, tld.Name.Val, tld)
@@ -52,7 +52,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 					})
 					if anychangesinkimps || len(kit.lookups.namesInScopeExt) == 0 {
 						if _, alreadymarked := kitrepops[kit]; !alreadymarked {
-							kitrepops[kit] = atmo.StringKeys{}
+							kitrepops[kit] = atmo.StringCounts{}
 							for _, tld := range kit.topLevelDefs {
 								tld.Errs.Stage1BadNames = nil
 							}
