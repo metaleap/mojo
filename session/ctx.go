@@ -29,8 +29,11 @@ type Ctx struct {
 	}
 	Kits struct {
 		All                Kits
-		OnRefreshed        func(bool)
 		reprocessingNeeded bool
+	}
+	On struct {
+		NewBackgroundMessages func()
+		SomeKitsRefreshed     func(hadFreshErrs bool)
 	}
 	Options struct {
 		BgMsgs struct {
@@ -196,6 +199,9 @@ func (me *Ctx) FauxKitsHas(dirPath string) bool {
 func (me *Ctx) bgMsg(issue bool, lines ...string) {
 	msg := CtxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
 	me.state.bgMsgs = append(me.state.bgMsgs, msg)
+	if me.On.NewBackgroundMessages != nil {
+		me.On.NewBackgroundMessages()
+	}
 }
 
 func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg) {
@@ -226,8 +232,8 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs []error,
 			}
 		}
 	}
-	if me.Kits.OnRefreshed != nil {
-		me.Kits.OnRefreshed(hadfresherrs)
+	if me.On.SomeKitsRefreshed != nil {
+		me.On.SomeKitsRefreshed(hadfresherrs)
 	}
 }
 

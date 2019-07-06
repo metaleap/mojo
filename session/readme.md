@@ -24,8 +24,11 @@ type Ctx struct {
 		Kits  []string
 	}
 	Kits struct {
-		All         Kits
-		OnRefreshed func(bool)
+		All Kits
+	}
+	On struct {
+		NewBackgroundMessages func()
+		SomeKitsRefreshed     func(hadFreshErrs bool)
 	}
 	Options struct {
 		BgMsgs struct {
