@@ -6,8 +6,6 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-const ErrMsgDefNotExpr = "unexpected `:=` in expression, only permissible for defs (forgot a comma?)"
-
 type ApplStyle int
 
 const (
@@ -40,7 +38,7 @@ func parseLeadingComments(toks udevlex.Tokens) (ret []AstComment, rest udevlex.T
 }
 
 func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, nameOnlyIfErr string, err *atmo.Error) {
-	ctx := ctxTldParse{file: me}
+	ctx := ctxTldParse{file: me, bracketsHalfIdx: len(udevlex.SepsGroupers) / 2}
 	astdef := AstDef{IsTopLevel: true}
 	if err = ctx.parseDef(tokens, &astdef); err == nil {
 		def = &astdef
@@ -182,19 +180,27 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				exprcur = me.parseExprLitStr(toks)
 				toks = toks[1:]
 			case udevlex.TOKEN_SEPISH:
-				switch toks[0].Lexeme {
+				switch tok := toks[0].Lexeme; tok {
 				case ",":
 					exprcur, toks, err = me.parseCommaSeparated(toks, accum, alltoks)
 					accum = accum[:0]
 				default:
-
-					if sub, rest, e := me.parseParens(toks); e != nil {
+					if idx := ustr.IdxB(udevlex.SepsGroupers, tok[0]); idx < 0 {
+						err = atmo.ErrSyn(&toks[0], "unexpected separator: `"+tok+"`")
+					} else if sub, rest, e := me.parseBrackets(toks, idx); e != nil {
 						err = e
-					} else if len(sub) == 0 { // empty parens are otherwise useless so we'll use it as some builtin ident
+					} else if len(sub) == 0 { // empty brackets turn into built-in idents with predefined meanings
 						exprcur = me.parseExprIdent(toks[:2], true)
 						toks = rest
-					} else if exprcur, err = me.parseExprInParens(sub); err == nil {
-						toks = rest
+					} else {
+						switch tok[0] {
+						case '(':
+							if exprcur, err = me.parseExprInParens(sub); err == nil {
+								toks = rest
+							}
+						default:
+							err = atmo.ErrTodo(sub, "not yet implemented: non-paren brackets such as `"+tok+"`")
+						}
 					}
 				}
 			case udevlex.TOKEN_IDENT, udevlex.TOKEN_OPISH:
@@ -203,7 +209,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
 				case ":=":
-					err = atmo.ErrSyn(&toks[0], ErrMsgDefNotExpr)
+					err = atmo.ErrSyn(&toks[0], "unexpected `:=` in expression, only permissible for defs (forgot a comma?)")
 				default:
 					ident := me.parseExprIdent(toks, false)
 					if len(ident.Val) > 1 && ident.Val[0] == '_' && ident.Val[1] == '_' && !ident.IsPlaceholder() {
@@ -403,12 +409,12 @@ func (me *ctxTldParse) parseExprInParens(toks udevlex.Tokens) (ret IAstExpr, err
 	return
 }
 
-func (me *ctxTldParse) parseParens(toks udevlex.Tokens) (sub udevlex.Tokens, rest udevlex.Tokens, err *atmo.Error) {
+func (me *ctxTldParse) parseBrackets(toks udevlex.Tokens, idx int) (sub udevlex.Tokens, rest udevlex.Tokens, err *atmo.Error) {
 	var numunclosed int
-	if toks[0].Lexeme == ")" {
-		err = atmo.ErrSyn(&toks[0], "closing parenthesis without matching opening")
-	} else if sub, rest, numunclosed = toks.Sub('(', ')'); len(sub) == 0 && numunclosed != 0 {
-		err = atmo.ErrSyn(&toks[0], "unclosed parenthesis")
+	if idx >= me.bracketsHalfIdx {
+		err = atmo.ErrSyn(&toks[0], "closing bracket `"+toks[0].Lexeme+"` without matching opening")
+	} else if sub, rest, numunclosed = toks.Sub(udevlex.SepsGroupers[idx], udevlex.SepsGroupers[len(udevlex.SepsGroupers)-(1+idx)]); len(sub) == 0 && numunclosed != 0 {
+		err = atmo.ErrSyn(&toks[0], "unclosed bracket")
 	}
 	return
 }
