@@ -77,6 +77,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 	}
 	if kitsdirs := me.Dirs.Kits; err == nil {
 		kitsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarKitsDirs), string(os.PathListSeparator))
+		kitsdirdefault := filepath.Join(usys.UserHomeDirPath(), ".atmo")
 		for i := range kitsdirsenv {
 			kitsdirsenv[i] = filepath.Clean(kitsdirsenv[i])
 		}
@@ -84,9 +85,16 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 			kitsdirs[i] = filepath.Clean(kitsdirs[i])
 		}
 		kitsdirsorig := kitsdirs
+		if tmp := kitsdirdefault + string(filepath.Separator); ustr.Index(kitsdirs, func(s string) bool {
+			return s == kitsdirdefault || ustr.Pref(s, tmp)
+		}) < 0 {
+			kitsdirs = append(kitsdirs, kitsdirdefault)
+		}
 		kitsdirs = ustr.Merge(kitsdirsenv, kitsdirs, func(ldp string) bool {
 			if ldp != "" && !ufs.IsDir(ldp) {
-				me.bgMsg(true, "kits-dir "+ldp+" not found")
+				if ldp != kitsdirdefault {
+					me.bgMsg(true, "kits-dir "+ldp+" not found")
+				}
 				return true
 			}
 			return ldp == ""
@@ -94,7 +102,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		for i := range kitsdirs {
 			for j := range kitsdirs {
 				if iinj, jini := ustr.Pref(kitsdirs[i], kitsdirs[j]), ustr.Pref(kitsdirs[j], kitsdirs[i]); i != j && (iinj || jini) {
-					err = errors.New("conflicting kits-dirs: " + kitsdirs[i] + " vs. " + kitsdirs[j])
+					err = errors.New("conflicting kits-dirs, because one contains the other: `" + kitsdirs[i] + "` vs. `" + kitsdirs[j] + "`")
 					break
 				}
 			}
