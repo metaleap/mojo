@@ -24,12 +24,33 @@ func ExprFrom(orig atmolang.IAstExpr) (IExpr, atmo.Errors) {
 }
 
 func (me *ctxIrInit) addCoercion(on INode, coerce IExpr) {
-	if me.coerceCallables == nil {
-		me.coerceCallables = map[INode]IExpr{on: coerce}
-	} else {
-		me.coerceCallables[on] = coerce
+	if coerce != nil {
+		if me.coerceCallables == nil {
+			me.coerceCallables = map[INode]IExpr{on: coerce}
+		} else {
+			me.coerceCallables[on] = coerce
+		}
 	}
 }
+
+func (me *ctxIrInit) appl(ensureAtomic bool, orig atmolang.IAstExpr, applExpr IExpr) IExpr {
+	if applExpr.exprBase().Orig = orig; ensureAtomic {
+		applExpr = me.ensureAtomic(applExpr)
+		applExpr.exprBase().Orig = orig
+	}
+	return applExpr
+}
+
+func (me *ctxIrInit) bodyWithCoercion(coerce IExpr, atomicBody IExpr, coerceArg func() IExpr) IExpr {
+	corig, opeq := coerce.exprBase().Orig, Build.IdentName(atmo.KnownIdentEq)
+	if coerceArg == nil {
+		coerceArg = func() IExpr { return atomicBody }
+	}
+	coerceappl := me.appl(true, corig, Build.Appl1(me.ensureAtomic(coerce), coerceArg()))
+	cmpeq := me.appl(true, corig, Build.ApplN(me, opeq, coerceappl, coerceArg()))
+	return me.appl(false, corig, Build.ApplN(me, cmpeq, atomicBody, Build.Undef()))
+}
+
 func (me *ctxIrInit) ensureAtomic(expr IExpr) IExpr {
 	if expr.IsAtomic() {
 		return expr

@@ -37,6 +37,16 @@ func (Builder) IdentName(name string) *IrIdentName {
 	return &IrIdentName{IrIdentBase: IrIdentBase{Val: name}}
 }
 
+func (Builder) IdentNameCopy(identBase *IrIdentBase) *IrIdentName {
+	return &IrIdentName{IrIdentBase: *identBase}
+}
+
 func (Builder) IdentTag(name string) *IrIdentTag {
 	return &IrIdentTag{IrIdentBase{Val: name}}
+}
+
+func (Builder) Undef() *IrSpecial {
+	var node IrSpecial
+	node.OneOf.Undefined = true
+	return &node
 }

@@ -29,7 +29,7 @@ func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
 	var ident IExpr
 	ident, errs = ctx.newExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*IrIdentName); name == nil && tok != nil {
-		errs.AddNaming(tok, "invalid def name: `"+tok.Lexeme+"`") // Tag or Undef or placeholder etc..
+		errs.AddNaming(tok, "invalid def name: `"+tok.Lexeme+"`") // some non-name ident: Tag or Undef or placeholder etc..
 	} else if me.Name.IrIdentBase = name.IrIdentBase; name.Val == "" && tok != nil {
 		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Lexeme+"`")
 	}
@@ -51,26 +51,16 @@ func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
 		me.Body, errs = ctx.newExprFrom(me.OrigDef.Body)
 	}
 	if len(ctx.coerceCallables) > 0 {
-		opeq, appl := Build.IdentName(atmo.KnownIdentEq), func(applexpr IExpr, orig atmolang.IAstExpr, atomic bool) IExpr {
-			if applexpr.exprBase().Orig = orig; atomic {
-				applexpr = ctx.ensureAtomic(applexpr)
-				applexpr.exprBase().Orig = orig
-			}
-			return applexpr
-		}
+		// each takes the arg val (or ret val) and returns either it or undef
+
 		if me.Arg != nil {
-			if coerce := ctx.coerceCallables[me.Arg]; coerce != nil {
-				coerceorig := coerce.exprBase().Orig
-				newbody := appl(Build.Appl1(ctx.ensureAtomic(coerce), &IrIdentName{IrIdentBase: me.Arg.IrIdentBase}), coerceorig, true)
-				newbody = appl(Build.ApplN(ctx, opeq, &IrIdentName{IrIdentBase: me.Arg.IrIdentBase}, newbody), coerceorig, true)
-				me.Body = appl(Build.ApplN(ctx, Build.IdentName(atmo.KnownIdentBranch), newbody, ctx.ensureAtomic(me.Body), &IrSpecial{}), coerceorig, false)
+			if coerce, ok := ctx.coerceCallables[me.Arg]; ok {
+				me.Body = ctx.bodyWithCoercion(coerce, ctx.ensureAtomic(me.Body),
+					func() IExpr { return Build.IdentNameCopy(&me.Arg.IrIdentBase) })
 			}
 		}
-		if coerce := ctx.coerceCallables[me]; coerce != nil {
-			oldbody, coerceorig := ctx.ensureAtomic(me.Body), coerce.exprBase().Orig
-			newbody := appl(Build.Appl1(ctx.ensureAtomic(coerce), oldbody), coerceorig, true)
-			newbody = appl(Build.ApplN(ctx, opeq, oldbody, newbody), coerceorig, true)
-			me.Body = appl(Build.ApplN(ctx, Build.IdentName(atmo.KnownIdentBranch), newbody, oldbody, &IrSpecial{}), coerceorig, false)
+		if coerce, ok := ctx.coerceCallables[me]; ok {
+			me.Body = ctx.bodyWithCoercion(coerce, ctx.ensureAtomic(me.Body), nil)
 		}
 	}
 	return

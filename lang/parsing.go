@@ -99,10 +99,10 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 					}
 				}
 				if !ok {
-					err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name: `"+nx.Tokens.Orig()+"`")
+					err = atmo.ErrSyn(&nx.Toks()[0], "malformed affix in def name: `"+nx.Tokens.Orig()+"`")
 				}
 			default:
-				err = atmo.ErrSyn(&nx.Toks()[0], "invalid def name: `"+nx.Toks().Orig()+"`")
+				err = atmo.ErrSyn(&nx.Toks()[0], "expected def name instead of expression `"+nx.Toks().Orig()+"`")
 			}
 			if err == nil {
 				def.Args = make([]AstDefArg, len(sig.Args))
