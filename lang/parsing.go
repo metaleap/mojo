@@ -17,7 +17,7 @@ const (
 func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
 	toks := this.Ast.Tokens
 	if this.Ast.comments.Leading, toks = parseLeadingComments(toks); len(toks) > 0 {
-		if this.Ast.Def.Orig, this.Ast.Def.NameIfErr, this.errs.parsing = me.parseTopLevelDef(toks); this.errs.parsing != nil {
+		if this.Ast.Def.Orig, this.Ast.Def.NameIfErr, this.errs.parsing = this.parseTopLevelDef(toks); this.errs.parsing != nil {
 			freshErrs = append(freshErrs, this.errs.parsing)
 		} else if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
 			this.Ast.Def.Orig.Name.Val = this.Ast.Def.Orig.Name.Val[1:]
@@ -37,9 +37,9 @@ func parseLeadingComments(toks udevlex.Tokens) (ret []AstComment, rest udevlex.T
 	return
 }
 
-func (me *AstFile) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, nameOnlyIfErr string, err *atmo.Error) {
-	ctx := ctxTldParse{file: me, bracketsHalfIdx: len(udevlex.SepsGroupers) / 2}
+func (me *SrcTopChunk) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, nameOnlyIfErr string, err *atmo.Error) {
 	astdef := AstDef{IsTopLevel: true}
+	ctx := ctxTldParse{curTopLevel: me, curTopDef: &astdef, bracketsHalfIdx: len(udevlex.SepsGroupers) / 2}
 	if err = ctx.parseDef(tokens, &astdef); err == nil {
 		def = &astdef
 	} else {
@@ -252,8 +252,8 @@ func (me *ctxTldParse) parseExprApplOrIdent(accum []IAstExpr, allToks udevlex.To
 		}
 		args := make([]IAstExpr, 1, len(accum)-1)
 		var applstyle ApplStyle
-		if me.file != nil {
-			applstyle = me.file.Options.ApplStyle
+		if me.curTopLevel.SrcFile != nil {
+			applstyle = me.curTopLevel.SrcFile.Options.ApplStyle
 		}
 		switch applstyle {
 		case APPLSTYLE_VSO:

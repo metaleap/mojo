@@ -7,7 +7,8 @@ import (
 
 type (
 	ctxTldParse struct {
-		file            *AstFile
+		curTopLevel     *SrcTopChunk
+		curTopDef       *AstDef
 		brackets        []byte
 		bracketsHalfIdx int
 	}
