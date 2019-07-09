@@ -36,6 +36,10 @@ type SrcTopChunk struct {
 		Ln int
 		B  int
 	}
+	preLex struct {
+		numLinesTabIndented   int
+		numLinesSpaceIndented int
+	}
 	id       [3]uint64
 	_id      string
 	_errs    atmo.Errors

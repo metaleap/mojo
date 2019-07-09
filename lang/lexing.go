@@ -54,7 +54,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 }
 
 func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, *atmo.Error) {
-	toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 64)
+	toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 64, ' ')
 	for _, e := range errs {
 		return nil, atmo.ErrLex(&e.Pos, e.Msg)
 	}
@@ -89,14 +89,30 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 			if this := &me.TopLevel[i]; this.srcDirty {
 				this.srcDirty, this.errs.parsing, this.errs.lexing, this.Ast.Def.Orig, this.Ast.comments.Leading, this.Ast.comments.Trailing =
 					false, nil, nil, nil, nil, nil
-				toks, errs := udevlex.Lex(this.Src, me.SrcFilePath, 64)
-				if this.Ast.Tokens = toks; len(errs) > 0 {
-					for _, e := range errs {
-						freshErrs = append(freshErrs,
-							this.errs.lexing.AddLex(&e.Pos, e.Msg))
+
+				indent, inderr := ' ', false
+				if this.preLex.numLinesTabIndented > 0 {
+					if this.preLex.numLinesSpaceIndented == 0 {
+						indent = '\t'
+					} else {
+						inderr, freshErrs = true, append(freshErrs,
+							this.errs.lexing.AddAt(atmo.ErrCatLexing,
+								&udevlex.Pos{FilePath: this.SrcFile.SrcFilePath, Col1: 1, Ln1: this.offset.Ln},
+								len(this.Src),
+								"inconsistent indentation in this top-level block: either replace leading tabs with spaces or vice-versa"))
 					}
-				} else {
-					freshErrs = append(freshErrs, me.parse(this)...)
+				}
+				if !inderr {
+					toks, errs := udevlex.Lex(this.Src, me.SrcFilePath, 64, indent)
+
+					if this.Ast.Tokens = toks; len(errs) > 0 {
+						for _, e := range errs {
+							freshErrs = append(freshErrs,
+								this.errs.lexing.AddLex(&e.Pos, e.Msg))
+						}
+					} else {
+						freshErrs = append(freshErrs, me.parse(this)...)
+					}
 				}
 			}
 		}
@@ -105,58 +121,67 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 }
 
 type topLevelChunk struct {
-	src  []byte
-	pos  int
-	line int
+	src                   []byte
+	pos                   int
+	line                  int
+	numLinesTabIndented   int
+	numLinesSpaceIndented int
 }
 
 func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []topLevelChunk) {
 	tlChunks = make([]topLevelChunk, 0, 32)
 
 	var newline bool
-	var curline, lastchunkedat, lastchunkedln int
-	var insth1, insth2 []byte
+	var curline, lastchunkedat, lastchunkedln, numtabs, numspaces int
+	var insth, insthn []byte
 	allemptysofar, il := true, len(src)-1
+	instr1, instr2, incm, incl, instr1n := []byte("\""), []byte("'"), []byte("*/"), []byte("\n"), []byte("\\\"")
 	for i, ch := range src {
 		isnl := (ch == '\n')
 		if isnl {
 			curline++
 		}
-		if allemptysofar && !(isnl || ch == ' ') {
+		if allemptysofar && !(isnl || ch == ' ' || ch == '\t') {
 			allemptysofar, lastchunkedat, lastchunkedln = false, i, curline
 		}
 
-		if insth1 != nil {
-			if i1 := i + 1; bytes.Equal(src[i-len(insth1)+1:i1], insth1) && (insth2 == nil || !bytes.Equal(src[i-len(insth2)+1:i1], insth2)) {
-				insth1, insth2 = nil, nil
+		if insth != nil {
+			if i1 := i + 1; bytes.Equal(src[i-len(insth)+1:i1], insth) && (insthn == nil || !bytes.Equal(src[i-len(insthn)+1:i1], insthn)) {
+				insth, insthn = nil, nil
 			} else {
 				continue
 			}
 		} else if ch == '"' {
-			insth1, insth2 = []byte("\""), []byte("\\\"")
+			insth, insthn = instr1, instr1n
+		} else if ch == '\'' {
+			insth = instr2
 		} else if ch == '/' && i < il {
 			if chnext := src[i+1]; chnext == '*' {
-				insth1 = []byte("*/")
+				insth = incm
 			} else if chnext == '/' {
-				insth1 = []byte("\n")
+				insth = incl
 			}
 		}
-
 		if ch == '\n' {
 			newline = true
 		} else if newline {
 			newline = false
-			if ch != ' ' {
+			if ch == '\t' {
+				numtabs++
+			} else if ch == ' ' {
+				numspaces++
+			} else {
 				// naive at first: every non-indented line begins its own new chunk. after the loop we merge comments directly prefixed to defs
 				if lastchunkedat != i {
-					tlChunks = append(tlChunks, topLevelChunk{src: src[lastchunkedat:i], pos: lastchunkedat, line: lastchunkedln})
+					tlChunks = append(tlChunks, topLevelChunk{src: src[lastchunkedat:i], pos: lastchunkedat, line: lastchunkedln, numLinesSpaceIndented: numspaces, numLinesTabIndented: numtabs})
+					numspaces, numtabs = 0, 0
 				}
 				lastchunkedat, lastchunkedln = i, curline
 			}
 		}
 	}
 	if me.LastLoad.NumLines = curline; lastchunkedat < il {
-		tlChunks = append(tlChunks, topLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln})
+		tlChunks = append(tlChunks, topLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln, numLinesSpaceIndented: numspaces, numLinesTabIndented: numtabs})
 	}
 	// fix naive tlChunks: stitch together what belongs together
 	for i := len(tlChunks) - 1; i > 0; i-- {
@@ -222,8 +247,8 @@ func (me *AstFile) topChunksCompare(tlChunks []topLevelChunk) (allTheSame bool) 
 		}
 	}
 	for newidx := range tlChunks {
-		me.TopLevel[newidx].offset.Ln, me.TopLevel[newidx].offset.B =
-			tlChunks[newidx].line, tlChunks[newidx].pos
+		me.TopLevel[newidx].offset.Ln, me.TopLevel[newidx].offset.B, me.TopLevel[newidx].preLex.numLinesSpaceIndented, me.TopLevel[newidx].preLex.numLinesTabIndented =
+			tlChunks[newidx].line, tlChunks[newidx].pos, tlChunks[newidx].numLinesSpaceIndented, tlChunks[newidx].numLinesTabIndented
 	}
 
 	return
