@@ -134,6 +134,12 @@ func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string)
 ```
 KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
 
+#### func (*Ctx) Locked
+
+```go
+func (me *Ctx) Locked(do func())
+```
+
 #### func (*Ctx) WithInMemFileMod
 
 ```go

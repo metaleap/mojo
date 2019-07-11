@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/go-leap/fs"
@@ -46,7 +47,8 @@ type Ctx struct {
 			latest                        []map[string]os.FileInfo
 			collectFileModsForNextCatchup func([]string, []string) int
 		}
-		initCalled bool
+		initCalled                                                bool
+		notUsedInternallyButAvailableForOutsideCallersConvenience sync.Mutex
 	}
 }
 
@@ -266,6 +268,12 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 	if len(latest) > 0 {
 		me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest)
 	}
+}
+
+func (me *Ctx) Locked(do func()) {
+	me.state.notUsedInternallyButAvailableForOutsideCallersConvenience.Lock()
+	defer me.state.notUsedInternallyButAvailableForOutsideCallersConvenience.Unlock()
+	do()
 }
 
 func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (recoveredPanic interface{}) {
