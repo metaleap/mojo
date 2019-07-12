@@ -32,7 +32,7 @@ func main() {
 	atcmd, showinfousage, showinfoargs := usys.Arg(1), false, false
 	switch atcmd {
 	case "version", "run":
-		writeLns("command " + atcmd + " recognized but not yet implemented")
+		writeLns("command `" + atcmd + "` recognized but not yet implemented")
 	case "help":
 		showinfoargs, showinfousage = true, true
 	case "tinker", "repl":
@@ -45,9 +45,9 @@ func main() {
 
 	if showinfousage {
 		writeLns("", "Usage:", "",
-			"  atmo help     ─── info on --options (wordy)",
+			"  atmo help     ─── infos on --options (wordy)",
 			"  atmo version  ─── not yet implemented",
-			"  atmo tinker   ─── instant code&play",
+			"  atmo tinker   ─── live code&play -ground",
 			"  atmo fmt      ─── not yet implemented",
 			"  atmo run      ─── not yet implemented",
 			"")

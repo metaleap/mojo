@@ -77,7 +77,7 @@ func (me *Repl) runDirective(name string, args string) {
 	if name = ustr.Lo(name); len(name) > 0 {
 		if found = me.KnownDirectives.By(name); found != nil {
 			if !found.Run(args) {
-				me.IO.writeLns("Input `"+args+"` insufficient for command `:"+found.Name()+"`.", "", "Usage:")
+				me.IO.writeLns("Input `"+args+"` insufficient for demand `:"+found.Name()+"`.", "", "Usage:")
 				if len(found.Help) > 0 {
 					me.IO.writeLns("")
 					me.IO.writeLns(found.Help...)
@@ -88,13 +88,13 @@ func (me *Repl) runDirective(name string, args string) {
 		}
 	}
 	if found == nil {
-		me.IO.writeLns("Unknown command `:"+name+"` — try: ", "")
+		me.IO.writeLns("Unknown demand `:"+name+"` — try: ", "")
 		for i := range me.KnownDirectives {
 			if !me.KnownDirectives[i].Hidden {
 				me.IO.writeLns("    :" + me.KnownDirectives[i].Desc)
 			}
 		}
-		me.IO.writeLns("", "(For usage details on a command", "with params, run it without any.)")
+		me.IO.writeLns("", "(For usage details on a demand", "with params, run it without any.)")
 	}
 }
 
