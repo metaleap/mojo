@@ -147,7 +147,7 @@ func (me *Repl) decoTypingAnim(s string, speed time.Duration) {
 func (me *Repl) decoWelcomeMsgAnim() {
 	me.IO.writeLns("")
 	if me.decoInputStart(false, false); Ux.AnimsEnabled {
-		time.Sleep(234 * time.Millisecond)
+		time.Sleep(456 * time.Millisecond)
 	}
 	me.decoTypingAnim(":intro\n", 123*time.Millisecond)
 	me.decoInputDone(false)

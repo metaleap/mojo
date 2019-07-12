@@ -35,7 +35,7 @@ func main() {
 		writeLns("command " + atcmd + " recognized but not yet implemented")
 	case "help":
 		showinfoargs, showinfousage = true, true
-	case "repl":
+	case "tinker", "repl":
 		mainRepl()
 	case "fmt":
 		mainFmt()
@@ -45,11 +45,12 @@ func main() {
 
 	if showinfousage {
 		writeLns("", "Usage:", "",
-			"  atmo repl",
-			"  atmo fmt",
-			"  atmo run",
-			"  atmo help",
-			"  atmo version", "")
+			"  atmo help     ─── info on --options (wordy)",
+			"  atmo version  ─── not yet implemented",
+			"  atmo tinker   ─── instant code&play",
+			"  atmo fmt      ─── not yet implemented",
+			"  atmo run      ─── not yet implemented",
+			"")
 	}
 
 	if f := ustd.Flags.Known; showinfoargs {

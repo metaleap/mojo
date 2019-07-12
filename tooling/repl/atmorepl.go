@@ -47,7 +47,8 @@ func init() { Ux.AnimsEnabled, Ux.MoreLinesPrompt = true, []byte("     ¶¶¶") 
 
 func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 	me.init()
-	if me.decoCtxMsgsIfAny(true); showWelcomeMsg {
+	me.decoCtxMsgsIfAny(true)
+	if showWelcomeMsg {
 		me.decoWelcomeMsgAnim()
 	}
 

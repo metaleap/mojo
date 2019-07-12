@@ -94,7 +94,7 @@ func (me *Repl) runDirective(name string, args string) {
 				me.IO.writeLns("    :" + me.KnownDirectives[i].Desc)
 			}
 		}
-		me.IO.writeLns("", "(For usage details on an arg-ful", "command, invoke it without args.)")
+		me.IO.writeLns("", "(For usage details on a command", "with params, run it without any.)")
 	}
 }
 

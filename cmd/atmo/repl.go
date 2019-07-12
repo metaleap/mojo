@@ -29,16 +29,16 @@ func mainRepl() {
 			os.Exit(0)
 		})
 		atmorepl.Ux.WelcomeMsgLines = []string{
-			"This is a read-eval-print loop (repl).",
-			"", "— repl commands start with `:`, any other", "  inputs are eval'd as atmo expressions",
-			"", "— in case of the latter, a line ending in " + repl.IO.MultiLineSuffix, "  introduces or concludes a multi-line input",
-			"", "— to see --flags, quit and run `atmo help`",
+			"Now you're in a read-eval-print loop (repl).",
+			"", "─ commands (like `:quit`) start with `:`, all", "  other inputs are eval'd as atmo expressions",
+			"", "─ in the latter case, multi-line inputs are started", "  and finished respectively by a line ending in " + repl.IO.MultiLineSuffix,
+			"", "─ to see --options, quit and run `atmo help`",
 		}
 		if atmorepl.Ux.OldSchoolTty = (replRunsVia("login") == "login"); replRunsVia("rlwrap", "rlfe") == "" {
-			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— for sane line-editing, run the repl", "  via `rlwrap` or `rlfe` or equivalent")
+			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "─ for sane input-editing, quit and run", "  via `rlwrap` or `rlfe` or equivalent")
 		}
 		if atmorepl.Ux.MoreLines > 0 {
-			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "— every "+ustr.Plu(atmorepl.Ux.MoreLines, "line")+", further output is held back", "  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.Ux.MoreLinesPrompt))+"` prompt shown")
+			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "─ every "+ustr.Plu(atmorepl.Ux.MoreLines, "line")+", further output is held back", "  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.Ux.MoreLinesPrompt))+"` prompt shown")
 		}
 		repl.Run(true, true)
 		// repl.Ctx.Dispose()
