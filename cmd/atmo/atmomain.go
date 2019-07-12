@@ -28,6 +28,8 @@ func main() {
 		"    format: integral number >= 0;\n    enables `more`-like output page breaks every n lines"))
 	atmorepl.Ux.AnimsEnabled = ustd.FlagOfBool("repl-ux-anims", atmorepl.Ux.AnimsEnabled,
 		"    format: one of 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False")
+	atmorepl.Ux.WelcomeMsgShow = ustd.FlagOfBool("repl-ux-intro", atmorepl.Ux.WelcomeMsgShow,
+		"    format: one of 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False")
 
 	atcmd, showinfousage, showinfoargs := usys.Arg(1), false, false
 	switch atcmd {

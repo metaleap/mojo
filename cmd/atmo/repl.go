@@ -40,7 +40,7 @@ func mainRepl() {
 		if atmorepl.Ux.MoreLines > 0 {
 			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "─ every "+ustr.Plu(atmorepl.Ux.MoreLines, "line")+", further output is held back", "  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.Ux.MoreLinesPrompt))+"` prompt shown")
 		}
-		repl.Run(true, true)
+		repl.Run(true)
 		// repl.Ctx.Dispose()
 	} else {
 		println(err.Error())

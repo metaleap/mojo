@@ -18,6 +18,7 @@ var (
 		MoreLinesPrompt []byte
 		WelcomeMsgLines []string
 		OldSchoolTty    bool
+		WelcomeMsgShow  bool
 	}
 )
 
@@ -43,12 +44,14 @@ type Repl struct {
 	}
 }
 
-func init() { Ux.AnimsEnabled, Ux.MoreLinesPrompt = true, []byte("     ¶¶¶") }
+func init() {
+	Ux.AnimsEnabled, Ux.WelcomeMsgShow, Ux.MoreLinesPrompt = true, true, []byte("     ¶¶¶")
+}
 
-func (me *Repl) Run(showWelcomeMsg bool, loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
+func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 	me.init()
 	me.decoCtxMsgsIfAny(true)
-	if showWelcomeMsg {
+	if Ux.WelcomeMsgShow {
 		me.decoWelcomeMsgAnim()
 	}
 
