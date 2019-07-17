@@ -26,7 +26,7 @@ func (me StringKeys) String() (s string) {
 
 const (
 	EnvVarKitsDirs = "ATMO_KITS_DIRS"
-	NameAutoKit    = "omni"
+	NameAutoKit    = "Std"
 	SrcFileExt     = ".at"
 
 	KnownIdentCoerce = "§"

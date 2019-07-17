@@ -143,8 +143,9 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 }
 
 func (me *Ctx) fileModsDirOk(kitsDirs []string, fauxKitDirs []string, dirFullPath string, dirName string) bool {
-	return ustr.In(dirFullPath, fauxKitDirs...) || ustr.In(dirFullPath, kitsDirs...) ||
-		((!ustr.IsLen1And(dirName, '_', '*', '.', ' ')) && dirName != "·" && (!ustr.HasAnyOf(dirName, ' ')))
+	return ustr.In(dirFullPath, fauxKitDirs...) ||
+		ustr.In(dirFullPath, kitsDirs...) ||
+		IsValidKitDirName(dirName)
 }
 
 func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFullPath string, modKitDirs map[string]int) {

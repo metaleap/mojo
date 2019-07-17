@@ -15,6 +15,12 @@ CtxDefaultCacheDirPath returns the default used by `Ctx.Init` if
 `~/.cache/atmo`, `~/.config/atmo` etc. or in the worst case the current user's
 home directory.
 
+#### func  IsValidKitDirName
+
+```go
+func IsValidKitDirName(dirName string) bool
+```
+
 #### type Ctx
 
 ```go

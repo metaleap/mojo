@@ -292,3 +292,10 @@ func (me *Kit) SelectNodes(tldOk func(*atmoil.IrDefTop) bool, nodeOk func([]atmo
 	}
 	return
 }
+
+func IsValidKitDirName(dirName string) bool {
+	return (!ustr.IsLen1And(dirName, '_', '*', '.', ' ')) &&
+		dirName != "·" &&
+		ustr.BeginsUpper(dirName) &&
+		(!ustr.HasAnyOf(dirName, ' '))
+}
