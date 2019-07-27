@@ -44,8 +44,11 @@ func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
 	// (also for ffi / builtin-primops) acts as notation for a func type
 	if ident, _ := me.OrigDef.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
 		var body IrSpecial
-		if me.Body, body.Orig, body.OneOf.DefArgfulButBodyless = &body, ident, me.Arg != nil; me.Arg == nil {
-			errs.AddSyn(ident.Tokens, "illegal placeholder placement")
+		me.Body, body.Orig, body.OneOf.DefArgfulButBodyless = &body, ident, me.Arg != nil
+		if me.Arg == nil {
+			tag := Build.IdentTag(me.Name.Val)
+			tag.Orig = ident
+			me.Body = tag
 		}
 	} else {
 		me.Body, errs = ctx.newExprFrom(me.OrigDef.Body)
