@@ -40,6 +40,9 @@ type Ctx struct {
 		BgMsgs struct {
 			IncludeKitsErrs bool
 		}
+		Eval struct {
+			FauxFileNameForErrorMessages string
+		}
 	}
 }
 ```
@@ -67,7 +70,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 #### func (*Ctx) Eval
 
 ```go
-func (me *Ctx) Eval(kit *Kit, src string) (ret IPreduced, errs atmo.Errors)
+func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors)
 ```
 
 #### func (*Ctx) FauxKitsAdd
@@ -149,7 +152,7 @@ func (me *Ctx) Locked(do func())
 #### func (*Ctx) PreduceExpr
 
 ```go
-func (me *Ctx) PreduceExpr(kit *Kit, expr atmoil.IExpr) (IPreduced, atmo.Errors)
+func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) (IPreduced, atmo.Errors)
 ```
 
 #### func (*Ctx) WithInMemFileMod
@@ -347,4 +350,19 @@ type PConstValCompound struct {
 
 ```go
 func (me *PConstValCompound) SummaryCompact() string
+```
+
+#### type PFailure
+
+```go
+type PFailure struct {
+	ErrMsg string
+}
+```
+
+
+#### func (*PFailure) SummaryCompact
+
+```go
+func (me *PFailure) SummaryCompact() string
 ```

@@ -6,14 +6,15 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-func (me *Ctx) Eval(kit *Kit, src string) (ret IPreduced, errs atmo.Errors) {
-	expr, err := atmolang.LexAndParseExpr("‹repl›", []byte(src))
+func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors) {
+	expr, err := atmolang.LexAndParseExpr(me.Options.Eval.FauxFileNameForErrorMessages, []byte(src))
+
 	if err != nil {
 		errs = append(errs, err)
 	} else {
 		expril, errsil := atmoil.ExprFrom(expr)
 		if errs.Add(errsil); len(errs) == 0 && expril != nil {
-			ret, _ = errs.AddVia(me.PreduceExpr(kit, expril)).(IPreduced)
+			ret, _ = errs.AddVia(me.PreduceExpr(kit, maybeTopDefId, expril)).(IPreduced)
 		}
 	}
 	return

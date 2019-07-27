@@ -40,6 +40,9 @@ type Ctx struct {
 		BgMsgs struct {
 			IncludeKitsErrs bool
 		}
+		Eval struct {
+			FauxFileNameForErrorMessages string
+		}
 	}
 	state struct {
 		bgMsgs        []ctxBgMsg

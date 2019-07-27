@@ -206,7 +206,7 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
 				case ":=":
-					err = atmo.ErrSyn(&toks[0], "unexpected `:=` in expression, only permissible for defs (forgot a comma?)")
+					err = atmo.ErrSyn(&toks[0], "unexpected `:=` in expression (forgot a comma?)")
 				default:
 					ident := me.parseExprIdent(toks, false)
 					if len(ident.Val) > 1 && ident.Val[0] == '_' && ident.Val[1] == '_' && !ident.IsPlaceholder() {
@@ -247,7 +247,7 @@ func (me *ctxTldParse) parseExprApplOrIdent(accum []IAstExpr, allToks udevlex.To
 		}
 		args := make([]IAstExpr, 1, len(accum)-1)
 		var applstyle ApplStyle
-		if me.curTopLevel.SrcFile != nil {
+		if me.curTopLevel != nil && me.curTopLevel.SrcFile != nil {
 			applstyle = me.curTopLevel.SrcFile.Options.ApplStyle
 		}
 		switch applstyle {

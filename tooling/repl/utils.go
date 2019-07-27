@@ -45,6 +45,7 @@ func (me *Repl) init() {
 		}
 
 	me.Ctx.Options.BgMsgs.IncludeKitsErrs = true
+	me.Ctx.Options.Eval.FauxFileNameForErrorMessages = "‹repl›"
 	me.initEnsureDefaultDirectives()
 }
 
