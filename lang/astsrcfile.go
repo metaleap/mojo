@@ -194,6 +194,13 @@ func (me AstFiles) ByFilePath(srcFilePath string) *AstFile {
 	return nil
 }
 
+func (me *AstFiles) EnsureScratchPadFile() (pretendFile *AstFile) {
+	if pretendFile = me.ByFilePath(""); pretendFile == nil {
+		*me = append(*me, &AstFile{})
+	}
+	return
+}
+
 func (me AstFiles) Index(srcFilePath string) int {
 	for i := range me {
 		if me[i].SrcFilePath == srcFilePath {

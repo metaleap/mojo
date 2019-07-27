@@ -7,6 +7,7 @@ import (
 )
 
 func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors) {
+	kit.SrcFiles.ByFilePath("")
 	expr, err := atmolang.LexAndParseExpr(me.Options.Eval.FauxFileNameForErrorMessages, []byte(src))
 
 	if err != nil {
@@ -14,7 +15,7 @@ func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, 
 	} else {
 		expril, errsil := atmoil.ExprFrom(expr)
 		if errs.Add(errsil); len(errs) == 0 && expril != nil {
-			ret, _ = errs.AddVia(me.PreduceExpr(kit, maybeTopDefId, expril)).(IPreduced)
+			ret = me.PreduceExpr(kit, maybeTopDefId, expril)
 		}
 	}
 	return

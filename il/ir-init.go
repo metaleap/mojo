@@ -29,9 +29,9 @@ func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
 	var ident IExpr
 	ident, errs = ctx.newExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*IrIdentName); name == nil && tok != nil {
-		errs.AddNaming(tok, "invalid def name: `"+tok.Lexeme+"`") // some non-name ident: Tag or Undef or placeholder etc..
+		errs.AddNaming(ErrInit_DefNameInvalidIdent, tok, "invalid def name: `"+tok.Lexeme+"`") // some non-name ident: Tag or Undef or placeholder etc..
 	} else if me.Name.IrIdentBase = name.IrIdentBase; name.Val == "" && tok != nil {
-		errs.AddNaming(tok, "reserved token not permissible as def name: `"+tok.Lexeme+"`")
+		errs.AddNaming(ErrInit_DefNameReserved, tok, "reserved token not permissible as def name: `"+tok.Lexeme+"`")
 	}
 	if me.OrigDef.NameAffix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(me.OrigDef.NameAffix)).(IExpr))
@@ -74,7 +74,7 @@ func (me *IrDef) initArg(ctx *ctxIrInit) (errs atmo.Errors) {
 
 func (me *IrDef) initMetas(ctx *ctxIrInit) (errs atmo.Errors) {
 	if len(me.OrigDef.Meta) > 0 {
-		errs.AddTodo(me.OrigDef.Meta[0].Toks(), "def metas")
+		errs.AddTodo(0, me.OrigDef.Meta[0].Toks(), "def metas")
 		for i := range me.OrigDef.Meta {
 			_ = errs.AddVia(ctx.newExprFrom(me.OrigDef.Meta[i]))
 		}
@@ -93,7 +93,7 @@ func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atm
 				isexpr, me.IrIdentBase.Val, me.IrIdentBase.Orig =
 					false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v
 				if len(v.Val) > 1 {
-					errs.AddNaming(&v.Tokens[0], "invalid def-arg name: use 1 underscore for discards")
+					errs.AddNaming(ErrInit_DefArgNameUnderscores, &v.Tokens[0], "invalid def-arg name: use 1 underscore for discards")
 				}
 			} else if cxn, ok1 := errs.AddVia(ctx.newExprFromIdent(v)).(*IrIdentName); ok1 {
 				isexpr, me.IrIdentBase = false, cxn.IrIdentBase

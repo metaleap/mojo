@@ -8,7 +8,7 @@ import (
 
 type IrDefRef struct {
 	*atmoil.IrDefTop
-	KitImpPath string
+	Kit *Kit
 }
 
 func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs atmo.Errors) {
@@ -63,7 +63,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 							for k, v := range kimp.lookups.namesInScopeOwn {
 								nodes := make([]atmoil.INode, len(v))
 								for i, n := range v {
-									nodes[i] = IrDefRef{KitImpPath: kimp.ImpPath,
+									nodes[i] = IrDefRef{Kit: kimp,
 										IrDefTop: n.(*atmoil.IrDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
 								}
 								kit.lookups.namesInScopeExt.Add(nil, nil, k, nodes...)

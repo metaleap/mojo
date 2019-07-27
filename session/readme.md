@@ -152,7 +152,7 @@ func (me *Ctx) Locked(do func())
 #### func (*Ctx) PreduceExpr
 
 ```go
-func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) (IPreduced, atmo.Errors)
+func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) IPreduced
 ```
 
 #### func (*Ctx) WithInMemFileMod
@@ -182,7 +182,7 @@ type IPreduced interface {
 ```go
 type IrDefRef struct {
 	*atmoil.IrDefTop
-	KitImpPath string
+	Kit *Kit
 }
 ```
 

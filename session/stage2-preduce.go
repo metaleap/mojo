@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/il"
 )
 
@@ -64,7 +63,7 @@ type ctxPreduce struct {
 	owner *Ctx
 }
 
-func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) (IPreduced, atmo.Errors) {
+func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) IPreduced {
 	var maybetld *atmoil.IrDefTop
 	if maybeTopDefId != "" {
 		maybetld = kit.lookups.tlDefsByID[maybeTopDefId]
@@ -72,7 +71,7 @@ func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) (I
 	return me.state.preduce.preduceIlNode(kit, maybetld, expr)
 }
 
-func (me *ctxPreduce) preduceIlNode(kit *Kit, maybeTld *atmoil.IrDefTop, node atmoil.INode) (ret IPreduced, errs atmo.Errors) {
+func (me *ctxPreduce) preduceIlNode(kit *Kit, maybeTld *atmoil.IrDefTop, node atmoil.INode) (ret IPreduced) {
 	switch this := node.(type) {
 	case *atmoil.IrLitFloat:
 		ret = &PConstValAtomic{LitVal: this.Val}
@@ -83,27 +82,20 @@ func (me *ctxPreduce) preduceIlNode(kit *Kit, maybeTld *atmoil.IrDefTop, node at
 	case *atmoil.IrLitStr:
 		ret = &PConstValCompound{TmpVal: this.Val}
 	case *atmoil.IrIdentName:
-		cands := kit.lookups.namesInScopeAll[this.Val]
+		cands := this.Anns.Candidates
 		if len(cands) == 0 {
 			ret = &PFailure{ErrMsg: "not defined or not in scope: `" + this.Val + "`"}
 		} else if len(cands) == 1 {
-			refkit := kit
-			if extref, ok := cands[0].(IrDefRef); ok {
-				me.owner.KitsEnsureLoaded(false, extref.KitImpPath)
-				if refkit = me.owner.KitByImpPath(extref.KitImpPath); refkit == nil {
-					ret = &PFailure{ErrMsg: "no such kit known: `" + extref.KitImpPath + "`"}
-				}
-			} else {
-				ret = &PFailure{ErrMsg: "ambiguous: `" + this.Val + "` (" + ustr.Int(len(cands)) + " such names in scope)"}
-			}
-			if refkit != nil {
-				ret, errs = me.preduceIlNode(kit, maybeTld, cands[0])
-			}
+			ret = me.preduceIlNode(kit, maybeTld, cands[0])
+		} else {
+			ret = &PFailure{ErrMsg: "ambiguous: `" + this.Val + "` (" + ustr.Int(len(cands)) + " such names in scope)"}
 		}
 	case *atmoil.IrDefTop:
-		ret, errs = me.preduceIlNode(kit, this, &this.IrDef)
+		ret = me.preduceIlNode(kit, this, &this.IrDef)
 	case *atmoil.IrDef:
-		ret, errs = me.preduceIlNode(kit, maybeTld, this.Body)
+		ret = me.preduceIlNode(kit, maybeTld, this.Body)
+	case IrDefRef:
+		ret = me.preduceIlNode(this.Kit, this.IrDefTop, this.IrDefTop)
 	default:
 		panic(this)
 	}

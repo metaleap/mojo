@@ -56,7 +56,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, *atmo.Error) {
 	toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 64, ' ')
 	for _, e := range errs {
-		return nil, atmo.ErrLex(&e.Pos, e.Msg)
+		return nil, atmo.ErrLex(ErrLexing_Other, &e.Pos, e.Msg)
 	}
 
 	if expr, err := (&ctxTldParse{}).parseExpr(toks); err != nil { // need this..
@@ -96,7 +96,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 						indent = '\t'
 					} else {
 						inderr, freshErrs = true, append(freshErrs,
-							this.errs.lexing.AddAt(atmo.ErrCatLexing,
+							this.errs.lexing.AddAt(atmo.ErrCatLexing, ErrLexing_IndentationInconsistent,
 								&udevlex.Pos{FilePath: this.SrcFile.SrcFilePath, Col1: 1, Ln1: this.offset.Ln},
 								len(this.Src),
 								"inconsistent indentation in this top-level block: either replace leading tabs with spaces or vice-versa"))
@@ -108,7 +108,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 					if this.Ast.Tokens = toks; len(errs) > 0 {
 						for _, e := range errs {
 							freshErrs = append(freshErrs,
-								this.errs.lexing.AddLex(&e.Pos, e.Msg))
+								this.errs.lexing.AddLex(ErrLexing_Other, &e.Pos, e.Msg))
 						}
 					} else {
 						freshErrs = append(freshErrs, me.parse(this)...)

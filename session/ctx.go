@@ -259,7 +259,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 					break
 				}
 			}
-			if !have {
+			if (!have) && srcfile.SrcFilePath != "" {
 				if fileinfo, _ := os.Stat(srcfile.SrcFilePath); fileinfo != nil {
 					extra[srcfile.SrcFilePath] = fileinfo
 				}

@@ -216,7 +216,7 @@ func (me *Repl) DSrcs(what string) bool {
 			ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
 		me.withKitDefs(whatkit, whatname, "srcs", func(kit *atmosess.Kit, def *atmoil.IrDefTop) {
-			me.decoAddNotice(false, "", true, def.OrigTopLevelChunk.SrcFile.SrcFilePath)
+			me.decoAddNotice(false, "", true, ustr.FirstOf(def.OrigTopLevelChunk.SrcFile.SrcFilePath, me.Ctx.Options.Eval.FauxFileNameForErrorMessages))
 			ctxp.ApplStyle = def.OrigTopLevelChunk.SrcFile.Options.ApplStyle
 			def.OrigTopLevelChunk.Print(&ctxp)
 			ctxp.WriteTo(me.IO.Stdout)

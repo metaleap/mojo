@@ -68,7 +68,7 @@ func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs 
 	} else if orig.IsPlaceholder() {
 		var ident IrNonValue // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
 		ret, ident.OneOf.LeftoverPlaceholder, ident.Orig = &ident, true, orig
-		errs.AddSyn(orig.Tokens, "misplaced placeholder: only legal in def-args or call expressions")
+		errs.AddBug(ErrInit_LeftoverUnderscores, orig.Tokens, "misplaced placeholder: only legal in def-args or call expressions")
 
 	} else if orig.Val == atmo.KnownIdentUndef {
 		var ident IrNonValue
@@ -180,7 +180,6 @@ func (me *ctxIrInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IExpr,
 				toks = toks.FromUntil(leto.Defs[0].Tokens.First1(), toks.Last1(), true)
 			}
 		}
-		errs.AddUnreach(toks, "can never be used: "+ustr.Plu(len(let.Defs), "local def")+" scoped only for `"+origBody.Toks().First1().Lexeme+"`")
 	} else {
 		if dst.letPrefix == "" {
 			dst.letPrefix = me.nextPrefix()

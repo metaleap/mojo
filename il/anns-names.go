@@ -126,7 +126,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, 
 		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames))
 	case *IrIdentName:
 		if existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed > 0 {
-			errs.AddUnreach(tld.OrigToks(n), "syntax errors in "+ustr.Plu(existsunparsed, "def")+" named `"+n.Val+"`")
+			errs.AddUnreach(ErrInit_IdentRefersToMalformedDef, tld.OrigToks(n), "syntax errors in "+ustr.Plu(existsunparsed, "def")+" named `"+n.Val+"`")
 		} else if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
 			me.errUnknownName(tld, &errs, n)
 		}
@@ -139,9 +139,9 @@ func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, n INod
 	if len(toks) == 0 && maybeTld != nil {
 		toks = maybeTld.OrigToks(n)
 	}
-	errs.AddNaming(toks.First1(), "nullary name `"+name+"` already in scope (rename required)")
+	errs.AddNaming(ErrNames_ShadowingNotAllowed, toks.First1(), "nullary name `"+name+"` already in scope (rename required)")
 }
 
 func (AnnNamesInScope) errUnknownName(tld *IrDefTop, errs *atmo.Errors, n *IrIdentName) {
-	errs.AddNaming(tld.OrigToks(n).First1(), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
+	errs.AddNaming(ErrNames_UndefinedOrUnimported, tld.OrigToks(n).First1(), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
 }
