@@ -123,7 +123,7 @@ func (me *AstDef) at(_ IAstNode, pos int) (nodes []IAstNode) {
 
 type AstDefArg struct {
 	AstBaseTokens
-	NameOrConstVal IAstExprAtomic
+	NameOrConstVal IAstExpr
 	Affix          IAstExpr
 }
 

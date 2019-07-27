@@ -71,12 +71,12 @@ func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Err
 }
 
 func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) (err *atmo.Error) {
-	parseaffix := func(appl *AstExprAppl) (IAstExpr, *atmo.Error) {
+	parseaffix := func(colon *AstExprAppl) (IAstExpr, *atmo.Error) {
 		var tsub udevlex.Tokens
-		if len(appl.Args) > 2 {
-			tsub = toksHeadSig.FindSub(appl.Args[1].Toks(), appl.Args[len(appl.Args)-1].Toks())
+		if len(colon.Args) > 2 {
+			tsub = toksHeadSig.FindSub(colon.Args[1].Toks(), colon.Args[len(colon.Args)-1].Toks())
 		}
-		return me.parseExprApplOrIdent(appl.Args[1:], tsub)
+		return me.parseExprApplOrIdent(colon.Args[1:], tsub)
 	}
 
 	var exprsig IAstExpr
@@ -107,24 +107,19 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 			if err == nil {
 				def.Args = make([]AstDefArg, len(sig.Args))
 				for i := range sig.Args {
-					if atom, okatom := sig.Args[i].(IAstExprAtomic); okatom {
-						def.Args[i].Tokens, def.Args[i].NameOrConstVal = atom.Toks(), atom
-					} else {
-						if appl, oka := sig.Args[i].(*AstExprAppl); oka {
-							if colon, okc := appl.Callee.(*AstIdent); okc && colon.Val == ":" && len(appl.Args) >= 2 {
-								if atom, okatom = appl.Args[0].(IAstExprAtomic); okatom {
-									def.Args[i].Tokens, def.Args[i].NameOrConstVal =
-										appl.Tokens, atom
-									if def.Args[i].Affix, err = parseaffix(appl); err != nil {
-										return
-									}
-								}
+					def.Args[i].NameOrConstVal, def.Args[i].Tokens = sig.Args[i], sig.Args[i].Toks()
+					if appl, oka := sig.Args[i].(*AstExprAppl); oka {
+						if colon, okc := appl.Callee.(*AstIdent); okc && colon.Val == ":" {
+							if len(appl.Args) >= 2 {
+								def.Args[i].NameOrConstVal, def.Args[i].Tokens = appl.Args[0], appl.Tokens
+								def.Args[i].Affix, err = parseaffix(appl)
+							} else {
+								err = atmo.ErrSyn(&sig.Args[i].Toks()[0], "invalid def-arg affixing: expected 2 operand expressions surrounding `:`")
 							}
 						}
-						if !okatom {
-							err = atmo.ErrSyn(&sig.Args[i].Toks()[0], "invalid def arg: needs to be atomic, or atomic:some-qualifying-expression")
-							return
-						}
+					}
+					if err != nil {
+						return
 					}
 				}
 			}

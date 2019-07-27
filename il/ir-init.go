@@ -91,24 +91,23 @@ func (me *IrDef) initMetas(ctx *ctxIrInit) (errs atmo.Errors) {
 func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atmo.Errors) {
 	me.Orig = orig
 
-	var isconstexpr bool
+	isexpr := true
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
-		isconstexpr = true
 		if !(v.IsTag || v.IsVar()) {
 			if v.IsPlaceholder() {
-				if isconstexpr, me.IrIdentBase.Val, me.IrIdentBase.Orig = false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v; len(v.Val) > 1 {
-					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
+				isexpr, me.IrIdentBase.Val, me.IrIdentBase.Orig =
+					false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v
+				if len(v.Val) > 1 {
+					errs.AddNaming(&v.Tokens[0], "invalid def-arg name: use 1 underscore for discards")
 				}
 			} else if cxn, ok1 := errs.AddVia(ctx.newExprFromIdent(v)).(*IrIdentName); ok1 {
-				isconstexpr, me.IrIdentBase = false, cxn.IrIdentBase
+				isexpr, me.IrIdentBase = false, cxn.IrIdentBase
 			}
 		}
-	case *atmolang.AstExprLitFloat, *atmolang.AstExprLitUint, *atmolang.AstExprLitStr:
-		isconstexpr = true
 	}
 
-	if isconstexpr {
+	if isexpr {
 		me.IrIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
 		appl := Build.Appl1(Build.IdentName(atmo.KnownIdentCoerce), ctx.ensureAtomic(errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IExpr)))
 		appl.IrExprBase.Orig = orig.NameOrConstVal
