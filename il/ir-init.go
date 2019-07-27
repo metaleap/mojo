@@ -91,7 +91,8 @@ func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atm
 	var isconstexpr bool
 	switch v := orig.NameOrConstVal.(type) {
 	case *atmolang.AstIdent:
-		if isconstexpr = true; !(v.IsTag || v.IsVar()) {
+		isconstexpr = true
+		if !(v.IsTag || v.IsVar()) {
 			if v.IsPlaceholder() {
 				if isconstexpr, me.IrIdentBase.Val, me.IrIdentBase.Orig = false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v; len(v.Val) > 1 {
 					errs.AddNaming(&v.Tokens[0], "invalid def arg name")
@@ -104,17 +105,14 @@ func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atm
 		isconstexpr = true
 	}
 
-	if isconstexpr && orig.Affix != nil {
-		errs.AddSyn(orig.Affix.Toks(), "def-arg affix illegal where the arg is itself a constant value")
-	}
-	if orig.Affix != nil {
-		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(orig.Affix)).(IExpr))
-	}
 	if isconstexpr {
 		me.IrIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
 		appl := Build.Appl1(Build.IdentName(atmo.KnownIdentCoerce), ctx.ensureAtomic(errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IExpr)))
 		appl.IrExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)
+	}
+	if orig.Affix != nil {
+		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(orig.Affix)).(IExpr))
 	}
 	return
 }

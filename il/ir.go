@@ -355,7 +355,7 @@ func (me *IrIdentBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []I
 type IrSpecial struct {
 	IrExprAtomBase
 	OneOf struct {
-		InvalidToken         bool
+		LeftoverPlaceholder  bool
 		Undefined            bool
 		DefArgfulButBodyless bool
 	}

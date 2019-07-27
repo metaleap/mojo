@@ -67,22 +67,21 @@ func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs 
 
 	} else if orig.IsPlaceholder() {
 		var ident IrSpecial // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
-		ret, ident.OneOf.InvalidToken, ident.Orig = &ident, true, orig
+		ret, ident.OneOf.LeftoverPlaceholder, ident.Orig = &ident, true, orig
 		errs.AddSyn(orig.Tokens, "misplaced placeholder: only legal in def-args or call expressions")
-
-	} else if orig.IsVar() {
-		var ident IrSpecial
-		ret, ident.OneOf.InvalidToken, ident.Orig = &ident, true, orig
-		errs.AddSyn(orig.Tokens, "our bug, not your fault: encountered a var expression that wasn't desugared")
 
 	} else if orig.Val == atmo.KnownIdentUndef {
 		var ident IrSpecial
 		ret, ident.OneOf.Undefined, ident.Orig = &ident, true, orig
 
+	} else if orig.IsVar() {
+		var ident IrIdentName
+		ret, ident.Val, ident.Orig = &ident, orig.Val[1:], orig
+
 	} else {
 		var ident IrIdentName
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
-		// me.curTopLevelDef.refersTo[ident.Val] = true
+		me.curTopLevelDef.refersTo[ident.Val] = true
 
 	}
 	return
