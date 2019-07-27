@@ -73,19 +73,19 @@ func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) (I
 }
 
 func (me *ctxPreduce) preduceIlNode(kit *Kit, maybeTld *atmoil.IrDefTop, node atmoil.INode) (ret IPreduced, errs atmo.Errors) {
-	switch n := node.(type) {
+	switch this := node.(type) {
 	case *atmoil.IrLitFloat:
-		ret = &PConstValAtomic{LitVal: n.Val}
+		ret = &PConstValAtomic{LitVal: this.Val}
 	case *atmoil.IrLitUint:
-		ret = &PConstValAtomic{LitVal: n.Val}
+		ret = &PConstValAtomic{LitVal: this.Val}
 	case *atmoil.IrIdentTag:
-		ret = &PConstValAtomic{LitVal: n.Val}
+		ret = &PConstValAtomic{LitVal: this.Val}
 	case *atmoil.IrLitStr:
-		ret = &PConstValCompound{TmpVal: n.Val}
+		ret = &PConstValCompound{TmpVal: this.Val}
 	case *atmoil.IrIdentName:
-		cands := kit.lookups.namesInScopeAll[n.Val]
+		cands := kit.lookups.namesInScopeAll[this.Val]
 		if len(cands) == 0 {
-			ret = &PFailure{ErrMsg: "not defined or not in scope: `" + n.Val + "`"}
+			ret = &PFailure{ErrMsg: "not defined or not in scope: `" + this.Val + "`"}
 		} else if len(cands) == 1 {
 			refkit := kit
 			if extref, ok := cands[0].(IrDefRef); ok {
@@ -94,17 +94,18 @@ func (me *ctxPreduce) preduceIlNode(kit *Kit, maybeTld *atmoil.IrDefTop, node at
 					ret = &PFailure{ErrMsg: "no such kit known: `" + extref.KitImpPath + "`"}
 				}
 			} else {
-				ret = &PFailure{ErrMsg: "ambiguous: `" + n.Val + "` (" + ustr.Int(len(cands)) + " such names in scope)"}
+				ret = &PFailure{ErrMsg: "ambiguous: `" + this.Val + "` (" + ustr.Int(len(cands)) + " such names in scope)"}
 			}
 			if refkit != nil {
 				ret, errs = me.preduceIlNode(kit, maybeTld, cands[0])
 			}
 		}
 	case *atmoil.IrDefTop:
-		ret, errs = me.preduceIlNode(kit, n, &n.IrDef)
+		ret, errs = me.preduceIlNode(kit, this, &this.IrDef)
 	case *atmoil.IrDef:
+		ret, errs = me.preduceIlNode(kit, maybeTld, this.Body)
 	default:
-		panic(n)
+		panic(this)
 	}
 	ret.self().origNode = node
 	return
