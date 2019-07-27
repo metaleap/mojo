@@ -40,16 +40,10 @@ func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
 }
 
 func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
-	// fast-track special case: "func signature expression" aka body-less def
-	// (also for ffi / builtin-primops) acts as notation for a func type
+	// fast-track special-casing for a def-body of mere-underscore
 	if ident, _ := me.OrigDef.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
-		var body IrSpecial
-		me.Body, body.Orig, body.OneOf.DefArgfulButBodyless = &body, ident, me.Arg != nil
-		if me.Arg == nil {
-			tag := Build.IdentTag(me.Name.Val)
-			tag.Orig = ident
-			me.Body = tag
-		}
+		tag := Build.IdentTag(me.Name.Val)
+		tag.Orig, me.Body = ident, tag
 	} else {
 		me.Body, errs = ctx.newExprFrom(me.OrigDef.Body)
 	}

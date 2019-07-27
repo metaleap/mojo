@@ -15,7 +15,7 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type CtxBgMsg struct {
+type ctxBgMsg = struct {
 	Issue bool
 	Time  time.Time
 	Lines []string
@@ -42,13 +42,14 @@ type Ctx struct {
 		}
 	}
 	state struct {
-		bgMsgs        []CtxBgMsg
+		bgMsgs        []ctxBgMsg
 		fileModsWatch struct {
 			latest                        []map[string]os.FileInfo
 			collectFileModsForNextCatchup func([]string, []string) int
 		}
 		initCalled                                                bool
 		notUsedInternallyButAvailableForOutsideCallersConvenience sync.Mutex
+		preduce                                                   ctxPreduce
 	}
 }
 
@@ -69,6 +70,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 // `Kits` reflective of the structures found in the various `me.Dirs.Kits`
 // search paths and from now on in sync with live modifications to those.
 func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
+	me.state.preduce.owner = me
 	me.maybeInitPanic(true)
 	me.state.initCalled, me.Kits.All = true, make(Kits, 0, 32)
 	cachedir := me.Dirs.Cache
@@ -199,14 +201,14 @@ func (me *Ctx) FauxKitsHas(dirPath string) bool {
 }
 
 func (me *Ctx) bgMsg(issue bool, lines ...string) {
-	msg := CtxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
+	msg := ctxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
 	me.state.bgMsgs = append(me.state.bgMsgs, msg)
 	if me.On.NewBackgroundMessages != nil {
 		me.On.NewBackgroundMessages()
 	}
 }
 
-func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg) {
+func (me *Ctx) BackgroundMessages(clear bool) (msgs []ctxBgMsg) {
 	me.maybeInitPanic(false)
 	if msgs = me.state.bgMsgs; clear {
 		me.state.bgMsgs = nil

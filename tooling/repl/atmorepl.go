@@ -112,7 +112,7 @@ func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 		default:
 			var caretpos int
 			kit := me.Ctx.KitByImpPath("")
-			str, errs := me.Ctx.Eval(kit, inputln)
+			preduced, errs := me.Ctx.Eval(kit, inputln)
 			if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
 				if err0pos := errs[0].Pos(); err0pos.Ln1 == 1 {
 					caretpos = err0pos.Col1 + numleadingspaces
@@ -132,7 +132,7 @@ func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 			if me.run.multiLnInputHadLeadingTabs {
 				me.decoAddNotice(false, "", false, "multi-line input had leading tabs, note", "that repl auto-indent is based on spaces")
 			}
-			me.IO.writeLns(str)
+			me.IO.writeLns(preduced.SummaryCompact())
 
 			me.IO.writeLns("", "")
 			me.decoInputStart(false, false)

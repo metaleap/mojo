@@ -49,7 +49,7 @@ Ctx fields must never be written to from the outside after the `Ctx.Init` call.
 #### func (*Ctx) BackgroundMessages
 
 ```go
-func (me *Ctx) BackgroundMessages(clear bool) (msgs []CtxBgMsg)
+func (me *Ctx) BackgroundMessages(clear bool) (msgs []ctxBgMsg)
 ```
 
 #### func (*Ctx) BackgroundMessagesCount
@@ -67,7 +67,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 #### func (*Ctx) Eval
 
 ```go
-func (me *Ctx) Eval(kit *Kit, src string) (str string, errs atmo.Errors)
+func (me *Ctx) Eval(kit *Kit, src string) (ret IPreduced, errs atmo.Errors)
 ```
 
 #### func (*Ctx) FauxKitsAdd
@@ -146,6 +146,12 @@ KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
 func (me *Ctx) Locked(do func())
 ```
 
+#### func (*Ctx) PreduceExpr
+
+```go
+func (me *Ctx) PreduceExpr(kit *Kit, expr atmoil.IExpr) (IPreduced, atmo.Errors)
+```
+
 #### func (*Ctx) WithInMemFileMod
 
 ```go
@@ -158,13 +164,12 @@ func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (r
 func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do func()) (recoveredPanic interface{})
 ```
 
-#### type CtxBgMsg
+#### type IPreduced
 
 ```go
-type CtxBgMsg struct {
-	Issue bool
-	Time  time.Time
-	Lines []string
+type IPreduced interface {
+	SummaryCompact() string
+	// contains filtered or unexported methods
 }
 ```
 
@@ -302,4 +307,44 @@ Swap implements Go's standard `sort.Interface`.
 
 ```go
 func (me Kits) Where(check func(*Kit) bool) (kits Kits)
+```
+
+#### type PCallable
+
+```go
+type PCallable struct {
+}
+```
+
+
+#### type PConstValAtomic
+
+```go
+type PConstValAtomic struct {
+	LitVal interface{}
+}
+```
+
+
+#### func (*PConstValAtomic) SummaryCompact
+
+```go
+func (me *PConstValAtomic) SummaryCompact() string
+```
+
+#### type PConstValCompound
+
+```go
+type PConstValCompound struct {
+
+	// later will be more principled as compound will encompass lists-of-any, tuples, relations / maps / records etc.
+	TmpVal string
+}
+```
+
+
+#### func (*PConstValCompound) SummaryCompact
+
+```go
+func (me *PConstValCompound) SummaryCompact() string
 ```

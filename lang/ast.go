@@ -173,7 +173,7 @@ type AstExprLitFloat struct {
 	Val float64
 }
 
-func (me *AstExprLitFloat) String() string { return strconv.FormatFloat(me.Val, 'g', -1, 64) }
+func (me *AstExprLitFloat) String() string { return strconv.FormatFloat(me.Val, 'f', -1, 64) }
 
 type AstExprLitStr struct {
 	AstBaseExprAtomLit

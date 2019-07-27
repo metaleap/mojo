@@ -34,7 +34,8 @@ func mainRepl() {
 			"", "─ in the latter case, multi-line inputs are started", "  and finished respectively by a line ending in " + repl.IO.MultiLineSuffix,
 			"", "─ for infos on --options,", "  quit and run `atmo help`",
 		}
-		if atmorepl.Ux.OldSchoolTty = (replRunsVia("login") == "login"); replRunsVia("rlwrap", "rlfe") == "" {
+		atmorepl.Ux.OldSchoolTty = (replRunsVia("login") == "login") || (replRunsVia("code") == "code") || (replRunsVia("codium") == "codium")
+		if replRunsVia("rlwrap", "rlfe") == "" {
 			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "─ for sane input-editing, quit and run", "  via `rlwrap` or `rlfe` or equivalent")
 		}
 		if atmorepl.Ux.MoreLines > 0 {

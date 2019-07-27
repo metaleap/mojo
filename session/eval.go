@@ -6,20 +6,14 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-func (me *Ctx) Eval(kit *Kit, src string) (str string, errs atmo.Errors) {
-	return "", atmo.Errors{atmo.ErrTodo(nil, "TO-DO")}
+func (me *Ctx) Eval(kit *Kit, src string) (ret IPreduced, errs atmo.Errors) {
 	expr, err := atmolang.LexAndParseExpr("‹repl›", []byte(src))
 	if err != nil {
 		errs = append(errs, err)
 	} else {
-		irx, errsir := atmoil.ExprFrom(expr)
-		if errs.Add(errsir); len(errs) == 0 && irx != nil {
-			// kit.lookups.namesInScopeAll.RepopulateDefsAndIdentsFor(nil, irx, )
-			// if retdesc, err := me.inferFactsForExpr(kit, irx); err != nil {
-			// 	errs = append(errs, err)
-			// } else {
-			// 	str = retdesc.String()
-			// }
+		expril, errsil := atmoil.ExprFrom(expr)
+		if errs.Add(errsil); len(errs) == 0 && expril != nil {
+			ret, _ = errs.AddVia(me.PreduceExpr(kit, expril)).(IPreduced)
 		}
 	}
 	return

@@ -45,8 +45,8 @@ func (Builder) IdentTag(name string) *IrIdentTag {
 	return &IrIdentTag{IrIdentBase{Val: name}}
 }
 
-func (Builder) Undef() *IrSpecial {
-	var node IrSpecial
+func (Builder) Undef() *IrNonValue {
+	var node IrNonValue
 	node.OneOf.Undefined = true
 	return &node
 }

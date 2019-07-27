@@ -352,23 +352,22 @@ func (me *IrIdentBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []I
 	return
 }
 
-type IrSpecial struct {
+type IrNonValue struct {
 	IrExprAtomBase
 	OneOf struct {
-		LeftoverPlaceholder  bool
-		Undefined            bool
-		DefArgfulButBodyless bool
+		LeftoverPlaceholder bool
+		Undefined           bool
 	}
 }
 
-func (me *IrSpecial) EquivTo(node INode) bool {
-	cmp, _ := node.(*IrSpecial)
+func (me *IrNonValue) EquivTo(node INode) bool {
+	cmp, _ := node.(*IrNonValue)
 	return (cmp == nil) == (me == nil) && ((me == nil) || me.OneOf == cmp.OneOf)
 }
-func (me *IrSpecial) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
+func (me *IrNonValue) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
 	return me.IrExprAtomBase.findByOrig(me, orig)
 }
-func (me *IrSpecial) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
+func (me *IrNonValue) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
 	me.IrExprAtomBase.walk(ancestors, me, on)
 }
 

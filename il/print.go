@@ -13,7 +13,7 @@ func DbgPrintToString(node INode) string {
 	return buf.String()
 }
 
-func (me *IrSpecial) Print() atmolang.IAstNode {
+func (me *IrNonValue) Print() atmolang.IAstNode {
 	if me.OneOf.Undefined {
 		return atmolang.Build.Ident(atmo.KnownIdentUndef)
 	} else if me.Orig != nil && len(me.Orig.Toks()) > 0 {

@@ -186,7 +186,7 @@ func (me *AstExprLitFloat) print(p *CtxPrint) {
 	if len(me.Tokens) > 0 {
 		p.Print(&me.AstBaseExprAtomLit)
 	} else {
-		p.WriteString(strconv.FormatFloat(me.Val, 'g', -1, 64))
+		p.WriteString(strconv.FormatFloat(me.Val, 'f', -1, 64))
 	}
 }
 

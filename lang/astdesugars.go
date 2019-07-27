@@ -16,19 +16,6 @@ func (me *AstExprAppl) Desugared(prefix func() string) (IAstExpr, atmo.Errors) {
 	return nil, nil
 }
 
-func (me *AstExprAppl) desugarToLetExprIfUnionTest(prefix func() string) *AstExprLet {
-	if ident, _ := me.Callee.(*AstIdent); ident != nil && ident.Val == "," {
-		check := AstExprCases{Alts: []AstCase{{Conds: make([]IAstExpr, len(me.Args))}}}
-		for i := range me.Args {
-			check.Alts[0].Conds[i] = me.Args[i]
-		}
-		def := Build.Def("┬"+prefix(), &check, prefix())
-		check.Scrutinee, check.Alts[0].Body = def.Args[0].NameOrConstVal, def.Args[0].NameOrConstVal
-		return Build.Let(&def.Name, *def)
-	}
-	return nil
-}
-
 func (me *AstExprAppl) desugarToLetExprIfPlaceholders(prefix func() string) *AstExprLet {
 	var num int
 	var lamc string
@@ -68,6 +55,19 @@ func (me *AstExprAppl) desugarToLetExprIfPlaceholders(prefix func() string) *Ast
 	}
 	def.Body = &appl
 	return Build.Let(&def.Name, def)
+}
+
+func (me *AstExprAppl) desugarToLetExprIfUnionTest(prefix func() string) *AstExprLet {
+	if ident, _ := me.Callee.(*AstIdent); ident != nil && ident.Val == "," {
+		check := AstExprCases{Alts: []AstCase{{Conds: make([]IAstExpr, len(me.Args))}}}
+		for i := range me.Args {
+			check.Alts[0].Conds[i] = me.Args[i]
+		}
+		def := Build.Def("┬"+prefix(), &check, prefix())
+		check.Scrutinee, check.Alts[0].Body = def.Args[0].NameOrConstVal, def.Args[0].NameOrConstVal
+		return Build.Let(&def.Name, *def)
+	}
+	return nil
 }
 
 func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors) {

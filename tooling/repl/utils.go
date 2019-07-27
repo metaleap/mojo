@@ -108,8 +108,8 @@ func (me *Repl) decoMsgNotice(bg bool, lines ...string) {
 		}
 	}
 	me.decoAddNotice(false, ustr.If(bg,
-		ustr.If(Ux.OldSchoolTty, "≡«≡ ", "░▒▓ "),
-		ustr.If(Ux.OldSchoolTty, "≡»≡ ", "▓▒░ "),
+		ustr.If(Ux.OldSchoolTty, "≡‹≡ ", "░▒▓ "),
+		ustr.If(Ux.OldSchoolTty, "≡›≡ ", "▓▒░ "),
 	), true, lines...)
 }
 

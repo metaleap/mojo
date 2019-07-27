@@ -84,7 +84,7 @@ func (me *ctxFacts) refreshCoreFactsForExpr(node atmoil.IExpr, ancestors []atmoi
 		facts.Core = &atmoil.AnnFactLit{Value: n.Val, Str: n.Orig.(atmolang.IAstExprAtomic).String}
 	case *atmoil.IrIdentTag:
 		facts.Core = &atmoil.AnnFactTag{Value: n.Val}
-	case *atmoil.IrSpecial:
+	case *atmoil.IrNonValue:
 		facts.Core = &atmoil.AnnFactUndef{}
 	case *atmoil.IrIdentName:
 		switch l := len(n.Anns.Candidates); l {
