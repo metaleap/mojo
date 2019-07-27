@@ -53,6 +53,42 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	return
 }
 
+func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, guessIsExpr bool, err *atmo.Error) {
+	if len(src) > 0 {
+		indentguess := ' '
+		if src[0] == '\t' {
+			indentguess = '\t'
+		} else {
+			for i := 1; i < len(src); i++ {
+				if src[i-1] == '\n' {
+					if src[i] == ' ' {
+						break
+					} else if src[i] == '\t' {
+						indentguess = '\t'
+						break
+					}
+				}
+			}
+		}
+
+		toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 32, indentguess)
+		for _, e := range errs {
+			return false, false, atmo.ErrLex(ErrLexing_Other, &e.Pos, e.Msg)
+		}
+		idxdecl, idxcomma := toks.Index(":=", false), toks.Index(",", false)
+		if idxdecl < 0 {
+			guessIsExpr = true
+		} else if idxcomma < 0 {
+			guessIsDef = true
+		} else if idxcomma < idxdecl {
+			guessIsExpr = true
+		} else {
+			guessIsDef = true
+		}
+	}
+	return
+}
+
 func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, *atmo.Error) {
 	toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 64, ' ')
 	for _, e := range errs {
