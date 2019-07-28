@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-leap/std"
+	"github.com/metaleap/atmo"
 )
 
 // IPrintFmt is fully implemented by `PrintFormatterMinimal`, for custom
@@ -163,7 +164,8 @@ func (me *AstDef) print(p *CtxPrint) {
 		p.WriteByte(',')
 		p.Fmt.OnDefMeta(me, i, me.Meta[i])
 	}
-	p.WriteString(" :=")
+	p.WriteByte(' ')
+	p.WriteString(atmo.KnownIdentDecl)
 	p.Fmt.OnDefBody(me, me.Body)
 }
 

@@ -77,7 +77,7 @@ func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, gu
 			return false, false, nil, atmo.ErrLex(ErrLexing_Tokenization, &e.Pos, e.Msg)
 		}
 		lexedToks = toks
-		idxdecl, idxcomma := toks.Index(":=", false), toks.Index(",", false)
+		idxdecl, idxcomma := toks.Index(atmo.KnownIdentDecl, false), toks.Index(",", false)
 		if idxdecl < 0 {
 			guessIsExpr = true
 		} else if idxcomma < 0 {

@@ -45,10 +45,9 @@ func (me *Repl) init() {
 		}
 
 	me.Ctx.Options.BgMsgs.IncludeKitsErrs = true
-	me.Ctx.Options.Eval.FauxFileNameForErrorMessages = "‹repl›"
+	me.Ctx.Options.Scratchpad.FauxFileNameForErrorMessages = "‹repl›"
 	me.initEnsureDefaultDirectives()
 }
-
 func (me *Repl) decoInputStart(altStyle bool, msgsSummaryOnly bool) {
 	time.Sleep(1 * time.Millisecond)
 	if !msgsSummaryOnly {

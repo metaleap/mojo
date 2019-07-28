@@ -39,7 +39,7 @@ type Ctx struct {
 		BgMsgs struct {
 			IncludeKitsErrs bool
 		}
-		Eval struct {
+		Scratchpad struct {
 			FauxFileNameForErrorMessages string
 		}
 	}
@@ -231,13 +231,13 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs atmo.Err
 	if hadfresherrs {
 		if me.Options.BgMsgs.IncludeKitsErrs {
 			for _, e := range freshStage0Errs {
-				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Eval.FauxFileNameForErrorMessages) {
+				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					me.bgMsg(true, e.Error())
 				}
 			}
 			atmo.SortMaybe(freshStage1AndBeyondErrs)
 			for _, e := range freshStage1AndBeyondErrs {
-				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Eval.FauxFileNameForErrorMessages) {
+				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					me.bgMsg(true, e.Error())
 				}
 			}

@@ -74,7 +74,7 @@ func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 			continue
 		}
 
-		if ismultiln, isdefbegin := ustr.Suff(inputln, me.IO.MultiLineSuffix), (multiln == "" && ustr.Suff(inputln, ":=")); isdefbegin || ismultiln {
+		if ismultiln, isdefbegin := ustr.Suff(inputln, me.IO.MultiLineSuffix), (multiln == "" && ustr.Suff(ustr.Trim(inputln), atmo.KnownIdentDecl)); isdefbegin || ismultiln {
 			if multiln == "" {
 				if inputln[0] != ':' {
 					if me.run.indent, multiln = multiLnMinIndent, inputln[:len(inputln)-len(me.IO.MultiLineSuffix)]+"\n  "; isdefbegin {

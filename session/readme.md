@@ -65,7 +65,7 @@ type Ctx struct {
 		BgMsgs struct {
 			IncludeKitsErrs bool
 		}
-		Eval struct {
+		Scratchpad struct {
 			FauxFileNameForErrorMessages string
 		}
 	}

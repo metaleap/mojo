@@ -50,7 +50,7 @@ func (me *SrcTopChunk) parseTopLevelDef(tokens udevlex.Tokens) (def *AstDef, nam
 
 func (me *ctxTldParse) parseDef(toks udevlex.Tokens, def *AstDef) (err *atmo.Error) {
 	def.Tokens = toks
-	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(":="); len(toksbody) == 0 {
+	if tokshead, tokheadbodysep, toksbody := toks.BreakOnOpish(atmo.KnownIdentDecl); len(toksbody) == 0 {
 		if t := tokheadbodysep.Or(&toks[0]); toks[0].Pos.Col1 == 1 {
 			err = atmo.ErrSyn(ErrParsing_DefBodyMissing, t, "expected definition body following `:=`")
 		} else {
@@ -205,8 +205,8 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				case "?":
 					exprcur, toks, err = me.parseExprCase(toks, accum, alltoks)
 					accum = accum[:0]
-				case ":=":
-					err = atmo.ErrSyn(ErrParsing_TokenUnexpected_DefDecl, &toks[0], "unexpected `:=` in expression (forgot a comma?)")
+				case atmo.KnownIdentDecl:
+					err = atmo.ErrSyn(ErrParsing_TokenUnexpected_DefDecl, &toks[0], "unexpected `"+atmo.KnownIdentDecl+"` in expression (forgot a comma?)")
 				default:
 					ident := me.parseExprIdent(toks, false)
 					if len(ident.Val) > 1 && ident.Val[0] == '_' && ident.Val[1] == '_' && !ident.IsPlaceholder() {
@@ -344,7 +344,7 @@ func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr
 			err = atmo.ErrSyn(ErrParsing_CommasConsecutive, toks.Next(toklast, true),
 				"consecutive commas with nothing between")
 			return
-		} else if toklast = chunks[i].Last1(); chunks[i].Has(":=", false) {
+		} else if toklast = chunks[i].Last1(); chunks[i].Has(atmo.KnownIdentDecl, false) {
 			numdefs++
 		} else {
 			numothers++

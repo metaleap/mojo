@@ -29,6 +29,7 @@ const (
 	NameAutoKit    = "Std"
 	SrcFileExt     = ".at"
 
+	KnownIdentDecl   = ":="
 	KnownIdentCoerce = "§"
 	KnownIdentOpOr   = "or"
 	KnownIdentUndef  = "÷0"
