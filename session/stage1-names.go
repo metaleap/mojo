@@ -32,7 +32,9 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 						atmo.StringCounts{}, nil, make(atmoil.AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
 						tld.Errs.Stage1BadNames = nil
-						kit.lookups.namesInScopeOwn.Add(tld, &tld.Errs.Stage1BadNames, tld.Name.Val, tld)
+						if tld.Name.Val != "" {
+							kit.lookups.namesInScopeOwn.Add(tld, &tld.Errs.Stage1BadNames, tld.Name.Val, tld)
+						}
 					}
 				}
 			}
@@ -60,13 +62,13 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 						kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt =
 							nil, make(atmoil.AnnNamesInScope, totaldefscount)
 						for _, kimp := range kimps {
-							for k, v := range kimp.lookups.namesInScopeOwn {
-								nodes := make([]atmoil.INode, len(v))
-								for i, n := range v {
+							for name, nodesown := range kimp.lookups.namesInScopeOwn {
+								nodes := make([]atmoil.INode, len(nodesown))
+								for i, n := range nodesown {
 									nodes[i] = IrDefRef{Kit: kimp,
 										IrDefTop: n.(*atmoil.IrDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
 								}
-								kit.lookups.namesInScopeExt.Add(nil, nil, k, nodes...)
+								kit.lookups.namesInScopeExt.Add(nil, nil, name, nodes...)
 							}
 						}
 					}

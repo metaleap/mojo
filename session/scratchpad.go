@@ -13,7 +13,17 @@ import (
 func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors) {
 	spfile := kit.SrcFiles.EnsureScratchPadFile()
 	origsrc := spfile.Options.TmpAltSrc
+
+	var restoreorigsrc bool
+	defer func() {
+		if restoreorigsrc {
+			spfile.Options.TmpAltSrc = origsrc
+			me.catchUpOnFileMods(kit)
+		}
+	}()
+
 	isdef, _, toks, err := atmolang.LexAndGuess("", []byte(src))
+
 	if err != nil {
 		return nil, errs.AddFrom(err)
 	}
@@ -37,33 +47,27 @@ func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, 
 		}
 	}
 
+	restoreorigsrc = !isdef
 	spfile.Options.TmpAltSrc = append(spfile.Options.TmpAltSrc, '\n', '\n')
 	spfile.Options.TmpAltSrc = append(spfile.Options.TmpAltSrc, src...)
 	me.catchUpOnFileMods(kit)
 
-	restoreorigsrc := !isdef
 	if spfile.HasErrors() { // refers ONLY to lex/parse errors
+		restoreorigsrc = true
 		return nil, spfile.Errors()
 	} else {
-		for _, tld := range kit.topLevelDefs {
-			if tld.OrigTopLevelChunk.SrcFile.SrcFilePath == "" && len(tld.Errs.Stage0Init) > 0 {
-				println("AHA", tld.Name.Val, "EHE", tld.OrigDef.Name.Val, "UHU", tld.OrigTopLevelChunk.Ast.Def.NameIfErr, "OHO", tld.Errs.Stage0Init[0].Error())
-			}
+		defs := kit.topLevelDefs.ByName(defname)
+		if len(defs) != 1 { // shouldn't happen based on above safeguards
+			restoreorigsrc = true
+			panic(len(defs))
 		}
-		defids := kit.lookups.tlDefIDsByName[defname]
-		if len(defids) != 1 {
-			panic(len(defids))
+		if errs = defs[0].Errors(); len(errs) > 0 {
+			restoreorigsrc = true
+			return
 		}
-		def := kit.lookups.tlDefsByID[defids[0]]
-
 		identexpr := atmoil.Build.IdentName(defname)
-		identexpr.Anns.Candidates = []atmoil.INode{def}
-		ret = me.PreduceExpr(kit, defids[0], identexpr)
-	}
-
-	if restoreorigsrc {
-		spfile.Options.TmpAltSrc = origsrc
-		me.catchUpOnFileMods(kit)
+		identexpr.Anns.Candidates = []atmoil.INode{defs[0]}
+		ret = me.PreduceExpr(kit, defs[0].Id, identexpr)
 	}
 
 	return

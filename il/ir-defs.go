@@ -44,7 +44,7 @@ func (me IrTopDefs) Less(i int, j int) bool {
 
 func (me IrTopDefs) ByName(name string) (defs []*IrDefTop) {
 	for _, tld := range me {
-		if tld.Name.Val == name {
+		if tld.Name.Val == name || (tld.OrigDef != nil && tld.OrigDef.Name.Val == name) {
 			defs = append(defs, tld)
 		}
 	}

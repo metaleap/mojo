@@ -20,6 +20,10 @@ func (me *IrDef) initFrom(ctx *ctxIrInit, orig *atmolang.AstDef) (errs atmo.Erro
 }
 
 func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
+	// even if our name is erroneous as detected further down below:
+	// don't want this to stay empty, generally speaking
+	me.Name.Val = me.OrigDef.Name.Val
+
 	tok := me.OrigDef.Name.Tokens.First1() // could have none so dont just Tokens[0]
 	if tok == nil {
 		if tok = me.OrigDef.Tokens.First1(); tok == nil {
