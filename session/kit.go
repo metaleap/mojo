@@ -38,10 +38,19 @@ type Kit struct {
 	}
 }
 
-func (me *Ctx) KitEnsureLoaded(kit *Kit) {
+func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs atmo.Errors) {
+	return me.kitEnsureLoaded(kit, true)
+}
+
+func (me *Ctx) kitEnsureLoaded(kit *Kit, reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers bool) (freshErrs atmo.Errors) {
 	stage0errs := me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
-	stage1andbeyonderrs := me.reprocessAffectedDefsIfAnyKitsReloaded()
-	me.onSomeOrAllKitsPartiallyOrFullyRefreshed(stage0errs, stage1andbeyonderrs)
+	freshErrs.Add(stage0errs...)
+	if reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers {
+		stage1andbeyonderrs := me.reprocessAffectedDefsIfAnyKitsReloaded()
+		freshErrs.Add(stage1andbeyonderrs...)
+		me.onSomeOrAllKitsPartiallyOrFullyRefreshed(stage0errs, stage1andbeyonderrs)
+	}
+	return
 }
 
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
@@ -157,7 +166,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			allunchanged := !srcfileschanged
 			for _, sf := range kit.SrcFiles {
 				var nochanges bool
-				freshErrs = append(freshErrs, sf.LexAndParseFile(true, false, &nochanges)...)
+				freshErrs.Add(sf.LexAndParseFile(true, false, &nochanges)...)
 				allunchanged = allunchanged && nochanges
 			}
 
@@ -165,12 +174,12 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
 					kit.Errs.Stage0BadImports.AddSess(ErrSessKits_ImportNotFound, "", "import not found: `"+imp+"`")
 				} else {
-					me.KitEnsureLoaded(kimp)
+					freshErrs.Add(me.kitEnsureLoaded(kimp, false)...)
 				}
 			}
 
 			if len(kit.Errs.Stage0BadImports) > 0 {
-				freshErrs = append(freshErrs, kit.Errs.Stage0BadImports...)
+				freshErrs.Add(kit.Errs.Stage0BadImports...)
 			}
 
 			if allunchanged && !reloadForceInsteadOfAuto {
@@ -178,8 +187,8 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			}
 			{
 				od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
-				kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, freshErrs = od, nd, append(freshErrs, fe...)
-				if len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
+				kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames = od, nd
+				if freshErrs.Add(fe...); len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
 					me.Kits.reprocessingNeeded = true
 				}
 			}

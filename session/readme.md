@@ -129,7 +129,7 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit
 #### func (*Ctx) KitEnsureLoaded
 
 ```go
-func (me *Ctx) KitEnsureLoaded(kit *Kit)
+func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs atmo.Errors)
 ```
 
 #### func (*Ctx) KitsCollectDependants
