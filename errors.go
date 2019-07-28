@@ -6,7 +6,6 @@ import (
 )
 
 type IErrPosOffsets interface {
-	Id() string
 	PosOffsetLine() int
 	PosOffsetByte() int
 }
@@ -243,13 +242,6 @@ func (me *Errors) AddSubst(code int, toks udevlex.Tokens, msg string) *Error {
 
 func (me *Errors) AddUnreach(code int, toks udevlex.Tokens, msg string) *Error {
 	return me.AddFromToks(ErrCatUnreachable, code, toks, msg)
-}
-
-func (me *Errors) AddFrom(errs ...*Error) (self Errors) {
-	self = *me
-	self = append(self, errs...)
-	*me = self
-	return
 }
 
 func (me *Errors) AddFromTok(cat ErrorCategory, code int, tok *udevlex.Token, msg string) *Error {

@@ -231,11 +231,15 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs atmo.Err
 	if hadfresherrs {
 		if me.Options.BgMsgs.IncludeKitsErrs {
 			for _, e := range freshStage0Errs {
-				me.bgMsg(true, e.Error())
+				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Eval.FauxFileNameForErrorMessages) {
+					me.bgMsg(true, e.Error())
+				}
 			}
 			atmo.SortMaybe(freshStage1AndBeyondErrs)
-			for i := range freshStage1AndBeyondErrs {
-				me.bgMsg(true, freshStage1AndBeyondErrs[i].Error())
+			for _, e := range freshStage1AndBeyondErrs {
+				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Eval.FauxFileNameForErrorMessages) {
+					me.bgMsg(true, e.Error())
+				}
 			}
 		}
 	}

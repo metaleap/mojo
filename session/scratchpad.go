@@ -10,10 +10,9 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors) {
-	spfile := kit.SrcFiles.EnsureScratchPadFile()
-	origsrc := spfile.Options.TmpAltSrc
-
+func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors) {
+	spfile := kit.SrcFiles.EnsureScratchpadFile()
+	origsrc, tmpaltsrc := spfile.Options.TmpAltSrc, spfile.Options.TmpAltSrc
 	var restoreorigsrc bool
 	defer func() {
 		if restoreorigsrc {
@@ -23,41 +22,52 @@ func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, 
 	}()
 
 	isdef, _, toks, err := atmolang.LexAndGuess("", []byte(src))
-
 	if err != nil {
-		return nil, errs.AddFrom(err)
+		errs.Add(err)
+		return
 	}
 
 	var defname string
-	if !isdef {
+	if !isdef { // just an expression: add temp def `_randomname := ‹input›` then eval that name
 		defname = strconv.FormatInt(time.Now().UnixNano(), 16) + strconv.FormatInt(rand.Int63(), 16)
 		src = "_" + defname + " :=\n " + src
-	} else if def, e := atmolang.LexAndParseDefOrExpr(isdef, toks); e != nil {
-		return nil, errs.AddFrom(e)
-	} else {
-		defname = def.(*atmolang.AstDef).Name.Val
-		existingdefids := kit.lookups.tlDefIDsByName[defname]
-		for _, olddefid := range existingdefids {
-			if tlc := kit.SrcFiles.TopLevelChunkByDefId(olddefid); tlc != nil {
-				if tlc.SrcFile.SrcFilePath != "" {
-					errs.AddSess(ErrSess_EvalDefNameExists, "", "name `"+defname+"` already declared in "+tlc.SrcFile.SrcFilePath+":"+strconv.Itoa(1+tlc.PosOffsetLine())+":1 ─ try again with another name")
-					return
+	} else if defnode, e := atmolang.LexAndParseDefOrExpr(isdef, toks); e != nil {
+		errs.Add(e)
+		return
+	} else { // a full def to add to (or update in) the scratch-pad
+		def := defnode.(*atmolang.AstDef)
+		defname = def.Name.Val
+		var alreadyinscratchpad, alreadyinsrcfile *atmolang.SrcTopChunk
+		for _, t := range kit.topLevelDefs {
+			if t.OrigTopLevelChunk != nil && (t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname)) {
+				if t.OrigTopLevelChunk.SrcFile.SrcFilePath == "" {
+					alreadyinscratchpad = t.OrigTopLevelChunk
+				} else {
+					alreadyinsrcfile = t.OrigTopLevelChunk
+					break
 				}
 			}
+		}
+		if alreadyinsrcfile != nil {
+			errs.AddSess(ErrSess_EvalDefNameExists, me.Options.Eval.FauxFileNameForErrorMessages, "name `"+defname+"` already declared in "+alreadyinsrcfile.SrcFile.SrcFilePath+":"+strconv.Itoa(1+alreadyinsrcfile.PosOffsetLine())+":1 ─ try again with another name")
+			return
+		} else if alreadyinscratchpad != nil { // overwrite prev def by slicing out the old one
+			boff := alreadyinscratchpad.PosOffsetByte()
+			pref, suff := tmpaltsrc[:boff], tmpaltsrc[boff+len(alreadyinscratchpad.Src):]
+			tmpaltsrc = append(pref, suff...)
 		}
 	}
 
 	restoreorigsrc = !isdef
-	spfile.Options.TmpAltSrc = append(spfile.Options.TmpAltSrc, '\n', '\n')
-	spfile.Options.TmpAltSrc = append(spfile.Options.TmpAltSrc, src...)
+	spfile.Options.TmpAltSrc = append(append([]byte(src), '\n', '\n'), tmpaltsrc...)
 	me.catchUpOnFileMods(kit)
 
 	if spfile.HasErrors() { // refers ONLY to lex/parse errors
-		restoreorigsrc = true
-		return nil, spfile.Errors()
+		restoreorigsrc, errs = true, spfile.Errors()
+		return
 	} else {
 		defs := kit.topLevelDefs.ByName(defname)
-		if len(defs) != 1 { // shouldn't happen based on above safeguards
+		if len(defs) != 1 { // shouldn't happen based on above safeguards, else we'll have to look carefully where we missed some clean-up/sanity-check
 			restoreorigsrc = true
 			panic(len(defs))
 		}

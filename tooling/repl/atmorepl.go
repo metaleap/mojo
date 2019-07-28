@@ -112,7 +112,7 @@ func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 		default:
 			var caretpos int
 			kit := me.Ctx.KitByImpPath("")
-			preduced, errs := me.Ctx.Eval(kit, "", inputln)
+			preduced, errs := me.Ctx.ScratchpadEntry(kit, "", inputln)
 			if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
 				for _, err := range errs {
 					if err0pos := err.Pos(); err0pos != nil && err0pos.Ln1 == 1 {

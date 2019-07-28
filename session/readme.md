@@ -92,12 +92,6 @@ func (me *Ctx) BackgroundMessagesCount() (count int)
 func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile)
 ```
 
-#### func (*Ctx) Eval
-
-```go
-func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors)
-```
-
 #### func (*Ctx) FauxKitsAdd
 
 ```go
@@ -178,6 +172,12 @@ func (me *Ctx) Locked(do func())
 
 ```go
 func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) IPreduced
+```
+
+#### func (*Ctx) ScratchpadEntry
+
+```go
+func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors)
 ```
 
 #### func (*Ctx) WithInMemFileMod

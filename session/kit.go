@@ -210,7 +210,7 @@ func (me *Kit) ensureErrTldPosOffsets() {
 // (file-system errors, lexing/parsing errors, semantic errors etc).
 func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors) {
 	if me.Errs.Stage0DirAccessDuringRefresh != nil {
-		errs.AddFrom(me.Errs.Stage0DirAccessDuringRefresh)
+		errs.Add(me.Errs.Stage0DirAccessDuringRefresh)
 	}
 	errs.Add(me.Errs.Stage0BadImports...)
 	for i := range me.SrcFiles {

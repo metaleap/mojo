@@ -209,7 +209,7 @@ func (me AstFiles) TopLevelChunkByDefId(defId string) *SrcTopChunk {
 	return nil
 }
 
-func (me *AstFiles) EnsureScratchPadFile() (pretendFile *AstFile) {
+func (me *AstFiles) EnsureScratchpadFile() (pretendFile *AstFile) {
 	if pretendFile = me.ByFilePath(""); pretendFile == nil {
 		pretendFile = &AstFile{}
 		*me = append(*me, pretendFile)
