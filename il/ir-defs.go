@@ -42,10 +42,13 @@ func (me IrTopDefs) Less(i int, j int) bool {
 	return (dis.FilePath == dat.FilePath && me[i].OrigTopLevelChunk.PosOffsetByte() < me[j].OrigTopLevelChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 
-func (me IrTopDefs) ByName(name string) (defs []*IrDefTop) {
+func (me IrTopDefs) ByName(name string, onlyFor *atmolang.AstFile) (defs []*IrDefTop) {
+	allfiles := (onlyFor == nil)
 	for _, tld := range me {
-		if tld.Name.Val == name || (tld.OrigDef != nil && tld.OrigDef.Name.Val == name) {
-			defs = append(defs, tld)
+		if allfiles || (tld.OrigTopLevelChunk != nil && tld.OrigTopLevelChunk.SrcFile != nil && tld.OrigTopLevelChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
+			if tld.Name.Val == name || (tld.OrigDef != nil && tld.OrigDef.Name.Val == name) {
+				defs = append(defs, tld)
+			}
 		}
 	}
 	return

@@ -26,7 +26,8 @@ const (
 
 ```go
 const (
-	ErrSess_EvalDefNameExists = iota + 3300
+	ErrSess_EvalDefNameExistsInCurKit = iota + 3300
+	ErrSess_EvalDefNameExistsImported
 )
 ```
 
@@ -107,7 +108,7 @@ func (me *Ctx) FauxKitsHas(dirPath string) bool
 #### func (*Ctx) Init
 
 ```go
-func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err *atmo.Error)
+func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *atmo.Error)
 ```
 Init validates the `Ctx.Dirs` fields currently set, then builds up its `Kits`
 reflective of the structures found in the various `me.Dirs.Kits` search paths

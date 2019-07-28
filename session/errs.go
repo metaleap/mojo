@@ -18,6 +18,7 @@ const (
 )
 
 const (
-	_                         = iota
-	ErrSess_EvalDefNameExists = iota + 3300
+	_                                 = iota
+	ErrSess_EvalDefNameExistsInCurKit = iota + 3300
+	ErrSess_EvalDefNameExistsImported
 )

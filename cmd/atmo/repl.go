@@ -22,7 +22,7 @@ func mainRepl() {
 	atmo.Options.Sorts = true
 	var repl atmorepl.Repl
 	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Kits, repl.Ctx.Dirs.Cache = replMultiLineSuffix, replDirsAdditionalKits, replDirCache
-	if err := repl.Ctx.Init(false, replDirSession); err == nil {
+	if kitimppath, err := repl.Ctx.Init(false, replDirSession); err == nil {
 		usys.OnSigint(func() {
 			repl.QuitNonDirectiveInitiated(true)
 			// repl.Ctx.Dispose()
@@ -41,7 +41,7 @@ func mainRepl() {
 		if atmorepl.Ux.MoreLines > 0 {
 			atmorepl.Ux.WelcomeMsgLines = append(atmorepl.Ux.WelcomeMsgLines, "", "─ every "+ustr.Plu(atmorepl.Ux.MoreLines, "line")+", further output is held back", "  until ‹enter›ing on the `"+ustr.Trim(string(atmorepl.Ux.MoreLinesPrompt))+"` prompt shown")
 		}
-		repl.Run(true)
+		repl.Run(true, kitimppath)
 		// repl.Ctx.Dispose()
 	} else {
 		println(err.Error())

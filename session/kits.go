@@ -17,7 +17,6 @@ func init() { ufs.ReadDirFunc = ufs.Dir }
 
 // KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
 func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
-	me.maybeInitPanic(false)
 	kitImpPaths = make([]string, len(me.Kits.All))
 	for i := range me.Kits.All {
 		kitImpPaths[i] = me.Kits.All[i].ImpPath
@@ -222,7 +221,6 @@ func (me Kits) SrcFilePaths() (srcFilePaths []string) {
 }
 
 func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
-	me.maybeInitPanic(false)
 	me.CatchUpOnFileMods()
 }
 

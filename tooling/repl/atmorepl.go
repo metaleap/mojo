@@ -55,8 +55,7 @@ func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 		me.decoWelcomeMsgAnim()
 	}
 
-	me.Ctx.KitsEnsureLoaded(loadSessDirFauxKit, append([]string{ /*atmo.NameAutoKit*/ },
-		ustr.Sans(loadKitsByImpPaths, atmo.NameAutoKit)...)...)
+	me.Ctx.KitsEnsureLoaded(loadSessDirFauxKit, loadKitsByImpPaths...)
 
 	me.decoInputStart(false, false)
 	for multiln, readln := "", bufio.NewScanner(os.Stdin); (!me.run.quit) && readln.Scan() && (!me.run.quit); {

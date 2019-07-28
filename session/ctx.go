@@ -62,18 +62,11 @@ func CtxDefaultCacheDirPath() string {
 	return filepath.Join(usys.UserDataDirPath(true), "atmo")
 }
 
-func (me *Ctx) maybeInitPanic(initingNow bool) {
-	if me.state.initCalled == initingNow {
-		panic("atmo.Ctx.Init must be called exactly once only")
-	}
-}
-
 // Init validates the `Ctx.Dirs` fields currently set, then builds up its
 // `Kits` reflective of the structures found in the various `me.Dirs.Kits`
 // search paths and from now on in sync with live modifications to those.
-func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err *atmo.Error) {
+func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *atmo.Error) {
 	me.state.preduce.owner = me
-	me.maybeInitPanic(true)
 	me.state.initCalled, me.Kits.All = true, make(Kits, 0, 32)
 	cachedir := me.Dirs.Cache
 	if cachedir == "" {
@@ -139,8 +132,8 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err *atmo.Err
 		}
 		if err == nil {
 			if me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
-				_, e := me.fauxKitsAddDir(sessionFauxKitDir, true)
-				err = atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoFauxKitDirProblem, sessionFauxKitDir, e)
+				_, kip, e := me.fauxKitsAddDir(sessionFauxKitDir, true)
+				kitImpPathIfFauxKitDirActualKit, err = kip, atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoFauxKitDirProblem, sessionFauxKitDir, e)
 			}
 		}
 		if err == nil {
@@ -156,7 +149,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err *atmo.Err
 func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error) {
 	was := ustr.In(dirPath, me.Dirs.fauxKits...)
 	if is = was; !is {
-		is, err = me.fauxKitsAddDir(dirPath, false)
+		is, _, err = me.fauxKitsAddDir(dirPath, false)
 	}
 	if is && !was {
 		me.CatchUpOnFileMods()
@@ -164,7 +157,7 @@ func (me *Ctx) FauxKitsAdd(dirPath string) (is bool, err error) {
 	return
 }
 
-func (me *Ctx) fauxKitsAddDir(dirPath string, forceAcceptEvenIfNoSrcFiles bool) (dirHasSrcFiles bool, err error) {
+func (me *Ctx) fauxKitsAddDir(dirPath string, forceAcceptEvenIfNoSrcFiles bool) (dirHasSrcFiles bool, existingKitImpPath string, err error) {
 	if dirPath == "" || dirPath == "." {
 		dirPath, err = os.Getwd()
 	} else if dirPath[0] == '~' {
@@ -184,7 +177,9 @@ func (me *Ctx) fauxKitsAddDir(dirPath string, forceAcceptEvenIfNoSrcFiles bool) 
 		if dirHasSrcFiles = ufs.DoesDirHaveFilesWithSuffix(dirPath, atmo.SrcFileExt); dirHasSrcFiles || forceAcceptEvenIfNoSrcFiles {
 			var in bool
 			for _, kitsdirpath := range me.Dirs.Kits {
-				if in = ustr.Pref(dirPath, kitsdirpath+string(os.PathSeparator)); in {
+				pref := kitsdirpath + string(os.PathSeparator)
+				if in = ustr.Pref(dirPath, pref); in {
+					existingKitImpPath = dirPath[len(pref):]
 					break
 				}
 			}
@@ -212,7 +207,6 @@ func (me *Ctx) bgMsg(issue bool, lines ...string) {
 }
 
 func (me *Ctx) BackgroundMessages(clear bool) (msgs []ctxBgMsg) {
-	me.maybeInitPanic(false)
 	if msgs = me.state.bgMsgs; clear {
 		me.state.bgMsgs = nil
 	}
@@ -220,7 +214,6 @@ func (me *Ctx) BackgroundMessages(clear bool) (msgs []ctxBgMsg) {
 }
 
 func (me *Ctx) BackgroundMessagesCount() (count int) {
-	me.maybeInitPanic(false)
 	count = len(me.state.bgMsgs)
 	return
 }

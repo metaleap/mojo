@@ -62,8 +62,11 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 				}
 			}
 		}
-		if alreadyinsrcfile != nil {
-			errs.AddSess(ErrSess_EvalDefNameExists, me.Options.Scratchpad.FauxFileNameForErrorMessages, "name `"+defname+"` already declared in "+alreadyinsrcfile.SrcFile.SrcFilePath+":"+strconv.Itoa(1+alreadyinsrcfile.PosOffsetLine())+":1 ─ try again with another name")
+		if false && alreadyinsrcfile != nil {
+			errs.AddSess(ErrSess_EvalDefNameExistsInCurKit, me.Options.Scratchpad.FauxFileNameForErrorMessages, "name `"+defname+"` already declared in "+alreadyinsrcfile.SrcFile.SrcFilePath+":"+strconv.Itoa(1+alreadyinsrcfile.PosOffsetLine())+":1 ─ try again with another name")
+			return
+		} else if others := kit.lookups.namesInScopeAll[defname]; false && len(others) > 0 {
+			errs.AddSess(ErrSess_EvalDefNameExistsImported, me.Options.Scratchpad.FauxFileNameForErrorMessages, "name `"+defname+"` already declared by imports ─ try again with another name")
 			return
 		} else if alreadyinscratchpad != nil { // overwrite prev def by slicing out the old one
 			boff := alreadyinscratchpad.PosOffsetByte()
@@ -85,7 +88,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 	} else if src == "" {
 		me.bgMsg(false, "def removed from scratchpad: "+defname)
 	} else {
-		defs := kit.topLevelDefs.ByName(defname)
+		defs := kit.topLevelDefs.ByName(defname, spfile)
 		if len(defs) != 1 { // shouldn't happen based on above safeguards, else we'll have to look carefully where we missed some clean-up/sanity-check
 			restoreorigsrc = true
 			panic(len(defs))
@@ -99,7 +102,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		}
 		identexpr := atmoil.Build.IdentName(defname)
 		identexpr.Anns.Candidates = []atmoil.INode{defs[0]}
-		ret = me.PreduceExpr(kit, defs[0].Id, identexpr)
+		ret = me.PreduceExpr(kit, "", identexpr)
 	}
 
 	return

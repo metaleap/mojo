@@ -38,21 +38,13 @@ type Kit struct {
 	}
 }
 
-func (me *Ctx) kitEnsureLoaded(kit *Kit, thenReprocessAffectedDefsIfAnyKitsReloaded bool) {
+func (me *Ctx) KitEnsureLoaded(kit *Kit) {
 	stage0errs := me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
-	var stage1andbeyonderrs atmo.Errors
-	if thenReprocessAffectedDefsIfAnyKitsReloaded {
-		stage1andbeyonderrs = me.reprocessAffectedDefsIfAnyKitsReloaded()
-	}
+	stage1andbeyonderrs := me.reprocessAffectedDefsIfAnyKitsReloaded()
 	me.onSomeOrAllKitsPartiallyOrFullyRefreshed(stage0errs, stage1andbeyonderrs)
 }
 
-func (me *Ctx) KitEnsureLoaded(kit *Kit) {
-	me.kitEnsureLoaded(kit, true)
-}
-
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string) {
-	me.maybeInitPanic(false)
 	if plusSessDirFauxKits {
 		for _, dirsess := range me.Dirs.fauxKits {
 			if idx := me.Kits.All.IndexDirPath(dirsess); idx >= 0 {
@@ -61,16 +53,19 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 		}
 	}
 
+	var anyrefr bool
 	var fresherrs atmo.Errors
 	if len(kitImpPaths) > 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
+				anyrefr = true
 				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)...)
 			}
 		}
 	}
-
-	me.onSomeOrAllKitsPartiallyOrFullyRefreshed(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
+	if anyrefr {
+		me.onSomeOrAllKitsPartiallyOrFullyRefreshed(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
+	}
 }
 
 func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) {
@@ -83,11 +78,15 @@ func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) 
 }
 
 func (me *Ctx) KitByImpPath(impPath string) *Kit {
-	me.maybeInitPanic(false)
 	idx := me.Kits.All.IndexImpPath(impPath)
 	if idx < 0 && (impPath == "" || impPath == "." || impPath == "·") {
 		if fauxkitdirs := me.Dirs.fauxKits; len(fauxkitdirs) > 0 {
 			idx = me.Kits.All.IndexDirPath(fauxkitdirs[0])
+		}
+		if idx < 0 {
+			if curdirpath, err := os.Getwd(); err == nil {
+				idx = me.Kits.All.IndexDirPath(curdirpath)
+			}
 		}
 	}
 	if idx >= 0 {
@@ -165,7 +164,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
 					kit.Errs.Stage0BadImports.AddSess(ErrSessKits_ImportNotFound, "", "import not found: `"+imp+"`")
 				} else {
-					me.kitEnsureLoaded(kimp, false)
+					me.KitEnsureLoaded(kimp)
 				}
 			}
 
@@ -173,9 +172,9 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				freshErrs = append(freshErrs, kit.Errs.Stage0BadImports...)
 			}
 
-			// if allunchanged && !reloadForceInsteadOfAuto {
-			// 	return
-			// }
+			if allunchanged && !reloadForceInsteadOfAuto {
+				return
+			}
 			{
 				od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
 				kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames, freshErrs = od, nd, append(freshErrs, fe...)
