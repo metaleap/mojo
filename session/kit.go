@@ -1,7 +1,6 @@
 package atmosess
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 
@@ -34,8 +33,8 @@ type Kit struct {
 		namesInScopeAll atmoil.AnnNamesInScope
 	}
 	Errs struct {
-		Stage0DirAccessDuringRefresh error
-		Stage0BadImports             []error
+		Stage0DirAccessDuringRefresh *atmo.Error
+		Stage0BadImports             atmo.Errors
 	}
 }
 
@@ -62,11 +61,11 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 		}
 	}
 
-	var fresherrs []error
+	var fresherrs atmo.Errors
 	if len(kitImpPaths) > 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
-				fresherrs = append(fresherrs, me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)...)
+				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)...)
 			}
 		}
 	}
@@ -117,13 +116,15 @@ func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames a
 	return
 }
 
-func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) (freshErrs []error) {
+func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) (freshErrs atmo.Errors) {
 	var srcfileschanged bool
+	var err error
 
 	{ // step 1: files refresh
 		var diritems []os.FileInfo
-		if diritems, kit.Errs.Stage0DirAccessDuringRefresh = ufs.Dir(kit.DirPath); kit.Errs.Stage0DirAccessDuringRefresh != nil {
-			kit.SrcFiles, kit.topLevelDefs, freshErrs = nil, nil, append(freshErrs, kit.Errs.Stage0DirAccessDuringRefresh)
+		if diritems, err = ufs.Dir(kit.DirPath); err != nil {
+			kit.SrcFiles, kit.topLevelDefs, kit.Errs.Stage0DirAccessDuringRefresh =
+				nil, nil, freshErrs.AddSess(ErrSessKits_IoReadDirFailure, kit.DirPath, err.Error())
 			return
 		}
 
@@ -162,7 +163,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 
 			for _, imp := range kit.Imports {
 				if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
-					kit.Errs.Stage0BadImports = append(kit.Errs.Stage0BadImports, errors.New("import not found: `"+imp+"`"))
+					kit.Errs.Stage0BadImports.AddSess(ErrSessKits_ImportNotFound, "", "import not found: `"+imp+"`")
 				} else {
 					me.kitEnsureLoaded(kimp, false)
 				}
@@ -207,11 +208,11 @@ func (me *Kit) ensureErrTldPosOffsets() {
 
 // Errors collects whatever issues exist in any of the `Kit`'s source files
 // (file-system errors, lexing/parsing errors, semantic errors etc).
-func (me *Kit) Errors(maybeErrsToSrcs map[error][]byte) (errs []error) {
+func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors) {
 	if me.Errs.Stage0DirAccessDuringRefresh != nil {
-		errs = append(errs, me.Errs.Stage0DirAccessDuringRefresh)
+		errs.AddFrom(me.Errs.Stage0DirAccessDuringRefresh)
 	}
-	errs = append(errs, me.Errs.Stage0BadImports...)
+	errs.Add(me.Errs.Stage0BadImports...)
 	for i := range me.SrcFiles {
 		for _, e := range me.SrcFiles[i].Errors() {
 			if errs = append(errs, e); maybeErrsToSrcs != nil {
@@ -220,13 +221,13 @@ func (me *Kit) Errors(maybeErrsToSrcs map[error][]byte) (errs []error) {
 		}
 	}
 	for i := range me.topLevelDefs {
-		deferrs := append(me.topLevelDefs[i].Errs.Stage0Init.Errors(), me.topLevelDefs[i].Errs.Stage1BadNames.Errors()...)
+		deferrs := append(me.topLevelDefs[i].Errs.Stage0Init, me.topLevelDefs[i].Errs.Stage1BadNames...)
 		if maybeErrsToSrcs != nil {
 			for _, e := range deferrs {
 				maybeErrsToSrcs[e] = me.topLevelDefs[i].OrigTopLevelChunk.SrcFile.LastLoad.Src
 			}
 		}
-		errs = append(errs, deferrs...)
+		errs.Add(deferrs...)
 	}
 	return
 }

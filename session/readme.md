@@ -5,6 +5,31 @@
 
 ## Usage
 
+```go
+const (
+	ErrSessInit_IoCacheDirCreationFailure = iota + 3100
+	ErrSessInit_IoCacheDirDeletionFailure
+	ErrSessInit_KitsDirsConflict
+	ErrSessInit_KitsDirsNotSpecified
+	ErrSessInit_KitsDirsNotFound
+	ErrSessInit_KitsDirAutoNotFound
+	ErrSessInit_IoFauxKitDirProblem
+)
+```
+
+```go
+const (
+	ErrSessKits_IoReadDirFailure = iota + 3200
+	ErrSessKits_ImportNotFound
+)
+```
+
+```go
+const (
+	ErrSess_EvalDefNameExists = iota + 3300
+)
+```
+
 #### func  CtxDefaultCacheDirPath
 
 ```go
@@ -70,7 +95,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 #### func (*Ctx) Eval
 
 ```go
-func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs []error)
+func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors)
 ```
 
 #### func (*Ctx) FauxKitsAdd
@@ -88,7 +113,7 @@ func (me *Ctx) FauxKitsHas(dirPath string) bool
 #### func (*Ctx) Init
 
 ```go
-func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error)
+func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err *atmo.Error)
 ```
 Init validates the `Ctx.Dirs` fields currently set, then builds up its `Kits`
 reflective of the structures found in the various `me.Dirs.Kits` search paths
@@ -199,8 +224,8 @@ type Kit struct {
 	SrcFiles atmolang.AstFiles
 
 	Errs struct {
-		Stage0DirAccessDuringRefresh error
-		Stage0BadImports             []error
+		Stage0DirAccessDuringRefresh *atmo.Error
+		Stage0BadImports             atmo.Errors
 	}
 }
 ```
@@ -223,7 +248,7 @@ func (me *Kit) Defs(name string) (defs atmoil.IrTopDefs)
 #### func (*Kit) Errors
 
 ```go
-func (me *Kit) Errors(maybeErrsToSrcs map[error][]byte) (errs []error)
+func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors)
 ```
 Errors collects whatever issues exist in any of the `Kit`'s source files
 (file-system errors, lexing/parsing errors, semantic errors etc).

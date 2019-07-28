@@ -114,12 +114,10 @@ func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 			kit := me.Ctx.KitByImpPath("")
 			preduced, errs := me.Ctx.Eval(kit, "", inputln)
 			if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
-				for _, e := range errs {
-					if err, _ := e.(*atmo.Error); err != nil {
-						if err0pos := err.Pos(); err0pos.Ln1 == 1 {
-							caretpos = err0pos.Col1 + numleadingspaces
-							break
-						}
+				for _, err := range errs {
+					if err0pos := err.Pos(); err0pos != nil && err0pos.Ln1 == 1 {
+						caretpos = err0pos.Col1 + numleadingspaces
+						break
 					}
 				}
 			}

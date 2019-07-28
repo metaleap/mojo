@@ -60,7 +60,7 @@ func (me IrTopDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs []error) {
+func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs atmo.Errors) {
 	this, newdefs, oldunchangeds := *me, make([]*atmolang.SrcTopChunk, 0, 2), make(map[int]atmo.Exist, len(*me))
 
 	// gather what's "new" (newly added or source-wise modified) and what's "old" (source-wise unchanged)
@@ -106,12 +106,12 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelD
 			var let IrExprLetBase
 			var ctxinit ctxIrInit
 			let.letPrefix, ctxinit.defsScope, ctxinit.curTopLevelDef = ctxinit.nextPrefix(), &let.Defs, def
-			def.Errs.Stage0Init.Add(def.initFrom(&ctxinit, def.OrigDef))
+			def.Errs.Stage0Init.Add(def.initFrom(&ctxinit, def.OrigDef)...)
 			if len(let.Defs) > 0 {
-				def.Errs.Stage0Init.Add(ctxinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let))
+				def.Errs.Stage0Init.Add(ctxinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let)...)
 			}
 			if len(def.Errs.Stage0Init) > 0 {
-				freshErrs = append(freshErrs, def.Errs.Stage0Init.Errors()...)
+				freshErrs.Add(def.Errs.Stage0Init...)
 			}
 		}
 	}

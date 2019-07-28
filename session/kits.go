@@ -134,10 +134,10 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 		atmo.SortMaybe(me.Kits.All)
 
 		// per-file refresher
-		var fresherrs []error
+		var fresherrs atmo.Errors
 		for kitdirpath := range shouldrefresh {
 			if idx := me.Kits.All.IndexDirPath(kitdirpath); idx >= 0 {
-				fresherrs = append(fresherrs, me.kitRefreshFilesAndMaybeReload(me.Kits.All[idx], false)...)
+				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(me.Kits.All[idx], false)...)
 			} else {
 				panic(kitdirpath)
 			}
@@ -235,7 +235,7 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) 
 		defidsdependantsofnamesofchange := make(map[string]*Kit)
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
 
-		freshErrs.Add(me.refreshFactsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange))
+		freshErrs.Add(me.refreshFactsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange)...)
 	}
 	return
 }

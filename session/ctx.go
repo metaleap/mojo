@@ -1,7 +1,6 @@
 package atmosess
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -72,7 +71,7 @@ func (me *Ctx) maybeInitPanic(initingNow bool) {
 // Init validates the `Ctx.Dirs` fields currently set, then builds up its
 // `Kits` reflective of the structures found in the various `me.Dirs.Kits`
 // search paths and from now on in sync with live modifications to those.
-func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
+func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err *atmo.Error) {
 	me.state.preduce.owner = me
 	me.maybeInitPanic(true)
 	me.state.initCalled, me.Kits.All = true, make(Kits, 0, 32)
@@ -81,9 +80,9 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		cachedir = CtxDefaultCacheDirPath()
 	}
 	if !ufs.IsDir(cachedir) {
-		err = ufs.EnsureDir(cachedir)
+		err = atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoCacheDirCreationFailure, cachedir, ufs.EnsureDir(cachedir))
 	} else if clearCacheDir {
-		err = ufs.Del(cachedir)
+		err = atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoCacheDirDeletionFailure, cachedir, ufs.Del(cachedir))
 	}
 	if kitsdirs := me.Dirs.Kits; err == nil {
 		kitsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarKitsDirs), string(os.PathListSeparator))
@@ -112,7 +111,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		for i := range kitsdirs {
 			for j := range kitsdirs {
 				if iinj, jini := ustr.Pref(kitsdirs[i], kitsdirs[j]), ustr.Pref(kitsdirs[j], kitsdirs[i]); i != j && (iinj || jini) {
-					err = errors.New("conflicting kits-dirs, because one contains the other: `" + kitsdirs[i] + "` vs. `" + kitsdirs[j] + "`")
+					err = atmo.ErrSess(ErrSessInit_KitsDirsConflict, "", "conflicting kits-dirs, because one contains the other: `"+kitsdirs[i]+"` vs. `"+kitsdirs[j]+"`")
 					break
 				}
 			}
@@ -122,9 +121,9 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 		}
 		if err == nil && len(kitsdirs) == 0 {
 			if kitsdirstried := append(kitsdirsenv, kitsdirsorig...); len(kitsdirstried) == 0 {
-				err = errors.New("no kits-dirs were specified, neither via env-var " + atmo.EnvVarKitsDirs + " nor via command-line flags")
+				err = atmo.ErrSess(ErrSessInit_KitsDirsNotSpecified, "", "no kits-dirs were specified, neither via env-var "+atmo.EnvVarKitsDirs+" nor via command-line flags")
 			} else {
-				err = errors.New("none of the specified kits-dirs were found:\n    " + ustr.Join(kitsdirstried, "\n    "))
+				err = atmo.ErrSess(ErrSessInit_KitsDirsNotFound, "", "none of the specified kits-dirs were found:\n    "+ustr.Join(kitsdirstried, "\n    "))
 			}
 		}
 		if err == nil {
@@ -135,12 +134,13 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (err error) {
 				}
 			}
 			if !autokitexists {
-				err = errors.New("Standard auto-imported kit `" + atmo.NameAutoKit + "` not found in any of:\n    " + ustr.Join(kitsdirs, "\n    "))
+				err = atmo.ErrSess(ErrSessInit_KitsDirAutoNotFound, "", "Standard auto-imported kit `"+atmo.NameAutoKit+"` not found in any of:\n    "+ustr.Join(kitsdirs, "\n    "))
 			}
 		}
 		if err == nil {
 			if me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
-				_, err = me.fauxKitsAddDir(sessionFauxKitDir, true)
+				_, e := me.fauxKitsAddDir(sessionFauxKitDir, true)
+				err = atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoFauxKitDirProblem, sessionFauxKitDir, e)
 			}
 		}
 		if err == nil {
@@ -225,7 +225,7 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 	return
 }
 
-func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs []error, freshStage1AndBeyondErrs atmo.Errors) {
+func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs atmo.Errors, freshStage1AndBeyondErrs atmo.Errors) {
 	me.Kits.All.ensureErrTldPosOffsets()
 	hadfresherrs := len(freshStage0Errs) > 0 || len(freshStage1AndBeyondErrs) > 0
 	if hadfresherrs {

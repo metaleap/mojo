@@ -2,6 +2,7 @@ package atmo
 
 import (
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 )
 
 type IErrPosOffsets interface {
@@ -20,6 +21,7 @@ const (
 	ErrCatParsing
 	ErrCatNaming
 	ErrCatSubst
+	ErrCatSess
 	ErrCatUnreachable
 )
 
@@ -29,6 +31,8 @@ func (me ErrorCategory) String() string {
 		return "BUG"
 	case ErrCatTodo:
 		return "TODO"
+	case ErrCatSess:
+		return "session"
 	case ErrCatLexing:
 		return "lexical"
 	case ErrCatParsing:
@@ -47,8 +51,8 @@ type Error struct {
 	tldOff IErrPosOffsets
 
 	ref  *Error
+	pos  *udevlex.Pos
 	msg  string
-	pos  udevlex.Pos
 	len  int
 	cat  ErrorCategory
 	code int
@@ -66,6 +70,10 @@ func (me *Error) Code() int {
 		return me.ref.Code()
 	}
 	return me.code
+}
+
+func (me *Error) CodeAndCat() string {
+	return "Æ" + ustr.Int(me.Code()) + " #" + me.Cat().String()
 }
 
 func (me *Error) Len() int {
@@ -86,18 +94,25 @@ func (me *Error) Pos() *udevlex.Pos {
 	if me.ref != nil {
 		return me.ref.Pos()
 	}
-	pos := me.pos
-	if me.tldOff != nil {
-		pos.Ln1, pos.Off0 = pos.Ln1+me.tldOff.PosOffsetLine(), pos.Off0+me.tldOff.PosOffsetByte()
+	if me.pos != nil && me.tldOff != nil {
+		pos := *me.pos
+		if me.tldOff != nil {
+			pos.Ln1, pos.Off0 = pos.Ln1+me.tldOff.PosOffsetLine(), pos.Off0+me.tldOff.PosOffsetByte()
+		}
+		return &pos
 	}
-	return &pos
+	return me.pos
 }
 
 func (me *Error) Error() string {
 	if me.ref != nil {
 		return me.ref.Error()
 	}
-	return me.Pos().String() + ": [" + me.cat.String() + "] " + me.msg
+	var pref string
+	if p := me.Pos(); p != nil {
+		pref = p.String() + ": "
+	}
+	return pref + "[" + me.CodeAndCat() + "] " + me.msg
 }
 
 func (me *Error) IsRef() bool { return me.ref != nil }
@@ -107,10 +122,7 @@ func (me *Error) UpdatePosOffsets(offsets IErrPosOffsets) {
 }
 
 func ErrAtPos(cat ErrorCategory, code int, pos *udevlex.Pos, length int, msg string) (err *Error) {
-	err = &Error{msg: msg, len: length, cat: cat, code: code}
-	if pos != nil {
-		err.pos = *pos
-	}
+	err = &Error{msg: msg, len: length, cat: cat, code: code, pos: pos}
 	return
 }
 
@@ -153,6 +165,24 @@ func ErrTodo(code int, toks udevlex.Tokens, msg string) *Error {
 	return ErrAtToks(ErrCatTodo, code, toks, msg)
 }
 
+func ErrSess(code int, maybePath string, msg string) *Error {
+	return ErrAtPos(ErrCatSess, code, ErrFauxPos(maybePath), 1, msg)
+}
+
+func ErrFrom(cat ErrorCategory, code int, maybeSrcFilePath string, err error) *Error {
+	if err != nil {
+		return ErrAtPos(cat, code, ErrFauxPos(maybeSrcFilePath), 1, err.Error())
+	}
+	return nil
+}
+
+func ErrFauxPos(maybeSrcFilePath string) (pos *udevlex.Pos) {
+	if maybeSrcFilePath != "" {
+		pos = &udevlex.Pos{Ln1: 1, Col1: 1, FilePath: maybeSrcFilePath}
+	}
+	return
+}
+
 func ErrRef(err *Error) *Error {
 	if err.ref != nil {
 		return err
@@ -168,20 +198,17 @@ func (me Errors) UpdatePosOffsets(offsets IErrPosOffsets) {
 	}
 }
 
-func (me *Errors) Add(errs Errors) (anyAdded bool) {
+func (me *Errors) Add(errs ...*Error) (anyAdded bool) {
 	if anyAdded = len(errs) > 0; anyAdded {
 		*me = append(*me, errs...)
 	}
 	return
 }
 
-func (me *Errors) AddVia(v interface{}, errs Errors) interface{} { me.Add(errs); return v }
+func (me *Errors) AddVia(v interface{}, errs Errors) interface{} { me.Add(errs...); return v }
 
 func (me *Errors) AddAt(cat ErrorCategory, code int, pos *udevlex.Pos, length int, msg string) *Error {
-	err := &Error{msg: msg, len: length, cat: cat, code: code}
-	if pos != nil {
-		err.pos = *pos
-	}
+	err := &Error{msg: msg, len: length, cat: cat, code: code, pos: pos}
 	*me = append(*me, err)
 	return err
 }
@@ -202,6 +229,10 @@ func (me *Errors) AddTodo(code int, toks udevlex.Tokens, msg string) *Error {
 	return me.AddFromToks(ErrCatTodo, code, toks, msg)
 }
 
+func (me *Errors) AddSess(code int, maybePath string, msg string) *Error {
+	return me.AddAt(ErrCatSess, code, ErrFauxPos(maybePath), 1, msg)
+}
+
 func (me *Errors) AddNaming(code int, tok *udevlex.Token, msg string) *Error {
 	return me.AddFromTok(ErrCatNaming, code, tok, msg)
 }
@@ -214,6 +245,13 @@ func (me *Errors) AddUnreach(code int, toks udevlex.Tokens, msg string) *Error {
 	return me.AddFromToks(ErrCatUnreachable, code, toks, msg)
 }
 
+func (me *Errors) AddFrom(errs ...*Error) (self Errors) {
+	self = *me
+	self = append(self, errs...)
+	*me = self
+	return
+}
+
 func (me *Errors) AddFromTok(cat ErrorCategory, code int, tok *udevlex.Token, msg string) *Error {
 	if tok == nil {
 		return me.AddAt(cat, code, nil, 0, msg)
@@ -223,14 +261,6 @@ func (me *Errors) AddFromTok(cat ErrorCategory, code int, tok *udevlex.Token, ms
 
 func (me *Errors) AddFromToks(cat ErrorCategory, code int, toks udevlex.Tokens, msg string) *Error {
 	return me.AddAt(cat, code, toks.Pos(), toks.Length(), msg)
-}
-
-func (me Errors) Errors() (errs []error) {
-	errs = make([]error, len(me))
-	for i, e := range me {
-		errs[i] = e
-	}
-	return
 }
 
 func (me Errors) Strings() (s []string) {
@@ -259,6 +289,12 @@ func (me Errors) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me Errors) Less(i int, j int) bool {
 	ei, ej := me[i], me[j]
 	pei, pej := ei.Pos(), ej.Pos()
+	if pej == nil {
+		return false
+	}
+	if pei == nil {
+		return true
+	}
 	if pei.FilePath == pej.FilePath {
 		if pei.Off0 == pej.Off0 {
 			return ei.msg < ej.msg

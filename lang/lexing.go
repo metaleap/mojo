@@ -16,7 +16,7 @@ func init() {
 		"([{}])", ",", true, "\"'", '\''
 }
 
-func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool, noChangesDetected *bool) (freshErrs []error) {
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool, noChangesDetected *bool) (freshErrs atmo.Errors) {
 	if me.Options.TmpAltSrc != nil {
 		me.LastLoad.Time, me.LastLoad.FileSize = 0, 0
 	} else if me.SrcFilePath != "" {
@@ -38,11 +38,12 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 		reader = &ustd.BytesReader{Data: me.Options.TmpAltSrc}
 	} else if me.SrcFilePath != "" {
 		var srcfile *os.File
-		if srcfile, me.errs.loading = os.Open(me.SrcFilePath); me.errs.loading == nil {
+		var err error
+		if srcfile, err = os.Open(me.SrcFilePath); err == nil {
 			reader = srcfile
 			defer srcfile.Close()
 		} else {
-			freshErrs = append(freshErrs, me.errs.loading)
+			me.errs.loading = freshErrs.AddLex(ErrLexing_FileOpenFailure, atmo.ErrFauxPos(me.SrcFilePath), err.Error())
 		}
 	} else if stdinIfNoSrcFile {
 		reader = os.Stdin
@@ -73,7 +74,7 @@ func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, gu
 
 		toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 32, indentguess)
 		for _, e := range errs {
-			return false, false, nil, atmo.ErrLex(ErrLexing_Other, &e.Pos, e.Msg)
+			return false, false, nil, atmo.ErrLex(ErrLexing_Tokenization, &e.Pos, e.Msg)
 		}
 		lexedToks = toks
 		idxdecl, idxcomma := toks.Index(":=", false), toks.Index(",", false)
@@ -90,10 +91,22 @@ func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, gu
 	return
 }
 
-func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs []error) {
-	var src []byte
-	if src, me.errs.loading = ustd.ReadAll(r, me.LastLoad.FileSize); me.errs.loading != nil {
-		freshErrs = append(freshErrs, me.errs.loading)
+func LexAndParseDefOrExpr(def bool, toks udevlex.Tokens) (ret IAstNode, err *atmo.Error) {
+	ctx := ctxTldParse{bracketsHalfIdx: len(udevlex.SepsGroupers) / 2}
+	if def {
+		ctx.curTopDef = &AstDef{IsTopLevel: true}
+		if err = ctx.parseDef(toks, ctx.curTopDef); err == nil {
+			ret = ctx.curTopDef
+		}
+	} else {
+		ret, err = ctx.parseExpr(toks)
+	}
+	return
+}
+
+func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs atmo.Errors) {
+	if src, err := ustd.ReadAll(r, me.LastLoad.FileSize); err != nil {
+		me.errs.loading = freshErrs.AddLex(ErrLexing_FileReadFailure, atmo.ErrFauxPos(me.SrcFilePath), err.Error())
 	} else {
 		if bytes.Equal(src, me.LastLoad.Src) {
 			if noChangesDetected != nil {
@@ -128,14 +141,13 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 				}
 				if !inderr {
 					toks, errs := udevlex.Lex(this.Src, me.SrcFilePath, 64, indent)
-
 					if this.Ast.Tokens = toks; len(errs) > 0 {
 						for _, e := range errs {
 							freshErrs = append(freshErrs,
-								this.errs.lexing.AddLex(ErrLexing_Other, &e.Pos, e.Msg))
+								this.errs.lexing.AddLex(ErrLexing_Tokenization, &e.Pos, e.Msg))
 						}
 					} else {
-						freshErrs = append(freshErrs, me.parse(this)...)
+						freshErrs.Add(me.parse(this)...)
 					}
 				}
 			}

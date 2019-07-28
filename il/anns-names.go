@@ -110,7 +110,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, 
 		if len(let.Defs) > 0 {
 			inscope = inscope.copyAndAdd(tld, let.Defs, &errs)
 			for i := range let.Defs {
-				errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, &let.Defs[i], currentlyErroneousButKnownGlobalsNames))
+				errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, &let.Defs[i], currentlyErroneousButKnownGlobalsNames)...)
 			}
 		}
 		let.Anns.NamesInScope = inscope
@@ -120,10 +120,10 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, 
 		if n.Arg != nil {
 			inscope = inscope.copyAndAdd(tld, n.Arg, &errs)
 		}
-		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames))
+		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames)...)
 	case *IrAppl:
-		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicCallee, currentlyErroneousButKnownGlobalsNames))
-		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames))
+		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicCallee, currentlyErroneousButKnownGlobalsNames)...)
+		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames)...)
 	case *IrIdentName:
 		if existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed > 0 {
 			errs.AddUnreach(ErrInit_IdentRefersToMalformedDef, tld.OrigToks(n), "syntax errors in "+ustr.Plu(existsunparsed, "def")+" named `"+n.Val+"`")

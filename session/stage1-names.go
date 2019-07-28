@@ -88,8 +88,8 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 		}
 		me.kitGatherAllUnparsedGlobalsNames(kit, badglobalsnames)
 		for _, tld := range kit.topLevelDefs {
-			tld.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateDefsAndIdentsFor(tld, &tld.IrDef, badglobalsnames))
-			errs.Add(tld.Errs.Stage1BadNames)
+			tld.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateDefsAndIdentsFor(tld, &tld.IrDef, badglobalsnames)...)
+			errs.Add(tld.Errs.Stage1BadNames...)
 		}
 	}
 

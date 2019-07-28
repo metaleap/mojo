@@ -123,11 +123,11 @@ func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs atm
 			me.defsScope, IrDefs{}, IrExprLetBase{letOrig: origdes, letPrefix: me.nextPrefix(), Defs: make(IrDefs, len(origdes.Defs))}
 		me.defsScope = &sidedefs
 		for i := range origdes.Defs {
-			errs.Add(let.Defs[i].initFrom(me, &origdes.Defs[i]))
+			errs.Add(let.Defs[i].initFrom(me, &origdes.Defs[i])...)
 		}
 		expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IExpr)
 		let.Defs = append(let.Defs, sidedefs...)
-		errs.Add(me.addLetDefsToNode(origdes.Body, expr, &let))
+		errs.Add(me.addLetDefsToNode(origdes.Body, expr, &let)...)
 		me.defsScope = oldscope
 	case *atmolang.AstExprAppl:
 		origdes = origdes.ToUnary()

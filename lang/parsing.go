@@ -14,11 +14,11 @@ const (
 	APPLSTYLE_SOV
 )
 
-func (me *AstFile) parse(this *SrcTopChunk) (freshErrs []error) {
+func (me *AstFile) parse(this *SrcTopChunk) (freshErrs atmo.Errors) {
 	toks := this.Ast.Tokens
 	if this.Ast.comments.Leading, toks = parseLeadingComments(toks); len(toks) > 0 {
 		if this.Ast.Def.Orig, this.Ast.Def.NameIfErr, this.errs.parsing = this.parseTopLevelDef(toks); this.errs.parsing != nil {
-			freshErrs = append(freshErrs, this.errs.parsing)
+			freshErrs.Add(this.errs.parsing)
 		} else if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
 			this.Ast.Def.Orig.Name.Val = this.Ast.Def.Orig.Name.Val[1:]
 		}

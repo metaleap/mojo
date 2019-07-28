@@ -11,7 +11,7 @@ type AstFiles []*AstFile
 type AstFile struct {
 	TopLevel []SrcTopChunk
 	errs     struct {
-		loading error
+		loading *atmo.Error
 	}
 	LastLoad struct {
 		Src      []byte
@@ -26,7 +26,7 @@ type AstFile struct {
 	SrcFilePath string
 
 	_toks udevlex.Tokens
-	_errs []error
+	_errs atmo.Errors
 }
 
 type SrcTopChunk struct {
@@ -68,8 +68,8 @@ func (me *SrcTopChunk) PosOffsetByte() int { return me.offset.B }
 func (me *SrcTopChunk) Errs() atmo.Errors {
 	if me._errs == nil {
 		me._errs = make(atmo.Errors, 0, len(me.errs.lexing)+1)
-		if me._errs.Add(me.errs.lexing); me.errs.parsing != nil {
-			me._errs = append(me._errs, me.errs.parsing)
+		if me._errs.Add(me.errs.lexing...); me.errs.parsing != nil {
+			me._errs.Add(me.errs.parsing)
 		}
 	}
 	return me._errs
@@ -104,13 +104,13 @@ func (me *AstFile) HasErrors() (r bool) {
 	return
 }
 
-func (me *AstFile) Errors() []error {
+func (me *AstFile) Errors() atmo.Errors {
 	if me._errs == nil {
-		if me._errs = make([]error, 0, 4); me.errs.loading != nil {
+		if me._errs = make(atmo.Errors, 0, 4); me.errs.loading != nil {
 			me._errs = append(me._errs, me.errs.loading)
 		}
 		for i := range me.TopLevel {
-			me._errs = append(me._errs, me.TopLevel[i].Errs().Errors()...)
+			me._errs.Add(me.TopLevel[i].Errs()...)
 		}
 	}
 	return me._errs
@@ -193,6 +193,17 @@ func (me AstFiles) ByFilePath(srcFilePath string) *AstFile {
 	for _, f := range me {
 		if f.SrcFilePath == srcFilePath {
 			return f
+		}
+	}
+	return nil
+}
+
+func (me AstFiles) TopLevelChunkByDefId(defId string) *SrcTopChunk {
+	for _, f := range me {
+		for i := range f.TopLevel {
+			if tlc := &f.TopLevel[i]; tlc.Id() == defId {
+				return tlc
+			}
 		}
 	}
 	return nil

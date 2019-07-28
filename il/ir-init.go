@@ -8,10 +8,10 @@ import (
 
 func (me *IrDef) initFrom(ctx *ctxIrInit, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.OrigDef = orig.ToUnary()
-	errs.Add(me.initName(ctx))
-	errs.Add(me.initArg(ctx))
-	errs.Add(me.initMetas(ctx))
-	errs.Add(me.initBody(ctx))
+	errs.Add(me.initName(ctx)...)
+	errs.Add(me.initArg(ctx)...)
+	errs.Add(me.initMetas(ctx)...)
+	errs.Add(me.initBody(ctx)...)
 
 	// all inits worked off the orig-unary-fied, but for all
 	// post-init usage we restore the real source orig-def:
@@ -66,7 +66,7 @@ func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
 func (me *IrDef) initArg(ctx *ctxIrInit) (errs atmo.Errors) {
 	if len(me.OrigDef.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
 		var arg IrDefArg
-		errs.Add(arg.initFrom(ctx, &me.OrigDef.Args[0]))
+		errs.Add(arg.initFrom(ctx, &me.OrigDef.Args[0])...)
 		me.Arg = &arg
 	}
 	return
