@@ -36,16 +36,19 @@ func (me *Ctx) initKits() {
 	me.CatchUpOnFileMods()
 }
 
-func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo) {
-	latestfilemods := make(map[string]os.FileInfo, len(latest[0]))
-	for i := range latest {
-		for k, v := range latest[i] {
-			latestfilemods[k] = v
+func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo, forceFor *Kit) {
+	var alllatestfilemods map[string]os.FileInfo
+	if len(latest) > 0 {
+		alllatestfilemods = make(map[string]os.FileInfo, len(latest[0]))
+		for i := range latest {
+			for k, v := range latest[i] {
+				alllatestfilemods[k] = v
+			}
 		}
 	}
 
 	modkitdirs := map[string]int{}
-	for fullpath, fileinfo := range latestfilemods {
+	for fullpath, fileinfo := range alllatestfilemods {
 		if fileinfo.IsDir() {
 			me.fileModsHandleDir(kitsDirs, fauxKitDirs, fullpath, modkitdirs)
 		} else if dp := filepath.Dir(fullpath); !ustr.In(dp, kitsDirs...) {
@@ -58,8 +61,11 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 		}
 	}
 
-	if len(modkitdirs) > 0 {
-		shouldrefresh := make(atmo.StringKeys, len(modkitdirs))
+	if len(modkitdirs) > 0 || forceFor != nil {
+		shouldrefresh := make(atmo.StringKeys, 1+len(modkitdirs))
+		if forceFor != nil {
+			shouldrefresh[forceFor.DirPath] = atmo.Є
+		}
 
 		// handle new-or-modified kits
 		// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh

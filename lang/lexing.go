@@ -53,7 +53,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	return
 }
 
-func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, guessIsExpr bool, err *atmo.Error) {
+func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, guessIsExpr bool, lexedToks udevlex.Tokens, err *atmo.Error) {
 	if len(src) > 0 {
 		indentguess := ' '
 		if src[0] == '\t' {
@@ -73,8 +73,9 @@ func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, gu
 
 		toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 32, indentguess)
 		for _, e := range errs {
-			return false, false, atmo.ErrLex(ErrLexing_Other, &e.Pos, e.Msg)
+			return false, false, nil, atmo.ErrLex(ErrLexing_Other, &e.Pos, e.Msg)
 		}
+		lexedToks = toks
 		idxdecl, idxcomma := toks.Index(":=", false), toks.Index(",", false)
 		if idxdecl < 0 {
 			guessIsExpr = true
@@ -87,19 +88,6 @@ func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, gu
 		}
 	}
 	return
-}
-
-func LexAndParseExpr(fauxSrcFileNameForErrs string, src []byte) (IAstExpr, *atmo.Error) {
-	toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 64, ' ')
-	for _, e := range errs {
-		return nil, atmo.ErrLex(ErrLexing_Other, &e.Pos, e.Msg)
-	}
-
-	if expr, err := (&ctxTldParse{}).parseExpr(toks); err != nil { // need this..
-		return nil, err // ..explicit branch because else a `nil`..
-	} else { // ..`*Error` would turn into a non-nil `error`..
-		return expr, nil // ..interface with inner `nil` value *sigh!*
-	}
 }
 
 func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs []error) {

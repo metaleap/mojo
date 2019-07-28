@@ -159,8 +159,12 @@ func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *SrcTopChunk {
 	for i := range me.TopLevel {
 		if pos0ByteOffset == me.TopLevel[i].offset.B || (i == ilast && pos0ByteOffset > me.TopLevel[i].offset.B) {
 			return &me.TopLevel[i]
-		} else if i > 0 && me.TopLevel[i].offset.B > pos0ByteOffset {
-			return &me.TopLevel[i-1]
+		} else if me.TopLevel[i].offset.B > pos0ByteOffset {
+			if i == 0 {
+				return &me.TopLevel[0]
+			} else {
+				return &me.TopLevel[i-1]
+			}
 		}
 	}
 	return nil
@@ -196,7 +200,8 @@ func (me AstFiles) ByFilePath(srcFilePath string) *AstFile {
 
 func (me *AstFiles) EnsureScratchPadFile() (pretendFile *AstFile) {
 	if pretendFile = me.ByFilePath(""); pretendFile == nil {
-		*me = append(*me, &AstFile{})
+		pretendFile = &AstFile{}
+		*me = append(*me, pretendFile)
 	}
 	return
 }

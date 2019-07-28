@@ -114,8 +114,13 @@ func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 			kit := me.Ctx.KitByImpPath("")
 			preduced, errs := me.Ctx.Eval(kit, "", inputln)
 			if len(errs) > 0 && (!ustr.Has(inputln, "\n")) {
-				if err0pos := errs[0].Pos(); err0pos.Ln1 == 1 {
-					caretpos = err0pos.Col1 + numleadingspaces
+				for _, e := range errs {
+					if err, _ := e.(*atmo.Error); err != nil {
+						if err0pos := err.Pos(); err0pos.Ln1 == 1 {
+							caretpos = err0pos.Col1 + numleadingspaces
+							break
+						}
+					}
 				}
 			}
 			me.decoInputDoneBut(false, false, caretpos)

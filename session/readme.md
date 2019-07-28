@@ -70,7 +70,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 #### func (*Ctx) Eval
 
 ```go
-func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors)
+func (me *Ctx) Eval(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs []error)
 ```
 
 #### func (*Ctx) FauxKitsAdd

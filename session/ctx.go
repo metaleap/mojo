@@ -245,6 +245,10 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs []error,
 }
 
 func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
+	me.catchUpOnFileMods(nil, ensureFilesMarkedAsChanged...)
+}
+
+func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
 	me.state.fileModsWatch.collectFileModsForNextCatchup(me.Dirs.Kits, me.Dirs.fauxKits)
 
 	var latest []map[string]os.FileInfo
@@ -253,15 +257,17 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 	if len(ensureFilesMarkedAsChanged) > 0 {
 		extra := make(map[string]os.FileInfo, len(ensureFilesMarkedAsChanged))
 		for _, srcfile := range ensureFilesMarkedAsChanged {
-			var have bool
-			for _, modset := range latest {
-				if _, have = modset[srcfile.SrcFilePath]; have {
-					break
+			if srcfile.SrcFilePath != "" {
+				var have bool
+				for _, modset := range latest {
+					if _, have = modset[srcfile.SrcFilePath]; have {
+						break
+					}
 				}
-			}
-			if (!have) && srcfile.SrcFilePath != "" {
-				if fileinfo, _ := os.Stat(srcfile.SrcFilePath); fileinfo != nil {
-					extra[srcfile.SrcFilePath] = fileinfo
+				if !have {
+					if fileinfo, _ := os.Stat(srcfile.SrcFilePath); fileinfo != nil {
+						extra[srcfile.SrcFilePath] = fileinfo
+					}
 				}
 			}
 		}
@@ -270,8 +276,8 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 		}
 	}
 
-	if len(latest) > 0 {
-		me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest)
+	if len(latest) > 0 || forceFor != nil {
+		me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest, forceFor)
 	}
 }
 
