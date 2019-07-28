@@ -210,13 +210,13 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 				default:
 					ident := me.parseExprIdent(toks, false)
 					if len(ident.Val) > 1 && ident.Val[0] == '_' && ident.Val[1] == '_' && !ident.IsPlaceholder() {
-						err = atmo.ErrNaming(ErrParsing_TokenUnexpected_Underscores, &toks[0], ustr.Int(ustr.CountPrefixRunes(ident.Val, '_'))+" leading underscores in identifier: this is reserved for internal use")
+						err = atmo.ErrNaming(ErrParsing_TokenUnexpected_Underscores, &toks[0], ustr.Int(ustr.CountPrefixRunes(ident.Val, '_'))+" leading underscores: reserved for internals")
 					}
 					exprcur = ident
 					toks = toks[1:]
 				}
 			default:
-				panic("the impossible: unrecognized token (new bug in parser, parseExpr needs updating) at " + toks[0].Pos.String() + ", `" + toks[0].Lexeme + "`")
+				panic(toks[0].Lexeme)
 			}
 		}
 		if err == nil && exprcur != nil {
