@@ -32,10 +32,10 @@ func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
 	}
 	var ident IExpr
 	ident, errs = ctx.newExprFromIdent(&me.OrigDef.Name)
-	if name, _ := ident.(*IrIdentName); name == nil && tok != nil {
-		errs.AddNaming(ErrInit_DefNameInvalidIdent, tok, "invalid def name: `"+tok.Lexeme+"`") // some non-name ident: Tag or Undef or placeholder etc..
-	} else if me.Name.IrIdentBase = name.IrIdentBase; name.Val == "" && tok != nil {
-		errs.AddNaming(ErrInit_DefNameReserved, tok, "reserved token not permissible as def name: `"+tok.Lexeme+"`")
+	if name, _ := ident.(*IrIdentName); name == nil {
+		errs.AddNaming(ErrInit_DefNameInvalidIdent, tok, "invalid def name: `"+tok.String()+"`") // some non-name ident: Tag or Undef or placeholder etc..
+	} else {
+		me.Name.IrIdentBase = name.IrIdentBase
 	}
 	if me.OrigDef.NameAffix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(me.OrigDef.NameAffix)).(IExpr))

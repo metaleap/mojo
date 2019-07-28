@@ -187,7 +187,16 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			}
 			{
 				od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
-				kit.state.defsGoneIdsNames, kit.state.defsBornIdsNames = od, nd
+				if len(kit.state.defsGoneIdsNames) == 0 {
+					kit.state.defsGoneIdsNames = od
+				} else if len(od) > 0 {
+					panic("TO-BE-INVESTIGATED (GONES)")
+				}
+				if len(kit.state.defsBornIdsNames) == 0 {
+					kit.state.defsBornIdsNames = nd
+				} else if len(nd) > 0 {
+					panic("TO-BE-INVESTIGATED (BORNS)")
+				}
 				if freshErrs.Add(fe...); len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
 					me.Kits.reprocessingNeeded = true
 				}

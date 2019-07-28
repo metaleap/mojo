@@ -1,8 +1,6 @@
 package atmoil
 
 import (
-	"strconv"
-
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/lang"
@@ -59,11 +57,9 @@ func (me *ctxIrInit) ensureAtomic(expr IExpr) IExpr {
 }
 
 func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs atmo.Errors) {
-	if t1, t2 := orig.IsTag, ustr.BeginsUpper(orig.Val); t1 && t2 {
+	if orig.IsTag {
 		var ident IrIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
-	} else if t1 != t2 {
-		panic("bug in `atmo/lang`: an `atmolang.AstIdent` had wrong `IsTag` value for its `Val` casing (Val: " + strconv.Quote(orig.Val) + " at " + orig.Tokens.First1().Pos.String() + ")")
 
 	} else if orig.IsPlaceholder() {
 		var ident IrNonValue // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well

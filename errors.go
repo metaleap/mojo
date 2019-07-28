@@ -127,7 +127,7 @@ func ErrAtPos(cat ErrorCategory, code int, pos *udevlex.Pos, length int, msg str
 
 func ErrAtTok(cat ErrorCategory, code int, tok *udevlex.Token, msg string) *Error {
 	if tok == nil {
-		return ErrAtPos(cat, code, nil, 0, msg)
+		return ErrAtPos(cat, code, nil, 1, msg)
 	}
 	return ErrAtPos(cat, code, &tok.Pos, len(tok.Lexeme), msg)
 }
@@ -246,7 +246,7 @@ func (me *Errors) AddUnreach(code int, toks udevlex.Tokens, msg string) *Error {
 
 func (me *Errors) AddFromTok(cat ErrorCategory, code int, tok *udevlex.Token, msg string) *Error {
 	if tok == nil {
-		return me.AddAt(cat, code, nil, 0, msg)
+		return me.AddAt(cat, code, nil, 1, msg)
 	}
 	return me.AddAt(cat, code, &tok.Pos, len(tok.Lexeme), msg)
 }

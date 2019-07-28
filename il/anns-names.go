@@ -126,7 +126,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, 
 		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames)...)
 	case *IrIdentName:
 		if existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed > 0 {
-			errs.AddUnreach(ErrInit_IdentRefersToMalformedDef, tld.OrigToks(n), "syntax errors in "+ustr.Plu(existsunparsed, "def")+" named `"+n.Val+"`")
+			errs.AddUnreach(ErrInit_IdentRefersToMalformedDef, tld.OrigToks(n), ustr.Plu(existsunparsed, "def")+" named `"+n.Val+"` found to have syntax errors")
 		} else if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
 			me.errUnknownName(tld, &errs, n)
 		}
