@@ -90,11 +90,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 						}
 					}
 				}
-				kitimps := []string{atmo.NameAutoKit}
-				if kitimppath == atmo.NameAutoKit {
-					kitimps = nil
-				}
-				me.Kits.All = append(me.Kits.All, &Kit{DirPath: kitdirpath, ImpPath: kitimppath, Imports: kitimps,
+				me.Kits.All = append(me.Kits.All, &Kit{DirPath: kitdirpath, ImpPath: kitimppath,
 					SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
 			}
 			shouldrefresh[kitdirpath] = atmo.Є

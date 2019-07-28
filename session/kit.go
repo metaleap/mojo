@@ -17,8 +17,8 @@ type Kit struct {
 	DirPath           string
 	ImpPath           string
 	WasEverToBeLoaded bool
-	Imports           []string
 
+	imports      []string
 	topLevelDefs atmoil.IrTopDefs
 	SrcFiles     atmolang.AstFiles
 	state        struct {
@@ -96,9 +96,10 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit {
 }
 
 func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames atmo.StringCounts) {
-	kits := make(Kits, 1, 1+len(kit.Imports))
+	kitimports := kit.Imports()
+	kits := make(Kits, 1, 1+len(kitimports))
 	kits[0] = kit
-	for _, imppath := range kit.Imports {
+	for _, imppath := range kitimports {
 		if kitimp := me.Kits.All.ByImpPath(imppath); kitimp != nil {
 			kits = append(kits, kitimp)
 		}
@@ -160,7 +161,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				allunchanged = allunchanged && nochanges
 			}
 
-			for _, imp := range kit.Imports {
+			for _, imp := range kit.Imports() {
 				if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
 					kit.Errs.Stage0BadImports.AddSess(ErrSessKits_ImportNotFound, "", "import not found: `"+imp+"`")
 				} else {
@@ -229,6 +230,16 @@ func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors)
 		errs.Add(deferrs...)
 	}
 	return
+}
+
+func (me *Kit) Imports() []string {
+	if me.imports == nil {
+		me.imports = make([]string, 0, 1)
+		if me.ImpPath != atmo.NameAutoKit {
+			me.imports = append(me.imports, atmo.NameAutoKit)
+		}
+	}
+	return me.imports
 }
 
 func (me *Kit) kitsDirPath() string {

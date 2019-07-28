@@ -43,11 +43,11 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 	{ // NEXT: namesInScopeExt (utilizing above namesInScopeOwn adds hence separate Ctx.Kits.all loop)
 		for _, kit := range me.Kits.All {
 			if kit.WasEverToBeLoaded {
-				if len(kit.Imports) > 0 {
+				if kitimports := kit.Imports(); len(kitimports) > 0 {
 					var totaldefscount int
 					var anychangesinkimps bool
 					kimps := me.Kits.All.Where(func(k *Kit) (iskimp bool) {
-						if iskimp = ustr.In(k.ImpPath, kit.Imports...); iskimp {
+						if iskimp = ustr.In(k.ImpPath, kitimports...); iskimp {
 							totaldefscount, anychangesinkimps = totaldefscount+len(k.topLevelDefs), anychangesinkimps || len(k.state.defsGoneIdsNames) > 0 || len(k.state.defsBornIdsNames) > 0
 						}
 						return

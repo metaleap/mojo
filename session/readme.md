@@ -220,7 +220,6 @@ type Kit struct {
 	DirPath           string
 	ImpPath           string
 	WasEverToBeLoaded bool
-	Imports           []string
 
 	SrcFiles atmolang.AstFiles
 
@@ -260,6 +259,12 @@ Errors collects whatever issues exist in any of the `Kit`'s source files
 func (me *Kit) HasDefs(name string) bool
 ```
 HasDefs returns whether any of the `Kit`'s source files define `name`.
+
+#### func (*Kit) Imports
+
+```go
+func (me *Kit) Imports() []string
+```
 
 #### func (*Kit) IrNodeOfAstNode
 
