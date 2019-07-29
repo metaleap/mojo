@@ -28,7 +28,7 @@ func (me *Kit) ScratchpadClear() {
 	me.ensureScratchpadFile().Options.TmpAltSrc = make([]byte, 0, 128) // what matters is that it mustn't be `nil` for scratchpad purposes
 }
 
-func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors) {
+func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret atmoil.IPreduced, errs atmo.Errors) {
 	if src = ustr.Trim(src); len(src) == 0 {
 		return
 	}
@@ -121,7 +121,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		}
 		identexpr := atmoil.Build.IdentName(defname)
 		identexpr.Anns.Candidates = []atmoil.INode{defs[0]}
-		ret = me.PreduceExpr(kit, "", identexpr)
+		ret, errs = me.PreduceExpr(kit, identexpr)
 	}
 
 	return

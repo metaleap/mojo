@@ -7,7 +7,6 @@ import (
 )
 
 type INode interface {
-	Facts() *AnnFactAll
 	Print() atmolang.IAstNode
 	Origin() atmolang.IAstNode
 	origToks() udevlex.Tokens
@@ -27,13 +26,11 @@ type IExpr interface {
 }
 
 type irNodeBase struct {
-	facts AnnFactAll
 }
 
-func (me *irNodeBase) Facts() *AnnFactAll { return &me.facts }
-func (*irNodeBase) Let() *IrExprLetBase   { return nil }
-func (*irNodeBase) IsDef() *IrDef         { return nil }
-func (*irNodeBase) IsDefWithArg() bool    { return false }
+func (*irNodeBase) Let() *IrExprLetBase { return nil }
+func (*irNodeBase) IsDef() *IrDef       { return nil }
+func (*irNodeBase) IsDefWithArg() bool  { return false }
 
 type IrDef struct {
 	irNodeBase
@@ -97,6 +94,7 @@ type IrDefTop struct {
 	Errs         struct {
 		Stage0Init     atmo.Errors
 		Stage1BadNames atmo.Errors
+		Stage2Preduce  atmo.Errors
 	}
 
 	refersTo map[string]bool

@@ -19,7 +19,7 @@ const (
 	ErrCatLexing
 	ErrCatParsing
 	ErrCatNaming
-	ErrCatSubst
+	ErrCatPreduce
 	ErrCatSess
 	ErrCatUnreachable
 )
@@ -38,8 +38,8 @@ func (me ErrorCategory) String() string {
 		return "syntax"
 	case ErrCatNaming:
 		return "naming"
-	case ErrCatSubst:
-		return "substantiation"
+	case ErrCatPreduce:
+		return "preducing"
 	case ErrCatUnreachable:
 		return "unreachable"
 	}
@@ -144,8 +144,8 @@ func ErrNaming(code int, tok *udevlex.Token, msg string) *Error {
 	return ErrAtTok(ErrCatNaming, code, tok, msg)
 }
 
-func ErrSubst(code int, toks udevlex.Tokens, msg string) *Error {
-	return ErrAtToks(ErrCatSubst, code, toks, msg)
+func ErrPreduce(code int, toks udevlex.Tokens, msg string) *Error {
+	return ErrAtToks(ErrCatPreduce, code, toks, msg)
 }
 
 func ErrUnreach(code int, toks udevlex.Tokens, msg string) *Error {
@@ -236,8 +236,8 @@ func (me *Errors) AddNaming(code int, tok *udevlex.Token, msg string) *Error {
 	return me.AddFromTok(ErrCatNaming, code, tok, msg)
 }
 
-func (me *Errors) AddSubst(code int, toks udevlex.Tokens, msg string) *Error {
-	return me.AddFromToks(ErrCatSubst, code, toks, msg)
+func (me *Errors) AddPreduce(code int, toks udevlex.Tokens, msg string) *Error {
+	return me.AddFromToks(ErrCatPreduce, code, toks, msg)
 }
 
 func (me *Errors) AddUnreach(code int, toks udevlex.Tokens, msg string) *Error {

@@ -1,101 +1,72 @@
 package atmosess
 
 import (
-	"strconv"
-
-	"github.com/go-leap/str"
+	"github.com/go-leap/dev/lex"
+	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/il"
 )
 
-type IPreduced interface {
-	self() *preducedBase
-	SummaryCompact() string
-}
-
-type preducedBase struct {
-	origNode atmoil.INode
-}
-
-func (me *preducedBase) self() *preducedBase { return me }
-
-type PPrimAtomicConstFloat struct {
-	preducedBase
-	Val float64
-}
-
-func (me *PPrimAtomicConstFloat) SummaryCompact() string {
-	return strconv.FormatFloat(me.Val, 'f', -1, 64)
-}
-
-type PPrimAtomicConstUint struct {
-	preducedBase
-	Val uint64
-}
-
-func (me *PPrimAtomicConstUint) SummaryCompact() string { return strconv.FormatUint(me.Val, 10) }
-
-type PPrimAtomicConstTag struct {
-	preducedBase
-	Val string
-}
-
-func (me *PPrimAtomicConstTag) SummaryCompact() string { return me.Val }
-
-type PFailure struct {
-	preducedBase
-
-	ErrMsg string
-}
-
-func (me *PFailure) SummaryCompact() string { return me.ErrMsg }
-
-type PCallable struct {
-	preducedBase
-}
-
-func (me *PCallable) SummaryCompact() string { return "->" }
-
 type ctxPreduce struct {
 	owner          *Ctx
-	cachedByTldIds map[string]IPreduced
-}
-
-func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) IPreduced {
-	var maybetld *atmoil.IrDefTop
-	if maybeTopDefId != "" {
-		maybetld = kit.lookups.tlDefsByID[maybeTopDefId]
+	cachedByTldIds map[string]atmoil.IPreduced
+	curNodeCtx     struct {
+		kit    *Kit
+		topDef *atmoil.IrDefTop
 	}
-	return me.state.preduce.preduceIlNode(kit, maybetld, expr)
 }
 
-func (me *ctxPreduce) preduceIlNode(kit *Kit, maybeTld *atmoil.IrDefTop, node atmoil.INode) (ret IPreduced) {
+func (me *ctxPreduce) toks(n atmoil.INode) udevlex.Tokens { return me.curNodeCtx.topDef.OrigToks(n) }
+
+func (me *Ctx) PreduceExpr(kit *Kit, expr atmoil.IExpr) (atmoil.IPreduced, atmo.Errors) {
+	me.state.preduce.curNodeCtx.kit = kit
+	return me.state.preduce.preduceIlNode(expr)
+}
+
+func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, freshErrs atmo.Errors) {
 	switch this := node.(type) {
 	case *atmoil.IrLitFloat:
-		ret = &PPrimAtomicConstFloat{Val: this.Val}
+		ret = &atmoil.PPrimAtomicConstFloat{Val: this.Val}
 	case *atmoil.IrLitUint:
-		ret = &PPrimAtomicConstUint{Val: this.Val}
+		ret = &atmoil.PPrimAtomicConstUint{Val: this.Val}
 	case *atmoil.IrIdentTag:
-		ret = &PPrimAtomicConstTag{Val: this.Val}
+		ret = &atmoil.PPrimAtomicConstTag{Val: this.Val}
 	case *atmoil.IrIdentName:
 		cands := this.Anns.Candidates
 		if len(cands) == 0 {
-			ret = &PFailure{ErrMsg: "not defined or not in scope: `" + this.Val + "`"}
+			freshErrs.AddPreduce(4321, me.toks(this), "notInScope")
 		} else if len(cands) == 1 {
-			ret = me.preduceIlNode(kit, maybeTld, cands[0])
+			ret, freshErrs = me.preduceIlNode(cands[0])
 		} else {
-			ret = &PFailure{ErrMsg: "ambiguous: `" + this.Val + "` (" + ustr.Int(len(cands)) + " such names in scope)"}
+			freshErrs.AddPreduce(1234, me.toks(this), "ambiguous")
 		}
-	case *atmoil.IrDefTop:
-		ret = me.preduceIlNode(kit, this, &this.IrDef)
-	case *atmoil.IrDef:
-		ret = me.preduceIlNode(kit, maybeTld, this.Body)
 	case IrDefRef:
-		ret = me.preduceIlNode(this.Kit, this.IrDefTop, this.IrDefTop)
+		curkit := me.curNodeCtx.kit
+		me.curNodeCtx.kit = this.Kit
+		ret, freshErrs = me.preduceIlNode(this.IrDefTop)
+		me.curNodeCtx.kit = curkit
+	case *atmoil.IrDefTop:
+		pred, exists := me.cachedByTldIds[this.Id]
+		if !exists {
+			me.cachedByTldIds[this.Id] = nil
+
+			curtopdef := me.curNodeCtx.topDef
+			me.curNodeCtx.topDef = this
+			pred, this.Errs.Stage2Preduce = me.preduceIlNode(&this.IrDef)
+			me.curNodeCtx.topDef = curtopdef
+
+			me.cachedByTldIds[this.Id] = pred
+		}
+
+		ret, freshErrs = pred, this.Errs.Stage2Preduce
+	case *atmoil.IrDef:
+		ret, freshErrs = me.preduceIlNode(this.Body)
 	// case *atmoil.IrAppl:
 
 	default:
 		panic(this)
 	}
-	ret.self().origNode = node
+	if ret != nil {
+		ret.Self().OrigNodes = append(ret.Self().OrigNodes, node)
+	}
 	return
 }

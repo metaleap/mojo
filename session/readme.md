@@ -171,13 +171,13 @@ again from inside such a wrapper `func` will deadlock.
 #### func (*Ctx) PreduceExpr
 
 ```go
-func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) IPreduced
+func (me *Ctx) PreduceExpr(kit *Kit, expr atmoil.IExpr) (atmoil.IPreduced, atmo.Errors)
 ```
 
 #### func (*Ctx) ScratchpadEntry
 
 ```go
-func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors)
+func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret atmoil.IPreduced, errs atmo.Errors)
 ```
 
 #### func (*Ctx) WithInMemFileMod
@@ -191,16 +191,6 @@ func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (r
 ```go
 func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do func()) (recoveredPanic interface{})
 ```
-
-#### type IPreduced
-
-```go
-type IPreduced interface {
-	SummaryCompact() string
-	// contains filtered or unexported methods
-}
-```
-
 
 #### type IrDefRef
 
@@ -370,78 +360,4 @@ Swap implements Go's standard `sort.Interface`.
 
 ```go
 func (me Kits) Where(check func(*Kit) bool) (kits Kits)
-```
-
-#### type PCallable
-
-```go
-type PCallable struct {
-}
-```
-
-
-#### func (*PCallable) SummaryCompact
-
-```go
-func (me *PCallable) SummaryCompact() string
-```
-
-#### type PFailure
-
-```go
-type PFailure struct {
-	ErrMsg string
-}
-```
-
-
-#### func (*PFailure) SummaryCompact
-
-```go
-func (me *PFailure) SummaryCompact() string
-```
-
-#### type PPrimAtomicConstFloat
-
-```go
-type PPrimAtomicConstFloat struct {
-	Val float64
-}
-```
-
-
-#### func (*PPrimAtomicConstFloat) SummaryCompact
-
-```go
-func (me *PPrimAtomicConstFloat) SummaryCompact() string
-```
-
-#### type PPrimAtomicConstTag
-
-```go
-type PPrimAtomicConstTag struct {
-	Val string
-}
-```
-
-
-#### func (*PPrimAtomicConstTag) SummaryCompact
-
-```go
-func (me *PPrimAtomicConstTag) SummaryCompact() string
-```
-
-#### type PPrimAtomicConstUint
-
-```go
-type PPrimAtomicConstUint struct {
-	Val uint64
-}
-```
-
-
-#### func (*PPrimAtomicConstUint) SummaryCompact
-
-```go
-func (me *PPrimAtomicConstUint) SummaryCompact() string
 ```

@@ -232,12 +232,18 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) 
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
 
-		namesofchange, defidsborn, _, ferrs := me.kitsRepopulateNamesInScope()
+		namesofchange, _, defidsgone, ferrs := me.kitsRepopulateNamesInScope()
 		freshErrs = ferrs
+		for defidgone := range defidsgone {
+			delete(me.state.preduce.cachedByTldIds, defidgone)
+		}
 		defidsdependantsofnamesofchange := make(map[string]*Kit)
 		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
+		for defid := range defidsdependantsofnamesofchange {
+			delete(me.state.preduce.cachedByTldIds, defid)
+		}
 
-		freshErrs.Add(me.refreshFactsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange)...)
+		// freshErrs.Add(me.refreshFactsForTopLevelDefs(defidsborn, defidsdependantsofnamesofchange)...)
 	}
 	return
 }
