@@ -47,6 +47,9 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 	}
 
 	modkitdirs := map[string]int{}
+	if forceFor != nil {
+		modkitdirs[forceFor.DirPath] = 1
+	}
 	for fullpath, fileinfo := range alllatestfilemods {
 		if fileinfo.IsDir() {
 			me.fileModsHandleDir(kitsDirs, fauxKitDirs, fullpath, modkitdirs)
@@ -93,9 +96,9 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 					SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
 			}
 			shouldrefresh[kitdirpath] = atmo.Є
-			// for _, dk := range me.Kits.All.DependantKitsOf(me.Kits.All.ByDirPath(kitdirpath).ImpPath, true) {
-			// 	shouldrefresh[dk.DirPath] = atmo.Є
-			// }
+			for _, dk := range me.Kits.All.DependantKitsOf(me.Kits.All.ByDirPath(kitdirpath).ImpPath, true) {
+				shouldrefresh[dk.DirPath] = atmo.Є
+			}
 		}
 
 		// remove kits that have vanished from the file-system
@@ -108,13 +111,13 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 				i--
 			}
 		}
-		// for delkitimppath := range delkits {
-		// 	for _, k := range me.Kits.All.DependantKitsOf(delkitimppath, true) {
-		// 		if _, wasdel := delkits[k.ImpPath]; !wasdel {
-		// 			shouldrefresh[k.DirPath] = atmo.Є
-		// 		}
-		// 	}
-		// }
+		for delkitimppath := range delkits {
+			for _, k := range me.Kits.All.DependantKitsOf(delkitimppath, true) {
+				if _, wasdel := delkits[k.ImpPath]; !wasdel {
+					shouldrefresh[k.DirPath] = atmo.Є
+				}
+			}
+		}
 
 		// ensure no duplicate imp-paths
 		for i := len(me.Kits.All) - 1; i >= 0; i-- {

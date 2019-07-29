@@ -251,15 +251,7 @@ func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors)
 }
 
 func (me *Kit) DoesImport(kitImpPath string) bool {
-	if kitImpPath != me.ImpPath {
-		kitimppaths := me.Imports()
-		for _, kip := range kitimppaths {
-			if kip == kitImpPath {
-				return true
-			}
-		}
-	}
-	return false
+	return kitImpPath != me.ImpPath && ustr.In(kitImpPath, me.Imports()...)
 }
 
 func (me *Kit) Imports() []string {
