@@ -209,8 +209,12 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *atmo.E
 					err = atmo.ErrSyn(ErrParsing_TokenUnexpected_DefDecl, &toks[0], "unexpected `"+atmo.KnownIdentDecl+"` in expression (forgot a comma?)")
 				default:
 					ident := me.parseExprIdent(toks, false)
-					if len(ident.Val) > 1 && ident.Val[0] == '_' && ident.Val[1] == '_' && !ident.IsPlaceholder() {
-						err = atmo.ErrNaming(ErrParsing_TokenUnexpected_Underscores, &toks[0], ustr.Int(ustr.CountPrefixRunes(ident.Val, '_'))+" leading underscores: reserved for internals")
+					if len(ident.Val) > 1 && ident.Val[0] == '_' && !ident.IsPlaceholder() {
+						if ident.Val[1] == '_' {
+							err = atmo.ErrNaming(ErrParsing_TokenUnexpected_Underscores, &toks[0], "multiple leading underscores: reserved for internal use")
+						} else if !ustr.BeginsLower(ident.Val[1:]) {
+							err = atmo.ErrNaming(ErrParsing_IdentExpected, &toks[0], "identifier expected to follow underscore")
+						}
 					}
 					exprcur = ident
 					toks = toks[1:]

@@ -67,7 +67,6 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 		}
 
 		// handle new-or-modified kits
-		// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
 		for kitdirpath, numfilesguess := range modkitdirs {
 			if me.Kits.All.IndexDirPath(kitdirpath) < 0 {
 				if numfilesguess < 2 {
@@ -94,18 +93,28 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 					SrcFiles: make(atmolang.AstFiles, 0, numfilesguess)})
 			}
 			shouldrefresh[kitdirpath] = atmo.Є
+			// for _, dk := range me.Kits.All.DependantKitsOf(me.Kits.All.ByDirPath(kitdirpath).ImpPath, true) {
+			// 	shouldrefresh[dk.DirPath] = atmo.Є
+			// }
 		}
 
 		// remove kits that have vanished from the file-system
-		// TODO: mark all existing&new direct&indirect dependants (as per Kit.Imports) for full-refresh
-		var numremoved int
+		delkits := atmo.StringKeys{}
 		for i := 0; i < len(me.Kits.All); i++ {
 			if kit := me.Kits.All[i]; (!ustr.In(kit.DirPath, fauxKitDirs...)) && (!ufs.DoesDirHaveFilesWithSuffix(kit.DirPath, atmo.SrcFileExt)) {
+				delkits[kit.ImpPath] = atmo.Є
 				delete(shouldrefresh, kit.DirPath)
 				me.Kits.All.removeAt(i)
-				i, numremoved = i-1, numremoved+1
+				i--
 			}
 		}
+		// for delkitimppath := range delkits {
+		// 	for _, k := range me.Kits.All.DependantKitsOf(delkitimppath, true) {
+		// 		if _, wasdel := delkits[k.ImpPath]; !wasdel {
+		// 			shouldrefresh[k.DirPath] = atmo.Є
+		// 		}
+		// 	}
+		// }
 
 		// ensure no duplicate imp-paths
 		for i := len(me.Kits.All) - 1; i >= 0; i-- {
@@ -214,10 +223,6 @@ func (me Kits) SrcFilePaths() (srcFilePaths []string) {
 		}
 	}
 	return
-}
-
-func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching() {
-	me.CatchUpOnFileMods()
 }
 
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) {
@@ -363,5 +368,32 @@ func (me Kits) collectDependants(defNames atmo.StringKeys, dependantsDefIds map[
 func (me Kits) ensureErrTldPosOffsets() {
 	for _, kit := range me {
 		kit.ensureErrTldPosOffsets()
+	}
+}
+
+func (me Kits) DependantKitsOf(kitImpPath string, indirects bool) (dependantKitImpPaths map[string]*Kit) {
+	dependantKitImpPaths = make(map[string]*Kit, 8)
+	me.collectDependantKitsOf(kitImpPath, indirects, dependantKitImpPaths, make(atmo.StringKeys, 8))
+	if len(dependantKitImpPaths) == 0 {
+		dependantKitImpPaths = nil
+	}
+	return
+}
+
+func (me Kits) ImportersOf(kitImpPath string) Kits {
+	return me.Where(func(k *Kit) bool { return k.DoesImport(kitImpPath) })
+}
+
+func (me Kits) collectDependantKitsOf(kitImpPath string, indirects bool, collectDependantKitImpPathsInto map[string]*Kit, alreadyTraversedInto atmo.StringKeys) {
+	if _, donealready := alreadyTraversedInto[kitImpPath]; !donealready {
+		alreadyTraversedInto[kitImpPath] = atmo.Є
+		for _, kit := range me {
+			if kit.DoesImport(kitImpPath) {
+				collectDependantKitImpPathsInto[kit.ImpPath] = kit
+				if indirects {
+					me.collectDependantKitsOf(kit.ImpPath, true, collectDependantKitImpPathsInto, alreadyTraversedInto)
+				}
+			}
+		}
 	}
 }

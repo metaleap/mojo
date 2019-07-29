@@ -18,34 +18,28 @@ type preducedBase struct {
 
 func (me *preducedBase) self() *preducedBase { return me }
 
-type PConstValAtomic struct {
+type PPrimAtomicConstFloat struct {
 	preducedBase
-	LitVal interface{}
+	Val float64
 }
 
-func (me *PConstValAtomic) SummaryCompact() string {
-	switch lv := me.LitVal.(type) {
-	case float64:
-		return strconv.FormatFloat(lv, 'f', -1, 64)
-	case uint64:
-		return strconv.FormatUint(lv, 10)
-	case string: // tag
-		return lv
-	default:
-		panic(lv)
-	}
+func (me *PPrimAtomicConstFloat) SummaryCompact() string {
+	return strconv.FormatFloat(me.Val, 'f', -1, 64)
 }
 
-type PConstValCompound struct {
+type PPrimAtomicConstUint struct {
 	preducedBase
-
-	// later will be more principled as compound will encompass lists-of-any, tuples, relations / maps / records etc.
-	TmpVal string
+	Val uint64
 }
 
-func (me *PConstValCompound) SummaryCompact() string {
-	return strconv.Quote(me.TmpVal)
+func (me *PPrimAtomicConstUint) SummaryCompact() string { return strconv.FormatUint(me.Val, 10) }
+
+type PPrimAtomicConstTag struct {
+	preducedBase
+	Val string
 }
+
+func (me *PPrimAtomicConstTag) SummaryCompact() string { return me.Val }
 
 type PFailure struct {
 	preducedBase
@@ -59,8 +53,11 @@ type PCallable struct {
 	preducedBase
 }
 
+func (me *PCallable) SummaryCompact() string { return "->" }
+
 type ctxPreduce struct {
-	owner *Ctx
+	owner          *Ctx
+	cachedByTldIds map[string]IPreduced
 }
 
 func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) IPreduced {
@@ -74,13 +71,11 @@ func (me *Ctx) PreduceExpr(kit *Kit, maybeTopDefId string, expr atmoil.IExpr) IP
 func (me *ctxPreduce) preduceIlNode(kit *Kit, maybeTld *atmoil.IrDefTop, node atmoil.INode) (ret IPreduced) {
 	switch this := node.(type) {
 	case *atmoil.IrLitFloat:
-		ret = &PConstValAtomic{LitVal: this.Val}
+		ret = &PPrimAtomicConstFloat{Val: this.Val}
 	case *atmoil.IrLitUint:
-		ret = &PConstValAtomic{LitVal: this.Val}
+		ret = &PPrimAtomicConstUint{Val: this.Val}
 	case *atmoil.IrIdentTag:
-		ret = &PConstValAtomic{LitVal: this.Val}
-	case *atmoil.IrLitStr:
-		ret = &PConstValCompound{TmpVal: this.Val}
+		ret = &PPrimAtomicConstTag{Val: this.Val}
 	case *atmoil.IrIdentName:
 		cands := this.Anns.Candidates
 		if len(cands) == 0 {
@@ -96,6 +91,8 @@ func (me *ctxPreduce) preduceIlNode(kit *Kit, maybeTld *atmoil.IrDefTop, node at
 		ret = me.preduceIlNode(kit, maybeTld, this.Body)
 	case IrDefRef:
 		ret = me.preduceIlNode(this.Kit, this.IrDefTop, this.IrDefTop)
+	// case *atmoil.IrAppl:
+
 	default:
 		panic(this)
 	}

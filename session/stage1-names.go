@@ -33,7 +33,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 					for _, tld := range kit.topLevelDefs {
 						tld.Errs.Stage1BadNames = nil
 						if tld.Name.Val != "" {
-							kit.lookups.namesInScopeOwn.Add(tld, &tld.Errs.Stage1BadNames, tld.Name.Val, tld)
+							kit.lookups.namesInScopeOwn.Add(tld.Name.Val, tld)
 						}
 					}
 				}
@@ -63,12 +63,15 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 							nil, make(atmoil.AnnNamesInScope, totaldefscount)
 						for _, kimp := range kimps {
 							for name, nodesown := range kimp.lookups.namesInScopeOwn {
-								nodes := make([]atmoil.INode, len(nodesown))
-								for i, n := range nodesown {
-									nodes[i] = IrDefRef{Kit: kimp,
-										IrDefTop: n.(*atmoil.IrDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */}
+								nodes := make([]atmoil.INode, 0, len(nodesown))
+								for _, n := range nodesown {
+									deftop := n.(*atmoil.IrDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */
+									if !deftop.OrigTopChunk.Ast.Def.IsUnexported {
+										nodes = append(nodes, IrDefRef{Kit: kimp,
+											IrDefTop: deftop})
+									}
 								}
-								kit.lookups.namesInScopeExt.Add(nil, nil, name, nodes...)
+								kit.lookups.namesInScopeExt.Add(name, nodes...)
 							}
 						}
 					}
@@ -86,7 +89,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 			kit.lookups.namesInScopeAll[k] = nodes
 		}
 		for k, v := range kit.lookups.namesInScopeExt {
-			kit.lookups.namesInScopeAll[k] = append(kit.lookups.namesInScopeAll[k], v...)
+			kit.lookups.namesInScopeAll.Add(k, v...)
 		}
 		me.kitGatherAllUnparsedGlobalsNames(kit, badglobalsnames)
 		for _, tld := range kit.topLevelDefs {

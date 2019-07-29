@@ -150,12 +150,6 @@ func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) ma
 func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 ```
 
-#### func (*Ctx) KitsReloadModifiedsUnlessAlreadyWatching
-
-```go
-func (me *Ctx) KitsReloadModifiedsUnlessAlreadyWatching()
-```
-
 #### func (*Ctx) KnownKitImpPaths
 
 ```go
@@ -168,6 +162,11 @@ KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.
 ```go
 func (me *Ctx) Locked(do func())
 ```
+Locked is never used by `atmosess` itself but a convenience helper for outside
+callers that run parallel code-paths and thus need to serialize concurrent
+accesses to their `Ctx`. Wrap any and all of your `Ctx` uses in a `func` passed
+to `Locked` and concurrent accesses will queue up. Caution: calling `Locked`
+again from inside such a wrapper `func` will deadlock.
 
 #### func (*Ctx) PreduceExpr
 
@@ -242,7 +241,13 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string) (defs atmoil.IrTopDefs)
+func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs atmoil.IrTopDefs)
+```
+
+#### func (*Kit) DoesImport
+
+```go
+func (me *Kit) DoesImport(kitImpPath string) bool
 ```
 
 #### func (*Kit) Errors
@@ -272,6 +277,18 @@ func (me *Kit) Imports() []string
 func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.INode)
 ```
 
+#### func (*Kit) ScratchpadClear
+
+```go
+func (me *Kit) ScratchpadClear()
+```
+
+#### func (*Kit) ScratchpadView
+
+```go
+func (me *Kit) ScratchpadView() []byte
+```
+
 #### func (*Kit) SelectNodes
 
 ```go
@@ -297,6 +314,18 @@ func (me Kits) ByDirPath(kitDirPath string) *Kit
 func (me Kits) ByImpPath(kitImpPath string) *Kit
 ```
 ByImpPath finds the `Kit` in `Kits` with the given import-path.
+
+#### func (Kits) DependantKitsOf
+
+```go
+func (me Kits) DependantKitsOf(kitImpPath string, indirects bool) (dependantKitImpPaths map[string]*Kit)
+```
+
+#### func (Kits) ImportersOf
+
+```go
+func (me Kits) ImportersOf(kitImpPath string) Kits
+```
 
 #### func (Kits) IndexDirPath
 
@@ -351,36 +380,10 @@ type PCallable struct {
 ```
 
 
-#### type PConstValAtomic
+#### func (*PCallable) SummaryCompact
 
 ```go
-type PConstValAtomic struct {
-	LitVal interface{}
-}
-```
-
-
-#### func (*PConstValAtomic) SummaryCompact
-
-```go
-func (me *PConstValAtomic) SummaryCompact() string
-```
-
-#### type PConstValCompound
-
-```go
-type PConstValCompound struct {
-
-	// later will be more principled as compound will encompass lists-of-any, tuples, relations / maps / records etc.
-	TmpVal string
-}
-```
-
-
-#### func (*PConstValCompound) SummaryCompact
-
-```go
-func (me *PConstValCompound) SummaryCompact() string
+func (me *PCallable) SummaryCompact() string
 ```
 
 #### type PFailure
@@ -396,4 +399,49 @@ type PFailure struct {
 
 ```go
 func (me *PFailure) SummaryCompact() string
+```
+
+#### type PPrimAtomicConstFloat
+
+```go
+type PPrimAtomicConstFloat struct {
+	Val float64
+}
+```
+
+
+#### func (*PPrimAtomicConstFloat) SummaryCompact
+
+```go
+func (me *PPrimAtomicConstFloat) SummaryCompact() string
+```
+
+#### type PPrimAtomicConstTag
+
+```go
+type PPrimAtomicConstTag struct {
+	Val string
+}
+```
+
+
+#### func (*PPrimAtomicConstTag) SummaryCompact
+
+```go
+func (me *PPrimAtomicConstTag) SummaryCompact() string
+```
+
+#### type PPrimAtomicConstUint
+
+```go
+type PPrimAtomicConstUint struct {
+	Val uint64
+}
+```
+
+
+#### func (*PPrimAtomicConstUint) SummaryCompact
+
+```go
+func (me *PPrimAtomicConstUint) SummaryCompact() string
 ```

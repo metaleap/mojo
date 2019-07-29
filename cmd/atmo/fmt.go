@@ -26,11 +26,7 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		const showtoks = false
-		if showtoks {
-			_, _ = os.Stdout.WriteString(astfile.String())
-		} else {
-			_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFmtPretty{}))
-		}
+		_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFmtPretty{}))
+		println("\n\n===\nTHIS feature isn't really done, rather it was postponed until it can be written in atmo itself. Above is only internal semi-pretty-printer.")
 	}
 }

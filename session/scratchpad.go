@@ -11,11 +11,28 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
+func (me *Kit) ensureScratchpadFile() (pretendFile *atmolang.AstFile) {
+	if pretendFile = me.SrcFiles.ByFilePath(""); pretendFile == nil {
+		pretendFile = &atmolang.AstFile{}
+		me.SrcFiles = append(me.SrcFiles, pretendFile)
+		me.ScratchpadClear() // must be after the append
+	}
+	return
+}
+
+func (me *Kit) ScratchpadView() []byte {
+	return me.ensureScratchpadFile().Options.TmpAltSrc
+}
+
+func (me *Kit) ScratchpadClear() {
+	me.ensureScratchpadFile().Options.TmpAltSrc = make([]byte, 0, 128) // what matters is that it mustn't be `nil` for scratchpad purposes
+}
+
 func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs atmo.Errors) {
 	if src = ustr.Trim(src); len(src) == 0 {
 		return
 	}
-	spfile := kit.SrcFiles.EnsureScratchpadFile()
+	spfile := kit.ensureScratchpadFile()
 	origsrc, tmpaltsrc := spfile.Options.TmpAltSrc, spfile.Options.TmpAltSrc
 	isdef, _, toks, err := atmolang.LexAndGuess("", []byte(src))
 	var restoreorigsrc bool
@@ -25,7 +42,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 				if pos := e.Pos(); pos != nil && (pos.FilePath == "" || pos.FilePath == me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					e.UpdatePosOffsets(nil)
 					pos = e.Pos()
-					pos.Ln1, pos.Col1, pos.Off0 = pos.Ln1-1, pos.Col1-1, pos.Off0-38 // not so clean, do it cleaner IF you ever DO change the dyn-name generation of exprs
+					pos.Ln1, pos.Col1, pos.Off0 = pos.Ln1-1, pos.Col1-1, pos.Off0-42 // not so clean, do it cleaner IF you ever DO change the dyn-name generation of exprs
 				}
 			}
 		}
@@ -42,8 +59,8 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 	src += "\n\n"
 
 	var defname string
-	if !isdef { // just an expression: add temp def `_randomname := ‹input›` then eval that name
-		defname = strconv.FormatInt(time.Now().UnixNano(), 16) + strconv.FormatInt(rand.Int63(), 16)
+	if !isdef { // entry is an expr: add temp def `eval‹RandomNoise› := ‹input›` then eval that name
+		defname = "eval" + strconv.FormatInt(time.Now().UnixNano(), 16) + strconv.FormatInt(rand.Int63(), 16)
 		src = "_" + defname + " :=\n " + src
 	} else if defnode, e := atmolang.LexAndParseDefOrExpr(isdef, toks); e != nil {
 		errs.Add(e)
@@ -53,11 +70,11 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		defname = def.Name.Val
 		var alreadyinscratchpad, alreadyinsrcfile *atmolang.SrcTopChunk
 		for _, t := range kit.topLevelDefs {
-			if t.OrigTopLevelChunk != nil && (t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname)) {
-				if t.OrigTopLevelChunk.SrcFile.SrcFilePath == "" {
-					alreadyinscratchpad = t.OrigTopLevelChunk
+			if t.OrigTopChunk != nil && (t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname)) {
+				if t.OrigTopChunk.SrcFile.SrcFilePath == "" {
+					alreadyinscratchpad = t.OrigTopChunk
 				} else {
-					alreadyinsrcfile = t.OrigTopLevelChunk
+					alreadyinsrcfile = t.OrigTopChunk
 					break
 				}
 			}
@@ -99,6 +116,8 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		}
 		if len(tmpaltsrc) != len(origsrc) {
 			me.bgMsg(false, "def modified in scratchpad: "+defname)
+		} else if isdef {
+			me.bgMsg(false, "def added to scratchpad: "+defname)
 		}
 		identexpr := atmoil.Build.IdentName(defname)
 		identexpr.Anns.Candidates = []atmoil.INode{defs[0]}

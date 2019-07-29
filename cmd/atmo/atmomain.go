@@ -17,11 +17,11 @@ var (
 func main() {
 	ustd.Flags.AddShortNames, ustd.Flags.OnErr = true, func(_ string, _ string, e error) { panic(e) }
 	replDirSession = ustd.FlagOfString("repl-dir-session", replDirSession,
-		"    format: text (a dir path)\n    treats the given dir as a (\"faux\") kit even if not in a kits-dir search path")
+		"    format: text (a dir path)\n    treats the given dir as a (\"faux\") kit even if not in a kitstash dir search path")
 	replDirCache = ustd.FlagOfString("repl-dir-cache", replDirCache,
 		"    format: text (a dir path), currently not yet in use")
 	replDirsAdditionalKits = ustd.FlagOfStrings("repl-dirs-kits", replDirsAdditionalKits, string(os.PathListSeparator),
-		"    format: text (1 or more kits-dir search paths sep'd by `"+string(os.PathListSeparator)+"`)\n    will be used in addition to those in $"+atmo.EnvVarKitsDirs)
+		"    format: text (1 or more kitstash dir search paths sep'd by `"+string(os.PathListSeparator)+"`)\n    will be used in addition to those in $"+atmo.EnvVarKitsDirs)
 	replMultiLineSuffix = ustd.FlagOfString("repl-ux-longsuffix", replMultiLineSuffix,
 		"    format: text; sets the line suffix that begins or ends a multi-line input")
 	atmorepl.Ux.MoreLines = int(ustd.FlagOfUint("repl-ux-morelines", uint64(atmorepl.Ux.MoreLines),

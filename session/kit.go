@@ -219,8 +219,8 @@ func (me *Kit) ensureErrTldPosOffsets() {
 		}
 	}
 	for _, tld := range me.topLevelDefs {
-		tld.Errs.Stage0Init.UpdatePosOffsets(tld.OrigTopLevelChunk)
-		tld.Errs.Stage1BadNames.UpdatePosOffsets(tld.OrigTopLevelChunk)
+		tld.Errs.Stage0Init.UpdatePosOffsets(tld.OrigTopChunk)
+		tld.Errs.Stage1BadNames.UpdatePosOffsets(tld.OrigTopChunk)
 	}
 }
 
@@ -242,12 +242,24 @@ func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors)
 		deferrs := append(me.topLevelDefs[i].Errs.Stage0Init, me.topLevelDefs[i].Errs.Stage1BadNames...)
 		if maybeErrsToSrcs != nil {
 			for _, e := range deferrs {
-				maybeErrsToSrcs[e] = me.topLevelDefs[i].OrigTopLevelChunk.SrcFile.LastLoad.Src
+				maybeErrsToSrcs[e] = me.topLevelDefs[i].OrigTopChunk.SrcFile.LastLoad.Src
 			}
 		}
 		errs.Add(deferrs...)
 	}
 	return
+}
+
+func (me *Kit) DoesImport(kitImpPath string) bool {
+	if kitImpPath != me.ImpPath {
+		kitimppaths := me.Imports()
+		for _, kip := range kitimppaths {
+			if kip == kitImpPath {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (me *Kit) Imports() []string {
@@ -269,7 +281,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return len(me.lookups.tlDefIDsByName[name]) > 0
 }
 
-func (me *Kit) Defs(name string) (defs atmoil.IrTopDefs) {
+func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs atmoil.IrTopDefs) {
 	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}
@@ -277,6 +289,13 @@ func (me *Kit) Defs(name string) (defs atmoil.IrTopDefs) {
 		for _, id := range me.lookups.tlDefIDsByName[name] {
 			if def := me.lookups.tlDefsByID[id]; def != nil {
 				defs = append(defs, def)
+			}
+		}
+		if includeUnparsedOnes {
+			for _, tld := range me.topLevelDefs {
+				if tld.OrigTopChunk != nil && tld.OrigTopChunk.Ast.Def.NameIfErr == name {
+					defs = append(defs, tld)
+				}
 			}
 		}
 	}

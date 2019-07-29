@@ -116,15 +116,6 @@ func (me *AstFile) Errors() atmo.Errors {
 	return me._errs
 }
 
-func (me *AstFile) String() (r string) {
-	for i := range me.TopLevel {
-		if def := me.TopLevel[i].Ast.Def.Orig; def != nil {
-			r += "\n" + def.Tokens.String() + "\n"
-		}
-	}
-	return
-}
-
 func (me *AstFile) CountTopLevelDefs(onlyCountErrless bool) (total int, unexported int) {
 	for i := range me.TopLevel {
 		if tld := &me.TopLevel[i]; (!onlyCountErrless) || (!tld.HasErrors()) {
@@ -207,14 +198,6 @@ func (me AstFiles) TopLevelChunkByDefId(defId string) *SrcTopChunk {
 		}
 	}
 	return nil
-}
-
-func (me *AstFiles) EnsureScratchpadFile() (pretendFile *AstFile) {
-	if pretendFile = me.ByFilePath(""); pretendFile == nil {
-		pretendFile = &AstFile{}
-		*me = append(*me, pretendFile)
-	}
-	return
 }
 
 func (me AstFiles) Index(srcFilePath string) int {

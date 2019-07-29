@@ -39,13 +39,13 @@ func (me IrTopDefs) Len() int          { return len(me) }
 func (me IrTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me IrTopDefs) Less(i int, j int) bool {
 	dis, dat := &me[i].OrigDef.Tokens[0].Pos, &me[j].OrigDef.Tokens[0].Pos
-	return (dis.FilePath == dat.FilePath && me[i].OrigTopLevelChunk.PosOffsetByte() < me[j].OrigTopLevelChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
+	return (dis.FilePath == dat.FilePath && me[i].OrigTopChunk.PosOffsetByte() < me[j].OrigTopChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 
 func (me IrTopDefs) ByName(name string, onlyFor *atmolang.AstFile) (defs []*IrDefTop) {
 	allfiles := (onlyFor == nil)
 	for _, tld := range me {
-		if allfiles || (tld.OrigTopLevelChunk != nil && tld.OrigTopLevelChunk.SrcFile != nil && tld.OrigTopLevelChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
+		if allfiles || (tld.OrigTopChunk != nil && tld.OrigTopChunk.SrcFile != nil && tld.OrigTopChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
 			if tld.Name.Val == name || (tld.OrigDef != nil && tld.OrigDef.Name.Val == name) {
 				defs = append(defs, tld)
 			}
@@ -71,7 +71,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelD
 		for j := range kitSrcFiles[i].TopLevel {
 			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
 				if defidx := this.IndexByID(tl.Id()); defidx >= 0 {
-					oldunchangeds[defidx], this[defidx].OrigTopLevelChunk, this[defidx].OrigDef = atmo.Є, tl, tl.Ast.Def.Orig
+					oldunchangeds[defidx], this[defidx].OrigTopChunk, this[defidx].OrigDef = atmo.Є, tl, tl.Ast.Def.Orig
 				} else if !tl.HasErrors() { // any source chunk with parse/lex errs doesn't exist for us anymore at this point
 					newdefs = append(newdefs, tl)
 				}
@@ -102,7 +102,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelD
 		newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
 		for _, tlc := range newdefs {
 			// add the def skeleton
-			def := &IrDefTop{OrigTopLevelChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool)}
+			def := &IrDefTop{OrigTopChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool)}
 			this, def.OrigDef, newTopLevelDefIdsAndNames[def.Id] =
 				append(this, def), tlc.Ast.Def.Orig, tlc.Ast.Def.Orig.Name.Val
 			// populate it

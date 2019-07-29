@@ -216,9 +216,9 @@ func (me *Repl) DSrcs(what string) bool {
 			ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
 		me.withKitDefs(whatkit, whatname, "srcs", func(kit *atmosess.Kit, def *atmoil.IrDefTop) {
-			me.decoAddNotice(false, "", true, ustr.FirstOf(def.OrigTopLevelChunk.SrcFile.SrcFilePath, me.Ctx.Options.Scratchpad.FauxFileNameForErrorMessages))
-			ctxp.ApplStyle = def.OrigTopLevelChunk.SrcFile.Options.ApplStyle
-			def.OrigTopLevelChunk.Print(&ctxp)
+			me.decoAddNotice(false, "", true, ustr.FirstOf(def.OrigTopChunk.SrcFile.SrcFilePath, me.Ctx.Options.Scratchpad.FauxFileNameForErrorMessages))
+			ctxp.ApplStyle = def.OrigTopChunk.SrcFile.Options.ApplStyle
+			def.OrigTopChunk.Print(&ctxp)
 			ctxp.WriteTo(me.IO.Stdout)
 			ctxp.Reset()
 			if len(def.Errors()) == 0 {
@@ -277,7 +277,7 @@ func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on 
 		me.IO.writeLns("Unknown kit: `" + whatKit + "`, see known kits via `:list _`.")
 	} else {
 		me.Ctx.KitEnsureLoaded(kit)
-		defs := kit.Defs(whatName)
+		defs := kit.Defs(whatName, true)
 		me.IO.writeLns(ustr.Plu(len(defs), "def")+" named `"+whatName+"` found in kit `"+kit.ImpPath+ustr.If(len(defs) > 0, "`:", "`."), "", "")
 		for _, def := range defs {
 			on(kit, def)

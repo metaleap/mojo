@@ -30,7 +30,7 @@ func mainRepl() {
 		})
 		atmorepl.Ux.WelcomeMsgLines = []string{
 			"Now you're in a read-eval-print loop (\"repl\").",
-			"", "─ demands (like `:quit`) start with `:`, all", "  other inputs are eval'd as atmo expressions",
+			"", "─ demands on the repl (like `:quit`) start with `:`,", "  all other inputs are interpreted as atmo code",
 			"", "─ in the latter case, multi-line inputs are started", "  and finished respectively by a line ending in " + repl.IO.MultiLineSuffix,
 			"", "─ for infos on --options,", "  quit and run `atmo help`",
 		}

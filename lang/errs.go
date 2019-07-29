@@ -30,6 +30,7 @@ const (
 	ErrParsing_CommasMixDefsAndExprs
 	ErrParsing_BracketUnclosed
 	ErrParsing_BracketUnopened
+	ErrParsing_IdentExpected
 )
 const (
 	_                                               = iota

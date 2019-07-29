@@ -14,7 +14,6 @@ type INode interface {
 	EquivTo(INode) bool
 	findByOrig(INode, atmolang.IAstNode) []INode
 	IsDef() *IrDef
-	IsDefWithArg() bool
 	Let() *IrExprLetBase
 	RefersTo(string) bool
 	refsTo(string) []IExpr
@@ -93,9 +92,9 @@ func (me *IrDef) walk(ancestors []INode, self INode, on func([]INode, INode, ...
 type IrDefTop struct {
 	IrDef
 
-	Id                string
-	OrigTopLevelChunk *atmolang.SrcTopChunk
-	Errs              struct {
+	Id           string
+	OrigTopChunk *atmolang.SrcTopChunk
+	Errs         struct {
 		Stage0Init     atmo.Errors
 		Stage1BadNames atmo.Errors
 	}

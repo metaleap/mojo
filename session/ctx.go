@@ -66,7 +66,7 @@ func CtxDefaultCacheDirPath() string {
 // `Kits` reflective of the structures found in the various `me.Dirs.Kits`
 // search paths and from now on in sync with live modifications to those.
 func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *atmo.Error) {
-	me.state.preduce.owner = me
+	me.state.preduce.owner, me.state.preduce.cachedByTldIds = me, make(map[string]IPreduced, 128)
 	me.state.initCalled, me.Kits.All = true, make(Kits, 0, 32)
 	cachedir := me.Dirs.Cache
 	if cachedir == "" {
@@ -95,7 +95,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 		kitsdirs = ustr.Merge(kitsdirsenv, kitsdirs, func(ldp string) bool {
 			if ldp != "" && !ufs.IsDir(ldp) {
 				if ldp != kitsdirdefault {
-					me.bgMsg(true, "kits-dir "+ldp+" not found")
+					me.bgMsg(true, "kitstash dir "+ldp+" not found")
 				}
 				return true
 			}
@@ -104,7 +104,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 		for i := range kitsdirs {
 			for j := range kitsdirs {
 				if iinj, jini := ustr.Pref(kitsdirs[i], kitsdirs[j]), ustr.Pref(kitsdirs[j], kitsdirs[i]); i != j && (iinj || jini) {
-					err = atmo.ErrSess(ErrSessInit_KitsDirsConflict, "", "conflicting kits-dirs, because one contains the other: `"+kitsdirs[i]+"` vs. `"+kitsdirs[j]+"`")
+					err = atmo.ErrSess(ErrSessInit_KitsDirsConflict, "", "conflicting kitstash dirs, because one contains the other: `"+kitsdirs[i]+"` vs. `"+kitsdirs[j]+"`")
 					break
 				}
 			}
@@ -114,9 +114,9 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 		}
 		if err == nil && len(kitsdirs) == 0 {
 			if kitsdirstried := append(kitsdirsenv, kitsdirsorig...); len(kitsdirstried) == 0 {
-				err = atmo.ErrSess(ErrSessInit_KitsDirsNotSpecified, "", "no kits-dirs were specified, neither via env-var "+atmo.EnvVarKitsDirs+" nor via command-line flags")
+				err = atmo.ErrSess(ErrSessInit_KitsDirsNotSpecified, "", "no kitstash dirs were specified, neither via env-var "+atmo.EnvVarKitsDirs+" nor via command-line flags")
 			} else {
-				err = atmo.ErrSess(ErrSessInit_KitsDirsNotFound, "", "none of the specified kits-dirs were found:\n    "+ustr.Join(kitsdirstried, "\n    "))
+				err = atmo.ErrSess(ErrSessInit_KitsDirsNotFound, "", "none of the specified kitstash dirs were found:\n    "+ustr.Join(kitsdirstried, "\n    "))
 			}
 		}
 		if err == nil {
@@ -278,6 +278,11 @@ func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*a
 	}
 }
 
+// Locked is never used by `atmosess` itself but a convenience helper for
+// outside callers that run parallel code-paths and thus need to serialize
+// concurrent accesses to their `Ctx`. Wrap any and all of your `Ctx` uses in
+// a `func` passed to `Locked` and concurrent accesses will queue up. Caution:
+// calling `Locked` again from  inside such a wrapper `func` will deadlock.
 func (me *Ctx) Locked(do func()) {
 	me.state.notUsedInternallyButAvailableForOutsideCallersConvenience.Lock()
 	defer me.state.notUsedInternallyButAvailableForOutsideCallersConvenience.Unlock()
