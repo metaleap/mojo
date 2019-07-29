@@ -81,7 +81,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 			boff := alreadyinscratchpad.PosOffsetByte()
 			pref, suff := tmpaltsrc[:boff], tmpaltsrc[boff+len(alreadyinscratchpad.Src):]
 			tmpaltsrc = append(pref, suff...)
-			if ident, _ := def.Body.(*atmolang.AstIdent); ident != nil {
+			if ident, _ := def.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
 				src = ""
 			}
 		}
