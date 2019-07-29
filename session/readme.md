@@ -171,10 +171,10 @@ accesses to their `Ctx`. Wrap any and all of your `Ctx` uses in a `func` passed
 to `Locked` and concurrent accesses will queue up. Caution: calling `Locked`
 again from inside such a wrapper `func` will deadlock.
 
-#### func (*Ctx) PreduceExpr
+#### func (*Ctx) Preduce
 
 ```go
-func (me *Ctx) PreduceExpr(kit *Kit, expr atmoil.IExpr) (atmoil.IPreduced, atmo.Errors)
+func (me *Ctx) Preduce(kit *Kit, node atmoil.INode) (atmoil.IPreduced, atmo.Errors)
 ```
 
 #### func (*Ctx) ScratchpadEntry

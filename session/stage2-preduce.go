@@ -17,9 +17,9 @@ type ctxPreduce struct {
 
 func (me *ctxPreduce) toks(n atmoil.INode) udevlex.Tokens { return me.curNodeCtx.topDef.OrigToks(n) }
 
-func (me *Ctx) PreduceExpr(kit *Kit, expr atmoil.IExpr) (atmoil.IPreduced, atmo.Errors) {
+func (me *Ctx) Preduce(kit *Kit, node atmoil.INode) (atmoil.IPreduced, atmo.Errors) {
 	me.state.preduce.curNodeCtx.kit = kit
-	return me.state.preduce.preduceIlNode(expr)
+	return me.state.preduce.preduceIlNode(node)
 }
 
 func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, freshErrs atmo.Errors) {
@@ -56,7 +56,6 @@ func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, fr
 
 			me.cachedByTldIds[this.Id] = pred
 		}
-
 		ret, freshErrs = pred, this.Errs.Stage2Preduce
 	case *atmoil.IrDef:
 		ret, freshErrs = me.preduceIlNode(this.Body)

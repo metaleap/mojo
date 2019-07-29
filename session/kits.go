@@ -245,6 +245,14 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) 
 		for defid := range defidsdependantsofnamesofchange {
 			delete(me.state.preduce.cachedByTldIds, defid)
 		}
+		for _, kit := range me.Kits.All {
+			for _, tld := range kit.topLevelDefs {
+				if _, exists := me.state.preduce.cachedByTldIds[tld.Id]; !exists {
+					tld.Errs.Stage2Preduce = nil
+					me.Preduce(kit, tld)
+				}
+			}
+		}
 	}
 	return
 }
