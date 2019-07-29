@@ -36,13 +36,13 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 	origsrc, tmpaltsrc := spfile.Options.TmpAltSrc, spfile.Options.TmpAltSrc
 	isdef, _, toks, err := atmolang.LexAndGuess("", []byte(src))
 	var restoreorigsrc bool
+	var prefixlength int
 	defer func() {
 		if !isdef {
 			for _, e := range errs {
 				if pos := e.Pos(); pos != nil && (pos.FilePath == "" || pos.FilePath == me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					e.UpdatePosOffsets(nil)
-					pos = e.Pos()
-					pos.Ln1, pos.Col1, pos.Off0 = pos.Ln1-1, pos.Col1-1, pos.Off0-42 // not so clean, do it cleaner IF you ever DO change the dyn-name generation of exprs
+					pos.Ln1, pos.Col1, pos.Off0 = pos.Ln1-1, pos.Col1-1, pos.Off0-prefixlength
 				}
 			}
 		}
@@ -62,7 +62,8 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 	var defname string
 	if !isdef { // entry is an expr: add temp def `eval‹RandomNoise› := ‹input›` then eval that name
 		defname = "eval" + strconv.FormatInt(time.Now().UnixNano(), 16) + strconv.FormatInt(rand.Int63(), 16)
-		src = "_" + defname + " :=\n " + src
+		prefix := "_" + defname + " :=\n "
+		src, prefixlength = prefix+src, len(prefix)
 	} else if defnode, e := atmolang.LexAndParseDefOrExpr(isdef, toks); e != nil {
 		errs.Add(e)
 		return
@@ -74,13 +75,14 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 			if t.OrigTopChunk != nil && (t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname)) {
 				if t.OrigTopChunk.SrcFile.SrcFilePath == "" {
 					alreadyinscratchpad = t.OrigTopChunk
+					break
 				}
 			}
 		}
 		if alreadyinscratchpad != nil { // overwrite prev def by slicing out the old one
 			boff := alreadyinscratchpad.PosOffsetByte()
 			pref, suff := tmpaltsrc[:boff], tmpaltsrc[boff+len(alreadyinscratchpad.Src):]
-			tmpaltsrc = append(pref, suff...)
+			tmpaltsrc = append(append(make([]byte, 0, len(pref)+len(suff)), pref...), suff...)
 			if ident, _ := def.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
 				src = ""
 			}
