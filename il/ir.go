@@ -101,8 +101,8 @@ type IrDefTop struct {
 }
 
 func (me *IrDefTop) Errors() (errs atmo.Errors) {
-	errs = make(atmo.Errors, 0, len(me.Errs.Stage0Init)+len(me.Errs.Stage1BadNames))
-	errs = append(append(errs, me.Errs.Stage0Init...), me.Errs.Stage1BadNames...)
+	errs = make(atmo.Errors, 0, len(me.Errs.Stage0Init)+len(me.Errs.Stage1BadNames)+len(me.Errs.Stage2Preduce))
+	errs = append(append(append(errs, me.Errs.Stage0Init...), me.Errs.Stage1BadNames...), me.Errs.Stage2Preduce...)
 	return
 }
 func (me *IrDefTop) FindByOrig(orig atmolang.IAstNode) []INode {

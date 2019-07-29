@@ -69,28 +69,19 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 	} else { // a full def to add to (or update in) the scratch-pad
 		def := defnode.(*atmolang.AstDef)
 		defname = def.Name.Val
-		var alreadyinscratchpad, alreadyinsrcfile *atmolang.SrcTopChunk
+		var alreadyinscratchpad *atmolang.SrcTopChunk
 		for _, t := range kit.topLevelDefs {
 			if t.OrigTopChunk != nil && (t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname)) {
 				if t.OrigTopChunk.SrcFile.SrcFilePath == "" {
 					alreadyinscratchpad = t.OrigTopChunk
-				} else {
-					alreadyinsrcfile = t.OrigTopChunk
-					break
 				}
 			}
 		}
-		if false && alreadyinsrcfile != nil {
-			errs.AddSess(ErrSess_EvalDefNameExistsInCurKit, me.Options.Scratchpad.FauxFileNameForErrorMessages, "name `"+defname+"` already declared in "+alreadyinsrcfile.SrcFile.SrcFilePath+":"+strconv.Itoa(1+alreadyinsrcfile.PosOffsetLine())+":1 ─ try again with another name")
-			return
-		} else if others := kit.lookups.namesInScopeAll[defname]; false && len(others) > 0 {
-			errs.AddSess(ErrSess_EvalDefNameExistsImported, me.Options.Scratchpad.FauxFileNameForErrorMessages, "name `"+defname+"` already declared by imports ─ try again with another name")
-			return
-		} else if alreadyinscratchpad != nil { // overwrite prev def by slicing out the old one
+		if alreadyinscratchpad != nil { // overwrite prev def by slicing out the old one
 			boff := alreadyinscratchpad.PosOffsetByte()
 			pref, suff := tmpaltsrc[:boff], tmpaltsrc[boff+len(alreadyinscratchpad.Src):]
 			tmpaltsrc = append(pref, suff...)
-			if ident, _ := def.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
+			if ident, _ := def.Body.(*atmolang.AstIdent); ident != nil {
 				src = ""
 			}
 		}

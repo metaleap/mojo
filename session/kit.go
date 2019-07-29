@@ -218,6 +218,7 @@ func (me *Kit) ensureErrTldPosOffsets() {
 	for _, tld := range me.topLevelDefs {
 		tld.Errs.Stage0Init.UpdatePosOffsets(tld.OrigTopChunk)
 		tld.Errs.Stage1BadNames.UpdatePosOffsets(tld.OrigTopChunk)
+		tld.Errs.Stage2Preduce.UpdatePosOffsets(tld.OrigTopChunk)
 	}
 }
 
@@ -236,7 +237,7 @@ func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors)
 		}
 	}
 	for i := range me.topLevelDefs {
-		deferrs := append(me.topLevelDefs[i].Errs.Stage0Init, me.topLevelDefs[i].Errs.Stage1BadNames...)
+		deferrs := append(append(me.topLevelDefs[i].Errs.Stage0Init, me.topLevelDefs[i].Errs.Stage1BadNames...), me.topLevelDefs[i].Errs.Stage2Preduce...)
 		if maybeErrsToSrcs != nil {
 			for _, e := range deferrs {
 				maybeErrsToSrcs[e] = me.topLevelDefs[i].OrigTopChunk.SrcFile.LastLoad.Src

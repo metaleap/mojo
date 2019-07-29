@@ -60,8 +60,8 @@ func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, fr
 		ret, freshErrs = pred, this.Errs.Stage2Preduce
 	case *atmoil.IrDef:
 		ret, freshErrs = me.preduceIlNode(this.Body)
-	// case *atmoil.IrAppl:
-
+	case *atmoil.IrAppl:
+		freshErrs.AddTodo(2345, me.toks(this), "noApplYet")
 	default:
 		panic(this)
 	}
