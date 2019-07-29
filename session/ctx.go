@@ -24,21 +24,24 @@ type ctxBgMsg = struct {
 // Ctx fields must never be written to from the outside after the `Ctx.Init` call.
 type Ctx struct {
 	Dirs struct {
-		fauxKits []string
-		Cache    string
-		Kits     []string
+		fauxKits    []string
+		CacheData   string
+		KitsStashes []string
 	}
 	Kits struct {
 		All                Kits
 		reprocessingNeeded bool
 	}
 	On struct {
-		NewBackgroundMessages func()
-		SomeKitsRefreshed     func(hadFreshErrs bool)
+		NewBackgroundMessages func(*Ctx)
+		SomeKitsRefreshed     func(ctx *Ctx, hadFreshErrs bool)
 	}
 	Options struct {
 		BgMsgs struct {
 			IncludeLiveKitsErrs bool
+		}
+		FileModsCatchup struct {
+			BurstLimit time.Duration
 		}
 		Scratchpad struct {
 			FauxFileNameForErrorMessages string
@@ -47,6 +50,7 @@ type Ctx struct {
 	state struct {
 		bgMsgs        []ctxBgMsg
 		fileModsWatch struct {
+			lastCatchup                   time.Time
 			latest                        []map[string]os.FileInfo
 			collectFileModsForNextCatchup func([]string, []string) int
 		}
@@ -68,7 +72,7 @@ func CtxDefaultCacheDirPath() string {
 func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *atmo.Error) {
 	me.state.preduce.owner, me.state.preduce.cachedByTldIds = me, make(map[string]atmoil.IPreduced, 128)
 	me.Kits.All = make(Kits, 0, 32)
-	cachedir := me.Dirs.Cache
+	cachedir := me.Dirs.CacheData
 	if cachedir == "" {
 		cachedir = CtxDefaultCacheDirPath()
 	}
@@ -77,7 +81,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 	} else if clearCacheDir {
 		err = atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoCacheDirDeletionFailure, cachedir, ufs.Del(cachedir))
 	}
-	if kitsdirs := me.Dirs.Kits; err == nil {
+	if kitsdirs := me.Dirs.KitsStashes; err == nil {
 		kitsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarKitsDirs), string(os.PathListSeparator))
 		kitsdirdefault := filepath.Join(usys.UserHomeDirPath(), ".atmo")
 		for i := range kitsdirsenv {
@@ -131,7 +135,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 			}
 		}
 		if err == nil {
-			if me.Dirs.Cache, me.Dirs.Kits = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
+			if me.Dirs.CacheData, me.Dirs.KitsStashes = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
 				_, kip, e := me.fauxKitsAddDir(sessionFauxKitDir, true)
 				kitImpPathIfFauxKitDirActualKit, err = kip, atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoFauxKitDirProblem, sessionFauxKitDir, e)
 			}
@@ -173,7 +177,7 @@ func (me *Ctx) fauxKitsAddDir(dirPath string, forceAcceptEvenIfNoSrcFiles bool) 
 	if err == nil {
 		if dirHasSrcFiles = ufs.DoesDirHaveFilesWithSuffix(dirPath, atmo.SrcFileExt); dirHasSrcFiles || forceAcceptEvenIfNoSrcFiles {
 			var in bool
-			for _, kitsdirpath := range me.Dirs.Kits {
+			for _, kitsdirpath := range me.Dirs.KitsStashes {
 				pref := kitsdirpath + string(os.PathSeparator)
 				if in = ustr.Pref(dirPath, pref); in {
 					existingKitImpPath = dirPath[len(pref):]
@@ -199,7 +203,7 @@ func (me *Ctx) bgMsg(issue bool, lines ...string) {
 	msg := ctxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
 	me.state.bgMsgs = append(me.state.bgMsgs, msg)
 	if me.On.NewBackgroundMessages != nil {
-		me.On.NewBackgroundMessages()
+		me.On.NewBackgroundMessages(me)
 	}
 }
 
@@ -234,17 +238,23 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs atmo.Err
 		}
 	}
 	if me.On.SomeKitsRefreshed != nil {
-		me.On.SomeKitsRefreshed(hadfresherrs)
+		me.On.SomeKitsRefreshed(me, hadfresherrs)
 	}
 }
 
 func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
+	if me.Options.FileModsCatchup.BurstLimit > 0 {
+		now := time.Now()
+		if now.Sub(me.state.fileModsWatch.lastCatchup) < me.Options.FileModsCatchup.BurstLimit {
+			return
+		}
+		me.state.fileModsWatch.lastCatchup = now
+	}
 	me.catchUpOnFileMods(nil, ensureFilesMarkedAsChanged...)
 }
 
 func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
-	timestarted := time.Now()
-	me.state.fileModsWatch.collectFileModsForNextCatchup(me.Dirs.Kits, me.Dirs.fauxKits)
+	me.state.fileModsWatch.collectFileModsForNextCatchup(me.Dirs.KitsStashes, me.Dirs.fauxKits)
 
 	var latest []map[string]os.FileInfo
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
@@ -272,8 +282,7 @@ func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*a
 	}
 
 	if len(latest) > 0 || forceFor != nil {
-		me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest, forceFor)
-		println(time.Since(timestarted).String())
+		me.fileModsHandle(me.Dirs.KitsStashes, me.Dirs.fauxKits, latest, forceFor)
 	}
 }
 

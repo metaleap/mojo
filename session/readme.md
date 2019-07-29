@@ -52,19 +52,22 @@ func IsValidKitDirName(dirName string) bool
 ```go
 type Ctx struct {
 	Dirs struct {
-		Cache string
-		Kits  []string
+		CacheData   string
+		KitsStashes []string
 	}
 	Kits struct {
 		All Kits
 	}
 	On struct {
-		NewBackgroundMessages func()
-		SomeKitsRefreshed     func(hadFreshErrs bool)
+		NewBackgroundMessages func(*Ctx)
+		SomeKitsRefreshed     func(ctx *Ctx, hadFreshErrs bool)
 	}
 	Options struct {
 		BgMsgs struct {
 			IncludeLiveKitsErrs bool
+		}
+		FileModsCatchup struct {
+			BurstLimit time.Duration
 		}
 		Scratchpad struct {
 			FauxFileNameForErrorMessages string

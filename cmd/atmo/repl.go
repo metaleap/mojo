@@ -21,7 +21,7 @@ var (
 func mainRepl() {
 	atmo.Options.Sorts = true
 	var repl atmorepl.Repl
-	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.Kits, repl.Ctx.Dirs.Cache = replMultiLineSuffix, replDirsAdditionalKits, replDirCache
+	repl.IO.MultiLineSuffix, repl.Ctx.Dirs.KitsStashes, repl.Ctx.Dirs.CacheData = replMultiLineSuffix, replDirsAdditionalKits, replDirCache
 	if kitimppath, err := repl.Ctx.Init(false, replDirSession); err == nil {
 		usys.OnSigint(func() {
 			repl.QuitNonDirectiveInitiated(true)

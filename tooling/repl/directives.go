@@ -117,7 +117,7 @@ func (me *Repl) DList(what string) bool {
 
 func (me *Repl) dListKits() {
 	me.IO.writeLns("LIST of kits from current search paths:")
-	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.Kits, func(s string) string { return "─── " + s })...)
+	me.IO.writeLns(ustr.Map(me.Ctx.Dirs.KitsStashes, func(s string) string { return "─── " + s })...)
 	kits := me.Ctx.Kits.All
 	me.IO.writeLns("", "Found "+ustr.Plu(len(kits), "kit")+":")
 	for _, kit := range kits {
