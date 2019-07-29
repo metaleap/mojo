@@ -62,19 +62,15 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 		}
 	}
 
-	var anyrefr bool
 	var fresherrs atmo.Errors
 	if len(kitImpPaths) > 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
-				anyrefr = true
 				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)...)
 			}
 		}
 	}
-	if anyrefr {
-		me.onSomeOrAllKitsPartiallyOrFullyRefreshed(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
-	}
+	me.onSomeOrAllKitsPartiallyOrFullyRefreshed(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
 }
 
 func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) {
@@ -159,7 +155,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 	}
 
 	{ // step 2: maybe (re)load
-		if kit.WasEverToBeLoaded || reloadForceInsteadOfAuto {
+		if was := kit.WasEverToBeLoaded; was || reloadForceInsteadOfAuto {
 			kit.WasEverToBeLoaded, kit.Errs.Stage0BadImports =
 				true, nil
 
@@ -182,24 +178,25 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				freshErrs.Add(kit.Errs.Stage0BadImports...)
 			}
 
-			if allunchanged && !reloadForceInsteadOfAuto {
+			if was && allunchanged && len(freshErrs) == 0 && !reloadForceInsteadOfAuto {
 				return
 			}
 			{
-				od, nd, fe := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
+				defsgone, defsborn, fresherrs := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
 				if len(kit.state.defsGoneIdsNames) == 0 {
-					kit.state.defsGoneIdsNames = od
-				} else if len(od) > 0 {
+					kit.state.defsGoneIdsNames = defsgone
+				} else if len(defsgone) > 0 {
 					panic("TO-BE-INVESTIGATED (GONES)")
 				}
 				if len(kit.state.defsBornIdsNames) == 0 {
-					kit.state.defsBornIdsNames = nd
-				} else if len(nd) > 0 {
+					kit.state.defsBornIdsNames = defsborn
+				} else if len(defsborn) > 0 {
 					panic("TO-BE-INVESTIGATED (BORNS)")
 				}
-				if freshErrs.Add(fe...); len(od) > 0 || len(nd) > 0 || len(fe) > 0 {
+				if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 || len(fresherrs) > 0 {
 					me.Kits.reprocessingNeeded = true
 				}
+				freshErrs.Add(fresherrs...)
 			}
 			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmoil.IrDefTop, len(kit.topLevelDefs))
 			for _, tldef := range kit.topLevelDefs {

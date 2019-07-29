@@ -38,7 +38,7 @@ type Ctx struct {
 	}
 	Options struct {
 		BgMsgs struct {
-			IncludeKitsErrs bool
+			IncludeLiveKitsErrs bool
 		}
 		Scratchpad struct {
 			FauxFileNameForErrorMessages string
@@ -50,7 +50,6 @@ type Ctx struct {
 			latest                        []map[string]os.FileInfo
 			collectFileModsForNextCatchup func([]string, []string) int
 		}
-		initCalled                                                bool
 		notUsedInternallyButAvailableForOutsideCallersConvenience sync.Mutex
 		preduce                                                   ctxPreduce
 	}
@@ -68,7 +67,7 @@ func CtxDefaultCacheDirPath() string {
 // search paths and from now on in sync with live modifications to those.
 func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *atmo.Error) {
 	me.state.preduce.owner, me.state.preduce.cachedByTldIds = me, make(map[string]atmoil.IPreduced, 128)
-	me.state.initCalled, me.Kits.All = true, make(Kits, 0, 32)
+	me.Kits.All = make(Kits, 0, 32)
 	cachedir := me.Dirs.Cache
 	if cachedir == "" {
 		cachedir = CtxDefaultCacheDirPath()
@@ -140,9 +139,6 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 		if err == nil {
 			me.initKits()
 		}
-	}
-	if err != nil {
-		me.state.initCalled = false
 	}
 	return
 }
@@ -223,7 +219,7 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs atmo.Err
 	me.Kits.All.ensureErrTldPosOffsets()
 	hadfresherrs := len(freshStage0Errs) > 0 || len(freshStage1AndBeyondErrs) > 0
 	if hadfresherrs {
-		if me.Options.BgMsgs.IncludeKitsErrs {
+		if me.Options.BgMsgs.IncludeLiveKitsErrs {
 			for _, e := range freshStage0Errs {
 				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					me.bgMsg(true, e.Error())
@@ -247,6 +243,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 }
 
 func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
+	timestarted := time.Now()
 	me.state.fileModsWatch.collectFileModsForNextCatchup(me.Dirs.Kits, me.Dirs.fauxKits)
 
 	var latest []map[string]os.FileInfo
@@ -276,6 +273,7 @@ func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*a
 
 	if len(latest) > 0 || forceFor != nil {
 		me.fileModsHandle(me.Dirs.Kits, me.Dirs.fauxKits, latest, forceFor)
+		println(time.Since(timestarted).String())
 	}
 }
 

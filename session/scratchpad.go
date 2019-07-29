@@ -32,7 +32,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 	if src = ustr.Trim(src); len(src) == 0 {
 		return
 	}
-	spfile := kit.ensureScratchpadFile()
+	spfile, bgmsgs := kit.ensureScratchpadFile(), me.Options.BgMsgs.IncludeLiveKitsErrs
 	origsrc, tmpaltsrc := spfile.Options.TmpAltSrc, spfile.Options.TmpAltSrc
 	isdef, _, toks, err := atmolang.LexAndGuess("", []byte(src))
 	var restoreorigsrc bool
@@ -50,6 +50,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 			spfile.Options.TmpAltSrc = origsrc
 			me.catchUpOnFileMods(kit)
 		}
+		me.Options.BgMsgs.IncludeLiveKitsErrs = bgmsgs
 	}()
 
 	if err != nil {
@@ -98,6 +99,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 	restoreorigsrc = !isdef
 	spfile.Options.TmpAltSrc = append([]byte(src), tmpaltsrc...)
 	me.catchUpOnFileMods(kit)
+	me.Options.BgMsgs.IncludeLiveKitsErrs = false
 
 	if spfile.HasErrors() { // refers ONLY to lex/parse errors
 		restoreorigsrc, errs = true, spfile.Errors()

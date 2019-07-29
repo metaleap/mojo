@@ -44,7 +44,7 @@ func (me *Repl) init() {
 			}
 		}
 
-	me.Ctx.Options.BgMsgs.IncludeKitsErrs = true
+	me.Ctx.Options.BgMsgs.IncludeLiveKitsErrs = true
 	me.Ctx.Options.Scratchpad.FauxFileNameForErrorMessages = "‹repl›"
 	me.initEnsureDefaultDirectives()
 }

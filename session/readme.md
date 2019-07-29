@@ -64,7 +64,7 @@ type Ctx struct {
 	}
 	Options struct {
 		BgMsgs struct {
-			IncludeKitsErrs bool
+			IncludeLiveKitsErrs bool
 		}
 		Scratchpad struct {
 			FauxFileNameForErrorMessages string

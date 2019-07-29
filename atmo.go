@@ -16,6 +16,25 @@ func (me StringKeys) Exists(s string) (ok bool) {
 	return
 }
 
+type sorter struct {
+	s    []string
+	less func(string, string) bool
+}
+
+func (me *sorter) Swap(i int, j int)      { me.s[i], me.s[j] = me.s[j], me.s[i] }
+func (me *sorter) Len() int               { return len(me.s) }
+func (me *sorter) Less(i int, j int) bool { return me.less(me.s[i], me.s[j]) }
+
+func (me StringKeys) SortedBy(isLessThan func(string, string) bool) (sorted []string) {
+	i, sorted := 0, make([]string, len(me))
+	for k := range me {
+		sorted[i] = k
+		i++
+	}
+	sort.Sort(&sorter{s: sorted, less: isLessThan})
+	return
+}
+
 func (me StringKeys) String() (s string) {
 	s = "{"
 	for k := range me {
