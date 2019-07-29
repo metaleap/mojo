@@ -42,6 +42,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 			for _, e := range errs {
 				if pos := e.Pos(); pos != nil && (pos.FilePath == "" || pos.FilePath == me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					e.UpdatePosOffsets(nil)
+					pos = e.Pos()
 					pos.Ln1, pos.Col1, pos.Off0 = pos.Ln1-1, pos.Col1-1, pos.Off0-prefixlength
 				}
 			}
