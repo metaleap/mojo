@@ -245,7 +245,8 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs atmo.Err
 func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
 	if me.Options.FileModsCatchup.BurstLimit > 0 {
 		now := time.Now()
-		if now.Sub(me.state.fileModsWatch.lastCatchup) < me.Options.FileModsCatchup.BurstLimit {
+		if (!me.state.fileModsWatch.lastCatchup.IsZero()) &&
+			now.Sub(me.state.fileModsWatch.lastCatchup) < me.Options.FileModsCatchup.BurstLimit {
 			return
 		}
 		me.state.fileModsWatch.lastCatchup = now
