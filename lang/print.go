@@ -9,26 +9,6 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-// IPrintFmt is fully implemented by `PrintFormatterMinimal`, for custom
-// formatters it'll be best to embed this and then override specifics.
-type IPrintFmt interface {
-	SetCtxPrint(*CtxPrint)
-	OnTopLevelChunk(*SrcTopChunk, *AstTopLevel)
-	OnDef(*AstTopLevel, *AstDef)
-	OnDefName(*AstDef, *AstIdent)
-	OnDefArg(*AstDef, int, *AstDefArg)
-	OnDefMeta(*AstDef, int, IAstExpr)
-	OnDefBody(*AstDef, IAstExpr)
-	OnExprLetBody(*AstExprLet, IAstExpr)
-	OnExprLetDef(*AstExprLet, int, *AstDef)
-	OnExprApplName(bool, *AstExprAppl, IAstExpr)
-	OnExprApplArg(bool, *AstExprAppl, int, IAstExpr)
-	OnExprCasesScrutinee(bool, *AstExprCases, IAstExpr)
-	OnExprCasesCond(*AstCase, int, IAstExpr)
-	OnExprCasesBody(*AstCase, IAstExpr)
-	OnComment(IAstNode, IAstNode, *AstComment)
-}
-
 func DbgPrintToStderr(node IAstNode) { PrintTo(nil, node, os.Stderr, true, 1) }
 
 func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebugPurposes bool, applStyle ApplStyle) {
@@ -45,19 +25,6 @@ func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebu
 		out = os.Stderr
 	}
 	out.Write(data)
-}
-
-type CtxPrint struct {
-	Fmt            IPrintFmt
-	ApplStyle      ApplStyle
-	NoComments     bool
-	CurTopLevel    *AstDef
-	CurIndentLevel int
-	OneIndentLevel string
-
-	ustd.BytesWriter
-
-	fmtCtxSet bool
 }
 
 func (me *CtxPrint) Print(node IAstNode) *CtxPrint {
@@ -265,12 +232,6 @@ func (me *AstCase) print(p *CtxPrint) {
 		p.Fmt.OnExprCasesBody(me, me.Body)
 	}
 }
-
-// PrintFmtMinimal implements `IPrintFmt`.
-type PrintFmtMinimal struct{ *CtxPrint }
-
-// PrintFmtPretty implements `IPrintFmt`.
-type PrintFmtPretty struct{ PrintFmtMinimal }
 
 func (me *PrintFmtMinimal) SetCtxPrint(ctxPrint *CtxPrint) { me.CtxPrint = ctxPrint }
 func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *SrcTopChunk, node *AstTopLevel) {

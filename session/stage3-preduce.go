@@ -51,12 +51,12 @@ func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, fr
 
 			curtopdef := me.curNodeCtx.topDef
 			me.curNodeCtx.topDef = this
-			pred, this.Errs.Stage2Preduce = me.preduceIlNode(&this.IrDef)
+			pred, this.Errs.Stage3Preduce = me.preduceIlNode(&this.IrDef)
 			me.curNodeCtx.topDef = curtopdef
 
 			me.cachedByTldIds[this.Id] = pred
 		}
-		ret, freshErrs = pred, this.Errs.Stage2Preduce
+		ret, freshErrs = pred, this.Errs.Stage3Preduce
 	case *atmoil.IrDef:
 		ret, freshErrs = me.preduceIlNode(this.Body)
 	case *atmoil.IrDefArg:

@@ -8,8 +8,6 @@ var (
 	Build Builder
 )
 
-type Builder struct{}
-
 func (Builder) Ident(val string) *AstIdent {
 	isnotopish := val[0] == '_' || ustr.BeginsLetter(val)
 	return &AstIdent{Val: val, IsTag: ustr.BeginsUpper(val), IsOpish: !isnotopish}

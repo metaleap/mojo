@@ -248,7 +248,7 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) 
 		for _, kit := range me.Kits.All {
 			for _, tld := range kit.topLevelDefs {
 				if _, exists := me.state.preduce.cachedByTldIds[tld.Id]; !exists {
-					tld.Errs.Stage2Preduce = nil
+					tld.Errs.Stage3Preduce = nil
 					me.Preduce(kit, tld)
 				}
 			}

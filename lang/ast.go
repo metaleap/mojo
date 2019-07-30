@@ -5,34 +5,7 @@ import (
 
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
 )
-
-type IAstNode interface {
-	print(*CtxPrint)
-	at(IAstNode, int) []IAstNode
-	Toks() udevlex.Tokens
-}
-
-type IAstComments interface {
-	Comments() *astBaseComments
-}
-
-type IAstExpr interface {
-	IAstNode
-	IAstComments
-	IsAtomic() bool
-	Desugared(func() string) (IAstExpr, atmo.Errors)
-}
-
-type IAstExprAtomic interface {
-	IAstExpr
-	String() string
-}
-
-type AstBaseTokens struct {
-	Tokens udevlex.Tokens
-}
 
 func (me *AstBaseTokens) at(self IAstNode, pos int) []IAstNode {
 	if me.Tokens.AreEnclosing(pos) {
@@ -42,27 +15,8 @@ func (me *AstBaseTokens) at(self IAstNode, pos int) []IAstNode {
 }
 func (me *AstBaseTokens) Toks() udevlex.Tokens { return me.Tokens }
 
-type astBaseComments = struct {
-	Leading  AstComments
-	Trailing AstComments
-}
-
-type AstBaseComments struct {
-	comments astBaseComments
-}
-
 func (me *AstBaseComments) Comments() *astBaseComments {
 	return &me.comments
-}
-
-type AstTopLevel struct {
-	AstBaseTokens
-	AstBaseComments
-	Def struct {
-		Orig         *AstDef
-		NameIfErr    string
-		IsUnexported bool
-	}
 }
 
 func (me *AstTopLevel) at(_ IAstNode, pos int) (nodes []IAstNode) {
@@ -73,24 +27,6 @@ func (me *AstTopLevel) at(_ IAstNode, pos int) (nodes []IAstNode) {
 		nodes = append(nodes, me)
 	}
 	return
-}
-
-type AstComments []AstComment
-
-type AstComment struct {
-	AstBaseTokens
-	Val           string
-	IsLineComment bool
-}
-
-type AstDef struct {
-	AstBaseTokens
-	Name       AstIdent
-	NameAffix  IAstExpr
-	Args       []AstDefArg
-	Meta       []IAstExpr
-	Body       IAstExpr
-	IsTopLevel bool
 }
 
 func (me *AstDef) at(_ IAstNode, pos int) (nodes []IAstNode) {
@@ -121,12 +57,6 @@ func (me *AstDef) at(_ IAstNode, pos int) (nodes []IAstNode) {
 	return
 }
 
-type AstDefArg struct {
-	AstBaseTokens
-	NameOrConstVal IAstExpr
-	Affix          IAstExpr
-}
-
 func (me *AstDefArg) at(_ IAstNode, pos int) (nodes []IAstNode) {
 	if me.Tokens.AreEnclosing(pos) {
 		if me.NameOrConstVal != nil {
@@ -140,27 +70,9 @@ func (me *AstDefArg) at(_ IAstNode, pos int) (nodes []IAstNode) {
 	return
 }
 
-type AstBaseExpr struct {
-	AstBaseTokens
-	AstBaseComments
-}
-
 func (*AstBaseExpr) IsAtomic() bool { return false }
 
-type AstBaseExprAtom struct {
-	AstBaseExpr
-}
-
 func (*AstBaseExprAtom) IsAtomic() bool { return true }
-
-type AstBaseExprAtomLit struct {
-	AstBaseExprAtom
-}
-
-type AstExprLitUint struct {
-	AstBaseExprAtomLit
-	Val uint64
-}
 
 func (me *AstExprLitUint) FromRune() bool {
 	return len(me.Tokens) == 1 && len(me.Tokens[0].Lexeme) > 0 && me.Tokens[0].Lexeme[0] == '\''
@@ -168,26 +80,9 @@ func (me *AstExprLitUint) FromRune() bool {
 
 func (me *AstExprLitUint) String() string { return strconv.FormatUint(me.Val, 10) }
 
-type AstExprLitFloat struct {
-	AstBaseExprAtomLit
-	Val float64
-}
-
 func (me *AstExprLitFloat) String() string { return strconv.FormatFloat(me.Val, 'f', -1, 64) }
 
-type AstExprLitStr struct {
-	AstBaseExprAtomLit
-	Val string
-}
-
 func (me *AstExprLitStr) String() string { return strconv.Quote(me.Val) }
-
-type AstIdent struct {
-	AstBaseExprAtom
-	Val     string
-	IsOpish bool
-	IsTag   bool
-}
 
 func (me *AstIdent) IsName(opishOk bool) bool {
 	return ((!me.IsOpish) || opishOk) && (!me.IsTag) && me.Val[0] != '_'
@@ -197,12 +92,6 @@ func (me *AstIdent) IsVar() bool {
 }
 func (me *AstIdent) IsPlaceholder() bool { return ustr.IsRepeat(me.Val, '_') }
 func (me *AstIdent) String() string      { return me.Val }
-
-type AstExprAppl struct {
-	AstBaseExpr
-	Callee IAstExpr
-	Args   []IAstExpr
-}
 
 func (me *AstExprAppl) at(_ IAstNode, pos int) (nodes []IAstNode) {
 	if me.Tokens.AreEnclosing(pos) {
@@ -219,12 +108,6 @@ func (me *AstExprAppl) at(_ IAstNode, pos int) (nodes []IAstNode) {
 		nodes = append(nodes, me)
 	}
 	return
-}
-
-type AstExprLet struct {
-	AstBaseExpr
-	Defs []AstDef
-	Body IAstExpr
 }
 
 func (me *AstExprLet) at(_ IAstNode, pos int) (nodes []IAstNode) {
@@ -244,13 +127,6 @@ func (me *AstExprLet) at(_ IAstNode, pos int) (nodes []IAstNode) {
 	return
 }
 
-type AstExprCases struct {
-	AstBaseExpr
-	Scrutinee    IAstExpr
-	Alts         []AstCase
-	defaultIndex int
-}
-
 func (me *AstExprCases) at(_ IAstNode, pos int) (nodes []IAstNode) {
 	if me.Tokens.AreEnclosing(pos) {
 		if me.Scrutinee != nil {
@@ -266,12 +142,6 @@ func (me *AstExprCases) at(_ IAstNode, pos int) (nodes []IAstNode) {
 		nodes = append(nodes, me)
 	}
 	return
-}
-
-type AstCase struct {
-	AstBaseTokens
-	Conds []IAstExpr
-	Body  IAstExpr
 }
 
 func (me *AstCase) at(_ IAstNode, pos int) (nodes []IAstNode) {

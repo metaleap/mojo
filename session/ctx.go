@@ -219,18 +219,18 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 	return
 }
 
-func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage0Errs atmo.Errors, freshStage1AndBeyondErrs atmo.Errors) {
+func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage1Errs atmo.Errors, freshStage2AndBeyondErrs atmo.Errors) {
 	me.Kits.All.ensureErrTldPosOffsets()
-	hadfresherrs := len(freshStage0Errs) > 0 || len(freshStage1AndBeyondErrs) > 0
+	hadfresherrs := len(freshStage1Errs) > 0 || len(freshStage2AndBeyondErrs) > 0
 	if hadfresherrs {
 		if me.Options.BgMsgs.IncludeLiveKitsErrs {
-			for _, e := range freshStage0Errs {
+			for _, e := range freshStage1Errs {
 				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					me.bgMsg(true, e.Error())
 				}
 			}
-			atmo.SortMaybe(freshStage1AndBeyondErrs)
-			for _, e := range freshStage1AndBeyondErrs {
+			atmo.SortMaybe(freshStage2AndBeyondErrs)
+			for _, e := range freshStage2AndBeyondErrs {
 				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					me.bgMsg(true, e.Error())
 				}

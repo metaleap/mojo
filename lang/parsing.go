@@ -6,14 +6,6 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-type ApplStyle int
-
-const (
-	APPLSTYLE_SVO ApplStyle = iota
-	APPLSTYLE_VSO
-	APPLSTYLE_SOV
-)
-
 func (me *AstFile) parse(this *SrcTopChunk) (freshErrs atmo.Errors) {
 	toks := this.Ast.Tokens
 	if this.Ast.comments.Leading, toks = parseLeadingComments(toks); len(toks) > 0 {

@@ -5,8 +5,6 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type IrDefs []IrDef
-
 func (me IrDefs) byName(name string) *IrDef {
 	for i := range me {
 		if me[i].Name.Val == name {
@@ -32,8 +30,6 @@ func (me IrDefs) index(name string) int {
 	}
 	return -1
 }
-
-type IrTopDefs []*IrDefTop
 
 func (me IrTopDefs) Len() int          { return len(me) }
 func (me IrTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
@@ -109,12 +105,12 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelD
 			var let IrExprLetBase
 			var ctxinit ctxIrInit
 			let.letPrefix, ctxinit.defsScope, ctxinit.curTopLevelDef = ctxinit.nextPrefix(), &let.Defs, def
-			def.Errs.Stage0Init.Add(def.initFrom(&ctxinit, def.OrigDef)...)
+			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, def.OrigDef)...)
 			if len(let.Defs) > 0 {
-				def.Errs.Stage0Init.Add(ctxinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let)...)
+				def.Errs.Stage1AstToIr.Add(ctxinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let)...)
 			}
-			if len(def.Errs.Stage0Init) > 0 {
-				freshErrs.Add(def.Errs.Stage0Init...)
+			if len(def.Errs.Stage1AstToIr) > 0 {
+				freshErrs.Add(def.Errs.Stage1AstToIr...)
 			}
 		}
 	}

@@ -6,40 +6,9 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type INode interface {
-	Print() atmolang.IAstNode
-	Origin() atmolang.IAstNode
-	origToks() udevlex.Tokens
-	EquivTo(INode) bool
-	findByOrig(INode, atmolang.IAstNode) []INode
-	IsDef() *IrDef
-	Let() *IrExprLetBase
-	RefersTo(string) bool
-	refsTo(string) []IExpr
-	walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool)
-}
-
-type IExpr interface {
-	INode
-	IsAtomic() bool
-	exprBase() *IrExprBase
-}
-
-type irNodeBase struct {
-}
-
 func (*irNodeBase) Let() *IrExprLetBase { return nil }
 func (*irNodeBase) IsDef() *IrDef       { return nil }
 func (*irNodeBase) IsDefWithArg() bool  { return false }
-
-type IrDef struct {
-	irNodeBase
-	OrigDef *atmolang.AstDef
-
-	Name IrIdentDecl
-	Arg  *IrDefArg
-	Body IExpr
-}
 
 func (me *IrDef) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
 	if orig == me.OrigDef {
@@ -86,23 +55,9 @@ func (me *IrDef) walk(ancestors []INode, self INode, on func([]INode, INode, ...
 	}
 }
 
-type IrDefTop struct {
-	IrDef
-
-	Id           string
-	OrigTopChunk *atmolang.SrcTopChunk
-	Errs         struct {
-		Stage0Init     atmo.Errors
-		Stage1BadNames atmo.Errors
-		Stage2Preduce  atmo.Errors
-	}
-
-	refersTo map[string]bool
-}
-
 func (me *IrDefTop) Errors() (errs atmo.Errors) {
-	errs = make(atmo.Errors, 0, len(me.Errs.Stage0Init)+len(me.Errs.Stage1BadNames)+len(me.Errs.Stage2Preduce))
-	errs = append(append(append(errs, me.Errs.Stage0Init...), me.Errs.Stage1BadNames...), me.Errs.Stage2Preduce...)
+	errs = make(atmo.Errors, 0, len(me.Errs.Stage1AstToIr)+len(me.Errs.Stage2BadNames)+len(me.Errs.Stage3Preduce))
+	errs = append(append(append(errs, me.Errs.Stage1AstToIr...), me.Errs.Stage2BadNames...), me.Errs.Stage3Preduce...)
 	return
 }
 func (me *IrDefTop) FindByOrig(orig atmolang.IAstNode) []INode {
@@ -159,11 +114,6 @@ func (me *IrDefTop) Walk(shouldTraverse func(curNodeAncestors []INode, curNode I
 	me.walk(nil, me, shouldTraverse)
 }
 
-type IrDefArg struct {
-	IrIdentDecl
-	Orig *atmolang.AstDefArg
-}
-
 func (me *IrDefArg) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrDefArg)
 	return ((me == nil) == (cmp == nil)) && (me == nil || me.Val == cmp.Val)
@@ -195,15 +145,6 @@ func (me *IrDefArg) walk(ancestors []INode, self INode, on func([]INode, INode, 
 	}
 }
 
-type IrExprBase struct {
-	irNodeBase
-
-	// some `IIrExpr`s' own `Orig` fields or `INode.Origin()` implementations might
-	// point to (on-the-fly dynamically computed in-memory) desugared nodes, this
-	// one always points to the "real origin" node (might be identical or not)
-	Orig atmolang.IAstExpr
-}
-
 func (me *IrExprBase) exprBase() *IrExprBase     { return me }
 func (*IrExprBase) IsAtomic() bool               { return false }
 func (me *IrExprBase) Origin() atmolang.IAstNode { return me.Orig }
@@ -212,10 +153,6 @@ func (me *IrExprBase) origToks() udevlex.Tokens {
 		return me.Orig.Toks()
 	}
 	return nil
-}
-
-type IrExprAtomBase struct {
-	IrExprBase
 }
 
 func (me *IrExprAtomBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
@@ -231,20 +168,11 @@ func (me *IrExprAtomBase) walk(ancestors []INode, self INode, on func([]INode, I
 	_ = on(ancestors, self)
 }
 
-type irLitBase struct {
-	IrExprAtomBase
-}
-
 func (me *irLitBase) refsTo(self IExpr, s string) []IExpr {
 	if atom, _ := me.Orig.(atmolang.IAstExprAtomic); atom != nil && atom.String() == s {
 		return []IExpr{self}
 	}
 	return nil
-}
-
-type IrLitStr struct {
-	irLitBase
-	Val string
 }
 
 func (me *IrLitStr) EquivTo(node INode) bool {
@@ -256,11 +184,6 @@ func (me *IrLitStr) walk(ancestors []INode, self INode, on func([]INode, INode, 
 	me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-type IrLitUint struct {
-	irLitBase
-	Val uint64
-}
-
 func (me *IrLitUint) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrLitUint)
 	return cmp != nil && cmp.Val == me.Val
@@ -270,11 +193,6 @@ func (me *IrLitUint) walk(ancestors []INode, self INode, on func([]INode, INode,
 	me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-type IrLitFloat struct {
-	irLitBase
-	Val float64
-}
-
 func (me *IrLitFloat) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrLitFloat)
 	return cmp != nil && cmp.Val == me.Val
@@ -282,18 +200,6 @@ func (me *IrLitFloat) EquivTo(node INode) bool {
 func (me *IrLitFloat) refsTo(s string) []IExpr { return me.irLitBase.refsTo(me, s) }
 func (me *IrLitFloat) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
 	me.IrExprAtomBase.walk(ancestors, me, on)
-}
-
-type IrExprLetBase struct {
-	Defs      IrDefs
-	letOrig   *atmolang.AstExprLet
-	letPrefix string
-
-	Anns struct {
-		// like `IrIdentName.Anns.Candidates`, contains the following `INode` types:
-		// *atmoil.IrDef, *atmoil.IrDefArg, *atmoil.IrDefTop, atmosess.IrDefRef
-		NamesInScope AnnNamesInScope
-	}
 }
 
 func (me *IrExprLetBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
@@ -335,11 +241,6 @@ func (me *IrExprLetBase) letDefsRefsTo(name string) (refs []IExpr) {
 	return
 }
 
-type IrIdentBase struct {
-	IrExprAtomBase
-	Val string
-}
-
 func (me *IrIdentBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
 	if nodes = me.IrExprAtomBase.findByOrig(self, orig); len(nodes) == 0 {
 		if orig.Toks().EqLenAndOffsets(me.IrExprBase.origToks(), false) {
@@ -347,14 +248,6 @@ func (me *IrIdentBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []I
 		}
 	}
 	return
-}
-
-type IrNonValue struct {
-	IrExprAtomBase
-	OneOf struct {
-		LeftoverPlaceholder bool
-		Undefined           bool
-	}
 }
 
 func (me *IrNonValue) EquivTo(node INode) bool {
@@ -366,10 +259,6 @@ func (me *IrNonValue) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode
 }
 func (me *IrNonValue) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
 	me.IrExprAtomBase.walk(ancestors, me, on)
-}
-
-type IrIdentTag struct {
-	IrIdentBase
 }
 
 func (me *IrIdentTag) EquivTo(node INode) bool {
@@ -389,10 +278,6 @@ func (me *IrIdentTag) walk(ancestors []INode, self INode, on func([]INode, INode
 	me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-type IrIdentDecl struct {
-	IrIdentBase
-}
-
 func (me *IrIdentDecl) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrIdentDecl)
 	return cmp != nil && cmp.Val == me.Val
@@ -402,17 +287,6 @@ func (me *IrIdentDecl) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INod
 }
 func (me *IrIdentDecl) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
 	me.IrExprAtomBase.walk(ancestors, me, on)
-}
-
-type IrIdentName struct {
-	IrIdentBase
-	IrExprLetBase
-
-	Anns struct {
-		// like `IrExprLetBase.Anns.NamesInScope`, contains the following `IIrNode` types:
-		// *atmoil.IrDef, *atmoil.IrDefArg, *atmoil.IrDefTop, atmosess.IrDefRef
-		Candidates []INode
-	}
 }
 
 func (me *IrIdentName) Let() *IrExprLetBase { return &me.IrExprLetBase }
@@ -470,14 +344,6 @@ func (me *IrIdentName) walk(ancestors []INode, _ INode, on func([]INode, INode, 
 			trav[i].walk(ancestors, trav[i], on)
 		}
 	}
-}
-
-type IrAppl struct {
-	IrExprBase
-	IrExprLetBase
-	Orig         *atmolang.AstExprAppl
-	AtomicCallee IExpr
-	AtomicArg    IExpr
 }
 
 func (me *IrAppl) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {

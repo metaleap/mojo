@@ -5,15 +5,6 @@ import (
 	"github.com/go-leap/str"
 )
 
-type (
-	ctxTldParse struct {
-		curTopLevel     *SrcTopChunk
-		curTopDef       *AstDef
-		brackets        []byte
-		bracketsHalfIdx int
-	}
-)
-
 func (me *ctxTldParse) parseExprIdent(toks udevlex.Tokens, emptySeps bool) *AstIdent {
 	var this AstIdent
 	if emptySeps {

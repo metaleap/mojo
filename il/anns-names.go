@@ -5,8 +5,6 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-type AnnNamesInScope map[string][]INode
-
 // Add does not validate, merely appends as a convenience short-hand notation.
 // Outside-package callers (ie. `atmosess` pkg) only use it for adding names of
 // (imported or kit-owned) top-level defs which cannot be rejected (unlike locals / args).

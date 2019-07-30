@@ -156,16 +156,8 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 	return
 }
 
-type topLevelChunk struct {
-	src                   []byte
-	pos                   int
-	line                  int
-	numLinesTabIndented   int
-	numLinesSpaceIndented int
-}
-
-func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []topLevelChunk) {
-	tlChunks = make([]topLevelChunk, 0, 32)
+func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLevelChunk) {
+	tlChunks = make([]preLexTopLevelChunk, 0, 32)
 
 	var newline bool
 	var curline, lastchunkedat, lastchunkedln, numtabs, numspaces int
@@ -209,7 +201,7 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []topLevelChun
 			} else {
 				// naive at first: every non-indented line begins its own new chunk. after the loop we merge comments directly prefixed to defs
 				if lastchunkedat != i {
-					tlChunks = append(tlChunks, topLevelChunk{src: src[lastchunkedat:i], pos: lastchunkedat, line: lastchunkedln, numLinesSpaceIndented: numspaces, numLinesTabIndented: numtabs})
+					tlChunks = append(tlChunks, preLexTopLevelChunk{src: src[lastchunkedat:i], pos: lastchunkedat, line: lastchunkedln, numLinesSpaceIndented: numspaces, numLinesTabIndented: numtabs})
 					numspaces, numtabs = 0, 0
 				}
 				lastchunkedat, lastchunkedln = i, curline
@@ -217,7 +209,7 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []topLevelChun
 		}
 	}
 	if me.LastLoad.NumLines = curline; lastchunkedat < il {
-		tlChunks = append(tlChunks, topLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln, numLinesSpaceIndented: numspaces, numLinesTabIndented: numtabs})
+		tlChunks = append(tlChunks, preLexTopLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln, numLinesSpaceIndented: numspaces, numLinesTabIndented: numtabs})
 	}
 	// fix naive tlChunks: stitch together what belongs together
 	for i := len(tlChunks) - 1; i > 0; i-- {
@@ -245,10 +237,9 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []topLevelChun
 	return
 }
 
-func (me *AstFile) topChunksCompare(tlChunks []topLevelChunk) (allTheSame bool) {
+func (me *AstFile) topChunksCompare(tlChunks []preLexTopLevelChunk) (allTheSame bool) {
 	// compare gathered `tlChunks` to existing `AstFileTopLevelChunk`s in `me.TopLevel`,
 	// dropping those that are gone, adding those that are new, and repositioning others as needed
-
 	srcsame := make(map[int]int, len(tlChunks))
 	for oldidx := range me.TopLevel {
 		for newidx := range tlChunks {

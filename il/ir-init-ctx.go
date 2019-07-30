@@ -6,16 +6,6 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type ctxIrInit struct {
-	curTopLevelDef  *IrDefTop
-	defsScope       *IrDefs
-	coerceCallables map[INode]IExpr
-	counter         struct {
-		val   byte
-		times int
-	}
-}
-
 func ExprFrom(orig atmolang.IAstExpr) (IExpr, atmo.Errors) {
 	var ctx ctxIrInit
 	return ctx.newExprFrom(orig)

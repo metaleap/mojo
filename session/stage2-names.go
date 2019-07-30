@@ -31,7 +31,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn =
 						map[string]int{}, nil, make(atmoil.AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
-						tld.Errs.Stage1BadNames = nil
+						tld.Errs.Stage2BadNames = nil
 						if tld.Name.Val != "" {
 							kit.lookups.namesInScopeOwn.Add(tld.Name.Val, tld)
 						}
@@ -56,7 +56,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 						if _, alreadymarked := kitrepops[kit]; !alreadymarked {
 							kitrepops[kit] = map[string]int{}
 							for _, tld := range kit.topLevelDefs {
-								tld.Errs.Stage1BadNames = nil
+								tld.Errs.Stage2BadNames = nil
 							}
 						}
 						kit.lookups.namesInScopeAll, kit.lookups.namesInScopeExt =
@@ -93,10 +93,9 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 		}
 		me.kitGatherAllUnparsedGlobalsNames(kit, badglobalsnames)
 		for _, tld := range kit.topLevelDefs {
-			tld.Errs.Stage1BadNames.Add(kit.lookups.namesInScopeAll.RepopulateDefsAndIdentsFor(tld, &tld.IrDef, badglobalsnames)...)
-			errs.Add(tld.Errs.Stage1BadNames...)
+			tld.Errs.Stage2BadNames.Add(kit.lookups.namesInScopeAll.RepopulateDefsAndIdentsFor(tld, &tld.IrDef, badglobalsnames)...)
+			errs.Add(tld.Errs.Stage2BadNames...)
 		}
 	}
-
 	return
 }

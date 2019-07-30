@@ -4,8 +4,6 @@ var (
 	Build Builder
 )
 
-type Builder struct{}
-
 func (Builder) Appl1(atomicCallee IExpr, atomicArg IExpr) *IrAppl {
 	if !atomicCallee.IsAtomic() {
 		panic(atomicCallee)

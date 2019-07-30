@@ -6,51 +6,6 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-type AstFiles []*AstFile
-
-type AstFile struct {
-	TopLevel []SrcTopChunk
-	errs     struct {
-		loading *atmo.Error
-	}
-	LastLoad struct {
-		Src      []byte
-		Time     int64
-		FileSize int64
-		NumLines int
-	}
-	Options struct {
-		ApplStyle ApplStyle
-		TmpAltSrc []byte
-	}
-	SrcFilePath string
-
-	_toks udevlex.Tokens
-	_errs atmo.Errors
-}
-
-type SrcTopChunk struct {
-	Src     []byte
-	SrcFile *AstFile
-	offset  struct {
-		Ln int
-		B  int
-	}
-	preLex struct {
-		numLinesTabIndented   int
-		numLinesSpaceIndented int
-	}
-	id       [3]uint64
-	_id      string
-	_errs    atmo.Errors
-	srcDirty bool
-	errs     struct {
-		lexing  atmo.Errors
-		parsing *atmo.Error
-	}
-	Ast AstTopLevel
-}
-
 func (me *SrcTopChunk) At(byte0PosOffsetInSrcFile int) []IAstNode {
 	return me.Ast.at(&me.Ast, byte0PosOffsetInSrcFile-me.offset.B)
 }

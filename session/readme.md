@@ -216,8 +216,8 @@ type Kit struct {
 	SrcFiles atmolang.AstFiles
 
 	Errs struct {
-		Stage0DirAccessDuringRefresh *atmo.Error
-		Stage0BadImports             atmo.Errors
+		Stage1DirAccessDuringRefresh *atmo.Error
+		Stage1BadImports             atmo.Errors
 	}
 }
 ```
