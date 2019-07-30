@@ -283,7 +283,7 @@ func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs atmoil.IrTopDef
 		}
 		if includeUnparsedOnes {
 			for _, tld := range me.topLevelDefs {
-				if tld.OrigTopChunk != nil && tld.OrigTopChunk.Ast.Def.NameIfErr == name {
+				if tld.OrigTopChunk.Ast.Def.NameIfErr == name {
 					defs = append(defs, tld)
 				}
 			}

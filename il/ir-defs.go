@@ -45,7 +45,7 @@ func (me IrTopDefs) Less(i int, j int) bool {
 func (me IrTopDefs) ByName(name string, onlyFor *atmolang.AstFile) (defs []*IrDefTop) {
 	allfiles := (onlyFor == nil)
 	for _, tld := range me {
-		if allfiles || (tld.OrigTopChunk != nil && tld.OrigTopChunk.SrcFile != nil && tld.OrigTopChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
+		if allfiles || (tld.OrigTopChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
 			if tld.Name.Val == name || (tld.OrigDef != nil && tld.OrigDef.Name.Val == name) {
 				defs = append(defs, tld)
 			}

@@ -39,11 +39,13 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 	var prefixlength int
 	defer func() {
 		if !isdef {
-			for _, e := range errs {
+			for i, e := range errs {
 				if pos := e.Pos(); pos != nil && (pos.FilePath == "" || pos.FilePath == me.Options.Scratchpad.FauxFileNameForErrorMessages) {
-					e.UpdatePosOffsets(nil)
-					pos = e.Pos()
-					pos.Ln1, pos.Col1, pos.Off0 = pos.Ln1-1, pos.Col1-1, pos.Off0-prefixlength
+					err := *e
+					err.UpdatePosOffsets(nil)
+					pos = err.Pos()
+					pos.Ln1, pos.Col1, pos.Off0, pos.FilePath = pos.Ln1-1, pos.Col1-1, pos.Off0-prefixlength, me.Options.Scratchpad.FauxFileNameForErrorMessages
+					errs[i] = &err
 				}
 			}
 		}
@@ -73,7 +75,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		defname = def.Name.Val
 		var alreadyinscratchpad *atmolang.SrcTopChunk
 		for _, t := range kit.topLevelDefs {
-			if t.OrigTopChunk != nil && (t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname)) {
+			if t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname) {
 				if t.OrigTopChunk.SrcFile.SrcFilePath == "" {
 					alreadyinscratchpad = t.OrigTopChunk
 					break

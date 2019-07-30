@@ -217,15 +217,15 @@ func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.S
 }
 
 func (me Kits) SrcFilePaths() (srcFilePaths []string) {
-	var count int
+	var count, i int
 	for _, kit := range me {
 		count += len(kit.SrcFiles)
 	}
-	srcFilePaths = make([]string, 0, count)
+	srcFilePaths = make([]string, count)
 
 	for _, kit := range me {
 		for _, srcfile := range kit.SrcFiles {
-			srcFilePaths = append(srcFilePaths, srcfile.SrcFilePath)
+			i, srcFilePaths[i] = i+1, srcfile.SrcFilePath
 		}
 	}
 	return
