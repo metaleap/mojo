@@ -11,15 +11,6 @@ import (
 	"github.com/metaleap/atmo/session"
 )
 
-type directives []directive
-
-type directive struct {
-	Desc   string
-	Help   []string
-	Run    func(string) bool
-	Hidden bool
-}
-
 func (me *Repl) initEnsureDefaultDirectives() {
 	kd := me.KnownDirectives.ensure
 	kd("list ‹kit›", me.DList,

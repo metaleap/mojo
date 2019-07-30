@@ -8,17 +8,11 @@ const (
 	ErrSessInit_KitsDirsNotSpecified
 	ErrSessInit_KitsDirsNotFound
 	ErrSessInit_KitsDirAutoNotFound
-	ErrSessInit_IoFauxKitDirProblem
+	ErrSessInit_IoFauxKitDirFailure
 )
 
 const (
 	_                            = iota
 	ErrSessKits_IoReadDirFailure = iota + 3200
 	ErrSessKits_ImportNotFound
-)
-
-const (
-	_                                 = iota
-	ErrSess_EvalDefNameExistsInCurKit = iota + 3300
-	ErrSess_EvalDefNameExistsImported
 )

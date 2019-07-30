@@ -25,7 +25,7 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type ctxIrInit struct {
+type ctxIrFromAst struct {
 	curTopLevelDef  *IrDefTop
 	defsScope       *IrDefs
 	coerceCallables map[INode]IExpr

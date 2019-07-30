@@ -3,8 +3,8 @@ package atmolang
 const (
 	_                                 = iota
 	ErrLexing_IndentationInconsistent = iota + 1100
-	ErrLexing_FileOpenFailure
-	ErrLexing_FileReadFailure
+	ErrLexing_IoFileOpenFailure
+	ErrLexing_IoFileReadFailure
 	ErrLexing_Tokenization
 )
 const (

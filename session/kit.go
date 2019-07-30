@@ -11,33 +11,6 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-// Kit is a pile of atmo source files residing in the same directory and
-// being interpreted or compiled all together as a unit.
-type Kit struct {
-	DirPath           string
-	ImpPath           string
-	WasEverToBeLoaded bool
-
-	imports      []string
-	topLevelDefs atmoil.IrTopDefs
-	SrcFiles     atmolang.AstFiles
-	state        struct {
-		defsGoneIdsNames map[string]string
-		defsBornIdsNames map[string]string
-	}
-	lookups struct {
-		tlDefsByID      map[string]*atmoil.IrDefTop
-		tlDefIDsByName  map[string][]string
-		namesInScopeOwn atmoil.AnnNamesInScope
-		namesInScopeExt atmoil.AnnNamesInScope
-		namesInScopeAll atmoil.AnnNamesInScope
-	}
-	Errs struct {
-		Stage1DirAccessDuringRefresh *atmo.Error
-		Stage1BadImports             atmo.Errors
-	}
-}
-
 func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs atmo.Errors) {
 	return me.kitEnsureLoaded(kit, true)
 }

@@ -103,7 +103,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelD
 				append(this, def), tlc.Ast.Def.Orig, tlc.Ast.Def.Orig.Name.Val
 			// populate it
 			var let IrExprLetBase
-			var ctxinit ctxIrInit
+			var ctxinit ctxIrFromAst
 			let.letPrefix, ctxinit.defsScope, ctxinit.curTopLevelDef = ctxinit.nextPrefix(), &let.Defs, def
 			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, def.OrigDef)...)
 			if len(let.Defs) > 0 {

@@ -2,6 +2,21 @@
 --
     import "github.com/metaleap/atmo/session"
 
+Package `atmosess` allows implementations of live sessions operating on atmo
+"kits" (libs/pkgs of src-files basically), such as REPLs or language servers. It
+will also be the foundation of interpreter / transpiler / compiler runs once
+such scenarios begin to materialize later on.
+
+An `atmosess.Ctx` session builds on the dumber `atmolang` and `atmoil` packages
+to manage "kits" and their source files, keeping track of their existence,
+loading them and their imports when instructed or needed, catching up on
+file-system modifications to incrementally refresh in-memory representations as
+well as invalidating / revalidating affected dependants on-the-fly etc.
+
+A one-per-kit virtual/pretend/faux "source-file", entirely in-memory but treated
+as equal to the kit's real source-files and called the "scratchpad" is also part
+of the offering, allowing entry of (either exprs to be eval'd-and-forgotten or)
+defs to be added to / modified in / removed from it.
 
 ## Usage
 
@@ -13,7 +28,7 @@ const (
 	ErrSessInit_KitsDirsNotSpecified
 	ErrSessInit_KitsDirsNotFound
 	ErrSessInit_KitsDirAutoNotFound
-	ErrSessInit_IoFauxKitDirProblem
+	ErrSessInit_IoFauxKitDirFailure
 )
 ```
 
@@ -21,13 +36,6 @@ const (
 const (
 	ErrSessKits_IoReadDirFailure = iota + 3200
 	ErrSessKits_ImportNotFound
-)
-```
-
-```go
-const (
-	ErrSess_EvalDefNameExistsInCurKit = iota + 3300
-	ErrSess_EvalDefNameExistsImported
 )
 ```
 
@@ -222,7 +230,7 @@ type Kit struct {
 }
 ```
 
-Kit is a pile of atmo source files residing in the same directory and being
+Kit is a set of atmo source files residing in the same directory and being
 interpreted or compiled all together as a unit.
 
 #### func (*Kit) AstNodeAt

@@ -7,11 +7,11 @@ import (
 )
 
 func ExprFrom(orig atmolang.IAstExpr) (IExpr, atmo.Errors) {
-	var ctx ctxIrInit
+	var ctx ctxIrFromAst
 	return ctx.newExprFrom(orig)
 }
 
-func (me *ctxIrInit) addCoercion(on INode, coerce IExpr) {
+func (me *ctxIrFromAst) addCoercion(on INode, coerce IExpr) {
 	if coerce != nil {
 		if me.coerceCallables == nil {
 			me.coerceCallables = map[INode]IExpr{on: coerce}
@@ -21,7 +21,7 @@ func (me *ctxIrInit) addCoercion(on INode, coerce IExpr) {
 	}
 }
 
-func (me *ctxIrInit) appl(ensureAtomic bool, orig atmolang.IAstExpr, applExpr IExpr) IExpr {
+func (me *ctxIrFromAst) appl(ensureAtomic bool, orig atmolang.IAstExpr, applExpr IExpr) IExpr {
 	if applExpr.exprBase().Orig = orig; ensureAtomic {
 		applExpr = me.ensureAtomic(applExpr)
 		applExpr.exprBase().Orig = orig
@@ -29,7 +29,7 @@ func (me *ctxIrInit) appl(ensureAtomic bool, orig atmolang.IAstExpr, applExpr IE
 	return applExpr
 }
 
-func (me *ctxIrInit) bodyWithCoercion(coerce IExpr, atomicBody IExpr, coerceArg func() IExpr) IExpr {
+func (me *ctxIrFromAst) bodyWithCoercion(coerce IExpr, atomicBody IExpr, coerceArg func() IExpr) IExpr {
 	corig, opeq := coerce.exprBase().Orig, Build.IdentName(atmo.KnownIdentEq)
 	if coerceArg == nil {
 		coerceArg = func() IExpr { return atomicBody }
@@ -39,14 +39,14 @@ func (me *ctxIrInit) bodyWithCoercion(coerce IExpr, atomicBody IExpr, coerceArg 
 	return me.appl(false, corig, Build.ApplN(me, cmpeq, atomicBody, Build.Undef()))
 }
 
-func (me *ctxIrInit) ensureAtomic(expr IExpr) IExpr {
+func (me *ctxIrFromAst) ensureAtomic(expr IExpr) IExpr {
 	if expr.IsAtomic() {
 		return expr
 	}
 	return me.addLocalDefToOwnScope(me.nextPrefix(), expr)
 }
 
-func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs atmo.Errors) {
+func (me *ctxIrFromAst) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs atmo.Errors) {
 	if orig.IsTag {
 		var ident IrIdentTag
 		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
@@ -74,7 +74,7 @@ func (me *ctxIrInit) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs 
 	return
 }
 
-func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs atmo.Errors) {
+func (me *ctxIrFromAst) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs atmo.Errors) {
 	var origdesugared atmolang.IAstExpr
 	var wasdesugared bool
 	if origdesugared, errs = origin.Desugared(me.nextPrefix); origdesugared == nil {
@@ -150,7 +150,7 @@ func (me *ctxIrInit) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs atm
 	return
 }
 
-func (me *ctxIrInit) nextPrefix() string {
+func (me *ctxIrFromAst) nextPrefix() string {
 	if me.counter.val == 122 || me.counter.val == 0 {
 		me.counter.val, me.counter.times = 96, me.counter.times+1
 	}
@@ -158,7 +158,7 @@ func (me *ctxIrInit) nextPrefix() string {
 	return "__" + string(ustr.RepeatB(me.counter.val, me.counter.times))
 }
 
-func (me *ctxIrInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IExpr, let *IrExprLetBase) (errs atmo.Errors) {
+func (me *ctxIrFromAst) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IExpr, let *IrExprLetBase) (errs atmo.Errors) {
 	if dst := letBody.Let(); dst == nil {
 		toks := origBody.Toks()
 		if leto := let.letOrig; leto != nil {
@@ -177,7 +177,7 @@ func (me *ctxIrInit) addLetDefsToNode(origBody atmolang.IAstExpr, letBody IExpr,
 	return
 }
 
-func (me *ctxIrInit) addLocalDefToOwnScope(name string, body IExpr) *IrIdentName {
+func (me *ctxIrFromAst) addLocalDefToOwnScope(name string, body IExpr) *IrIdentName {
 	var ident IrIdentName
 	oldscope := me.defsScope
 	me.defsScope = &ident.Defs
@@ -186,7 +186,7 @@ func (me *ctxIrInit) addLocalDefToOwnScope(name string, body IExpr) *IrIdentName
 	return &ident
 }
 
-func (me *ctxIrInit) addLocalDefToScope(name string, body IExpr) (def *IrDef) {
+func (me *ctxIrFromAst) addLocalDefToScope(name string, body IExpr) (def *IrDef) {
 	def = me.defsScope.add(body)
 	def.Name.Val = name
 	return

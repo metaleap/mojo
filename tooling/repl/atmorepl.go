@@ -2,13 +2,11 @@ package atmorepl
 
 import (
 	"bufio"
-	"io"
 	"os"
 	"time"
 
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/session"
 )
 
 var (
@@ -21,28 +19,6 @@ var (
 		WelcomeMsgShow  bool
 	}
 )
-
-type Repl struct {
-	Ctx             atmosess.Ctx
-	KnownDirectives directives
-	IO              struct {
-		Stdin           io.Reader
-		Stdout          io.Writer
-		Stderr          io.Writer
-		MultiLineSuffix string
-		TimeLastInput   time.Time
-
-		write              func(string, int)
-		writeLns, printLns func(...string)
-	}
-
-	// current mutable state during a `Run` loop
-	run struct {
-		quit                       bool
-		indent                     int
-		multiLnInputHadLeadingTabs bool
-	}
-}
 
 func init() {
 	Ux.AnimsEnabled, Ux.WelcomeMsgShow, Ux.MoreLinesPrompt = true, true, []byte("     ¶¶¶")

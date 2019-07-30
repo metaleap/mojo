@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
-	"sync"
 	"time"
 
 	"github.com/go-leap/fs"
@@ -14,50 +13,6 @@ import (
 	"github.com/metaleap/atmo/il"
 	"github.com/metaleap/atmo/lang"
 )
-
-type ctxBgMsg = struct {
-	Issue bool
-	Time  time.Time
-	Lines []string
-}
-
-// Ctx fields must never be written to from the outside after the `Ctx.Init` call.
-type Ctx struct {
-	Dirs struct {
-		fauxKits    []string
-		CacheData   string
-		KitsStashes []string
-	}
-	Kits struct {
-		All                Kits
-		reprocessingNeeded bool
-	}
-	On struct {
-		NewBackgroundMessages func(*Ctx)
-		SomeKitsRefreshed     func(ctx *Ctx, hadFreshErrs bool)
-	}
-	Options struct {
-		BgMsgs struct {
-			IncludeLiveKitsErrs bool
-		}
-		FileModsCatchup struct {
-			BurstLimit time.Duration
-		}
-		Scratchpad struct {
-			FauxFileNameForErrorMessages string
-		}
-	}
-	state struct {
-		bgMsgs        []ctxBgMsg
-		fileModsWatch struct {
-			lastCatchup                   time.Time
-			latest                        []map[string]os.FileInfo
-			collectFileModsForNextCatchup func([]string, []string) int
-		}
-		notUsedInternallyButAvailableForOutsideCallersConvenience sync.Mutex
-		preduce                                                   ctxPreduce
-	}
-}
 
 // CtxDefaultCacheDirPath returns the default used by `Ctx.Init` if `Ctx.Dirs.Cache`
 // was left empty. It returns a platform-specific dir path such as `~/.cache/atmo`,
@@ -137,7 +92,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 		if err == nil {
 			if me.Dirs.CacheData, me.Dirs.KitsStashes = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
 				_, kip, e := me.fauxKitsAddDir(sessionFauxKitDir, true)
-				kitImpPathIfFauxKitDirActualKit, err = kip, atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoFauxKitDirProblem, sessionFauxKitDir, e)
+				kitImpPathIfFauxKitDirActualKit, err = kip, atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoFauxKitDirFailure, sessionFauxKitDir, e)
 			}
 		}
 		if err == nil {

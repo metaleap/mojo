@@ -13,8 +13,8 @@ number instead of a function, etc.).
 ```go
 const (
 	ErrLexing_IndentationInconsistent = iota + 1100
-	ErrLexing_FileOpenFailure
-	ErrLexing_FileReadFailure
+	ErrLexing_IoFileOpenFailure
+	ErrLexing_IoFileReadFailure
 	ErrLexing_Tokenization
 )
 ```

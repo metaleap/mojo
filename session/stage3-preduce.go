@@ -6,15 +6,6 @@ import (
 	"github.com/metaleap/atmo/il"
 )
 
-type ctxPreduce struct {
-	owner          *Ctx
-	cachedByTldIds map[string]atmoil.IPreduced
-	curNodeCtx     struct {
-		kit    *Kit
-		topDef *atmoil.IrDefTop
-	}
-}
-
 func (me *ctxPreduce) toks(n atmoil.INode) udevlex.Tokens { return me.curNodeCtx.topDef.OrigToks(n) }
 
 func (me *Ctx) Preduce(kit *Kit, node atmoil.INode) (atmoil.IPreduced, atmo.Errors) {

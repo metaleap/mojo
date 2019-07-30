@@ -19,6 +19,21 @@ const (
 	APPLSTYLE_SOV
 )
 
+type preLexTopLevelChunk struct {
+	src                   []byte
+	pos                   int
+	line                  int
+	numLinesTabIndented   int
+	numLinesSpaceIndented int
+}
+
+type ctxTldParse struct {
+	curTopLevel     *SrcTopChunk
+	curTopDef       *AstDef
+	brackets        []byte
+	bracketsHalfIdx int
+}
+
 type AstFiles []*AstFile
 
 type AstFile struct {
@@ -62,21 +77,6 @@ type SrcTopChunk struct {
 		parsing *atmo.Error
 	}
 	Ast AstTopLevel
-}
-
-type ctxTldParse struct {
-	curTopLevel     *SrcTopChunk
-	curTopDef       *AstDef
-	brackets        []byte
-	bracketsHalfIdx int
-}
-
-type preLexTopLevelChunk struct {
-	src                   []byte
-	pos                   int
-	line                  int
-	numLinesTabIndented   int
-	numLinesSpaceIndented int
 }
 
 type IAstNode interface {

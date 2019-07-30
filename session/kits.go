@@ -11,8 +11,6 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type Kits []*Kit
-
 func init() { ufs.ReadDirFunc = ufs.Dir }
 
 // KnownKitImpPaths returns all the import-paths of all currently known `Kit`s.

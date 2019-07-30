@@ -97,7 +97,7 @@ func (Builder) Appl1(atomicCallee IExpr, atomicArg IExpr) *IrAppl
 #### func (Builder) ApplN
 
 ```go
-func (Builder) ApplN(ctx *ctxIrInit, atomicCallee IExpr, atomicArgs ...IExpr) (appl *IrAppl)
+func (Builder) ApplN(ctx *ctxIrFromAst, atomicCallee IExpr, atomicArgs ...IExpr) (appl *IrAppl)
 ```
 
 #### func (Builder) IdentName

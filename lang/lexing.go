@@ -43,7 +43,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 			reader = srcfile
 			defer srcfile.Close()
 		} else {
-			me.errs.loading = freshErrs.AddLex(ErrLexing_FileOpenFailure, atmo.ErrFauxPos(me.SrcFilePath), err.Error())
+			me.errs.loading = freshErrs.AddLex(ErrLexing_IoFileOpenFailure, atmo.ErrFauxPos(me.SrcFilePath), err.Error())
 		}
 	} else if stdinIfNoSrcFile {
 		reader = os.Stdin
@@ -106,7 +106,7 @@ func LexAndParseDefOrExpr(def bool, toks udevlex.Tokens) (ret IAstNode, err *atm
 
 func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs atmo.Errors) {
 	if src, err := ustd.ReadAll(r, me.LastLoad.FileSize); err != nil {
-		me.errs.loading = freshErrs.AddLex(ErrLexing_FileReadFailure, atmo.ErrFauxPos(me.SrcFilePath), err.Error())
+		me.errs.loading = freshErrs.AddLex(ErrLexing_IoFileReadFailure, atmo.ErrFauxPos(me.SrcFilePath), err.Error())
 	} else {
 		if bytes.Equal(src, me.LastLoad.Src) {
 			if noChangesDetected != nil {

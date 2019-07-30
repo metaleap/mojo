@@ -14,7 +14,7 @@ func (Builder) Appl1(atomicCallee IExpr, atomicArg IExpr) *IrAppl {
 	return &IrAppl{AtomicCallee: atomicCallee, AtomicArg: atomicArg}
 }
 
-func (Builder) ApplN(ctx *ctxIrInit, atomicCallee IExpr, atomicArgs ...IExpr) (appl *IrAppl) {
+func (Builder) ApplN(ctx *ctxIrFromAst, atomicCallee IExpr, atomicArgs ...IExpr) (appl *IrAppl) {
 	if !atomicCallee.IsAtomic() {
 		panic(atomicCallee)
 	}

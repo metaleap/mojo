@@ -6,7 +6,7 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-func (me *IrDef) initFrom(ctx *ctxIrInit, orig *atmolang.AstDef) (errs atmo.Errors) {
+func (me *IrDef) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDef) (errs atmo.Errors) {
 	me.OrigDef = orig.ToUnary()
 	errs.Add(me.initName(ctx)...)
 	errs.Add(me.initArg(ctx)...)
@@ -19,7 +19,7 @@ func (me *IrDef) initFrom(ctx *ctxIrInit, orig *atmolang.AstDef) (errs atmo.Erro
 	return
 }
 
-func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
+func (me *IrDef) initName(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	// even if our name is erroneous as detected further down below:
 	// don't want this to stay empty, generally speaking
 	me.Name.Val = me.OrigDef.Name.Val
@@ -43,7 +43,7 @@ func (me *IrDef) initName(ctx *ctxIrInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
+func (me *IrDef) initBody(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	// fast-track special-casing for a def-body of mere-underscore
 	if ident, _ := me.OrigDef.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
 		tag := Build.IdentTag(me.Name.Val)
@@ -67,7 +67,7 @@ func (me *IrDef) initBody(ctx *ctxIrInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *IrDef) initArg(ctx *ctxIrInit) (errs atmo.Errors) {
+func (me *IrDef) initArg(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	if len(me.OrigDef.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
 		var arg IrDefArg
 		errs.Add(arg.initFrom(ctx, &me.OrigDef.Args[0])...)
@@ -76,7 +76,7 @@ func (me *IrDef) initArg(ctx *ctxIrInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *IrDef) initMetas(ctx *ctxIrInit) (errs atmo.Errors) {
+func (me *IrDef) initMetas(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	if len(me.OrigDef.Meta) > 0 {
 		errs.AddTodo(0, me.OrigDef.Meta[0].Toks(), "def metas")
 		for i := range me.OrigDef.Meta {
@@ -86,7 +86,7 @@ func (me *IrDef) initMetas(ctx *ctxIrInit) (errs atmo.Errors) {
 	return
 }
 
-func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atmo.Errors) {
+func (me *IrDefArg) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDefArg) (errs atmo.Errors) {
 	me.Orig = orig
 
 	isexpr := true
@@ -117,21 +117,21 @@ func (me *IrDefArg) initFrom(ctx *ctxIrInit, orig *atmolang.AstDefArg) (errs atm
 	return
 }
 
-func (me *irLitBase) initFrom(ctx *ctxIrInit, orig atmolang.IAstExprAtomic) {
+func (me *irLitBase) initFrom(ctx *ctxIrFromAst, orig atmolang.IAstExprAtomic) {
 	me.Orig = orig
 }
 
-func (me *IrLitFloat) initFrom(ctx *ctxIrInit, orig *atmolang.AstExprLitFloat) {
+func (me *IrLitFloat) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstExprLitFloat) {
 	me.irLitBase.initFrom(ctx, orig)
 	me.Val = orig.Val
 }
 
-func (me *IrLitUint) initFrom(ctx *ctxIrInit, orig *atmolang.AstExprLitUint) {
+func (me *IrLitUint) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstExprLitUint) {
 	me.irLitBase.initFrom(ctx, orig)
 	me.Val = orig.Val
 }
 
-func (me *IrLitStr) initFrom(ctx *ctxIrInit, orig *atmolang.AstExprLitStr) {
+func (me *IrLitStr) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstExprLitStr) {
 	me.irLitBase.initFrom(ctx, orig)
 	me.Val = orig.Val
 }
