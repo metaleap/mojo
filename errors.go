@@ -5,25 +5,6 @@ import (
 	"github.com/go-leap/str"
 )
 
-type IErrPosOffsets interface {
-	PosOffsetLine() int
-	PosOffsetByte() int
-}
-
-type ErrorCategory int
-
-const (
-	_ ErrorCategory = iota
-	ErrCatBug
-	ErrCatTodo
-	ErrCatLexing
-	ErrCatParsing
-	ErrCatNaming
-	ErrCatPreduce
-	ErrCatSess
-	ErrCatUnreachable
-)
-
 func (me ErrorCategory) String() string {
 	switch me {
 	case ErrCatBug:
@@ -44,17 +25,6 @@ func (me ErrorCategory) String() string {
 		return "unreachable"
 	}
 	return "other"
-}
-
-type Error struct {
-	tldOff IErrPosOffsets
-
-	ref  *Error
-	pos  *udevlex.Pos
-	msg  string
-	len  int
-	cat  ErrorCategory
-	code int
 }
 
 func (me *Error) Cat() ErrorCategory {
@@ -188,8 +158,6 @@ func ErrRef(err *Error) *Error {
 	}
 	return &Error{ref: err}
 }
-
-type Errors []*Error
 
 func (me Errors) UpdatePosOffsets(offsets IErrPosOffsets) {
 	for i := range me {

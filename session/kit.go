@@ -100,7 +100,7 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit {
 	return nil
 }
 
-func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames atmo.StringCounts) {
+func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames map[string]int) {
 	kitimports := kit.Imports()
 	kits := make(Kits, 1, 1+len(kitimports))
 	kits[0] = kit

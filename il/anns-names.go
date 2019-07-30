@@ -71,7 +71,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.
 	return
 }
 
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, currentlyErroneousButKnownGlobalsNames atmo.StringCounts) (errs atmo.Errors) {
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors) {
 	inscope := me
 	if let := node.Let(); let != nil {
 		if len(let.Defs) > 0 {
