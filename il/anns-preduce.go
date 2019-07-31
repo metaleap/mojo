@@ -15,3 +15,5 @@ func (me *PPrimAtomicConstFloat) SummaryCompact() string {
 func (me *PPrimAtomicConstUint) SummaryCompact() string { return strconv.FormatUint(me.Val, 10) }
 
 func (me *PPrimAtomicConstTag) SummaryCompact() string { return me.Val }
+
+func (me *PAbyss) SummaryCompact() string { return "ABYSS" }

@@ -213,4 +213,8 @@ type PPrimAtomicConstTag struct {
 	Val string
 }
 
+type PAbyss struct {
+	Preduced
+}
+
 type Builder struct{}

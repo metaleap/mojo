@@ -769,6 +769,21 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelD
 func (me IrTopDefs) Swap(i int, j int)
 ```
 
+#### type PAbyss
+
+```go
+type PAbyss struct {
+	Preduced
+}
+```
+
+
+#### func (*PAbyss) SummaryCompact
+
+```go
+func (me *PAbyss) SummaryCompact() string
+```
+
 #### type PFunc
 
 ```go
