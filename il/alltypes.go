@@ -91,7 +91,8 @@ type IrDefTop struct {
 
 type IrDefArg struct {
 	IrIdentDecl
-	Orig *atmolang.AstDefArg
+	Orig     *atmolang.AstDefArg
+	ownerDef *IrDef
 }
 
 type IrExprBase struct {
@@ -187,15 +188,17 @@ type IPreduced interface {
 
 // Preduced is embedded in all `IPreduced` implementers.
 type Preduced struct {
-	OrigNodes []INode
 }
 
-type PFunc struct {
+type PCallable struct {
 	Preduced
-	Cases []struct {
-		Arg IPreduced
-		Ret IPreduced
-	}
+	Arg IPreduced
+	Ret IPreduced
+}
+
+type PCallables struct {
+	Preduced
+	Cases []PCallable
 }
 
 type PPrimAtomicConstUint struct {
@@ -214,6 +217,10 @@ type PPrimAtomicConstTag struct {
 }
 
 type PAbyss struct {
+	Preduced
+}
+
+type PHole struct {
 	Preduced
 }
 

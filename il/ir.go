@@ -58,6 +58,22 @@ func (me *IrDefTop) Errors() (errs atmo.Errors) {
 	errs = append(append(append(errs, me.Errs.Stage1AstToIr...), me.Errs.Stage2BadNames...), me.Errs.Stage3Preduce...)
 	return
 }
+func (me *IrDefTop) FindArgOwnerDef(arg *IrDefArg) (ret *IrDef) {
+	if ret = arg.ownerDef; ret == nil {
+		if me.Arg == arg {
+			ret = &me.IrDef
+		} else {
+			me.ForAllLocalDefs(func(def *IrDef) (found bool) {
+				if found = (def.Arg == arg); found {
+					ret = def
+				}
+				return
+			})
+		}
+		arg.ownerDef = ret
+	}
+	return
+}
 func (me *IrDefTop) FindByOrig(orig atmolang.IAstNode) []INode {
 	return me.IrDef.findByOrig(me, orig)
 }

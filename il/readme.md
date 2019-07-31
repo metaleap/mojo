@@ -334,6 +334,12 @@ type IrDefTop struct {
 func (me *IrDefTop) Errors() (errs atmo.Errors)
 ```
 
+#### func (*IrDefTop) FindArgOwnerDef
+
+```go
+func (me *IrDefTop) FindArgOwnerDef(arg *IrDefArg) (ret *IrDef)
+```
+
 #### func (*IrDefTop) FindByOrig
 
 ```go
@@ -784,23 +790,46 @@ type PAbyss struct {
 func (me *PAbyss) SummaryCompact() string
 ```
 
-#### type PFunc
+#### type PCallable
 
 ```go
-type PFunc struct {
+type PCallable struct {
 	Preduced
-	Cases []struct {
-		Arg IPreduced
-		Ret IPreduced
-	}
+	Arg IPreduced
+	Ret IPreduced
 }
 ```
 
 
-#### func (*PFunc) SummaryCompact
+#### func (*PCallable) SummaryCompact
 
 ```go
-func (me *PFunc) SummaryCompact() string
+func (me *PCallable) SummaryCompact() string
+```
+
+#### type PCallables
+
+```go
+type PCallables struct {
+	Preduced
+	Cases []PCallable
+}
+```
+
+
+#### type PHole
+
+```go
+type PHole struct {
+	Preduced
+}
+```
+
+
+#### func (*PHole) SummaryCompact
+
+```go
+func (me *PHole) SummaryCompact() string
 ```
 
 #### type PPrimAtomicConstFloat
@@ -855,7 +884,6 @@ func (me *PPrimAtomicConstUint) SummaryCompact() string
 
 ```go
 type Preduced struct {
-	OrigNodes []INode
 }
 ```
 

@@ -71,7 +71,7 @@ func (me *IrDef) initArg(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	if len(me.OrigDef.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
 		var arg IrDefArg
 		errs.Add(arg.initFrom(ctx, &me.OrigDef.Args[0])...)
-		me.Arg = &arg
+		me.Arg, arg.ownerDef = &arg, me
 	}
 	return
 }

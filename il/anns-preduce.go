@@ -6,7 +6,9 @@ import (
 
 func (me *Preduced) Self() *Preduced { return me }
 
-func (me *PFunc) SummaryCompact() string { return "->" }
+func (me *PCallable) SummaryCompact() string {
+	return me.Arg.SummaryCompact() + "->" + me.Ret.SummaryCompact()
+}
 
 func (me *PPrimAtomicConstFloat) SummaryCompact() string {
 	return strconv.FormatFloat(me.Val, 'f', -1, 64)
@@ -17,3 +19,5 @@ func (me *PPrimAtomicConstUint) SummaryCompact() string { return strconv.FormatU
 func (me *PPrimAtomicConstTag) SummaryCompact() string { return me.Val }
 
 func (me *PAbyss) SummaryCompact() string { return "ABYSS" }
+
+func (me *PHole) SummaryCompact() string { return "HOLE" }

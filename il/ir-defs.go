@@ -14,11 +14,15 @@ func (me IrDefs) byName(name string) *IrDef {
 	return nil
 }
 
-func (me *IrDefs) add(body IExpr) (def *IrDef) {
+func (me *IrDefs) add(name string, body IExpr) (def *IrDef) {
 	this := *me
 	idx := len(this)
 	this = append(this, IrDef{Body: body})
 	*me, def = this, &this[idx]
+	def.Name.Val = name
+	if def.Arg != nil {
+		def.Arg.ownerDef = def
+	}
 	return
 }
 

@@ -63,20 +63,21 @@ func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, fr
 				this.Errs.Stage3Preduce = make(atmo.Errors, 0, 0) // not nil anymore now
 				curtopdef := me.curNode.owningTopDef
 				me.curNode.owningTopDef = this
-				ret, freshErrs = me.preduceIlNode(&this.IrDef)
+				this.Anns.Preduced, this.Errs.Stage3Preduce = me.preduceIlNode(&this.IrDef)
 				me.curNode.owningTopDef = curtopdef
 			}
-			return this.Anns.Preduced, this.Errs.Stage3Preduce
+			ret, freshErrs = this.Anns.Preduced, this.Errs.Stage3Preduce
 		case *atmoil.IrDef:
 			ret, freshErrs = me.preduceIlNode(this.Body)
+			if this.Arg != nil && ret != nil {
+				ret = &atmoil.PCallable{Ret: ret}
+			}
 		case *atmoil.IrDefArg:
+			ret = &atmoil.PHole{}
 		case *atmoil.IrAppl:
 		default:
 			panic(this)
 		}
-	}
-	if ret != nil {
-		ret.Self().OrigNodes = append(ret.Self().OrigNodes, node)
 	}
 	delete(me.inFlight, node)
 	return

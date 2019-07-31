@@ -186,8 +186,6 @@ func (me *ctxIrFromAst) addLocalDefToOwnScope(name string, body IExpr) *IrIdentN
 	return &ident
 }
 
-func (me *ctxIrFromAst) addLocalDefToScope(name string, body IExpr) (def *IrDef) {
-	def = me.defsScope.add(body)
-	def.Name.Val = name
-	return
+func (me *ctxIrFromAst) addLocalDefToScope(name string, body IExpr) *IrDef {
+	return me.defsScope.add(name, body)
 }
