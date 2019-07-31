@@ -146,7 +146,7 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs atmo.Errors)
 #### func (*Ctx) KitsCollectAcquaintances
 
 ```go
-func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (acquaintancesDefIds map[string]*Kit)
+func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (acquaintancesDefs map[*atmoil.IrDefTop]*Kit)
 ```
 
 #### func (*Ctx) KitsCollectReferences
@@ -182,7 +182,7 @@ again from inside such a wrapper `func` will deadlock.
 #### func (*Ctx) Preduce
 
 ```go
-func (me *Ctx) Preduce(kit *Kit, node atmoil.INode) (atmoil.IPreduced, atmo.Errors)
+func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) (atmoil.IPreduced, atmo.Errors)
 ```
 
 #### func (*Ctx) ScratchpadEntry

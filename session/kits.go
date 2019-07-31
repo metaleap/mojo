@@ -201,16 +201,16 @@ func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) ma
 	return me.Kits.All.collectReferences(name)
 }
 
-func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (acquaintancesDefIds map[string]*Kit) {
+func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (acquaintancesDefs map[*atmoil.IrDefTop]*Kit) {
 	if forceLoadAllKnownKits {
 		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}
-	acquaintancesDefIds = make(map[string]*Kit)
+	acquaintancesDefs = make(map[*atmoil.IrDefTop]*Kit)
 	var dones atmo.StringKeys
 	if indirects {
 		dones = make(atmo.StringKeys, len(defNames))
 	}
-	me.Kits.All.collectAcquaintances(defNames, acquaintancesDefIds, dones)
+	me.Kits.All.collectAcquaintances(defNames, acquaintancesDefs, dones)
 	return
 }
 
@@ -235,19 +235,9 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) 
 
 		namesofchange, _, _, ferrs := me.kitsRepopulateNamesInScope()
 		freshErrs = ferrs
-		defidsofacquaintancesofnamesofchange := make(map[string]*Kit)
+		defidsofacquaintancesofnamesofchange := make(map[*atmoil.IrDefTop]*Kit)
 		me.Kits.All.collectAcquaintances(namesofchange, defidsofacquaintancesofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
-		for defid, kit := range defidsofacquaintancesofnamesofchange {
-			def := kit.lookups.tlDefsByID[defid]
-			def.Anns.Preduced, def.Errs.Stage3Preduce = nil, nil
-		}
-		for defid, kit := range defidsofacquaintancesofnamesofchange {
-			def := kit.lookups.tlDefsByID[defid]
-			if def.Anns.Preduced == nil || def.Errs.Stage3Preduce == nil { // we set them to nil in above loop but one Preduce call will often trigger others so check again just-before in this loop
-				def.Errs.Stage3Preduce = make(atmo.Errors, 0, 0)
-				def.Anns.Preduced, def.Errs.Stage3Preduce = me.Preduce(kit, def)
-			}
-		}
+		freshErrs.Add(me.rePreduceTopLevelDefs(defidsofacquaintancesofnamesofchange)...)
 	}
 	return
 }
@@ -347,7 +337,7 @@ func (me Kits) collectReferences(name string) (refs map[*atmoil.IrDefTop][]atmoi
 	return
 }
 
-func (me Kits) collectAcquaintances(defNames atmo.StringKeys, acquaintancesDefIds map[string]*Kit, doneAlready atmo.StringKeys) {
+func (me Kits) collectAcquaintances(defNames atmo.StringKeys, acquaintancesDefs map[*atmoil.IrDefTop]*Kit, doneAlready atmo.StringKeys) {
 	if len(defNames) == 0 {
 		return
 	}
@@ -364,7 +354,7 @@ func (me Kits) collectAcquaintances(defNames atmo.StringKeys, acquaintancesDefId
 		for _, kit := range me {
 			for _, tld := range kit.topLevelDefs {
 				if tld.RefersToOrDefines(defname) {
-					if acquaintancesDefIds[tld.Id] = kit; indirects {
+					if acquaintancesDefs[tld] = kit; indirects {
 						if _, doneearlier := doneAlready[tld.Name.Val]; !doneearlier {
 							morenames[tld.Name.Val] = atmo.Є
 						}
@@ -374,7 +364,7 @@ func (me Kits) collectAcquaintances(defNames atmo.StringKeys, acquaintancesDefId
 		}
 	}
 	if indirects {
-		me.collectAcquaintances(morenames, acquaintancesDefIds, doneAlready)
+		me.collectAcquaintances(morenames, acquaintancesDefs, doneAlready)
 	}
 }
 

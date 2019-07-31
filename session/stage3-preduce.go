@@ -16,10 +16,19 @@ func (me *ctxPreduce) toks(n atmoil.INode) (toks udevlex.Tokens) {
 	return
 }
 
-func (me *Ctx) Preduce(kit *Kit, node atmoil.INode) (atmoil.IPreduced, atmo.Errors) {
+func (me *Ctx) rePreduceTopLevelDefs(defIds map[*atmoil.IrDefTop]*Kit) (freshErrs atmo.Errors) {
+	for def := range defIds {
+		def.Anns.Preduced, def.Errs.Stage3Preduce = nil, nil
+	}
+	for def, kit := range defIds {
+		_ = freshErrs.AddVia(me.Preduce(kit, def, def))
+	}
+	return
+}
+
+func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) (atmoil.IPreduced, atmo.Errors) {
 	ctxpreduce := &ctxPreduce{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 32)}
-	ctxpreduce.curNode.owningKit = kit
-	ctxpreduce.curNode.owningTopDef, _ = node.(*atmoil.IrDefTop)
+	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
 	return ctxpreduce.preduceIlNode(node)
 }
 
@@ -50,10 +59,14 @@ func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, fr
 			ret, freshErrs = me.preduceIlNode(this.IrDefTop)
 			me.curNode.owningKit = curkit
 		case *atmoil.IrDefTop:
-			curtopdef := me.curNode.owningTopDef
-			me.curNode.owningTopDef = this
-			ret, freshErrs = me.preduceIlNode(&this.IrDef)
-			me.curNode.owningTopDef = curtopdef
+			if this.Anns.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
+				this.Errs.Stage3Preduce = make(atmo.Errors, 0, 0) // not nil anymore now
+				curtopdef := me.curNode.owningTopDef
+				me.curNode.owningTopDef = this
+				ret, freshErrs = me.preduceIlNode(&this.IrDef)
+				me.curNode.owningTopDef = curtopdef
+			}
+			return this.Anns.Preduced, this.Errs.Stage3Preduce
 		case *atmoil.IrDef:
 			ret, freshErrs = me.preduceIlNode(this.Body)
 		case *atmoil.IrDefArg:

@@ -27,9 +27,10 @@ import (
 )
 
 type ctxPreduce struct {
-	curSessCtx *Ctx
-	inFlight   map[atmoil.INode]atmo.Exist
-	curNode    struct {
+	curSessCtx      *Ctx
+	inFlight        map[atmoil.INode]atmo.Exist
+	maybeOrigTopDef *atmoil.IrDefTop
+	curNode         struct {
 		owningTopDef *atmoil.IrDefTop
 		owningKit    *Kit
 	}
