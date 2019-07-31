@@ -6,7 +6,7 @@ import (
 	"github.com/metaleap/atmo/il"
 )
 
-func (me *ctxPreduce) toks(n atmoil.INode) (toks udevlex.Tokens) {
+func (me *ctxPreducing) toks(n atmoil.INode) (toks udevlex.Tokens) {
 	if tld := me.curNode.owningTopDef; tld != nil {
 		toks = tld.OrigToks(n)
 	}
@@ -20,21 +20,35 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*atmoil.IrDefTop]*Kit) (freshErr
 	for def := range defIds {
 		def.Anns.Preduced, def.Errs.Stage3Preduce = nil, nil
 	}
+	memoizecap := len(defIds) * 5
+	ctxpred := ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 16), memoized: make(map[atmoil.INode]atmoil.IPreduced, memoizecap)}
 	for def, kit := range defIds {
-		_ = me.Preduce(kit, def, def)
+		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef = kit, def
+		_ = ctxpred.preduceIlNode(def)
+	}
+	if len(ctxpred.memoized) > memoizecap {
+		panic(len(ctxpred.memoized)) // until Std-libs have emerged and grown realistic
 	}
 	return
 }
 
 func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) atmoil.IPreduced {
-	ctxpreduce := &ctxPreduce{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 32)}
+	ctxpreduce := &ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 8), memoized: make(map[atmoil.INode]atmoil.IPreduced, 64)}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
 	return ctxpreduce.preduceIlNode(node)
 }
 
-func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) {
+var ctxPreducingTmpMax int
+
+func (me *ctxPreducing) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) {
+	if len(me.inFlight) > ctxPreducingTmpMax {
+		ctxPreducingTmpMax = len(me.inFlight)
+		println("INFLIGHT", ctxPreducingTmpMax)
+	}
 	if _, rec := me.inFlight[node]; rec {
 		ret = &atmoil.PAbyss{}
+	} else if ret, _ = me.memoized[node]; ret != nil {
+		return
 	} else {
 		me.inFlight[node] = atmo.Є
 		switch this := node.(type) {
@@ -89,6 +103,7 @@ func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) {
 			panic(this)
 		}
 	}
+	me.memoized[node] = ret
 	delete(me.inFlight, node)
 	return
 }

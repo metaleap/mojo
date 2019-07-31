@@ -26,11 +26,11 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
-type ctxPreduce struct {
-	curSessCtx      *Ctx
-	inFlight        map[atmoil.INode]atmo.Exist
-	maybeOrigTopDef *atmoil.IrDefTop
-	curNode         struct {
+type ctxPreducing struct {
+	curSessCtx *Ctx
+	inFlight   map[atmoil.INode]atmo.Exist
+	memoized   map[atmoil.INode]atmoil.IPreduced
+	curNode    struct {
 		owningTopDef *atmoil.IrDefTop
 		owningKit    *Kit
 	}
