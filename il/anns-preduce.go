@@ -21,3 +21,5 @@ func (me *PPrimAtomicConstTag) SummaryCompact() string { return me.Val }
 func (me *PAbyss) SummaryCompact() string { return "ABYSS" }
 
 func (me *PHole) SummaryCompact() string { return "HOLE" }
+
+func (me *PErr) SummaryCompact() string { return me.Err.Error() }

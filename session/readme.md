@@ -182,7 +182,7 @@ again from inside such a wrapper `func` will deadlock.
 #### func (*Ctx) Preduce
 
 ```go
-func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) (atmoil.IPreduced, atmo.Errors)
+func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) atmoil.IPreduced
 ```
 
 #### func (*Ctx) ScratchpadEntry

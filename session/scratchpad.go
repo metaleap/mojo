@@ -119,7 +119,11 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		}
 		identexpr := atmoil.Build.IdentName(defname)
 		identexpr.Anns.Candidates = []atmoil.INode{defs[0]}
-		ret, errs = me.Preduce(kit, nil, identexpr)
+		ret = me.Preduce(kit, nil, identexpr)
+		if reterr, _ := ret.(*atmoil.PErr); reterr != nil {
+			errs.Add(reterr.Err)
+			ret = nil
+		}
 	}
 
 	return

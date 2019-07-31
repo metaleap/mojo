@@ -817,6 +817,22 @@ type PCallables struct {
 ```
 
 
+#### type PErr
+
+```go
+type PErr struct {
+	Preduced
+	Err *atmo.Error
+}
+```
+
+
+#### func (*PErr) SummaryCompact
+
+```go
+func (me *PErr) SummaryCompact() string
+```
+
 #### type PHole
 
 ```go

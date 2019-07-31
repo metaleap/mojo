@@ -201,6 +201,11 @@ type PCallables struct {
 	Cases []PCallable
 }
 
+type PErr struct {
+	Preduced
+	Err *atmo.Error
+}
+
 type PPrimAtomicConstUint struct {
 	Preduced
 	Val uint64
