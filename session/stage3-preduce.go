@@ -81,10 +81,14 @@ func (me *ctxPreducing) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) 
 		case *atmoil.IrDefTop:
 			if this.Anns.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
 				this.Errs.Stage3Preduce = make(atmo.Errors, 0, 0) // not nil anymore now
-				curtopdef := me.curNode.owningTopDef
-				me.curNode.owningTopDef = this
-				this.Anns.Preduced = me.preduceIlNode(&this.IrDef)
-				me.curNode.owningTopDef = curtopdef
+				if this.HasErrors() {
+					this.Anns.Preduced = &atmoil.PErr{Err: this.Errors()[0]}
+				} else {
+					curtopdef := me.curNode.owningTopDef
+					me.curNode.owningTopDef = this
+					this.Anns.Preduced = me.preduceIlNode(&this.IrDef)
+					me.curNode.owningTopDef = curtopdef
+				}
 			}
 			ret = this.Anns.Preduced
 
@@ -98,6 +102,19 @@ func (me *ctxPreducing) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) 
 			ret = &atmoil.PHole{}
 
 		case *atmoil.IrAppl:
+			isouter := (me.callArgs == nil)
+			if isouter {
+				me.callArgs = make(map[string]interface{})
+			}
+			callee := me.preduceIlNode(this.AtomicCallee)
+			if callable, _ := callee.(*atmoil.PCallable); callable == nil {
+				ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.AtomicCallee), "notCallable")}
+			} else {
+
+			}
+			if isouter {
+				me.callArgs = nil
+			}
 
 		default:
 			panic(this)

@@ -53,6 +53,9 @@ func (me *IrDef) walk(ancestors []INode, self INode, on func([]INode, INode, ...
 	}
 }
 
+func (me *IrDefTop) HasErrors() bool {
+	return len(me.Errs.Stage1AstToIr) > 0 || len(me.Errs.Stage2BadNames) > 0 || len(me.Errs.Stage3Preduce) > 0
+}
 func (me *IrDefTop) Errors() (errs atmo.Errors) {
 	errs = make(atmo.Errors, 0, len(me.Errs.Stage1AstToIr)+len(me.Errs.Stage2BadNames)+len(me.Errs.Stage3Preduce))
 	errs = append(append(append(errs, me.Errs.Stage1AstToIr...), me.Errs.Stage2BadNames...), me.Errs.Stage3Preduce...)

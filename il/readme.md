@@ -358,6 +358,12 @@ func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred f
 func (me *IrDefTop) ForAllLocalDefs(onLocalDef func(*IrDef) (done bool))
 ```
 
+#### func (*IrDefTop) HasErrors
+
+```go
+func (me *IrDefTop) HasErrors() bool
+```
+
 #### func (*IrDefTop) Let
 
 ```go

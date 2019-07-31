@@ -212,7 +212,7 @@ func (me *Repl) DSrcs(what string) bool {
 			def.OrigTopChunk.Print(&ctxp)
 			ctxp.WriteTo(me.IO.Stdout)
 			ctxp.Reset()
-			if len(def.Errors()) == 0 {
+			if !def.HasErrors() {
 				ir2lang := def.Print().(*atmolang.AstDef)
 				me.decoAddNotice(false, "", true, "internal representation:", "")
 				ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
