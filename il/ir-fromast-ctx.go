@@ -54,7 +54,7 @@ func (me *ctxIrFromAst) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, er
 	} else if orig.IsPlaceholder() {
 		var ident IrNonValue // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
 		ret, ident.OneOf.LeftoverPlaceholder, ident.Orig = &ident, true, orig
-		errs.AddBug(ErrInit_LeftoverUnderscores, orig.Tokens, "misplaced placeholder: only legal in def-args or call expressions")
+		errs.AddBug(ErrFromAst_UnhandledStandaloneUnderscores, orig.Tokens, "misplaced placeholder: only legal in def-args or call expressions")
 
 	} else if orig.Val == atmo.KnownIdentUndef {
 		var ident IrNonValue

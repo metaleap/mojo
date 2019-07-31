@@ -1,8 +1,8 @@
 package atmosess
 
 const (
-	_                                     = iota
-	ErrSessInit_IoCacheDirCreationFailure = iota + 3100
+	_ = 3100 + iota
+	ErrSessInit_IoCacheDirCreationFailure
 	ErrSessInit_IoCacheDirDeletionFailure
 	ErrSessInit_KitsDirsConflict
 	ErrSessInit_KitsDirsNotSpecified
@@ -10,9 +10,11 @@ const (
 	ErrSessInit_KitsDirAutoNotFound
 	ErrSessInit_IoFauxKitDirFailure
 )
-
 const (
-	_                            = iota
-	ErrSessKits_IoReadDirFailure = iota + 3200
+	_ = 3200 + iota
+	ErrSessKits_IoReadDirFailure
 	ErrSessKits_ImportNotFound
+)
+const (
+	_ = 3300 + iota
 )

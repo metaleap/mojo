@@ -8,7 +8,6 @@ import (
 
 func (*irNodeBase) Let() *IrExprLetBase { return nil }
 func (*irNodeBase) IsDef() *IrDef       { return nil }
-func (*irNodeBase) IsDefWithArg() bool  { return false }
 
 func (me *IrDef) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
 	if orig == me.OrigDef {
@@ -25,7 +24,6 @@ func (me *IrDef) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) 
 	return
 }
 func (me *IrDef) IsDef() *IrDef             { return me }
-func (me *IrDef) IsDefWithArg() bool        { return me.Arg != nil }
 func (me *IrDef) Origin() atmolang.IAstNode { return me.OrigDef }
 func (me *IrDef) origToks() (toks udevlex.Tokens) {
 	if me.OrigDef != nil && me.OrigDef.Tokens != nil {
@@ -82,6 +80,28 @@ func (me *IrDefTop) OrigToks(node INode) (toks udevlex.Tokens) {
 				}
 			}
 		}
+	}
+	return
+}
+func (me *IrDefTop) ForAllLocalDefs(onLocalDef func(*IrDef) (done bool)) {
+	me.Walk(func(curnodeancestors []INode, curnode INode, curnodedescendants ...INode) bool {
+		let := curnode.Let()
+		var done bool
+		if let != nil {
+			for i := range let.Defs {
+				done = done || onLocalDef(&let.Defs[i])
+			}
+		}
+		return (!done) && (let != nil || curnode.IsDef() != nil)
+	})
+}
+func (me *IrDefTop) RefersToOrDefines(name string) (relatesTo bool) {
+	relatesTo = me.Name.Val == name || me.RefersTo(name)
+	if !relatesTo {
+		me.ForAllLocalDefs(func(localdef *IrDef) (done bool) {
+			relatesTo = relatesTo || (localdef.Name.Val == name)
+			return relatesTo
+		})
 	}
 	return
 }

@@ -6,11 +6,21 @@ import (
 	"github.com/metaleap/atmo/il"
 )
 
-func (me *ctxPreduce) toks(n atmoil.INode) udevlex.Tokens { return me.curNodeCtx.topDef.OrigToks(n) }
+func (me *ctxPreduce) toks(n atmoil.INode) (toks udevlex.Tokens) {
+	if tld := me.curNode.owningTopDef; tld != nil {
+		toks = tld.OrigToks(n)
+	}
+	if orig := n.Origin(); orig != nil {
+		toks = orig.Toks()
+	}
+	return
+}
 
 func (me *Ctx) Preduce(kit *Kit, node atmoil.INode) (atmoil.IPreduced, atmo.Errors) {
-	me.state.preduce.curNodeCtx.kit = kit
-	return me.state.preduce.preduceIlNode(node)
+	ctxpreduce := &ctxPreduce{curSessCtx: me}
+	ctxpreduce.curNode.owningKit = kit
+	ctxpreduce.curNode.owningTopDef, _ = node.(*atmoil.IrDefTop)
+	return ctxpreduce.preduceIlNode(node)
 }
 
 func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, freshErrs atmo.Errors) {
@@ -31,28 +41,27 @@ func (me *ctxPreduce) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced, fr
 			freshErrs.AddPreduce(1234, me.toks(this), "ambiguous")
 		}
 	case IrDefRef:
-		curkit := me.curNodeCtx.kit
-		me.curNodeCtx.kit = this.Kit
+		curkit := me.curNode.owningKit
+		me.curNode.owningKit = this.Kit
 		ret, freshErrs = me.preduceIlNode(this.IrDefTop)
-		me.curNodeCtx.kit = curkit
+		me.curNode.owningKit = curkit
 	case *atmoil.IrDefTop:
-		pred, exists := me.cachedByTldIds[this.Id]
-		if !exists {
-			me.cachedByTldIds[this.Id] = nil
+		// pred, exists := me.cachedByTldIds[this.Id]
+		// if !exists {
+		// 	me.cachedByTldIds[this.Id] = nil
 
-			curtopdef := me.curNodeCtx.topDef
-			me.curNodeCtx.topDef = this
-			pred, this.Errs.Stage3Preduce = me.preduceIlNode(&this.IrDef)
-			me.curNodeCtx.topDef = curtopdef
+		curtopdef := me.curNode.owningTopDef
+		me.curNode.owningTopDef = this
+		ret, this.Errs.Stage3Preduce = me.preduceIlNode(&this.IrDef)
+		me.curNode.owningTopDef = curtopdef
 
-			me.cachedByTldIds[this.Id] = pred
-		}
-		ret, freshErrs = pred, this.Errs.Stage3Preduce
+		// 	me.cachedByTldIds[this.Id] = pred
+		// }
+		freshErrs = this.Errs.Stage3Preduce
 	case *atmoil.IrDef:
 		ret, freshErrs = me.preduceIlNode(this.Body)
 	case *atmoil.IrDefArg:
 	case *atmoil.IrAppl:
-		freshErrs.AddTodo(2345, me.toks(this), "noApplYet")
 	default:
 		panic(this)
 	}

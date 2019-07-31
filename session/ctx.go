@@ -10,7 +10,6 @@ import (
 	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
 	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/il"
 	"github.com/metaleap/atmo/lang"
 )
 
@@ -25,7 +24,6 @@ func CtxDefaultCacheDirPath() string {
 // `Kits` reflective of the structures found in the various `me.Dirs.Kits`
 // search paths and from now on in sync with live modifications to those.
 func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *atmo.Error) {
-	me.state.preduce.owner, me.state.preduce.cachedByTldIds = me, make(map[string]atmoil.IPreduced, 128)
 	me.Kits.All = make(Kits, 0, 32)
 	cachedir := me.Dirs.CacheData
 	if cachedir == "" {

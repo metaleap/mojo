@@ -6,37 +6,39 @@ Package `atmoil` implements the intermediate-language representation that a
 lexed-and-parsed `atmolang` AST is transformed into as a next step. Whereas the
 lex-and-parse phase in the `atmolang` package ("stage 0") only cared about
 syntax, a few initial (more) semantic validations occur at the very next "stage
-1" (AST-to-IL), such as def-name and arg-name validations, rejection of
-shadowings etc. The following "stage 2" (in `atmosess`) then does prerequisite
-initial names-analyses and it too both operates chiefly on `atmoil` node types
-plus utilizes its auxiliary types provided for such.
+1" (AST-to-IL), such as eg. def-name and arg-name validations, nonsensical
+placeholders et al. The following "stage 2" (in `atmosess`) then does
+prerequisite initial names-analyses and it too both operates chiefly on `atmoil`
+node types plus utilizes its auxiliary types provided for this.
 
-`atmolang` transforms and/or desugars into `atmoil` such that only atomic
-literals, unary calls, and nullary or unary defs remain in the IL. Case
-expressions desugar into basic `Std`-built-in functions such as `true`, `false`,
-`or`, `==` etc. Underscore placeholders obtain meaning (or err), usually going
-from "de-facto lambdas" towards added inner named-local defs. Def-name and
-def-arg affixes are repositioned as wrapping around the def's body. N-ary defs
-are unary-fied via added inner named-locals, n-ary calls via nested sub-calls.
-All callees and call-args are ensured to be atomic via added inner named-locals
-if and as needed. Other than these transforms, no reductions, rewritings or
+`atmolang` transforms and/or desugars into `atmoil` such that only idents,
+atomic literals, unary calls, and nullary or unary defs remain in the IL. Case
+expressions desugar into combinations of calls to basic `Std`-built-in funcs
+such as `true`, `false`, `or`, `==` etc. Underscore placeholders obtain meaning
+(or err), usually going from "de-facto lambdas" towards added inner named-local
+defs ("let"s). (Both ident exprs and call exprs can own any number of named
+local defs, whether from AST or dynamically generated.) Def-name and def-arg
+affixes are repositioned as wrapping around the def's body. N-ary defs are
+unary-fied via added inner named-locals, n-ary calls via nested sub-calls. All
+callees and call-args are ensured to be atomic via added inner named-locals if
+and as needed. Other than these transforms, no reductions, rewritings or
 removals occur in this (AST-to-IL) "stage 1".
 
 ## Usage
 
 ```go
 const (
-	ErrInit_DefNameInvalidIdent = iota + 2100
-	ErrInit_DefArgNameUnderscores
-	ErrInit_LeftoverUnderscores
-	ErrInit_IdentRefersToMalformedDef
+	ErrFromAst_DefNameInvalidIdent
+	ErrFromAst_DefArgNameMultipleUnderscores
+	ErrFromAst_UnhandledStandaloneUnderscores
 )
 ```
 
 ```go
 const (
-	ErrNames_ShadowingNotAllowed = iota + 2200
-	ErrNames_UndefinedOrUnimported
+	ErrNames_ShadowingNotAllowed
+	ErrNames_IdentRefersToMalformedDef
+	ErrNames_NotKnownInCurScope
 )
 ```
 
@@ -193,12 +195,6 @@ func (me *IrAppl) EquivTo(node INode) bool
 func (*IrAppl) IsDef() *IrDef
 ```
 
-#### func (*IrAppl) IsDefWithArg
-
-```go
-func (*IrAppl) IsDefWithArg() bool
-```
-
 #### func (*IrAppl) Let
 
 ```go
@@ -248,12 +244,6 @@ func (me *IrDef) EquivTo(node INode) bool
 func (me *IrDef) IsDef() *IrDef
 ```
 
-#### func (*IrDef) IsDefWithArg
-
-```go
-func (me *IrDef) IsDefWithArg() bool
-```
-
 #### func (*IrDef) Let
 
 ```go
@@ -300,12 +290,6 @@ func (me *IrDefArg) EquivTo(node INode) bool
 func (*IrDefArg) IsDef() *IrDef
 ```
 
-#### func (*IrDefArg) IsDefWithArg
-
-```go
-func (*IrDefArg) IsDefWithArg() bool
-```
-
 #### func (*IrDefArg) Let
 
 ```go
@@ -332,7 +316,10 @@ type IrDefTop struct {
 
 	Id           string
 	OrigTopChunk *atmolang.SrcTopChunk
-	Errs         struct {
+	Anns         struct {
+		Preduced IPreduced
+	}
+	Errs struct {
 		Stage1AstToIr  atmo.Errors
 		Stage2BadNames atmo.Errors
 		Stage3Preduce  atmo.Errors
@@ -359,6 +346,12 @@ func (me *IrDefTop) FindByOrig(orig atmolang.IAstNode) []INode
 func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(INode) bool) (paths [][]INode)
 ```
 
+#### func (*IrDefTop) ForAllLocalDefs
+
+```go
+func (me *IrDefTop) ForAllLocalDefs(onLocalDef func(*IrDef) (done bool))
+```
+
 #### func (*IrDefTop) Let
 
 ```go
@@ -381,6 +374,12 @@ func (me *IrDefTop) Print() atmolang.IAstNode
 
 ```go
 func (me *IrDefTop) RefersTo(name string) (refersTo bool)
+```
+
+#### func (*IrDefTop) RefersToOrDefines
+
+```go
+func (me *IrDefTop) RefersToOrDefines(name string) (relatesTo bool)
 ```
 
 #### func (*IrDefTop) RefsTo
@@ -423,12 +422,6 @@ func (me *IrExprAtomBase) IsAtomic() bool
 func (*IrExprAtomBase) IsDef() *IrDef
 ```
 
-#### func (*IrExprAtomBase) IsDefWithArg
-
-```go
-func (*IrExprAtomBase) IsDefWithArg() bool
-```
-
 #### func (*IrExprAtomBase) Let
 
 ```go
@@ -464,12 +457,6 @@ func (*IrExprBase) IsAtomic() bool
 
 ```go
 func (*IrExprBase) IsDef() *IrDef
-```
-
-#### func (*IrExprBase) IsDefWithArg
-
-```go
-func (*IrExprBase) IsDefWithArg() bool
 ```
 
 #### func (*IrExprBase) Let
@@ -515,12 +502,6 @@ type IrIdentBase struct {
 func (*IrIdentBase) IsDef() *IrDef
 ```
 
-#### func (*IrIdentBase) IsDefWithArg
-
-```go
-func (*IrIdentBase) IsDefWithArg() bool
-```
-
 #### func (*IrIdentBase) Let
 
 ```go
@@ -552,12 +533,6 @@ func (me *IrIdentDecl) EquivTo(node INode) bool
 
 ```go
 func (*IrIdentDecl) IsDef() *IrDef
-```
-
-#### func (*IrIdentDecl) IsDefWithArg
-
-```go
-func (*IrIdentDecl) IsDefWithArg() bool
 ```
 
 #### func (*IrIdentDecl) Let
@@ -592,12 +567,6 @@ func (me *IrIdentName) EquivTo(node INode) bool
 
 ```go
 func (*IrIdentName) IsDef() *IrDef
-```
-
-#### func (*IrIdentName) IsDefWithArg
-
-```go
-func (*IrIdentName) IsDefWithArg() bool
 ```
 
 #### func (*IrIdentName) Let
@@ -649,12 +618,6 @@ func (me *IrIdentTag) EquivTo(node INode) bool
 
 ```go
 func (*IrIdentTag) IsDef() *IrDef
-```
-
-#### func (*IrIdentTag) IsDefWithArg
-
-```go
-func (*IrIdentTag) IsDefWithArg() bool
 ```
 
 #### func (*IrIdentTag) Let
@@ -749,12 +712,6 @@ func (me *IrNonValue) EquivTo(node INode) bool
 
 ```go
 func (*IrNonValue) IsDef() *IrDef
-```
-
-#### func (*IrNonValue) IsDefWithArg
-
-```go
-func (*IrNonValue) IsDefWithArg() bool
 ```
 
 #### func (*IrNonValue) Let

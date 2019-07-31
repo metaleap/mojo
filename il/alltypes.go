@@ -2,16 +2,18 @@
 // lexed-and-parsed `atmolang` AST is transformed into as a next step. Whereas
 // the lex-and-parse phase in the `atmolang` package ("stage 0") only cared
 // about syntax, a few initial (more) semantic validations occur at the very
-// next "stage 1" (AST-to-IL), such as def-name and arg-name validations,
-// rejection of shadowings etc. The following "stage 2" (in `atmosess`) then
+// next "stage 1" (AST-to-IL), such as eg. def-name and arg-name validations,
+// nonsensical placeholders et al. The following "stage 2" (in `atmosess`) then
 // does prerequisite initial names-analyses and it too both operates chiefly
-// on `atmoil` node types plus utilizes its auxiliary types provided for such.
+// on `atmoil` node types plus utilizes its auxiliary types provided for this.
 //
-// `atmolang` transforms and/or desugars into `atmoil` such that only
+// `atmolang` transforms and/or desugars into `atmoil` such that only idents,
 // atomic literals, unary calls, and nullary or unary defs remain in the IL.
-// Case expressions desugar into basic `Std`-built-in functions such as `true`,
-// `false`, `or`, `==` etc. Underscore placeholders obtain meaning (or err),
-// usually going from "de-facto lambdas" towards added inner named-local defs.
+// Case expressions desugar into combinations of calls to basic `Std`-built-in
+// funcs such as `true`, `false`, `or`, `==` etc. Underscore placeholders obtain
+// meaning (or err), usually going from "de-facto lambdas" towards added inner
+// named-local defs ("let"s). (Both ident exprs and call exprs can own any
+// number of named local defs, whether from AST or dynamically generated.)
 // Def-name and def-arg affixes are repositioned as wrapping around the def's
 // body. N-ary defs are unary-fied via added inner named-locals, n-ary calls
 // via nested sub-calls. All callees and call-args are ensured to be atomic
@@ -75,7 +77,10 @@ type IrDefTop struct {
 
 	Id           string
 	OrigTopChunk *atmolang.SrcTopChunk
-	Errs         struct {
+	Anns         struct {
+		Preduced IPreduced
+	}
+	Errs struct {
 		Stage1AstToIr  atmo.Errors
 		Stage2BadNames atmo.Errors
 		Stage3Preduce  atmo.Errors

@@ -1,14 +1,14 @@
 package atmoil
 
 const (
-	_                           = iota
-	ErrInit_DefNameInvalidIdent = iota + 2100
-	ErrInit_DefArgNameUnderscores
-	ErrInit_LeftoverUnderscores
-	ErrInit_IdentRefersToMalformedDef
+	_ = 2100 + iota
+	ErrFromAst_DefNameInvalidIdent
+	ErrFromAst_DefArgNameMultipleUnderscores
+	ErrFromAst_UnhandledStandaloneUnderscores
 )
 const (
-	_                            = iota
-	ErrNames_ShadowingNotAllowed = iota + 2200
-	ErrNames_UndefinedOrUnimported
+	_ = 2200 + iota
+	ErrNames_ShadowingNotAllowed
+	ErrNames_IdentRefersToMalformedDef
+	ErrNames_NotKnownInCurScope
 )

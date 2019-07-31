@@ -91,7 +91,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, 
 		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.AtomicArg, currentlyErroneousButKnownGlobalsNames)...)
 	case *IrIdentName:
 		if existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed > 0 {
-			errs.AddUnreach(ErrInit_IdentRefersToMalformedDef, tld.OrigToks(n), "`"+n.Val+"` found but with syntax errors")
+			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.OrigToks(n), "`"+n.Val+"` found but with syntax errors")
 		} else if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
 			me.errUnknownName(tld, &errs, n)
 		}
@@ -113,5 +113,5 @@ func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, node I
 }
 
 func (AnnNamesInScope) errUnknownName(tld *IrDefTop, errs *atmo.Errors, n *IrIdentName) {
-	errs.AddNaming(ErrNames_UndefinedOrUnimported, tld.OrigToks(n).First1(), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
+	errs.AddNaming(ErrNames_NotKnownInCurScope, tld.OrigToks(n).First1(), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
 }

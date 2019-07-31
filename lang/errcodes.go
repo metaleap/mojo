@@ -1,15 +1,15 @@
 package atmolang
 
 const (
-	_                                 = iota
-	ErrLexing_IndentationInconsistent = iota + 1100
+	_ = 1100 + iota
+	ErrLexing_IndentationInconsistent
 	ErrLexing_IoFileOpenFailure
 	ErrLexing_IoFileReadFailure
 	ErrLexing_Tokenization
 )
 const (
-	_                         = iota
-	ErrParsing_DefBodyMissing = iota + 1200
+	_ = 1200 + iota
+	ErrParsing_DefBodyMissing
 	ErrParsing_DefMissing
 	ErrParsing_DefHeaderMissing
 	ErrParsing_DefHeaderMalformed
@@ -33,6 +33,6 @@ const (
 	ErrParsing_IdentExpected
 )
 const (
-	_                                               = iota
-	ErrDesugaring_BranchMalformed_CaseResultMissing = iota + 1300
+	_ = 1300 + iota
+	ErrDesugaring_BranchMalformed_CaseResultMissing
 )

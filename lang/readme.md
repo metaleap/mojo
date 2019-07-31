@@ -12,7 +12,7 @@ number instead of a function, etc.).
 
 ```go
 const (
-	ErrLexing_IndentationInconsistent = iota + 1100
+	ErrLexing_IndentationInconsistent
 	ErrLexing_IoFileOpenFailure
 	ErrLexing_IoFileReadFailure
 	ErrLexing_Tokenization
@@ -21,7 +21,7 @@ const (
 
 ```go
 const (
-	ErrParsing_DefBodyMissing = iota + 1200
+	ErrParsing_DefBodyMissing
 	ErrParsing_DefMissing
 	ErrParsing_DefHeaderMissing
 	ErrParsing_DefHeaderMalformed
@@ -48,7 +48,7 @@ const (
 
 ```go
 const (
-	ErrDesugaring_BranchMalformed_CaseResultMissing = iota + 1300
+	ErrDesugaring_BranchMalformed_CaseResultMissing
 )
 ```
 

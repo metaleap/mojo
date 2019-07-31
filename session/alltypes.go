@@ -27,11 +27,10 @@ import (
 )
 
 type ctxPreduce struct {
-	owner          *Ctx
-	cachedByTldIds map[string]atmoil.IPreduced
-	curNodeCtx     struct {
-		kit    *Kit
-		topDef *atmoil.IrDefTop
+	curSessCtx *Ctx
+	curNode    struct {
+		owningTopDef *atmoil.IrDefTop
+		owningKit    *Kit
 	}
 }
 
@@ -69,7 +68,6 @@ type Ctx struct {
 			collectFileModsForNextCatchup func([]string, []string) int
 		}
 		notUsedInternallyButAvailableForOutsideCallersConvenience sync.Mutex
-		preduce                                                   ctxPreduce
 	}
 }
 

@@ -22,7 +22,7 @@ defs to be added to / modified in / removed from it.
 
 ```go
 const (
-	ErrSessInit_IoCacheDirCreationFailure = iota + 3100
+	ErrSessInit_IoCacheDirCreationFailure
 	ErrSessInit_IoCacheDirDeletionFailure
 	ErrSessInit_KitsDirsConflict
 	ErrSessInit_KitsDirsNotSpecified
@@ -34,7 +34,7 @@ const (
 
 ```go
 const (
-	ErrSessKits_IoReadDirFailure = iota + 3200
+	ErrSessKits_IoReadDirFailure
 	ErrSessKits_ImportNotFound
 )
 ```
@@ -143,10 +143,10 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit
 func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs atmo.Errors)
 ```
 
-#### func (*Ctx) KitsCollectDependants
+#### func (*Ctx) KitsCollectAcquaintances
 
 ```go
-func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (dependantsDefIds map[string]*Kit)
+func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (acquaintancesDefIds map[string]*Kit)
 ```
 
 #### func (*Ctx) KitsCollectReferences

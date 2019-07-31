@@ -201,16 +201,16 @@ func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) ma
 	return me.Kits.All.collectReferences(name)
 }
 
-func (me *Ctx) KitsCollectDependants(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (dependantsDefIds map[string]*Kit) {
+func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (acquaintancesDefIds map[string]*Kit) {
 	if forceLoadAllKnownKits {
 		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}
-	dependantsDefIds = make(map[string]*Kit)
+	acquaintancesDefIds = make(map[string]*Kit)
 	var dones atmo.StringKeys
 	if indirects {
 		dones = make(atmo.StringKeys, len(defNames))
 	}
-	me.Kits.All.collectDependants(defNames, dependantsDefIds, dones)
+	me.Kits.All.collectAcquaintances(defNames, acquaintancesDefIds, dones)
 	return
 }
 
@@ -233,22 +233,19 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs atmo.Errors) 
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
 
-		namesofchange, _, defidsgone, ferrs := me.kitsRepopulateNamesInScope()
+		namesofchange, _, _, ferrs := me.kitsRepopulateNamesInScope()
 		freshErrs = ferrs
-		for defidgone := range defidsgone {
-			delete(me.state.preduce.cachedByTldIds, defidgone)
+		defidsofacquaintancesofnamesofchange := make(map[string]*Kit)
+		me.Kits.All.collectAcquaintances(namesofchange, defidsofacquaintancesofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
+		for defid, kit := range defidsofacquaintancesofnamesofchange {
+			def := kit.lookups.tlDefsByID[defid]
+			def.Anns.Preduced, def.Errs.Stage3Preduce = nil, nil
 		}
-		defidsdependantsofnamesofchange := make(map[string]*Kit)
-		me.Kits.All.collectDependants(namesofchange, defidsdependantsofnamesofchange, make(atmo.StringKeys, len(namesofchange)))
-		for defid := range defidsdependantsofnamesofchange {
-			delete(me.state.preduce.cachedByTldIds, defid)
-		}
-		for _, kit := range me.Kits.All {
-			for _, tld := range kit.topLevelDefs {
-				if _, exists := me.state.preduce.cachedByTldIds[tld.Id]; !exists {
-					tld.Errs.Stage3Preduce = nil
-					me.Preduce(kit, tld)
-				}
+		for defid, kit := range defidsofacquaintancesofnamesofchange {
+			def := kit.lookups.tlDefsByID[defid]
+			if def.Anns.Preduced == nil || def.Errs.Stage3Preduce == nil { // we set them to nil in above loop but one Preduce call will often trigger others so check again just-before in this loop
+				def.Errs.Stage3Preduce = make(atmo.Errors, 0, 0)
+				def.Anns.Preduced, def.Errs.Stage3Preduce = me.Preduce(kit, def)
 			}
 		}
 	}
@@ -350,7 +347,7 @@ func (me Kits) collectReferences(name string) (refs map[*atmoil.IrDefTop][]atmoi
 	return
 }
 
-func (me Kits) collectDependants(defNames atmo.StringKeys, dependantsDefIds map[string]*Kit, doneAlready atmo.StringKeys) {
+func (me Kits) collectAcquaintances(defNames atmo.StringKeys, acquaintancesDefIds map[string]*Kit, doneAlready atmo.StringKeys) {
 	if len(defNames) == 0 {
 		return
 	}
@@ -366,8 +363,8 @@ func (me Kits) collectDependants(defNames atmo.StringKeys, dependantsDefIds map[
 		}
 		for _, kit := range me {
 			for _, tld := range kit.topLevelDefs {
-				if tld.RefersTo(defname) {
-					if dependantsDefIds[tld.Id] = kit; indirects {
+				if tld.RefersToOrDefines(defname) {
+					if acquaintancesDefIds[tld.Id] = kit; indirects {
 						if _, doneearlier := doneAlready[tld.Name.Val]; !doneearlier {
 							morenames[tld.Name.Val] = atmo.Є
 						}
@@ -377,7 +374,7 @@ func (me Kits) collectDependants(defNames atmo.StringKeys, dependantsDefIds map[
 		}
 	}
 	if indirects {
-		me.collectDependants(morenames, dependantsDefIds, doneAlready)
+		me.collectAcquaintances(morenames, acquaintancesDefIds, doneAlready)
 	}
 }
 

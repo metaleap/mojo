@@ -33,7 +33,7 @@ func (me *IrDef) initName(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	var ident IExpr
 	ident, errs = ctx.newExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*IrIdentName); name == nil {
-		errs.AddNaming(ErrInit_DefNameInvalidIdent, tok, "invalid def name: `"+tok.String()+"`") // some non-name ident: Tag or Undef or placeholder etc..
+		errs.AddNaming(ErrFromAst_DefNameInvalidIdent, tok, "invalid def name: `"+tok.String()+"`") // some non-name ident: Tag or Undef or placeholder etc..
 	} else {
 		me.Name.IrIdentBase = name.IrIdentBase
 	}
@@ -97,7 +97,7 @@ func (me *IrDefArg) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDefArg) (errs 
 				isexpr, me.IrIdentBase.Val, me.IrIdentBase.Orig =
 					false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v
 				if len(v.Val) > 1 {
-					errs.AddNaming(ErrInit_DefArgNameUnderscores, &v.Tokens[0], "invalid def-arg name: use 1 underscore for discards")
+					errs.AddNaming(ErrFromAst_DefArgNameMultipleUnderscores, &v.Tokens[0], "invalid def-arg name: use 1 underscore for discards")
 				}
 			} else if cxn, ok1 := errs.AddVia(ctx.newExprFromIdent(v)).(*IrIdentName); ok1 {
 				isexpr, me.IrIdentBase = false, cxn.IrIdentBase
