@@ -28,8 +28,7 @@ import (
 
 type ctxPreducing struct {
 	curSessCtx *Ctx
-	inFlight   map[atmoil.INode]atmo.Exist
-	memoized   map[atmoil.INode]atmoil.IPreduced
+	curDefs    map[*atmoil.IrDef]atmo.Exist
 	callArgs   map[*atmoil.IrDefArg]atmoil.IExpr
 	curNode    struct {
 		owningTopDef *atmoil.IrDefTop
