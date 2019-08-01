@@ -6,6 +6,8 @@ import (
 	"github.com/metaleap/atmo/lang"
 )
 
+const requireAtomicCalleeAndCallArg = false
+
 func (*irNodeBase) Let() *IrExprLetBase { return nil }
 func (*irNodeBase) IsDef() *IrDef       { return nil }
 
@@ -389,9 +391,9 @@ func (me *IrAppl) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
 	if me.Orig == orig {
 		nodes = []INode{me}
 	} else {
-		if nodes = me.AtomicCallee.findByOrig(me.AtomicCallee, orig); len(nodes) > 0 {
+		if nodes = me.Callee.findByOrig(me.Callee, orig); len(nodes) > 0 {
 			nodes = append(nodes, me)
-		} else if nodes = me.AtomicArg.findByOrig(me.AtomicArg, orig); len(nodes) > 0 {
+		} else if nodes = me.CallArg.findByOrig(me.CallArg, orig); len(nodes) > 0 {
 			nodes = append(nodes, me)
 		} else {
 			nodes = me.IrExprLetBase.findByOrig(me, orig)
@@ -412,28 +414,28 @@ func (me *IrAppl) origToks() (toks udevlex.Tokens) {
 		toks = me.letOrig.Tokens
 	} else if me.Orig != nil && me.Orig.Tokens != nil {
 		toks = me.Orig.Tokens
-	} else if toks = me.AtomicCallee.origToks(); len(toks) == 0 {
-		toks = me.AtomicArg.origToks()
+	} else if toks = me.Callee.origToks(); len(toks) == 0 {
+		toks = me.CallArg.origToks()
 	}
 	return
 }
 func (me *IrAppl) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrAppl)
-	return cmp != nil && cmp.AtomicCallee.EquivTo(me.AtomicCallee) && cmp.AtomicArg.EquivTo(me.AtomicArg) && cmp.letDefsEquivTo(&me.IrExprLetBase)
+	return cmp != nil && cmp.Callee.EquivTo(me.Callee) && cmp.CallArg.EquivTo(me.CallArg) && cmp.letDefsEquivTo(&me.IrExprLetBase)
 }
 func (me *IrAppl) Let() *IrExprLetBase { return &me.IrExprLetBase }
 func (me *IrAppl) RefersTo(name string) bool {
-	return me.AtomicCallee.RefersTo(name) || me.AtomicArg.RefersTo(name) || me.letDefsReferTo(name)
+	return me.Callee.RefersTo(name) || me.CallArg.RefersTo(name) || me.letDefsReferTo(name)
 }
 func (me *IrAppl) refsTo(name string) []IExpr {
-	return append(me.AtomicCallee.refsTo(name), append(me.AtomicArg.refsTo(name), me.letDefsRefsTo(name)...)...)
+	return append(me.Callee.refsTo(name), append(me.CallArg.refsTo(name), me.letDefsRefsTo(name)...)...)
 }
 func (me *IrAppl) walk(ancestors []INode, _ INode, on func([]INode, INode, ...INode) bool) {
 	trav := make([]INode, len(me.Defs), 2+len(me.Defs))
 	for i := range me.Defs {
 		trav[i] = &me.Defs[i]
 	}
-	trav = append(trav, me.AtomicCallee, me.AtomicArg)
+	trav = append(trav, me.Callee, me.CallArg)
 	if on(ancestors, me, trav...) {
 		ancestors = append(ancestors, me)
 		for i := range trav {

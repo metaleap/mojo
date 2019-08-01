@@ -19,9 +19,9 @@ such as `true`, `false`, `or`, `==` etc. Underscore placeholders obtain meaning
 defs ("let"s). (Both ident exprs and call exprs can own any number of named
 local defs, whether from AST or dynamically generated.) Def-name and def-arg
 affixes are repositioned as wrapping around the def's body. N-ary defs are
-unary-fied via added inner named-locals, n-ary calls via nested sub-calls. All
+unary-fied via added inner named-locals, n-ary calls via nested sub-calls. ~~All
 callees and call-args are ensured to be atomic via added inner named-locals if
-and as needed. Other than these transforms, no reductions, rewritings or
+and as needed.~~ Other than these transforms, no reductions, rewritings or
 removals occur in this (AST-to-IL) "stage 1".
 
 ## Usage
@@ -93,13 +93,13 @@ var (
 #### func (Builder) Appl1
 
 ```go
-func (Builder) Appl1(atomicCallee IExpr, atomicArg IExpr) *IrAppl
+func (Builder) Appl1(callee IExpr, callArg IExpr) *IrAppl
 ```
 
 #### func (Builder) ApplN
 
 ```go
-func (Builder) ApplN(ctx *ctxIrFromAst, atomicCallee IExpr, atomicArgs ...IExpr) (appl *IrAppl)
+func (Builder) ApplN(ctx *ctxIrFromAst, callee IExpr, callArgs ...IExpr) (appl *IrAppl)
 ```
 
 #### func (Builder) IdentName
@@ -176,9 +176,9 @@ type IPreduced interface {
 type IrAppl struct {
 	IrExprBase
 	IrExprLetBase
-	Orig         *atmolang.AstExprAppl
-	AtomicCallee IExpr
-	AtomicArg    IExpr
+	Orig    *atmolang.AstExprAppl
+	Callee  IExpr
+	CallArg IExpr
 }
 ```
 

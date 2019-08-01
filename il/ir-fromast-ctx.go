@@ -29,18 +29,18 @@ func (me *ctxIrFromAst) appl(ensureAtomic bool, orig atmolang.IAstExpr, applExpr
 	return applExpr
 }
 
-func (me *ctxIrFromAst) bodyWithCoercion(coerce IExpr, atomicBody IExpr, coerceArg func() IExpr) IExpr {
+func (me *ctxIrFromAst) bodyWithCoercion(coerce IExpr, body IExpr, coerceArg func() IExpr) IExpr {
 	corig, opeq := coerce.exprBase().Orig, Build.IdentName(atmo.KnownIdentEq)
 	if coerceArg == nil {
-		coerceArg = func() IExpr { return atomicBody }
+		coerceArg = func() IExpr { return body }
 	}
-	coerceappl := me.appl(true, corig, Build.Appl1(me.ensureAtomic(coerce), coerceArg()))
-	cmpeq := me.appl(true, corig, Build.ApplN(me, opeq, coerceappl, coerceArg()))
-	return me.appl(false, corig, Build.ApplN(me, cmpeq, atomicBody, Build.Undef()))
+	coerceappl := me.appl(requireAtomicCalleeAndCallArg, corig, Build.Appl1(me.ensureAtomic(coerce), coerceArg()))
+	cmpeq := me.appl(requireAtomicCalleeAndCallArg, corig, Build.ApplN(me, opeq, coerceappl, coerceArg()))
+	return me.appl(false, corig, Build.ApplN(me, cmpeq, body, Build.Undef()))
 }
 
 func (me *ctxIrFromAst) ensureAtomic(expr IExpr) IExpr {
-	if expr.IsAtomic() {
+	if (!requireAtomicCalleeAndCallArg) || expr.IsAtomic() {
 		return expr
 	}
 	return me.addLocalDefToOwnScope(me.nextPrefix(), expr)
@@ -117,12 +117,12 @@ func (me *ctxIrFromAst) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs 
 		me.defsScope = oldscope
 	case *atmolang.AstExprAppl:
 		origdes = origdes.ToUnary()
-		appl, isatomiccallee, isatomicarg := IrAppl{Orig: origdes}, origdes.Callee.IsAtomic(), origdes.Args[0].IsAtomic()
+		appl, isatomiccallee, isatomicarg := IrAppl{Orig: origdes}, (!requireAtomicCalleeAndCallArg) || origdes.Callee.IsAtomic(), (!requireAtomicCalleeAndCallArg) || origdes.Args[0].IsAtomic()
 		if isatomiccallee {
-			appl.AtomicCallee = errs.AddVia(me.newExprFrom(origdes.Callee)).(IExpr)
+			appl.Callee = errs.AddVia(me.newExprFrom(origdes.Callee)).(IExpr)
 		}
 		if isatomicarg {
-			appl.AtomicArg = errs.AddVia(me.newExprFrom(origdes.Args[0])).(IExpr)
+			appl.CallArg = errs.AddVia(me.newExprFrom(origdes.Args[0])).(IExpr)
 		}
 		if expr = &appl; !(isatomiccallee && isatomicarg) {
 			oldscope, toatomic := me.defsScope, func(from atmolang.IAstExpr) IExpr {
@@ -131,10 +131,10 @@ func (me *ctxIrFromAst) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs 
 			}
 			me.defsScope, appl.letPrefix = &appl.Defs, me.nextPrefix()
 			if !isatomiccallee {
-				appl.AtomicCallee = toatomic(origdes.Callee)
+				appl.Callee = toatomic(origdes.Callee)
 			}
 			if !isatomicarg {
-				appl.AtomicArg = toatomic(origdes.Args[0])
+				appl.CallArg = toatomic(origdes.Args[0])
 			}
 			me.defsScope = oldscope
 		}

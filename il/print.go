@@ -29,7 +29,7 @@ func (me *IrIdentName) Print() atmolang.IAstNode {
 	return me.IrExprLetBase.print(me.IrIdentBase.Print().(atmolang.IAstExpr))
 }
 func (me *IrAppl) Print() atmolang.IAstNode {
-	return me.IrExprLetBase.print(atmolang.Build.Appl(me.AtomicCallee.Print().(atmolang.IAstExpr), me.AtomicArg.Print().(atmolang.IAstExpr)))
+	return me.IrExprLetBase.print(atmolang.Build.Appl(me.Callee.Print().(atmolang.IAstExpr), me.CallArg.Print().(atmolang.IAstExpr)))
 }
 func (me *IrExprLetBase) print(body atmolang.IAstExpr) atmolang.IAstNode {
 	if len(me.Defs) == 0 {

@@ -31,7 +31,6 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*atmoil.IrDefTop]*Kit) (freshErr
 func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) atmoil.IPreduced {
 	ctxpreduce := &ctxPreducing{curSessCtx: me, curDefs: make(map[*atmoil.IrDef]atmo.Exist, 32)}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
-	atmoil.DbgPrintToStderr(node)
 	return ctxpreduce.preduce(node)
 }
 
@@ -101,19 +100,19 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		if isoutermostappl {
 			me.callArgs = make(map[*atmoil.IrDefArg]atmoil.IExpr, 2)
 		}
-		callee := me.preduce(this.AtomicCallee)
+		callee := me.preduce(this.Callee)
 		if callable, _ := callee.(*atmoil.PCallable); callable == nil {
-			ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.AtomicCallee), "notCallable: "+callee.SummaryCompact())}
+			ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.Callee), "notCallable: "+callee.SummaryCompact())}
 		} else {
 			println("INTO_APPL", callable.Arg.Def.Name.Val)
 			arg := callable.Arg.Def.Arg
-			println("SET_ARG", arg.Val, atmoil.DbgPrintToString(this.AtomicArg))
+			println("SET_ARG", arg.Val, atmoil.DbgPrintToString(this.CallArg))
 			argprev, hadprev := me.callArgs[arg]
-			me.callArgs[arg] = this.AtomicArg
+			me.callArgs[arg] = this.CallArg
 			ret = me.preduce(callable.Ret.Def.Body)
 			println("RET_WAS", ret.SummaryCompact())
-			println("DEL_ARG", arg.Val, atmoil.DbgPrintToString(this.AtomicArg))
 			if hadprev {
+				println("DEL_ARG", arg.Val, atmoil.DbgPrintToString(this.CallArg))
 				me.callArgs[arg] = argprev
 			}
 			println("DONE_APPL", callable.Arg.Def.Name.Val)

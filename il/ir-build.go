@@ -4,28 +4,30 @@ var (
 	Build Builder
 )
 
-func (Builder) Appl1(atomicCallee IExpr, atomicArg IExpr) *IrAppl {
-	if !atomicCallee.IsAtomic() {
-		panic(atomicCallee)
+func (Builder) Appl1(callee IExpr, callArg IExpr) *IrAppl {
+	if requireAtomicCalleeAndCallArg {
+		if !callee.IsAtomic() {
+			panic(callee)
+		}
+		if !callArg.IsAtomic() {
+			panic(callArg)
+		}
 	}
-	if !atomicArg.IsAtomic() {
-		panic(atomicArg)
-	}
-	return &IrAppl{AtomicCallee: atomicCallee, AtomicArg: atomicArg}
+	return &IrAppl{Callee: callee, CallArg: callArg}
 }
 
-func (Builder) ApplN(ctx *ctxIrFromAst, atomicCallee IExpr, atomicArgs ...IExpr) (appl *IrAppl) {
-	if !atomicCallee.IsAtomic() {
-		panic(atomicCallee)
+func (Builder) ApplN(ctx *ctxIrFromAst, callee IExpr, callArgs ...IExpr) (appl *IrAppl) {
+	if requireAtomicCalleeAndCallArg && !callee.IsAtomic() {
+		panic(callee)
 	}
-	for i := range atomicArgs {
-		if !atomicArgs[i].IsAtomic() {
+	for i := range callArgs {
+		if requireAtomicCalleeAndCallArg && !callArgs[i].IsAtomic() {
 			panic(i)
 		}
 		if i == 0 {
-			appl = &IrAppl{AtomicCallee: atomicCallee, AtomicArg: atomicArgs[i]}
+			appl = &IrAppl{Callee: callee, CallArg: callArgs[i]}
 		} else {
-			appl = &IrAppl{AtomicCallee: ctx.ensureAtomic(appl), AtomicArg: atomicArgs[i]}
+			appl = &IrAppl{Callee: ctx.ensureAtomic(appl), CallArg: callArgs[i]}
 		}
 	}
 	return
