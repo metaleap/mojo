@@ -79,19 +79,13 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		ret = this.Anns.Preduced
 
 	case *atmoil.IrDef:
-		if _, already := me.curDefs[this]; already {
-			ret = &atmoil.PAbyss{}
+		println("INTO_DEF", this.Name.Val)
+		if this.Arg == nil {
+			ret = me.preduce(this.Body)
 		} else {
-			me.curDefs[this] = atmo.Є
-			println("INTO_DEF", this.Name.Val)
-			if this.Arg == nil {
-				ret = me.preduce(this.Body)
-			} else {
-				ret = &atmoil.PCallable{Arg: &atmoil.PHole{Def: this}, Ret: &atmoil.PHole{Def: this}}
-			}
-			println("DONE_DEF", this.Name.Val)
-			delete(me.curDefs, this)
+			ret = &atmoil.PCallable{Arg: &atmoil.PHole{Def: this}, Ret: &atmoil.PHole{Def: this}}
 		}
+		println("DONE_DEF", this.Name.Val)
 
 	case *atmoil.IrDefArg:
 		println("INTO_ARG", this.Val)
