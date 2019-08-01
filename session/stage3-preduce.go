@@ -20,28 +20,25 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*atmoil.IrDefTop]*Kit) (freshErr
 	for def := range defIds {
 		def.Anns.Preduced, def.Errs.Stage3Preduce = nil, nil
 	}
-	memoizecap := len(defIds) * 16
-	ctxpred := ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 128), memoized: make(map[atmoil.INode]atmoil.IPreduced, memoizecap)}
+	ctxpred := ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 128), memoized: make(map[atmoil.INode]atmoil.IPreduced, len(defIds)*16)}
 	for def, kit := range defIds {
 		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef = kit, def
 		_ = ctxpred.preduce(def)
-	}
-	if len(ctxpred.memoized) > memoizecap {
-		println("toolil:", memoizecap, "vs.", len(ctxpred.memoized), "for", len(defIds))
 	}
 	return
 }
 
 func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) atmoil.IPreduced {
-	ctxpreduce := &ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 32), memoized: make(map[atmoil.INode]atmoil.IPreduced, 64)}
+	ctxpreduce := &ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 32), memoized: make(map[atmoil.INode]atmoil.IPreduced, 32)}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
+	atmoil.DbgPrintToStderr(node)
 	return ctxpreduce.preduce(node)
 }
 
 func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 	if _, rec := me.inFlight[node]; rec {
 		ret = &atmoil.PAbyss{}
-	} else if ret, _ = me.memoized[node]; ret != nil {
+	} else if ret, _ = me.memoized[node]; ret != nil && 0 > 1 /* TODO */ {
 		return
 	} else {
 		me.inFlight[node] = atmo.Є
@@ -57,6 +54,7 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 			ret = &atmoil.PPrimAtomicConstTag{Val: this.Val}
 
 		case *atmoil.IrIdentName:
+			println("INTO_NAME", this.Val)
 			if len(this.Anns.Candidates) == 0 {
 				ret = &atmoil.PErr{Err: atmo.ErrNaming(4321, me.toks(this).First1(), "notInScope")}
 			} else if len(this.Anns.Candidates) == 1 {
@@ -64,6 +62,7 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 			} else {
 				ret = &atmoil.PErr{Err: atmo.ErrNaming(1234, me.toks(this).First1(), "ambiguous")}
 			}
+			println("DONE_NAME", this.Val)
 
 		case IrDefRef:
 			curkit := me.curNode.owningKit
@@ -86,36 +85,42 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 			ret = this.Anns.Preduced
 
 		case *atmoil.IrDef:
+			println("INTO_DEF", this.Name.Val)
 			if this.Arg == nil {
 				ret = me.preduce(this.Body)
 			} else {
 				ret = &atmoil.PCallable{Arg: &atmoil.PHole{Def: this}, Ret: &atmoil.PHole{Def: this}}
 			}
+			println("DONE_DEF", this.Name.Val)
 
 		case *atmoil.IrDefArg:
-			if curargval, ok := me.callArgs[this.Val]; !ok {
+			println("INTO_ARG", this.Val)
+			if curargval, ok := me.callArgs[this]; !ok {
 				ret = &atmoil.PErr{Err: atmo.ErrPreduce(4567, me.toks(this), "argNotSet: "+this.Val)}
 			} else {
 				ret = me.preduce(curargval)
 			}
+			println("DONE_ARG", this.Val)
 
 		case *atmoil.IrAppl:
 			isoutermostappl := (me.callArgs == nil)
 			if isoutermostappl {
-				me.callArgs = make(map[string]atmoil.IExpr, 2)
+				me.callArgs = make(map[*atmoil.IrDefArg]atmoil.IExpr, 2)
 			}
 			callee := me.preduce(this.AtomicCallee)
 			if callable, _ := callee.(*atmoil.PCallable); callable == nil {
 				ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.AtomicCallee), "notCallable: "+callee.SummaryCompact())}
 			} else {
+				println("INTO_APPL", callable.Arg.Def.Name.Val)
 				arg := callable.Arg.Def.Arg
-				argname := arg.Val
-				if _, argexists := me.callArgs[argname]; argexists {
-					ret = &atmoil.PErr{Err: atmo.ErrPreduce(3456, me.toks(this), "argExists: "+argname)}
-				} else {
-					me.callArgs[argname] = this.AtomicArg
-					ret = me.preduce(callable.Ret.Def.Body)
-				}
+				// if _, argexists := me.callArgs[arg]; argexists {
+				// 	ret = &atmoil.PErr{Err: atmo.ErrPreduce(3456, me.toks(this), "argExists: "+arg.Val)}
+				// } else {
+				println("SET_ARG", arg.Val, atmoil.DbgPrintToString(this.AtomicArg))
+				me.callArgs[arg] = this.AtomicArg
+				ret = me.preduce(callable.Ret.Def.Body)
+				// }
+				println("DONE_APPL", callable.Arg.Def.Name.Val)
 			}
 			if isoutermostappl {
 				me.callArgs = nil
