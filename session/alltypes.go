@@ -30,7 +30,7 @@ type ctxPreducing struct {
 	curSessCtx *Ctx
 	inFlight   map[atmoil.INode]atmo.Exist
 	memoized   map[atmoil.INode]atmoil.IPreduced
-	callArgs   map[string]interface{}
+	callArgs   map[string]atmoil.IExpr
 	curNode    struct {
 		owningTopDef *atmoil.IrDefTop
 		owningKit    *Kit

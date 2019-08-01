@@ -192,8 +192,8 @@ type Preduced struct {
 
 type PCallable struct {
 	Preduced
-	Arg IPreduced
-	Ret IPreduced
+	Arg *PHole
+	Ret *PHole
 }
 
 type PCallables struct {
@@ -227,6 +227,7 @@ type PAbyss struct {
 
 type PHole struct {
 	Preduced
+	Def *IrDef
 }
 
 type Builder struct{}

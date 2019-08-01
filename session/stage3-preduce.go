@@ -20,31 +20,25 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*atmoil.IrDefTop]*Kit) (freshErr
 	for def := range defIds {
 		def.Anns.Preduced, def.Errs.Stage3Preduce = nil, nil
 	}
-	memoizecap := len(defIds) * 5
-	ctxpred := ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 16), memoized: make(map[atmoil.INode]atmoil.IPreduced, memoizecap)}
+	memoizecap := len(defIds) * 16
+	ctxpred := ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 128), memoized: make(map[atmoil.INode]atmoil.IPreduced, memoizecap)}
 	for def, kit := range defIds {
 		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef = kit, def
-		_ = ctxpred.preduceIlNode(def)
+		_ = ctxpred.preduce(def)
 	}
 	if len(ctxpred.memoized) > memoizecap {
-		panic(len(ctxpred.memoized)) // until Std-libs have emerged and grown realistic
+		println("toolil:", memoizecap, "vs.", len(ctxpred.memoized), "for", len(defIds))
 	}
 	return
 }
 
 func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) atmoil.IPreduced {
-	ctxpreduce := &ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 8), memoized: make(map[atmoil.INode]atmoil.IPreduced, 64)}
+	ctxpreduce := &ctxPreducing{curSessCtx: me, inFlight: make(map[atmoil.INode]atmo.Exist, 32), memoized: make(map[atmoil.INode]atmoil.IPreduced, 64)}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
-	return ctxpreduce.preduceIlNode(node)
+	return ctxpreduce.preduce(node)
 }
 
-var ctxPreducingTmpMax int
-
-func (me *ctxPreducing) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) {
-	if len(me.inFlight) > ctxPreducingTmpMax {
-		ctxPreducingTmpMax = len(me.inFlight)
-		println("INFLIGHT", ctxPreducingTmpMax)
-	}
+func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 	if _, rec := me.inFlight[node]; rec {
 		ret = &atmoil.PAbyss{}
 	} else if ret, _ = me.memoized[node]; ret != nil {
@@ -63,11 +57,10 @@ func (me *ctxPreducing) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) 
 			ret = &atmoil.PPrimAtomicConstTag{Val: this.Val}
 
 		case *atmoil.IrIdentName:
-			cands := this.Anns.Candidates
-			if len(cands) == 0 {
+			if len(this.Anns.Candidates) == 0 {
 				ret = &atmoil.PErr{Err: atmo.ErrNaming(4321, me.toks(this).First1(), "notInScope")}
-			} else if len(cands) == 1 {
-				ret = me.preduceIlNode(cands[0])
+			} else if len(this.Anns.Candidates) == 1 {
+				ret = me.preduce(this.Anns.Candidates[0])
 			} else {
 				ret = &atmoil.PErr{Err: atmo.ErrNaming(1234, me.toks(this).First1(), "ambiguous")}
 			}
@@ -75,7 +68,7 @@ func (me *ctxPreducing) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) 
 		case IrDefRef:
 			curkit := me.curNode.owningKit
 			me.curNode.owningKit = this.Kit
-			ret = me.preduceIlNode(this.IrDefTop)
+			ret = me.preduce(this.IrDefTop)
 			me.curNode.owningKit = curkit
 
 		case *atmoil.IrDefTop:
@@ -86,33 +79,45 @@ func (me *ctxPreducing) preduceIlNode(node atmoil.INode) (ret atmoil.IPreduced) 
 				} else {
 					curtopdef := me.curNode.owningTopDef
 					me.curNode.owningTopDef = this
-					this.Anns.Preduced = me.preduceIlNode(&this.IrDef)
+					this.Anns.Preduced = me.preduce(&this.IrDef)
 					me.curNode.owningTopDef = curtopdef
 				}
 			}
 			ret = this.Anns.Preduced
 
 		case *atmoil.IrDef:
-			ret = me.preduceIlNode(this.Body)
-			if this.Arg != nil && ret != nil {
-				ret = &atmoil.PCallable{Arg: me.preduceIlNode(this.Arg), Ret: ret}
+			if this.Arg == nil {
+				ret = me.preduce(this.Body)
+			} else {
+				ret = &atmoil.PCallable{Arg: &atmoil.PHole{Def: this}, Ret: &atmoil.PHole{Def: this}}
 			}
 
 		case *atmoil.IrDefArg:
-			ret = &atmoil.PHole{}
+			if curargval, ok := me.callArgs[this.Val]; !ok {
+				ret = &atmoil.PErr{Err: atmo.ErrPreduce(4567, me.toks(this), "argNotSet: "+this.Val)}
+			} else {
+				ret = me.preduce(curargval)
+			}
 
 		case *atmoil.IrAppl:
-			isouter := (me.callArgs == nil)
-			if isouter {
-				me.callArgs = make(map[string]interface{})
+			isoutermostappl := (me.callArgs == nil)
+			if isoutermostappl {
+				me.callArgs = make(map[string]atmoil.IExpr, 2)
 			}
-			callee := me.preduceIlNode(this.AtomicCallee)
+			callee := me.preduce(this.AtomicCallee)
 			if callable, _ := callee.(*atmoil.PCallable); callable == nil {
-				ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.AtomicCallee), "notCallable")}
+				ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.AtomicCallee), "notCallable: "+callee.SummaryCompact())}
 			} else {
-
+				arg := callable.Arg.Def.Arg
+				argname := arg.Val
+				if _, argexists := me.callArgs[argname]; argexists {
+					ret = &atmoil.PErr{Err: atmo.ErrPreduce(3456, me.toks(this), "argExists: "+argname)}
+				} else {
+					me.callArgs[argname] = this.AtomicArg
+					ret = me.preduce(callable.Ret.Def.Body)
+				}
 			}
-			if isouter {
+			if isoutermostappl {
 				me.callArgs = nil
 			}
 

@@ -801,8 +801,8 @@ func (me *PAbyss) SummaryCompact() string
 ```go
 type PCallable struct {
 	Preduced
-	Arg IPreduced
-	Ret IPreduced
+	Arg *PHole
+	Ret *PHole
 }
 ```
 
@@ -844,6 +844,7 @@ func (me *PErr) SummaryCompact() string
 ```go
 type PHole struct {
 	Preduced
+	Def *IrDef
 }
 ```
 
