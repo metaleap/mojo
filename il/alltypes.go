@@ -196,9 +196,10 @@ type PCallable struct {
 	Ret *PHole
 }
 
-type PCallables struct {
+type PClosure struct {
 	Preduced
-	Cases []PCallable
+	Def     *PCallable
+	ArgsEnv map[*IrDefArg]IExpr
 }
 
 type PErr struct {

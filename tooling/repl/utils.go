@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	sepLine = ustr.Times("─", 41)
+	sepLine = ustr.Times("─", 77)
 )
 
 func (me *Repl) init() {
@@ -69,6 +69,9 @@ func (me *Repl) decoInputDoneBut(altStyle bool, showMsgsIfAny bool, caretPos int
 	sepline := sepLine
 	if l := len("─"); caretPos > 0 {
 		caretPos = caretPos * l
+		for caretPos > len(sepline) {
+			sepline = sepline + sepline
+		}
 		sepline = sepline[l:caretPos] + "╬" + sepline[caretPos:]
 	}
 	me.IO.writeLns(ustr.If(altStyle, "╚", "└") + sepline)

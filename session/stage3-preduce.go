@@ -2,6 +2,7 @@ package atmosess
 
 import (
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/il"
 )
@@ -23,6 +24,7 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*atmoil.IrDefTop]*Kit) (freshErr
 	ctxpred := ctxPreducing{curSessCtx: me, curDefs: make(map[*atmoil.IrDef]atmo.Exist, 128)}
 	for def, kit := range defIds {
 		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef = kit, def
+		// println("NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOW:" + def.Name.Val)
 		_ = ctxpred.preduce(def)
 	}
 	return
@@ -47,7 +49,8 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		ret = &atmoil.PPrimAtomicConstTag{Val: this.Val}
 
 	case *atmoil.IrIdentName:
-		println("INTO_NAME", this.Val)
+		println(ustr.Times("\t", me.dbgIndent)+"INTO_NAME", this.Val)
+		me.dbgIndent++
 		if len(this.Anns.Candidates) == 0 {
 			ret = &atmoil.PErr{Err: atmo.ErrNaming(4321, me.toks(this).First1(), "notInScope")}
 		} else if len(this.Anns.Candidates) == 1 {
@@ -55,7 +58,8 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		} else {
 			ret = &atmoil.PErr{Err: atmo.ErrNaming(1234, me.toks(this).First1(), "ambiguous")}
 		}
-		println("DONE_NAME", this.Val)
+		me.dbgIndent--
+		println(ustr.Times("\t", me.dbgIndent)+"DONE_NAME", this.Val)
 
 	case IrDefRef:
 		curkit := me.curNode.owningKit
@@ -78,47 +82,59 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		ret = this.Anns.Preduced
 
 	case *atmoil.IrDef:
-		println("INTO_DEF", this.Name.Val)
+		println(ustr.Times("\t", me.dbgIndent)+"INTO_DEF", atmoil.DbgPrintToString(this))
+		me.dbgIndent++
 		if this.Arg == nil {
 			ret = me.preduce(this.Body)
 		} else {
 			ret = &atmoil.PCallable{Arg: &atmoil.PHole{Def: this}, Ret: &atmoil.PHole{Def: this}}
 		}
-		println("DONE_DEF", this.Name.Val)
+		me.dbgIndent--
+		println(ustr.Times("\t", me.dbgIndent)+"DONE_DEF", this.Name.Val)
 
 	case *atmoil.IrDefArg:
-		println("INTO_ARG", this.Val)
-		if curargval, ok := me.callArgs[this]; !ok {
+		println(ustr.Times("\t", me.dbgIndent)+"INTO_ARG", this.Val)
+		me.dbgIndent++
+		if curargval, ok := me.argsEnv[this]; !ok {
 			ret = &atmoil.PErr{Err: atmo.ErrPreduce(4567, me.toks(this), "argNotSet: "+this.Val)}
 		} else {
 			ret = me.preduce(curargval)
 		}
-		println("DONE_ARG", this.Val)
+		me.dbgIndent--
+		println(ustr.Times("\t", me.dbgIndent)+"DONE_ARG", this.Val)
 
 	case *atmoil.IrAppl:
-		isoutermostappl := (me.callArgs == nil)
-		if isoutermostappl {
-			me.callArgs = make(map[*atmoil.IrDefArg]atmoil.IExpr, 2)
+		isoutermost := (me.appl == nil)
+		if isoutermost {
+			me.appl = this
 		}
+
+		var retclosure *atmoil.PClosure
 		callee := me.preduce(this.Callee)
-		if callable, _ := callee.(*atmoil.PCallable); callable == nil {
+		if closure, _ := callee.(*atmoil.PClosure); closure != nil {
+			retclosure = &atmoil.PClosure{Def: closure.Def, ArgsEnv: map[*atmoil.IrDefArg]atmoil.IExpr{closure.Def.Arg.Def.Arg: this.CallArg}}
+			for k, v := range closure.ArgsEnv {
+				retclosure.ArgsEnv[k] = v
+			}
+		} else if callable, _ := callee.(*atmoil.PCallable); callable == nil {
 			ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.Callee), "notCallable: "+callee.SummaryCompact())}
 		} else {
-			println("INTO_APPL", callable.Arg.Def.Name.Val)
-			arg := callable.Arg.Def.Arg
-			println("SET_ARG", arg.Val, atmoil.DbgPrintToString(this.CallArg))
-			argprev, hadprev := me.callArgs[arg]
-			me.callArgs[arg] = this.CallArg
-			ret = me.preduce(callable.Ret.Def.Body)
-			println("RET_WAS", ret.SummaryCompact())
-			if hadprev {
-				println("DEL_ARG", arg.Val, atmoil.DbgPrintToString(this.CallArg))
-				me.callArgs[arg] = argprev
-			}
-			println("DONE_APPL", callable.Arg.Def.Name.Val)
+			retclosure = &atmoil.PClosure{Def: callable, ArgsEnv: map[*atmoil.IrDefArg]atmoil.IExpr{callable.Arg.Def.Arg: this.CallArg}}
 		}
-		if isoutermostappl {
-			me.callArgs = nil
+		if retclosure != nil {
+			ret = retclosure
+		}
+		if isoutermost {
+			me.appl = nil
+			if retclosure != nil {
+				println("ENV")
+				me.argsEnv = retclosure.ArgsEnv
+				for k := range me.argsEnv {
+					println(k.Val)
+				}
+				println("//////ENV")
+				ret = me.preduce(retclosure.Def.Arg.Def.Body)
+			}
 		}
 
 	default:

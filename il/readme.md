@@ -813,15 +813,22 @@ type PCallable struct {
 func (me *PCallable) SummaryCompact() string
 ```
 
-#### type PCallables
+#### type PClosure
 
 ```go
-type PCallables struct {
+type PClosure struct {
 	Preduced
-	Cases []PCallable
+	Def     *PCallable
+	ArgsEnv map[*IrDefArg]IExpr
 }
 ```
 
+
+#### func (*PClosure) SummaryCompact
+
+```go
+func (me *PClosure) SummaryCompact() (s string)
+```
 
 #### type PErr
 

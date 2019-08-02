@@ -27,9 +27,11 @@ import (
 )
 
 type ctxPreducing struct {
+	dbgIndent  int
 	curSessCtx *Ctx
 	curDefs    map[*atmoil.IrDef]atmo.Exist
-	callArgs   map[*atmoil.IrDefArg]atmoil.IExpr
+	appl       interface{}
+	argsEnv    map[*atmoil.IrDefArg]atmoil.IExpr
 	curNode    struct {
 		owningTopDef *atmoil.IrDefTop
 		owningKit    *Kit
