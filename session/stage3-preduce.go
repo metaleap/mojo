@@ -104,9 +104,9 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		println(ustr.Times("\t", me.dbgIndent)+"DONE_ARG", this.Val)
 
 	case *atmoil.IrAppl:
-		isoutermost := (me.appl == nil)
+		isoutermost := !me.appl
 		if isoutermost {
-			me.appl = this
+			me.appl = true
 		}
 
 		var retclosure *atmoil.PClosure
@@ -125,14 +125,9 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 			ret = retclosure
 		}
 		if isoutermost {
-			me.appl = nil
+			me.appl = false
 			if retclosure != nil {
-				println("ENV")
 				me.argsEnv = retclosure.ArgsEnv
-				for k := range me.argsEnv {
-					println(k.Val)
-				}
-				println("//////ENV")
 				ret = me.preduce(retclosure.Def.Arg.Def.Body)
 			}
 		}

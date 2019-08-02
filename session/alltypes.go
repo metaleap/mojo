@@ -30,7 +30,7 @@ type ctxPreducing struct {
 	dbgIndent  int
 	curSessCtx *Ctx
 	curDefs    map[*atmoil.IrDef]atmo.Exist
-	appl       interface{}
+	appl       bool
 	argsEnv    map[*atmoil.IrDefArg]atmoil.IExpr
 	curNode    struct {
 		owningTopDef *atmoil.IrDefTop
