@@ -37,6 +37,9 @@ func (me *IrDef) origToks() (toks udevlex.Tokens) {
 	}
 	return
 }
+func (me *IrDef) FreeVars(env atmo.StringKeys) []*IrIdentName {
+	return me.Body.FreeVars(env)
+}
 func (me *IrDef) RefersTo(name string) bool  { return me.Body.RefersTo(name) }
 func (me *IrDef) refsTo(name string) []IExpr { return me.Body.refsTo(name) }
 func (me *IrDef) EquivTo(node INode) bool {
@@ -202,9 +205,10 @@ func (me *IrExprAtomBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes 
 	}
 	return
 }
-func (me *IrExprAtomBase) IsAtomic() bool        { return true }
-func (me *IrExprAtomBase) RefersTo(string) bool  { return false }
-func (me *IrExprAtomBase) refsTo(string) []IExpr { return nil }
+func (me *IrExprAtomBase) FreeVars(atmo.StringKeys) []*IrIdentName { return nil }
+func (me *IrExprAtomBase) IsAtomic() bool                          { return true }
+func (me *IrExprAtomBase) RefersTo(string) bool                    { return false }
+func (me *IrExprAtomBase) refsTo(string) []IExpr                   { return nil }
 func (me *IrExprAtomBase) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
 	_ = on(ancestors, self)
 }
@@ -243,6 +247,12 @@ func (me *IrLitFloat) walk(ancestors []INode, self INode, on func([]INode, INode
 	me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
+func (me *IrExprLetBase) FreeVars(env atmo.StringKeys) (ret []*IrIdentName) {
+	for i := range me.Defs {
+		ret = append(ret, me.Defs[i].FreeVars(env)...)
+	}
+	return
+}
 func (me *IrExprLetBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
 	if me.letOrig == orig {
 		nodes = []INode{self}
@@ -360,6 +370,15 @@ func (me *IrIdentName) ResolvesTo(n INode) bool {
 	}
 	return false
 }
+func (me *IrIdentName) FreeVars(env atmo.StringKeys) (ret []*IrIdentName) {
+	ret = me.IrExprLetBase.FreeVars(env)
+	if len(me.Anns.Candidates) == 0 {
+		if _, inenv := env[me.Val]; !inenv {
+			ret = append(ret, me)
+		}
+	}
+	return
+}
 func (me *IrIdentName) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrIdentName)
 	return cmp != nil && cmp.Val == me.Val && cmp.letDefsEquivTo(&me.IrExprLetBase)
@@ -418,6 +437,9 @@ func (me *IrAppl) origToks() (toks udevlex.Tokens) {
 		toks = me.CallArg.origToks()
 	}
 	return
+}
+func (me *IrAppl) FreeVars(env atmo.StringKeys) []*IrIdentName {
+	return append(append(me.IrExprLetBase.FreeVars(env), me.Callee.FreeVars(env)...), me.CallArg.FreeVars(env)...)
 }
 func (me *IrAppl) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrAppl)

@@ -108,15 +108,14 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		if isoutermost {
 			me.appl = true
 		}
-
 		var retclosure *atmoil.PClosure
 		callee := me.preduce(this.Callee)
-		if closure, _ := callee.(*atmoil.PClosure); closure != nil {
+		if closure, is := callee.(*atmoil.PClosure); is {
 			retclosure = &atmoil.PClosure{Def: closure.Def, ArgsEnv: map[*atmoil.IrDefArg]atmoil.IExpr{closure.Def.Arg.Def.Arg: this.CallArg}}
 			for k, v := range closure.ArgsEnv {
 				retclosure.ArgsEnv[k] = v
 			}
-		} else if callable, _ := callee.(*atmoil.PCallable); callable == nil {
+		} else if callable, is := callee.(*atmoil.PCallable); !is {
 			ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.Callee), "notCallable: "+callee.SummaryCompact())}
 		} else {
 			retclosure = &atmoil.PClosure{Def: callable, ArgsEnv: map[*atmoil.IrDefArg]atmoil.IExpr{callable.Arg.Def.Arg: this.CallArg}}

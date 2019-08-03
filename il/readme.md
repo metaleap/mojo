@@ -152,6 +152,7 @@ type INode interface {
 
 	EquivTo(INode) bool
 
+	FreeVars(atmo.StringKeys) []*IrIdentName
 	IsDef() *IrDef
 	Let() *IrExprLetBase
 	RefersTo(string) bool
@@ -187,6 +188,12 @@ type IrAppl struct {
 
 ```go
 func (me *IrAppl) EquivTo(node INode) bool
+```
+
+#### func (*IrAppl) FreeVars
+
+```go
+func (me *IrAppl) FreeVars(env atmo.StringKeys) []*IrIdentName
 ```
 
 #### func (*IrAppl) IsDef
@@ -236,6 +243,12 @@ type IrDef struct {
 
 ```go
 func (me *IrDef) EquivTo(node INode) bool
+```
+
+#### func (*IrDef) FreeVars
+
+```go
+func (me *IrDef) FreeVars(env atmo.StringKeys) []*IrIdentName
 ```
 
 #### func (*IrDef) IsDef
@@ -422,6 +435,12 @@ type IrExprAtomBase struct {
 ```
 
 
+#### func (*IrExprAtomBase) FreeVars
+
+```go
+func (me *IrExprAtomBase) FreeVars(atmo.StringKeys) []*IrIdentName
+```
+
 #### func (*IrExprAtomBase) IsAtomic
 
 ```go
@@ -498,6 +517,12 @@ type IrExprLetBase struct {
 ```
 
 
+#### func (*IrExprLetBase) FreeVars
+
+```go
+func (me *IrExprLetBase) FreeVars(env atmo.StringKeys) (ret []*IrIdentName)
+```
+
 #### type IrIdentBase
 
 ```go
@@ -573,6 +598,12 @@ type IrIdentName struct {
 
 ```go
 func (me *IrIdentName) EquivTo(node INode) bool
+```
+
+#### func (*IrIdentName) FreeVars
+
+```go
+func (me *IrIdentName) FreeVars(env atmo.StringKeys) (ret []*IrIdentName)
 ```
 
 #### func (*IrIdentName) IsDef

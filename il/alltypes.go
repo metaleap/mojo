@@ -47,6 +47,7 @@ type INode interface {
 	origToks() udevlex.Tokens
 	EquivTo(INode) bool
 	findByOrig(INode, atmolang.IAstNode) []INode
+	FreeVars(atmo.StringKeys) []*IrIdentName
 	IsDef() *IrDef
 	Let() *IrExprLetBase
 	RefersTo(string) bool
