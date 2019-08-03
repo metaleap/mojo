@@ -199,8 +199,9 @@ type PCallable struct {
 
 type PClosure struct {
 	Preduced
-	Def     *PCallable
-	ArgsEnv map[*IrDefArg]IExpr
+	Def      *PCallable
+	EnvArgs  map[INode]IExpr
+	EnvNames atmo.StringKeys
 }
 
 type PErr struct {

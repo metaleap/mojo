@@ -21,7 +21,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.
 	case *IrDefArg:
 		addarg, namestoadd = addwhat, []string{addwhat.IrIdentBase.Val}
 		if cands := me[namestoadd[0]]; len(cands) > 0 {
-			me.errDuplName(tld, errs, addarg, namestoadd[0])
+			me.errNameWouldShadow(tld, errs, addarg, namestoadd[0])
 			numerrs++
 		}
 	case IrDefs:
@@ -31,7 +31,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.
 			if cands := me[namestoadd[i]]; len(cands) > 0 {
 				for _, c := range cands {
 					if c.IsDef() == nil {
-						me.errDuplName(tld, errs, &adddefs[i], namestoadd[i])
+						me.errNameWouldShadow(tld, errs, &adddefs[i], namestoadd[i])
 						numerrs, namestoadd[i] = numerrs+1, ""
 						break
 					}
@@ -92,14 +92,14 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, 
 	case *IrIdentName:
 		if existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed > 0 {
 			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.OrigToks(n), "`"+n.Val+"` found but with syntax errors")
-		} else if n.Anns.Candidates = inscope[n.Val]; len(n.Anns.Candidates) == 0 {
-			me.errUnknownName(tld, &errs, n)
+		} else {
+			n.Anns.Candidates = inscope[n.Val]
 		}
 	}
 	return
 }
 
-func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, node INode, name string) {
+func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDefTop, errs *atmo.Errors, node INode, name string) {
 	toks := node.origToks()
 	if def := node.IsDef(); def != nil {
 		if t := def.Name.origToks(); len(t) > 0 {
@@ -110,8 +110,4 @@ func (AnnNamesInScope) errDuplName(maybeTld *IrDefTop, errs *atmo.Errors, node I
 		toks = maybeTld.OrigToks(node)
 	}
 	errs.AddNaming(ErrNames_ShadowingNotAllowed, toks.First1(), "name `"+name+"` already in scope (rename required)")
-}
-
-func (AnnNamesInScope) errUnknownName(tld *IrDefTop, errs *atmo.Errors, n *IrIdentName) {
-	errs.AddNaming(ErrNames_NotKnownInCurScope, tld.OrigToks(n).First1(), "name `"+n.Val+"` not in scope (possible typo or missing import?)")
 }

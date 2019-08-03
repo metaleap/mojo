@@ -10,5 +10,4 @@ const (
 	_ = 2200 + iota
 	ErrNames_ShadowingNotAllowed
 	ErrNames_IdentRefersToMalformedDef
-	ErrNames_NotKnownInCurScope
 )

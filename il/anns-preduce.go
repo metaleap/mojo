@@ -16,8 +16,8 @@ func (me *PCallable) SummaryCompact() string {
 
 func (me *PClosure) SummaryCompact() (s string) {
 	s = "{"
-	for k, v := range me.ArgsEnv {
-		s += k.Val + "=(" + DbgPrintToString(v) + "),"
+	for k, v := range me.EnvArgs {
+		s += DbgPrintToString(k) + "=(" + DbgPrintToString(v) + "),"
 	}
 	return s + "}" + me.Def.SummaryCompact()
 }

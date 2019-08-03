@@ -38,7 +38,6 @@ const (
 const (
 	ErrNames_ShadowingNotAllowed
 	ErrNames_IdentRefersToMalformedDef
-	ErrNames_NotKnownInCurScope
 )
 ```
 
@@ -849,8 +848,9 @@ func (me *PCallable) SummaryCompact() string
 ```go
 type PClosure struct {
 	Preduced
-	Def     *PCallable
-	ArgsEnv map[*IrDefArg]IExpr
+	Def      *PCallable
+	EnvArgs  map[INode]IExpr
+	EnvNames atmo.StringKeys
 }
 ```
 

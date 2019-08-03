@@ -104,29 +104,25 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		println(ustr.Times("\t", me.dbgIndent)+"DONE_ARG", this.Val)
 
 	case *atmoil.IrAppl:
-		isoutermost := !me.appl
-		if isoutermost {
-			me.appl = true
-		}
 		var retclosure *atmoil.PClosure
 		callee := me.preduce(this.Callee)
 		if closure, is := callee.(*atmoil.PClosure); is {
-			retclosure = &atmoil.PClosure{Def: closure.Def, ArgsEnv: map[*atmoil.IrDefArg]atmoil.IExpr{closure.Def.Arg.Def.Arg: this.CallArg}}
-			for k, v := range closure.ArgsEnv {
-				retclosure.ArgsEnv[k] = v
+			retclosure = &atmoil.PClosure{Def: closure.Def, EnvArgs: map[atmoil.INode]atmoil.IExpr{closure.Def.Arg.Def.Arg: this.CallArg}, EnvNames: atmo.StringKeys{closure.Def.Arg.Def.Arg.Val: atmo.Є}}
+			for k, v := range closure.EnvArgs {
+				retclosure.EnvArgs[k] = v
+			}
+			for k := range closure.EnvNames {
+				retclosure.EnvNames[k] = atmo.Є
 			}
 		} else if callable, is := callee.(*atmoil.PCallable); !is {
 			ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.Callee), "notCallable: "+callee.SummaryCompact())}
 		} else {
-			retclosure = &atmoil.PClosure{Def: callable, ArgsEnv: map[*atmoil.IrDefArg]atmoil.IExpr{callable.Arg.Def.Arg: this.CallArg}}
+			retclosure = &atmoil.PClosure{Def: callable, EnvArgs: map[atmoil.INode]atmoil.IExpr{callable.Arg.Def.Arg: this.CallArg}, EnvNames: atmo.StringKeys{closure.Def.Arg.Def.Arg.Val: atmo.Є}}
 		}
 		if retclosure != nil {
 			ret = retclosure
-		}
-		if isoutermost {
-			me.appl = false
-			if retclosure != nil {
-				me.argsEnv = retclosure.ArgsEnv
+			if len(retclosure.Def.Arg.Def.FreeVars(retclosure.EnvNames)) == 0 {
+				me.argsEnv = retclosure.EnvArgs
 				ret = me.preduce(retclosure.Def.Arg.Def.Body)
 			}
 		}
