@@ -117,7 +117,7 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		} else if callable, is := callee.(*atmoil.PCallable); !is {
 			ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.Callee), "notCallable: "+callee.SummaryCompact())}
 		} else {
-			retclosure = &atmoil.PClosure{Def: callable, EnvArgs: map[atmoil.INode]atmoil.IExpr{callable.Arg.Def.Arg: this.CallArg}, EnvNames: atmo.StringKeys{closure.Def.Arg.Def.Arg.Val: atmo.Є}}
+			retclosure = &atmoil.PClosure{Def: callable, EnvArgs: map[atmoil.INode]atmoil.IExpr{callable.Arg.Def.Arg: this.CallArg}, EnvNames: atmo.StringKeys{callable.Arg.Def.Arg.Val: atmo.Є}}
 		}
 		if retclosure != nil {
 			ret = retclosure
