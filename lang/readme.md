@@ -285,6 +285,17 @@ func (me *AstExprCases) Default() *AstCase
 func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors)
 ```
 
+#### type AstExprLam
+
+```go
+type AstExprLam struct {
+	AstBaseExpr
+	Arg  AstDefArg
+	Body IAstExpr
+}
+```
+
+
 #### type AstExprLet
 
 ```go
@@ -295,6 +306,12 @@ type AstExprLet struct {
 }
 ```
 
+
+#### func (*AstExprLet) Desugared
+
+```go
+func (me *AstExprLet) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors)
+```
 
 #### type AstExprLitFloat
 
@@ -596,6 +613,12 @@ func (Builder) LitStr(val string) *AstExprLitStr
 
 ```go
 func (Builder) LitUint(val uint64) *AstExprLitUint
+```
+
+#### func (Builder) Tag
+
+```go
+func (Builder) Tag(val string) (ret *AstIdent)
 ```
 
 #### type CtxPrint

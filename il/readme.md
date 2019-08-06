@@ -65,10 +65,6 @@ type AnnNamesInScope map[string][]INode
 ```go
 func (me AnnNamesInScope) Add(name string, nodes ...INode)
 ```
-Add does not validate, merely appends as a convenience short-hand notation.
-Outside-package callers (ie. `atmosess` pkg) only use it for adding names of
-(imported or kit-owned) top-level defs which cannot be rejected (unlike locals /
-args).
 
 #### func (AnnNamesInScope) RepopulateDefsAndIdentsFor
 
@@ -116,7 +112,7 @@ func (Builder) IdentNameCopy(identBase *IrIdentBase) *IrIdentName
 #### func (Builder) IdentTag
 
 ```go
-func (Builder) IdentTag(name string) *IrIdentTag
+func (Builder) IdentTag(name string) *IrLitTag
 ```
 
 #### func (Builder) Undef
@@ -151,8 +147,8 @@ type INode interface {
 
 	EquivTo(INode) bool
 
-	FreeVars(atmo.StringKeys) []*IrIdentName
 	IsDef() *IrDef
+	IsExt() bool
 	Let() *IrExprLetBase
 	RefersTo(string) bool
 	// contains filtered or unexported methods
@@ -164,6 +160,7 @@ type INode interface {
 
 ```go
 type IPreduced interface {
+	IsErrOrAbyss() bool
 	Self() *Preduced
 	SummaryCompact() string
 }
@@ -189,16 +186,16 @@ type IrAppl struct {
 func (me *IrAppl) EquivTo(node INode) bool
 ```
 
-#### func (*IrAppl) FreeVars
-
-```go
-func (me *IrAppl) FreeVars(env atmo.StringKeys) []*IrIdentName
-```
-
 #### func (*IrAppl) IsDef
 
 ```go
 func (*IrAppl) IsDef() *IrDef
+```
+
+#### func (*IrAppl) IsExt
+
+```go
+func (*IrAppl) IsExt() bool
 ```
 
 #### func (*IrAppl) Let
@@ -225,6 +222,52 @@ func (me *IrAppl) Print() atmolang.IAstNode
 func (me *IrAppl) RefersTo(name string) bool
 ```
 
+#### type IrArg
+
+```go
+type IrArg struct {
+	IrIdentDecl
+	Orig *atmolang.AstDefArg
+}
+```
+
+
+#### func (*IrArg) EquivTo
+
+```go
+func (me *IrArg) EquivTo(node INode) bool
+```
+
+#### func (*IrArg) IsDef
+
+```go
+func (*IrArg) IsDef() *IrDef
+```
+
+#### func (*IrArg) IsExt
+
+```go
+func (*IrArg) IsExt() bool
+```
+
+#### func (*IrArg) Let
+
+```go
+func (*IrArg) Let() *IrExprLetBase
+```
+
+#### func (*IrArg) Origin
+
+```go
+func (me *IrArg) Origin() atmolang.IAstNode
+```
+
+#### func (*IrArg) Print
+
+```go
+func (me *IrArg) Print() atmolang.IAstNode
+```
+
 #### type IrDef
 
 ```go
@@ -232,7 +275,7 @@ type IrDef struct {
 	OrigDef *atmolang.AstDef
 
 	Name IrIdentDecl
-	Arg  *IrDefArg
+	Arg  *IrArg
 	Body IExpr
 }
 ```
@@ -244,16 +287,22 @@ type IrDef struct {
 func (me *IrDef) EquivTo(node INode) bool
 ```
 
-#### func (*IrDef) FreeVars
+#### func (*IrDef) HasArgRefsOtherThan
 
 ```go
-func (me *IrDef) FreeVars(env atmo.StringKeys) []*IrIdentName
+func (me *IrDef) HasArgRefsOtherThan(argNamesHave atmo.StringKeys) (argNamesIncomplete bool)
 ```
 
 #### func (*IrDef) IsDef
 
 ```go
 func (me *IrDef) IsDef() *IrDef
+```
+
+#### func (*IrDef) IsExt
+
+```go
+func (*IrDef) IsExt() bool
 ```
 
 #### func (*IrDef) Let
@@ -278,46 +327,6 @@ func (me *IrDef) Print() atmolang.IAstNode
 
 ```go
 func (me *IrDef) RefersTo(name string) bool
-```
-
-#### type IrDefArg
-
-```go
-type IrDefArg struct {
-	IrIdentDecl
-	Orig *atmolang.AstDefArg
-}
-```
-
-
-#### func (*IrDefArg) EquivTo
-
-```go
-func (me *IrDefArg) EquivTo(node INode) bool
-```
-
-#### func (*IrDefArg) IsDef
-
-```go
-func (*IrDefArg) IsDef() *IrDef
-```
-
-#### func (*IrDefArg) Let
-
-```go
-func (*IrDefArg) Let() *IrExprLetBase
-```
-
-#### func (*IrDefArg) Origin
-
-```go
-func (me *IrDefArg) Origin() atmolang.IAstNode
-```
-
-#### func (*IrDefArg) Print
-
-```go
-func (me *IrDefArg) Print() atmolang.IAstNode
 ```
 
 #### type IrDefTop
@@ -346,10 +355,16 @@ type IrDefTop struct {
 func (me *IrDefTop) Errors() (errs atmo.Errors)
 ```
 
-#### func (*IrDefTop) FindArgOwnerDef
+#### func (*IrDefTop) FindAll
 
 ```go
-func (me *IrDefTop) FindArgOwnerDef(arg *IrDefArg) (ret *IrDef)
+func (me *IrDefTop) FindAll(where func(INode) bool) (matches [][]INode)
+```
+
+#### func (*IrDefTop) FindAny
+
+```go
+func (me *IrDefTop) FindAny(where func(INode) bool) (firstMatch []INode)
 ```
 
 #### func (*IrDefTop) FindByOrig
@@ -370,10 +385,34 @@ func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred f
 func (me *IrDefTop) ForAllLocalDefs(onLocalDef func(*IrDef) (done bool))
 ```
 
+#### func (*IrDefTop) HasAnyOf
+
+```go
+func (me *IrDefTop) HasAnyOf(nodes ...INode) bool
+```
+
+#### func (*IrDefTop) HasDef
+
+```go
+func (me *IrDefTop) HasDef(maybeDef INode) (defIfLocal *IrDef)
+```
+
 #### func (*IrDefTop) HasErrors
 
 ```go
 func (me *IrDefTop) HasErrors() bool
+```
+
+#### func (*IrDefTop) HasIdentDecl
+
+```go
+func (me *IrDefTop) HasIdentDecl(name string) bool
+```
+
+#### func (*IrDefTop) IsExt
+
+```go
+func (*IrDefTop) IsExt() bool
 ```
 
 #### func (*IrDefTop) Let
@@ -434,12 +473,6 @@ type IrExprAtomBase struct {
 ```
 
 
-#### func (*IrExprAtomBase) FreeVars
-
-```go
-func (me *IrExprAtomBase) FreeVars(atmo.StringKeys) []*IrIdentName
-```
-
 #### func (*IrExprAtomBase) IsAtomic
 
 ```go
@@ -450,6 +483,12 @@ func (me *IrExprAtomBase) IsAtomic() bool
 
 ```go
 func (*IrExprAtomBase) IsDef() *IrDef
+```
+
+#### func (*IrExprAtomBase) IsExt
+
+```go
+func (*IrExprAtomBase) IsExt() bool
 ```
 
 #### func (*IrExprAtomBase) Let
@@ -468,11 +507,6 @@ func (me *IrExprAtomBase) RefersTo(string) bool
 
 ```go
 type IrExprBase struct {
-
-	// some `IIrExpr`s' own `Orig` fields or `INode.Origin()` implementations might
-	// point to (on-the-fly dynamically computed in-memory) desugared nodes, this
-	// one always points to the "real origin" node (might be identical or not)
-	Orig atmolang.IAstExpr
 }
 ```
 
@@ -487,6 +521,12 @@ func (*IrExprBase) IsAtomic() bool
 
 ```go
 func (*IrExprBase) IsDef() *IrDef
+```
+
+#### func (*IrExprBase) IsExt
+
+```go
+func (*IrExprBase) IsExt() bool
 ```
 
 #### func (*IrExprBase) Let
@@ -509,18 +549,12 @@ type IrExprLetBase struct {
 
 	Anns struct {
 		// like `IrIdentName.Anns.Candidates`, contains the following `INode` types:
-		// *atmoil.IrDef, *atmoil.IrDefArg, *atmoil.IrDefTop, atmosess.IrDefRef
+		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
 		NamesInScope AnnNamesInScope
 	}
 }
 ```
 
-
-#### func (*IrExprLetBase) FreeVars
-
-```go
-func (me *IrExprLetBase) FreeVars(env atmo.StringKeys) (ret []*IrIdentName)
-```
 
 #### type IrIdentBase
 
@@ -536,6 +570,12 @@ type IrIdentBase struct {
 
 ```go
 func (*IrIdentBase) IsDef() *IrDef
+```
+
+#### func (*IrIdentBase) IsExt
+
+```go
+func (*IrIdentBase) IsExt() bool
 ```
 
 #### func (*IrIdentBase) Let
@@ -571,6 +611,12 @@ func (me *IrIdentDecl) EquivTo(node INode) bool
 func (*IrIdentDecl) IsDef() *IrDef
 ```
 
+#### func (*IrIdentDecl) IsExt
+
+```go
+func (*IrIdentDecl) IsExt() bool
+```
+
 #### func (*IrIdentDecl) Let
 
 ```go
@@ -586,7 +632,7 @@ type IrIdentName struct {
 
 	Anns struct {
 		// like `IrExprLetBase.Anns.NamesInScope`, contains the following `IIrNode` types:
-		// *atmoil.IrDef, *atmoil.IrDefArg, *atmoil.IrDefTop, atmosess.IrDefRef
+		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
 		Candidates []INode
 	}
 }
@@ -599,16 +645,22 @@ type IrIdentName struct {
 func (me *IrIdentName) EquivTo(node INode) bool
 ```
 
-#### func (*IrIdentName) FreeVars
+#### func (*IrIdentName) IsArgRef
 
 ```go
-func (me *IrIdentName) FreeVars(env atmo.StringKeys) (ret []*IrIdentName)
+func (me *IrIdentName) IsArgRef(maybeSpecificArg *IrArg) bool
 ```
 
 #### func (*IrIdentName) IsDef
 
 ```go
 func (*IrIdentName) IsDef() *IrDef
+```
+
+#### func (*IrIdentName) IsExt
+
+```go
+func (*IrIdentName) IsExt() bool
 ```
 
 #### func (*IrIdentName) Let
@@ -641,31 +693,52 @@ func (me *IrIdentName) RefersTo(name string) bool
 func (me *IrIdentName) ResolvesTo(n INode) bool
 ```
 
-#### type IrIdentTag
+#### type IrLam
 
 ```go
-type IrIdentTag struct {
-	IrIdentBase
+type IrLam struct {
+	IrExprBase
+	OrigDef *atmolang.AstDef
+	Arg     IrArg
+	Body    IExpr
 }
 ```
 
 
-#### func (*IrIdentTag) EquivTo
+#### func (*IrLam) EquivTo
 
 ```go
-func (me *IrIdentTag) EquivTo(node INode) bool
+func (me *IrLam) EquivTo(node INode) bool
 ```
 
-#### func (*IrIdentTag) IsDef
+#### func (*IrLam) IsDef
 
 ```go
-func (*IrIdentTag) IsDef() *IrDef
+func (*IrLam) IsDef() *IrDef
 ```
 
-#### func (*IrIdentTag) Let
+#### func (*IrLam) IsExt
 
 ```go
-func (*IrIdentTag) Let() *IrExprLetBase
+func (*IrLam) IsExt() bool
+```
+
+#### func (*IrLam) Let
+
+```go
+func (*IrLam) Let() *IrExprLetBase
+```
+
+#### func (*IrLam) Print
+
+```go
+func (me *IrLam) Print() atmolang.IAstNode
+```
+
+#### func (*IrLam) RefersTo
+
+```go
+func (me *IrLam) RefersTo(name string) bool
 ```
 
 #### type IrLitFloat
@@ -689,25 +762,25 @@ func (me *IrLitFloat) EquivTo(node INode) bool
 func (me *IrLitFloat) Print() atmolang.IAstNode
 ```
 
-#### type IrLitStr
+#### type IrLitTag
 
 ```go
-type IrLitStr struct {
+type IrLitTag struct {
 	Val string
 }
 ```
 
 
-#### func (*IrLitStr) EquivTo
+#### func (*IrLitTag) EquivTo
 
 ```go
-func (me *IrLitStr) EquivTo(node INode) bool
+func (me *IrLitTag) EquivTo(node INode) bool
 ```
 
-#### func (*IrLitStr) Print
+#### func (*IrLitTag) Print
 
 ```go
-func (me *IrLitStr) Print() atmolang.IAstNode
+func (me *IrLitTag) Print() atmolang.IAstNode
 ```
 
 #### type IrLitUint
@@ -739,6 +812,7 @@ type IrNonValue struct {
 	OneOf struct {
 		LeftoverPlaceholder bool
 		Undefined           bool
+		TempStrLit          bool
 	}
 }
 ```
@@ -754,6 +828,12 @@ func (me *IrNonValue) EquivTo(node INode) bool
 
 ```go
 func (*IrNonValue) IsDef() *IrDef
+```
+
+#### func (*IrNonValue) IsExt
+
+```go
+func (*IrNonValue) IsExt() bool
 ```
 
 #### func (*IrNonValue) Let
@@ -820,6 +900,12 @@ type PAbyss struct {
 ```
 
 
+#### func (*PAbyss) IsErrOrAbyss
+
+```go
+func (me *PAbyss) IsErrOrAbyss() bool
+```
+
 #### func (*PAbyss) SummaryCompact
 
 ```go
@@ -843,24 +929,6 @@ type PCallable struct {
 func (me *PCallable) SummaryCompact() string
 ```
 
-#### type PClosure
-
-```go
-type PClosure struct {
-	Preduced
-	Def      *PCallable
-	EnvArgs  map[INode]IExpr
-	EnvNames atmo.StringKeys
-}
-```
-
-
-#### func (*PClosure) SummaryCompact
-
-```go
-func (me *PClosure) SummaryCompact() (s string)
-```
-
 #### type PErr
 
 ```go
@@ -870,6 +938,12 @@ type PErr struct {
 }
 ```
 
+
+#### func (*PErr) IsErrOrAbyss
+
+```go
+func (me *PErr) IsErrOrAbyss() bool
+```
 
 #### func (*PErr) SummaryCompact
 
@@ -949,6 +1023,12 @@ type Preduced struct {
 ```
 
 Preduced is embedded in all `IPreduced` implementers.
+
+#### func (*Preduced) IsErrOrAbyss
+
+```go
+func (me *Preduced) IsErrOrAbyss() bool
+```
 
 #### func (*Preduced) Self
 

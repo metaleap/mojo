@@ -50,6 +50,12 @@ func ErrFauxPos(maybeSrcFilePath string) (pos *udevlex.Pos)
 func SortMaybe(s sort.Interface)
 ```
 
+#### func  StrRand
+
+```go
+func StrRand(appendNowNanoToRandStr bool) (rndStr string)
+```
+
 #### type Error
 
 ```go
@@ -370,10 +376,10 @@ type StringKeys map[string]Exist
 func (me StringKeys) Exists(s string) (ok bool)
 ```
 
-#### func (StringKeys) SortedBy
+#### func (StringKeys) Sorted
 
 ```go
-func (me StringKeys) SortedBy(isLessThan func(string, string) bool) (sorted []string)
+func (me StringKeys) Sorted(isLessThan func(string, string) bool) (sorted []string)
 ```
 
 #### func (StringKeys) String

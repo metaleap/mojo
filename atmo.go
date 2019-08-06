@@ -1,8 +1,10 @@
 package atmo
 
 import (
+	"math/rand"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/go-leap/str"
 )
@@ -30,10 +32,19 @@ var (
 	}
 )
 
+func init() { rand.Seed(time.Now().UnixNano()) }
+
 func SortMaybe(s sort.Interface) {
 	if Options.Sorts && s != nil {
 		sort.Sort(s)
 	}
+}
+
+func StrRand(appendNowNanoToRandStr bool) (rndStr string) {
+	if rndStr = strconv.FormatInt(rand.Int63(), 16); appendNowNanoToRandStr {
+		rndStr += strconv.FormatInt(time.Now().UnixNano(), 16)
+	}
+	return
 }
 
 func (me StringKeys) Exists(s string) (ok bool) {
@@ -43,7 +54,7 @@ func (me StringKeys) Exists(s string) (ok bool) {
 	return
 }
 
-func (me StringKeys) SortedBy(isLessThan func(string, string) bool) (sorted []string) {
+func (me StringKeys) Sorted(isLessThan func(string, string) bool) (sorted []string) {
 	sorted = make([]string, len(me))
 	var i int
 	for k := range me {

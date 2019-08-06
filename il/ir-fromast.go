@@ -69,9 +69,9 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst) (errs atmo.Errors) {
 
 func (me *IrDef) initArg(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	if len(me.OrigDef.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
-		var arg IrDefArg
+		var arg IrArg
 		errs.Add(arg.initFrom(ctx, &me.OrigDef.Args[0])...)
-		me.Arg, arg.ownerDef = &arg, me
+		me.Arg = &arg
 	}
 	return
 }
@@ -86,7 +86,7 @@ func (me *IrDef) initMetas(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	return
 }
 
-func (me *IrDefArg) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDefArg) (errs atmo.Errors) {
+func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDefArg) (errs atmo.Errors) {
 	me.Orig = orig
 
 	isexpr := true
@@ -127,11 +127,6 @@ func (me *IrLitFloat) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstExprLitFloat
 }
 
 func (me *IrLitUint) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstExprLitUint) {
-	me.irLitBase.initFrom(ctx, orig)
-	me.Val = orig.Val
-}
-
-func (me *IrLitStr) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstExprLitStr) {
 	me.irLitBase.initFrom(ctx, orig)
 	me.Val = orig.Val
 }

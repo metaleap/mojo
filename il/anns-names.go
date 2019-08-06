@@ -5,32 +5,35 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-// Add does not validate, merely appends as a convenience short-hand notation.
-// Outside-package callers (ie. `atmosess` pkg) only use it for adding names of
-// (imported or kit-owned) top-level defs which cannot be rejected (unlike locals / args).
 func (me AnnNamesInScope) Add(name string, nodes ...INode) {
 	me[name] = append(me[name], nodes...)
 }
 
 func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.Errors) (namesInScopeCopy AnnNamesInScope) {
-	var addarg *IrDefArg
+	var addarg *IrArg
 	var adddefs IrDefs
 	var namestoadd []string
 	var numerrs int
 	switch addwhat := add.(type) {
-	case *IrDefArg:
+	case *IrArg:
 		addarg, namestoadd = addwhat, []string{addwhat.IrIdentBase.Val}
 		if cands := me[namestoadd[0]]; len(cands) > 0 {
-			me.errNameWouldShadow(tld, errs, addarg, namestoadd[0])
-			numerrs++
+			for _, cand := range cands {
+				if !cand.IsExt() {
+					me.errNameWouldShadow(tld, errs, addarg, namestoadd[0])
+					numerrs++
+					break
+				}
+			}
 		}
 	case IrDefs:
 		adddefs, namestoadd = addwhat, make([]string, len(addwhat))
 		for i := range adddefs {
 			namestoadd[i] = adddefs[i].Name.Val
 			if cands := me[namestoadd[i]]; len(cands) > 0 {
-				for _, c := range cands {
-					if c.IsDef() == nil {
+				for _, cand := range cands {
+					if cd := cand.IsDef(); cd == nil ||
+						((!cd.IsExt()) && (cd.Arg == nil || adddefs[i].Arg == nil)) {
 						me.errNameWouldShadow(tld, errs, &adddefs[i], namestoadd[i])
 						numerrs, namestoadd[i] = numerrs+1, ""
 						break
@@ -109,5 +112,5 @@ func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDefTop, errs *atmo.Errors,
 	if len(toks) == 0 && maybeTld != nil {
 		toks = maybeTld.OrigToks(node)
 	}
-	errs.AddNaming(ErrNames_ShadowingNotAllowed, toks.First1(), "name `"+name+"` already in scope (rename required)")
+	errs.AddNaming(ErrNames_ShadowingNotAllowed, toks.First1(), "name `"+name+"` already defined (rename required)")
 }

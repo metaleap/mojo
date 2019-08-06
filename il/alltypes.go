@@ -47,12 +47,12 @@ type INode interface {
 	origToks() udevlex.Tokens
 	EquivTo(INode) bool
 	findByOrig(INode, atmolang.IAstNode) []INode
-	FreeVars(atmo.StringKeys) []*IrIdentName
 	IsDef() *IrDef
+	IsExt() bool
 	Let() *IrExprLetBase
 	RefersTo(string) bool
 	refsTo(string) []IExpr
-	walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool)
+	walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) bool
 }
 
 type IExpr interface {
@@ -62,6 +62,17 @@ type IExpr interface {
 }
 
 type irNodeBase struct {
+	// some `IIrExpr`s' own `Orig` fields or `INode.Origin()` implementations might
+	// point to (on-the-fly dynamically computed in-memory) desugared nodes, this
+	// one always points to the "real origin" node (might be identical or not)
+	Orig atmolang.IAstNode
+}
+
+type IrLam struct {
+	IrExprBase
+	OrigDef *atmolang.AstDef
+	Arg     IrArg
+	Body    IExpr
 }
 
 type IrDef struct {
@@ -69,7 +80,7 @@ type IrDef struct {
 	OrigDef *atmolang.AstDef
 
 	Name IrIdentDecl
-	Arg  *IrDefArg
+	Arg  *IrArg
 	Body IExpr
 }
 
@@ -90,19 +101,13 @@ type IrDefTop struct {
 	refersTo map[string]bool
 }
 
-type IrDefArg struct {
+type IrArg struct {
 	IrIdentDecl
-	Orig     *atmolang.AstDefArg
-	ownerDef *IrDef
+	Orig *atmolang.AstDefArg
 }
 
 type IrExprBase struct {
 	irNodeBase
-
-	// some `IIrExpr`s' own `Orig` fields or `INode.Origin()` implementations might
-	// point to (on-the-fly dynamically computed in-memory) desugared nodes, this
-	// one always points to the "real origin" node (might be identical or not)
-	Orig atmolang.IAstExpr
 }
 
 type IrExprAtomBase struct {
@@ -111,11 +116,6 @@ type IrExprAtomBase struct {
 
 type irLitBase struct {
 	IrExprAtomBase
-}
-
-type IrLitStr struct {
-	irLitBase
-	Val string
 }
 
 type IrLitUint struct {
@@ -128,6 +128,11 @@ type IrLitFloat struct {
 	Val float64
 }
 
+type IrLitTag struct {
+	irLitBase
+	Val string
+}
+
 type IrExprLetBase struct {
 	Defs      IrDefs
 	letOrig   *atmolang.AstExprLet
@@ -135,14 +140,9 @@ type IrExprLetBase struct {
 
 	Anns struct {
 		// like `IrIdentName.Anns.Candidates`, contains the following `INode` types:
-		// *atmoil.IrDef, *atmoil.IrDefArg, *atmoil.IrDefTop, atmosess.IrDefRef
+		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
 		NamesInScope AnnNamesInScope
 	}
-}
-
-type IrIdentBase struct {
-	IrExprAtomBase
-	Val string
 }
 
 type IrNonValue struct {
@@ -150,11 +150,13 @@ type IrNonValue struct {
 	OneOf struct {
 		LeftoverPlaceholder bool
 		Undefined           bool
+		TempStrLit          bool
 	}
 }
 
-type IrIdentTag struct {
-	IrIdentBase
+type IrIdentBase struct {
+	IrExprAtomBase
+	Val string
 }
 
 type IrIdentDecl struct {
@@ -167,7 +169,7 @@ type IrIdentName struct {
 
 	Anns struct {
 		// like `IrExprLetBase.Anns.NamesInScope`, contains the following `IIrNode` types:
-		// *atmoil.IrDef, *atmoil.IrDefArg, *atmoil.IrDefTop, atmosess.IrDefRef
+		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
 		Candidates []INode
 	}
 }
@@ -182,31 +184,16 @@ type IrAppl struct {
 
 type AnnNamesInScope map[string][]INode
 
+type Builder struct{}
+
 type IPreduced interface {
+	IsErrOrAbyss() bool
 	Self() *Preduced
 	SummaryCompact() string
 }
 
 // Preduced is embedded in all `IPreduced` implementers.
 type Preduced struct {
-}
-
-type PCallable struct {
-	Preduced
-	Arg *PHole
-	Ret *PHole
-}
-
-type PClosure struct {
-	Preduced
-	Def      *PCallable
-	EnvArgs  map[INode]IExpr
-	EnvNames atmo.StringKeys
-}
-
-type PErr struct {
-	Preduced
-	Err *atmo.Error
 }
 
 type PPrimAtomicConstUint struct {
@@ -224,6 +211,11 @@ type PPrimAtomicConstTag struct {
 	Val string
 }
 
+type PErr struct {
+	Preduced
+	Err *atmo.Error
+}
+
 type PAbyss struct {
 	Preduced
 }
@@ -233,4 +225,8 @@ type PHole struct {
 	Def *IrDef
 }
 
-type Builder struct{}
+type PCallable struct {
+	Preduced
+	Arg *PHole
+	Ret *PHole
+}

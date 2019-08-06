@@ -10,6 +10,7 @@ const requireAtomicCalleeAndCallArg = false
 
 func (*irNodeBase) Let() *IrExprLetBase { return nil }
 func (*irNodeBase) IsDef() *IrDef       { return nil }
+func (*irNodeBase) IsExt() bool         { return false }
 
 func (me *IrDef) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
 	if orig == me.OrigDef {
@@ -37,8 +38,16 @@ func (me *IrDef) origToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *IrDef) FreeVars(env atmo.StringKeys) []*IrIdentName {
-	return me.Body.FreeVars(env)
+func (me *IrDef) HasArgRefsOtherThan(argNamesHave atmo.StringKeys) (argNamesIncomplete bool) {
+	if argNamesIncomplete = (me.Arg != nil && len(argNamesHave) == 0); !argNamesIncomplete {
+		_ = me.walk(nil, me, func(ancestors []INode, n INode, descendants ...INode) bool {
+			if ident, ok := n.(*IrIdentName); ok && ident.IsArgRef(nil) {
+				argNamesIncomplete = argNamesIncomplete || !argNamesHave.Exists(ident.Val)
+			}
+			return !argNamesIncomplete
+		})
+	}
+	return
 }
 func (me *IrDef) RefersTo(name string) bool  { return me.Body.RefersTo(name) }
 func (me *IrDef) refsTo(name string) []IExpr { return me.Body.refsTo(name) }
@@ -47,15 +56,17 @@ func (me *IrDef) EquivTo(node INode) bool {
 	return cmp != nil && cmp.Name.Val == me.Name.Val && me.Body.EquivTo(cmp.Body) &&
 		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.EquivTo(cmp.Arg))
 }
-func (me *IrDef) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	if on(ancestors, self, &me.Name, me.Arg, me.Body) {
+func (me *IrDef) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) (keepGoing bool) {
+	if keepGoing = on(ancestors, self, &me.Name, me.Arg, me.Body); keepGoing {
 		ancestors = append(ancestors, self)
-		me.Name.walk(ancestors, &me.Name, on)
-		if me.Arg != nil {
-			me.Arg.walk(ancestors, me.Arg, on)
+		if keepGoing = me.Name.walk(ancestors, &me.Name, on); keepGoing {
+			if me.Arg != nil {
+				keepGoing = me.Arg.walk(ancestors, me.Arg, on)
+			}
+			keepGoing = keepGoing && me.Body.walk(ancestors, me.Body, on)
 		}
-		me.Body.walk(ancestors, me.Body, on)
 	}
+	return
 }
 
 func (me *IrDefTop) HasErrors() bool {
@@ -64,22 +75,6 @@ func (me *IrDefTop) HasErrors() bool {
 func (me *IrDefTop) Errors() (errs atmo.Errors) {
 	errs = make(atmo.Errors, 0, len(me.Errs.Stage1AstToIr)+len(me.Errs.Stage2BadNames)+len(me.Errs.Stage3Preduce))
 	errs = append(append(append(errs, me.Errs.Stage1AstToIr...), me.Errs.Stage2BadNames...), me.Errs.Stage3Preduce...)
-	return
-}
-func (me *IrDefTop) FindArgOwnerDef(arg *IrDefArg) (ret *IrDef) {
-	if ret = arg.ownerDef; ret == nil {
-		if me.Arg == arg {
-			ret = &me.IrDef
-		} else {
-			me.ForAllLocalDefs(func(def *IrDef) (found bool) {
-				if found = (def.Arg == arg); found {
-					ret = def
-				}
-				return
-			})
-		}
-		arg.ownerDef = ret
-	}
 	return
 }
 func (me *IrDefTop) FindByOrig(orig atmolang.IAstNode) []INode {
@@ -155,14 +150,59 @@ func (me *IrDefTop) RefsTo(name string) (refs []IExpr) {
 	return
 }
 func (me *IrDefTop) Walk(shouldTraverse func(curNodeAncestors []INode, curNode INode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...INode) bool) {
-	me.walk(nil, me, shouldTraverse)
+	_ = me.walk(nil, me, shouldTraverse)
+}
+func (me *IrDefTop) HasDef(maybeDef INode) (defIfLocal *IrDef) {
+	if maybedef, _ := maybeDef.(*IrDef); maybedef != nil {
+		me.ForAllLocalDefs(func(defLocal *IrDef) bool {
+			if defIfLocal == nil && defLocal == maybedef {
+				defIfLocal = defLocal
+			}
+			return defIfLocal == nil
+		})
+	}
+	return
+}
+func (me *IrDefTop) FindAny(where func(INode) bool) (firstMatch []INode) {
+	me.Walk(func(ancestors []INode, curnode INode, descendants ...INode) bool {
+		if where(curnode) {
+			firstMatch = append(ancestors, curnode)
+		}
+		return firstMatch == nil
+	})
+	return
+}
+func (me *IrDefTop) FindAll(where func(INode) bool) (matches [][]INode) {
+	me.Walk(func(ancestors []INode, curnode INode, descendants ...INode) bool {
+		if where(curnode) {
+			matches = append(matches, append(ancestors, curnode))
+		}
+		return true
+	})
+	return
+}
+func (me *IrDefTop) HasAnyOf(nodes ...INode) bool {
+	return nil != me.FindAny(func(node INode) bool {
+		for _, n := range nodes {
+			if n == node {
+				return true
+			}
+		}
+		return false
+	})
+}
+func (me *IrDefTop) HasIdentDecl(name string) bool {
+	return 0 < len(me.FindAny(func(n INode) bool {
+		identdecl, ok := n.(*IrIdentDecl)
+		return ok && identdecl.Val == name
+	}))
 }
 
-func (me *IrDefArg) EquivTo(node INode) bool {
-	cmp, _ := node.(*IrDefArg)
+func (me *IrArg) EquivTo(node INode) bool {
+	cmp, _ := node.(*IrArg)
 	return ((me == nil) == (cmp == nil)) && (me == nil || me.Val == cmp.Val)
 }
-func (me *IrDefArg) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
+func (me *IrArg) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
 	if me.Orig == orig {
 		nodes = []INode{me}
 	} else if nodes = me.IrIdentDecl.findByOrig(&me.IrIdentDecl, orig); len(nodes) > 0 {
@@ -170,23 +210,24 @@ func (me *IrDefArg) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) 
 	}
 	return
 }
-func (me *IrDefArg) origToks() udevlex.Tokens {
+func (me *IrArg) origToks() udevlex.Tokens {
 	if me.Orig != nil && me.Orig.Tokens != nil {
 		return me.Orig.Tokens
 	}
 	return me.IrIdentDecl.origToks()
 }
-func (me *IrDefArg) Origin() atmolang.IAstNode {
+func (me *IrArg) Origin() atmolang.IAstNode {
 	if me.Orig != nil {
 		return me.Orig
 	}
 	return me.IrIdentDecl.Origin()
 }
-func (me *IrDefArg) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	if on(ancestors, me, &me.IrIdentDecl) {
+func (me *IrArg) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) (keepGoing bool) {
+	if keepGoing = on(ancestors, me, &me.IrIdentDecl); keepGoing {
 		ancestors = append(ancestors, me)
-		me.IrIdentDecl.walk(ancestors, &me.IrIdentDecl, on)
+		keepGoing = me.IrIdentDecl.walk(ancestors, &me.IrIdentDecl, on)
 	}
+	return
 }
 
 func (me *IrExprBase) exprBase() *IrExprBase     { return me }
@@ -202,15 +243,16 @@ func (me *IrExprBase) origToks() udevlex.Tokens {
 func (me *IrExprAtomBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
 	if me.Orig == orig {
 		nodes = []INode{self}
+	} else if orig.Toks().EqLenAndOffsets(me.origToks(), false) {
+		nodes = []INode{self}
 	}
 	return
 }
-func (me *IrExprAtomBase) FreeVars(atmo.StringKeys) []*IrIdentName { return nil }
-func (me *IrExprAtomBase) IsAtomic() bool                          { return true }
-func (me *IrExprAtomBase) RefersTo(string) bool                    { return false }
-func (me *IrExprAtomBase) refsTo(string) []IExpr                   { return nil }
-func (me *IrExprAtomBase) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	_ = on(ancestors, self)
+func (me *IrExprAtomBase) IsAtomic() bool        { return true }
+func (me *IrExprAtomBase) RefersTo(string) bool  { return false }
+func (me *IrExprAtomBase) refsTo(string) []IExpr { return nil }
+func (me *IrExprAtomBase) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) bool {
+	return on(ancestors, self)
 }
 
 func (me *irLitBase) refsTo(self IExpr, s string) []IExpr {
@@ -220,22 +262,13 @@ func (me *irLitBase) refsTo(self IExpr, s string) []IExpr {
 	return nil
 }
 
-func (me *IrLitStr) EquivTo(node INode) bool {
-	cmp, _ := node.(*IrLitStr)
-	return cmp != nil && cmp.Val == me.Val
-}
-func (me *IrLitStr) refsTo(s string) []IExpr { return me.irLitBase.refsTo(me, s) }
-func (me *IrLitStr) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	me.IrExprAtomBase.walk(ancestors, me, on)
-}
-
 func (me *IrLitUint) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrLitUint)
 	return cmp != nil && cmp.Val == me.Val
 }
 func (me *IrLitUint) refsTo(s string) []IExpr { return me.irLitBase.refsTo(me, s) }
-func (me *IrLitUint) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	me.IrExprAtomBase.walk(ancestors, me, on)
+func (me *IrLitUint) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) bool {
+	return me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
 func (me *IrLitFloat) EquivTo(node INode) bool {
@@ -243,16 +276,10 @@ func (me *IrLitFloat) EquivTo(node INode) bool {
 	return cmp != nil && cmp.Val == me.Val
 }
 func (me *IrLitFloat) refsTo(s string) []IExpr { return me.irLitBase.refsTo(me, s) }
-func (me *IrLitFloat) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	me.IrExprAtomBase.walk(ancestors, me, on)
+func (me *IrLitFloat) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) bool {
+	return me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-func (me *IrExprLetBase) FreeVars(env atmo.StringKeys) (ret []*IrIdentName) {
-	for i := range me.Defs {
-		ret = append(ret, me.Defs[i].FreeVars(env)...)
-	}
-	return
-}
 func (me *IrExprLetBase) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
 	if me.letOrig == orig {
 		nodes = []INode{self}
@@ -308,25 +335,19 @@ func (me *IrNonValue) EquivTo(node INode) bool {
 func (me *IrNonValue) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
 	return me.IrExprAtomBase.findByOrig(me, orig)
 }
-func (me *IrNonValue) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	me.IrExprAtomBase.walk(ancestors, me, on)
+func (me *IrNonValue) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) bool {
+	return me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-func (me *IrIdentTag) EquivTo(node INode) bool {
-	cmp, _ := node.(*IrIdentTag)
+func (me *IrLitTag) EquivTo(node INode) bool {
+	cmp, _ := node.(*IrLitTag)
 	return cmp != nil && cmp.Val == me.Val
 }
-func (me *IrIdentTag) refsTo(name string) (refs []IExpr) {
+func (me *IrLitTag) refsTo(name string) (refs []IExpr) {
 	if me.Val == name {
 		refs = append(refs, me)
 	}
 	return
-}
-func (me *IrIdentTag) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
-	return me.IrIdentBase.findByOrig(me, orig)
-}
-func (me *IrIdentTag) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
 func (me *IrIdentDecl) EquivTo(node INode) bool {
@@ -336,10 +357,19 @@ func (me *IrIdentDecl) EquivTo(node INode) bool {
 func (me *IrIdentDecl) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
 	return me.IrIdentBase.findByOrig(me, orig)
 }
-func (me *IrIdentDecl) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) {
-	me.IrExprAtomBase.walk(ancestors, me, on)
+func (me *IrIdentDecl) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) bool {
+	return me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
+func (me *IrIdentName) IsArgRef(maybeSpecificArg *IrArg) bool {
+	anyargref := (maybeSpecificArg == nil)
+	for _, cand := range me.Anns.Candidates {
+		if arg, isargref := cand.(*IrArg); isargref && (anyargref || arg == maybeSpecificArg) {
+			return true
+		}
+	}
+	return false
+}
 func (me *IrIdentName) Let() *IrExprLetBase { return &me.IrExprLetBase }
 func (me *IrIdentName) Origin() atmolang.IAstNode {
 	if me.letOrig != nil {
@@ -370,15 +400,6 @@ func (me *IrIdentName) ResolvesTo(n INode) bool {
 	}
 	return false
 }
-func (me *IrIdentName) FreeVars(env atmo.StringKeys) (ret []*IrIdentName) {
-	ret = me.IrExprLetBase.FreeVars(env)
-	if len(me.Anns.Candidates) == 0 {
-		if _, inenv := env[me.Val]; !inenv {
-			ret = append(ret, me)
-		}
-	}
-	return
-}
 func (me *IrIdentName) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrIdentName)
 	return cmp != nil && cmp.Val == me.Val && cmp.letDefsEquivTo(&me.IrExprLetBase)
@@ -393,17 +414,20 @@ func (me *IrIdentName) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INod
 	}
 	return
 }
-func (me *IrIdentName) walk(ancestors []INode, _ INode, on func([]INode, INode, ...INode) bool) {
+func (me *IrIdentName) walk(ancestors []INode, _ INode, on func([]INode, INode, ...INode) bool) (keepGoing bool) {
 	trav := make([]INode, len(me.Defs))
 	for i := range me.Defs {
 		trav[i] = &me.Defs[i]
 	}
-	if on(ancestors, me, trav...) {
+	if keepGoing = on(ancestors, me, trav...); keepGoing {
 		ancestors = append(ancestors, me)
 		for i := range trav {
-			trav[i].walk(ancestors, trav[i], on)
+			if keepGoing = trav[i].walk(ancestors, trav[i], on); !keepGoing {
+				break
+			}
 		}
 	}
+	return
 }
 
 func (me *IrAppl) findByOrig(_ INode, orig atmolang.IAstNode) (nodes []INode) {
@@ -438,9 +462,6 @@ func (me *IrAppl) origToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *IrAppl) FreeVars(env atmo.StringKeys) []*IrIdentName {
-	return append(append(me.IrExprLetBase.FreeVars(env), me.Callee.FreeVars(env)...), me.CallArg.FreeVars(env)...)
-}
 func (me *IrAppl) EquivTo(node INode) bool {
 	cmp, _ := node.(*IrAppl)
 	return cmp != nil && cmp.Callee.EquivTo(me.Callee) && cmp.CallArg.EquivTo(me.CallArg) && cmp.letDefsEquivTo(&me.IrExprLetBase)
@@ -452,16 +473,45 @@ func (me *IrAppl) RefersTo(name string) bool {
 func (me *IrAppl) refsTo(name string) []IExpr {
 	return append(me.Callee.refsTo(name), append(me.CallArg.refsTo(name), me.letDefsRefsTo(name)...)...)
 }
-func (me *IrAppl) walk(ancestors []INode, _ INode, on func([]INode, INode, ...INode) bool) {
+func (me *IrAppl) walk(ancestors []INode, _ INode, on func([]INode, INode, ...INode) bool) (keepGoing bool) {
 	trav := make([]INode, len(me.Defs), 2+len(me.Defs))
 	for i := range me.Defs {
 		trav[i] = &me.Defs[i]
 	}
 	trav = append(trav, me.Callee, me.CallArg)
-	if on(ancestors, me, trav...) {
+	if keepGoing = on(ancestors, me, trav...); keepGoing {
 		ancestors = append(ancestors, me)
 		for i := range trav {
-			trav[i].walk(ancestors, trav[i], on)
+			if keepGoing = trav[i].walk(ancestors, trav[i], on); !keepGoing {
+				break
+			}
 		}
 	}
+	return
+}
+
+func (me *IrLam) EquivTo(node INode) bool {
+	cmp, _ := node.(*IrLam)
+	return cmp != nil && me.Arg.EquivTo(&cmp.Arg) && me.Body.EquivTo(cmp.Body)
+}
+func (me *IrLam) RefersTo(name string) bool { return me.Body.RefersTo(name) }
+func (me *IrLam) findByOrig(self INode, orig atmolang.IAstNode) (nodes []INode) {
+	if orig == me.OrigDef {
+		nodes = []INode{self}
+	} else if nodes = me.Body.findByOrig(me.Body, orig); len(nodes) > 0 {
+		nodes = append(nodes, self)
+	} else if nodes = me.Arg.findByOrig(&me.Arg, orig); len(nodes) > 0 {
+		nodes = append(nodes, self)
+	}
+	return
+}
+func (me *IrLam) refsTo(name string) []IExpr { return me.Body.refsTo(name) }
+func (me *IrLam) walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) (keepGoing bool) {
+	if keepGoing = on(ancestors, self, &me.Arg, me.Body); keepGoing {
+		ancestors = append(ancestors, self)
+		if keepGoing = me.Arg.walk(ancestors, &me.Arg, on); keepGoing {
+			keepGoing = keepGoing && me.Body.walk(ancestors, me.Body, on)
+		}
+	}
+	return
 }

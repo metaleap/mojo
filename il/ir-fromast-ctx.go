@@ -30,7 +30,7 @@ func (me *ctxIrFromAst) appl(ensureAtomic bool, orig atmolang.IAstExpr, applExpr
 }
 
 func (me *ctxIrFromAst) bodyWithCoercion(coerce IExpr, body IExpr, coerceArg func() IExpr) IExpr {
-	corig, opeq := coerce.exprBase().Orig, Build.IdentName(atmo.KnownIdentEq)
+	corig, opeq := coerce.exprBase().Orig.(atmolang.IAstExpr), Build.IdentName(atmo.KnownIdentEq)
 	if coerceArg == nil {
 		coerceArg = func() IExpr { return body }
 	}
@@ -48,26 +48,26 @@ func (me *ctxIrFromAst) ensureAtomic(expr IExpr) IExpr {
 
 func (me *ctxIrFromAst) newExprFromIdent(orig *atmolang.AstIdent) (ret IExpr, errs atmo.Errors) {
 	if orig.IsTag {
-		var ident IrIdentTag
-		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+		var expr IrLitTag
+		ret, expr.Val, expr.Orig = &expr, orig.Val, orig
 
 	} else if orig.IsPlaceholder() {
-		var ident IrNonValue // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
-		ret, ident.OneOf.LeftoverPlaceholder, ident.Orig = &ident, true, orig
+		var expr IrNonValue // still return an arguably nonsensical but non-nil value, this allows other errors further down to still be collected as well
+		ret, expr.OneOf.LeftoverPlaceholder, expr.Orig = &expr, true, orig
 		errs.AddBug(ErrFromAst_UnhandledStandaloneUnderscores, orig.Tokens, "misplaced placeholder: only legal in def-args or call expressions")
 
 	} else if orig.Val == atmo.KnownIdentUndef {
-		var ident IrNonValue
-		ret, ident.OneOf.Undefined, ident.Orig = &ident, true, orig
+		var expr IrNonValue
+		ret, expr.OneOf.Undefined, expr.Orig = &expr, true, orig
 
 	} else {
-		var ident IrIdentName
-		ret, ident.Val, ident.Orig = &ident, orig.Val, orig
+		var expr IrIdentName
+		ret, expr.Val, expr.Orig = &expr, orig.Val, orig
 		if orig.IsVar() {
-			ident.Val = ident.Val[1:]
+			expr.Val = expr.Val[1:]
 		}
 		if me.curTopLevelDef != nil {
-			me.curTopLevelDef.refersTo[ident.Val] = true
+			me.curTopLevelDef.refersTo[expr.Val] = true
 		}
 
 	}
@@ -101,20 +101,38 @@ func (me *ctxIrFromAst) newExprFrom(origin atmolang.IAstExpr) (expr IExpr, errs 
 		lit.initFrom(me, origdes)
 		expr = &lit
 	case *atmolang.AstExprLitStr:
-		var lit IrLitStr
-		lit.initFrom(me, origdes)
+		var lit IrNonValue
+		lit.Orig, lit.OneOf.TempStrLit = origdes, true
 		expr = &lit
 	case *atmolang.AstExprLet:
-		oldscope, sidedefs, let :=
-			me.defsScope, IrDefs{}, IrExprLetBase{letOrig: origdes, letPrefix: me.nextPrefix(), Defs: make(IrDefs, len(origdes.Defs))}
-		me.defsScope = &sidedefs
-		for i := range origdes.Defs {
-			errs.Add(let.Defs[i].initFrom(me, &origdes.Defs[i])...)
+		if 0 > 1 {
+			expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IExpr)
+			for i := range origdes.Defs {
+				astdef := &origdes.Defs[i]
+				lam := IrLam{Body: expr}
+				lam.Orig, lam.OrigDef, lam.Arg.exprBase().Orig, lam.Arg.Val = astdef, astdef, &astdef.Name, astdef.Name.Val
+				appl := IrAppl{Callee: &lam, CallArg: errs.AddVia(me.newExprFrom(astdef.Body)).(IExpr)}
+				expr = &appl
+			}
 		}
-		expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IExpr)
-		let.Defs = append(let.Defs, sidedefs...)
-		errs.Add(me.addLetDefsToNode(origdes.Body, expr, &let)...)
-		me.defsScope = oldscope
+		if 1 > 0 {
+			oldscope, sidedefs, let :=
+				me.defsScope, IrDefs{}, IrExprLetBase{letOrig: origdes, letPrefix: me.nextPrefix(), Defs: make(IrDefs, len(origdes.Defs))}
+			me.defsScope = &sidedefs
+			for i := range origdes.Defs {
+				errs.Add(let.Defs[i].initFrom(me, &origdes.Defs[i])...)
+			}
+			expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IExpr)
+			let.Defs = append(let.Defs, sidedefs...)
+			errs.Add(me.addLetDefsToNode(origdes.Body, expr, &let)...)
+			me.defsScope = oldscope
+		}
+	case *atmolang.AstExprLam:
+		var lam IrLam
+		lam.Orig = origdes
+		errs.Add(lam.Arg.initFrom(me, &origdes.Arg)...)
+		lam.Body = errs.AddVia(me.newExprFrom(origdes.Body)).(IExpr)
+		expr = &lam
 	case *atmolang.AstExprAppl:
 		origdes = origdes.ToUnary()
 		appl, isatomiccallee, isatomicarg := IrAppl{Orig: origdes}, (!requireAtomicCalleeAndCallArg) || origdes.Callee.IsAtomic(), (!requireAtomicCalleeAndCallArg) || origdes.Args[0].IsAtomic()

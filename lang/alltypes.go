@@ -195,6 +195,12 @@ type AstExprLet struct {
 	Body IAstExpr
 }
 
+type AstExprLam struct {
+	AstBaseExpr
+	Arg  AstDefArg
+	Body IAstExpr
+}
+
 type AstExprCases struct {
 	AstBaseExpr
 	Scrutinee    IAstExpr

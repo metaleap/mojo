@@ -5,21 +5,14 @@ import (
 	"strconv"
 )
 
-func (me *Preduced) Self() *Preduced { return me }
+func (me *Preduced) IsErrOrAbyss() bool { return false }
+func (me *Preduced) Self() *Preduced    { return me }
 
 func (me *PCallable) SummaryCompact() string {
 	if me.Arg.Def != nil {
 		return ustr.ReplB(DbgPrintToString(me.Arg.Def), '\n', ' ')
 	}
 	return me.Arg.SummaryCompact() + "->" + me.Ret.SummaryCompact()
-}
-
-func (me *PClosure) SummaryCompact() (s string) {
-	s = "{"
-	for k, v := range me.EnvArgs {
-		s += DbgPrintToString(k) + "=(" + DbgPrintToString(v) + "),"
-	}
-	return s + "}" + me.Def.SummaryCompact()
 }
 
 func (me *PPrimAtomicConstFloat) SummaryCompact() string {
@@ -31,7 +24,9 @@ func (me *PPrimAtomicConstUint) SummaryCompact() string { return strconv.FormatU
 func (me *PPrimAtomicConstTag) SummaryCompact() string { return me.Val }
 
 func (me *PAbyss) SummaryCompact() string { return "ABYSS" }
+func (me *PAbyss) IsErrOrAbyss() bool     { return true }
 
 func (me *PHole) SummaryCompact() string { return "HOLE" }
 
 func (me *PErr) SummaryCompact() string { return me.Err.Error() }
+func (me *PErr) IsErrOrAbyss() bool     { return true }

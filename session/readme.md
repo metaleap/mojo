@@ -213,6 +213,12 @@ type IrDefRef struct {
 ```
 
 
+#### func (IrDefRef) IsExt
+
+```go
+func (me IrDefRef) IsExt() bool
+```
+
 #### type Kit
 
 ```go

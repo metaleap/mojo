@@ -18,13 +18,15 @@ func (me *ctxPreducing) toks(n atmoil.INode) (toks udevlex.Tokens) {
 }
 
 func (me *Ctx) rePreduceTopLevelDefs(defIds map[*atmoil.IrDefTop]*Kit) (freshErrs atmo.Errors) {
+	if 1 > 0 {
+		return
+	}
 	for def := range defIds {
 		def.Anns.Preduced, def.Errs.Stage3Preduce = nil, nil
 	}
 	ctxpred := ctxPreducing{curSessCtx: me, curDefs: make(map[*atmoil.IrDef]atmo.Exist, 128)}
 	for def, kit := range defIds {
 		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef = kit, def
-		// println("NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOW:" + def.Name.Val)
 		_ = ctxpred.preduce(def)
 	}
 	return
@@ -45,7 +47,7 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 	case *atmoil.IrLitUint:
 		ret = &atmoil.PPrimAtomicConstUint{Val: this.Val}
 
-	case *atmoil.IrIdentTag:
+	case *atmoil.IrLitTag:
 		ret = &atmoil.PPrimAtomicConstTag{Val: this.Val}
 
 	case *atmoil.IrIdentName:
@@ -59,7 +61,7 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 			ret = &atmoil.PErr{Err: atmo.ErrNaming(1234, me.toks(this).First1(), "ambiguous")}
 		}
 		me.dbgIndent--
-		println(ustr.Times("\t", me.dbgIndent)+"DONE_NAME", this.Val)
+		println(ustr.Times("\t", me.dbgIndent)+"DONE_NAME", ret.SummaryCompact())
 
 	case IrDefRef:
 		curkit := me.curNode.owningKit
@@ -68,7 +70,7 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		me.curNode.owningKit = curkit
 
 	case *atmoil.IrDefTop:
-		if this.Anns.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
+		if 1 > 0 || (this.Anns.Preduced == nil && this.Errs.Stage3Preduce == nil) { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
 			this.Errs.Stage3Preduce = make(atmo.Errors, 0, 0) // not nil anymore now
 			if this.HasErrors() {
 				this.Anns.Preduced = &atmoil.PErr{Err: this.Errors()[0]}
@@ -82,7 +84,7 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 		ret = this.Anns.Preduced
 
 	case *atmoil.IrDef:
-		println(ustr.Times("\t", me.dbgIndent)+"INTO_DEF", atmoil.DbgPrintToString(this))
+		println(ustr.Times("\t", me.dbgIndent)+"INTO_DEF", ustr.ReplB(atmoil.DbgPrintToString(this), '\n', ' '))
 		me.dbgIndent++
 		if this.Arg == nil {
 			ret = me.preduce(this.Body)
@@ -90,42 +92,37 @@ func (me *ctxPreducing) preduce(node atmoil.INode) (ret atmoil.IPreduced) {
 			ret = &atmoil.PCallable{Arg: &atmoil.PHole{Def: this}, Ret: &atmoil.PHole{Def: this}}
 		}
 		me.dbgIndent--
-		println(ustr.Times("\t", me.dbgIndent)+"DONE_DEF", this.Name.Val)
+		println(ustr.Times("\t", me.dbgIndent)+"DONE_DEF", ret.SummaryCompact())
 
-	case *atmoil.IrDefArg:
+	case *atmoil.IrArg:
 		println(ustr.Times("\t", me.dbgIndent)+"INTO_ARG", this.Val)
 		me.dbgIndent++
-		if curargval, ok := me.argsEnv[this]; !ok {
+
+		if ret == nil {
 			ret = &atmoil.PErr{Err: atmo.ErrPreduce(4567, me.toks(this), "argNotSet: "+this.Val)}
-		} else {
-			ret = me.preduce(curargval)
 		}
 		me.dbgIndent--
-		println(ustr.Times("\t", me.dbgIndent)+"DONE_ARG", this.Val)
+		println(ustr.Times("\t", me.dbgIndent)+"DONE_ARG", ret.SummaryCompact())
 
 	case *atmoil.IrAppl:
-		var retclosure *atmoil.PClosure
-		callee := me.preduce(this.Callee)
-		if closure, is := callee.(*atmoil.PClosure); is {
-			retclosure = &atmoil.PClosure{Def: closure.Def, EnvArgs: map[atmoil.INode]atmoil.IExpr{closure.Def.Arg.Def.Arg: this.CallArg}, EnvNames: atmo.StringKeys{closure.Def.Arg.Def.Arg.Val: atmo.Є}}
-			for k, v := range closure.EnvArgs {
-				retclosure.EnvArgs[k] = v
-			}
-			for k := range closure.EnvNames {
-				retclosure.EnvNames[k] = atmo.Є
-			}
-		} else if callable, is := callee.(*atmoil.PCallable); !is {
-			ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.Callee), "notCallable: "+callee.SummaryCompact())}
+		println(ustr.Times("\t", me.dbgIndent)+"INTO_APPL", atmoil.DbgPrintToString(this))
+		me.dbgIndent++
+		if callee := me.preduce(this.Callee); callee.IsErrOrAbyss() {
+			ret = callee
 		} else {
-			retclosure = &atmoil.PClosure{Def: callable, EnvArgs: map[atmoil.INode]atmoil.IExpr{callable.Arg.Def.Arg: this.CallArg}, EnvNames: atmo.StringKeys{callable.Arg.Def.Arg.Val: atmo.Є}}
-		}
-		if retclosure != nil {
-			ret = retclosure
-			if len(retclosure.Def.Arg.Def.FreeVars(retclosure.EnvNames)) == 0 {
-				me.argsEnv = retclosure.EnvArgs
-				ret = me.preduce(retclosure.Def.Arg.Def.Body)
+			if callable, iscallable := callee.(*atmoil.PCallable); !iscallable {
+				ret = &atmoil.PErr{Err: atmo.ErrPreduce(2345, me.toks(this.Callee), "notCallable: "+callee.SummaryCompact())}
+			} else {
+				ret = me.preduce(callable.Arg.Def.Body)
+				if callable, iscallable = ret.(*atmoil.PCallable); iscallable {
+				}
 			}
 		}
+		me.dbgIndent--
+		println(ustr.Times("\t", me.dbgIndent)+"DONE_APPL", ret.SummaryCompact())
+
+	case *atmoil.IrLam:
+		ret = &atmoil.PAbyss{}
 
 	default:
 		panic(this)

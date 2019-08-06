@@ -8,6 +8,12 @@ var (
 	Build Builder
 )
 
+func (Builder) Tag(val string) (ret *AstIdent) {
+	ret = Build.Ident(val)
+	ret.IsTag = true
+	return
+}
+
 func (Builder) Ident(val string) *AstIdent {
 	isnotopish := val[0] == '_' || ustr.BeginsLetter(val)
 	return &AstIdent{Val: val, IsTag: ustr.BeginsUpper(val), IsOpish: !isnotopish}

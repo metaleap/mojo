@@ -19,11 +19,11 @@ func (me *IrNonValue) Print() atmolang.IAstNode {
 	} else if me.Orig != nil && len(me.Orig.Toks()) > 0 {
 		return atmolang.Build.Ident(me.Orig.Toks().First1().Lexeme)
 	}
-	return atmolang.Build.Ident("SpecialBadlyInitialized")
+	return atmolang.Build.Ident("!?SpecialBadlyInitialized")
 }
 func (me *IrLitFloat) Print() atmolang.IAstNode  { return atmolang.Build.LitFloat(me.Val) }
 func (me *IrLitUint) Print() atmolang.IAstNode   { return atmolang.Build.LitUint(me.Val) }
-func (me *IrLitStr) Print() atmolang.IAstNode    { return atmolang.Build.LitStr(me.Val) }
+func (me *IrLitTag) Print() atmolang.IAstNode    { return atmolang.Build.Tag(me.Val) }
 func (me *IrIdentBase) Print() atmolang.IAstNode { return atmolang.Build.Ident(me.Val) }
 func (me *IrIdentName) Print() atmolang.IAstNode {
 	return me.IrExprLetBase.print(me.IrIdentBase.Print().(atmolang.IAstExpr))
@@ -60,6 +60,11 @@ func (me *IrDefTop) Print() atmolang.IAstNode {
 	return def
 }
 
-func (me *IrDefArg) Print() atmolang.IAstNode {
+func (me *IrArg) Print() atmolang.IAstNode {
 	return atmolang.Build.Arg(me.IrIdentBase.Print().(atmolang.IAstExprAtomic), nil)
+}
+
+func (me *IrLam) Print() atmolang.IAstNode {
+	astlam := atmolang.AstExprLam{Arg: *me.Arg.Print().(*atmolang.AstDefArg), Body: me.Body.Print().(atmolang.IAstExpr)}
+	return &astlam
 }

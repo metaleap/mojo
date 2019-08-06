@@ -206,6 +206,14 @@ func (me *AstExprLet) print(p *CtxPrint) {
 	}
 }
 
+func (me *AstExprLam) print(p *CtxPrint) {
+	p.WriteString("(\\")
+	me.Arg.print(p)
+	p.WriteString("->")
+	me.Body.print(p)
+	p.WriteByte(')')
+}
+
 func (me *AstExprCases) print(p *CtxPrint) {
 	istopleveldefsbody := (p.CurTopLevel == nil || me == p.CurTopLevel.Body)
 	if me.Scrutinee != nil {

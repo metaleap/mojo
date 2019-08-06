@@ -41,8 +41,8 @@ func (Builder) IdentNameCopy(identBase *IrIdentBase) *IrIdentName {
 	return &IrIdentName{IrIdentBase: *identBase}
 }
 
-func (Builder) IdentTag(name string) *IrIdentTag {
-	return &IrIdentTag{IrIdentBase{Val: name}}
+func (Builder) IdentTag(name string) *IrLitTag {
+	return &IrLitTag{Val: name}
 }
 
 func (Builder) Undef() *IrNonValue {

@@ -121,3 +121,7 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 	}
 	return
 }
+
+func (me *AstExprLet) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors) {
+	return
+}

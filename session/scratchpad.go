@@ -1,10 +1,6 @@
 package atmosess
 
 import (
-	"math/rand"
-	"strconv"
-	"time"
-
 	"github.com/go-leap/str"
 	"github.com/metaleap/atmo"
 	"github.com/metaleap/atmo/il"
@@ -64,7 +60,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 
 	var defname string
 	if !isdef { // entry is an expr: add temp def `eval‹RandomNoise› := ‹input›` then eval that name
-		defname = "eval" + strconv.FormatInt(time.Now().UnixNano(), 16) + strconv.FormatInt(rand.Int63(), 16)
+		defname = "eval" + atmo.StrRand(true)
 		prefix := "_" + defname + " :=\n "
 		src, prefixlength = prefix+src, len(prefix)
 	} else if defnode, e := atmolang.LexAndParseDefOrExpr(isdef, toks); e != nil {
