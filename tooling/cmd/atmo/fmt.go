@@ -4,11 +4,11 @@ import (
 	"os"
 
 	"github.com/go-leap/dev/lex"
-	"github.com/metaleap/atmo/lang"
+	"github.com/metaleap/atmo/ast"
 )
 
 func mainFmt() {
-	var astfile atmolang.AstFile
+	var astfile atmoast.AstFile
 
 	if len(os.Args) > 2 {
 		astfile.SrcFilePath = os.Args[2]
@@ -26,7 +26,7 @@ func mainFmt() {
 			println(e.Error())
 		}
 	} else {
-		_, _ = os.Stdout.Write(astfile.Print(&atmolang.PrintFmtPretty{}))
+		_, _ = os.Stdout.Write(astfile.Print(&atmoast.PrintFmtPretty{}))
 		println("\n\n===\nTHIS feature isn't really done, rather it was postponed until it can be written in atmo itself. Above is only internal semi-pretty-printer.")
 	}
 }

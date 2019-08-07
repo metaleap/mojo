@@ -1,8 +1,8 @@
 package atmoil
 
 import (
-	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/lang"
+	. "github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo/ast"
 )
 
 func (me IrDefs) byName(name string) *IrDef {
@@ -14,7 +14,7 @@ func (me IrDefs) byName(name string) *IrDef {
 	return nil
 }
 
-func (me *IrDefs) add(name string, body IExpr) (def *IrDef) {
+func (me *IrDefs) add(name string, body IIrExpr) (def *IrDef) {
 	this := *me
 	idx := len(this)
 	this = append(this, IrDef{Body: body})
@@ -39,7 +39,7 @@ func (me IrTopDefs) Less(i int, j int) bool {
 	return (dis.FilePath == dat.FilePath && me[i].OrigTopChunk.PosOffsetByte() < me[j].OrigTopChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 
-func (me IrTopDefs) ByName(name string, onlyFor *atmolang.AstFile) (defs []*IrDefTop) {
+func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDefTop) {
 	allfiles := (onlyFor == nil)
 	for _, tld := range me {
 		if allfiles || (tld.OrigTopChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
@@ -60,15 +60,15 @@ func (me IrTopDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs atmo.Errors) {
-	this, newdefs, oldunchangeds := *me, make([]*atmolang.SrcTopChunk, 0, 2), make(map[int]atmo.Exist, len(*me))
+func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs Errors) {
+	this, newdefs, oldunchangeds := *me, make([]*AstFileChunk, 0, 2), make(map[int]Exist, len(*me))
 
 	// gather what's "new" (newly added or source-wise modified) and what's "old" (source-wise unchanged)
 	for i := range kitSrcFiles {
 		for j := range kitSrcFiles[i].TopLevel {
 			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
 				if defidx := this.IndexByID(tl.Id()); defidx >= 0 {
-					oldunchangeds[defidx], this[defidx].OrigTopChunk, this[defidx].OrigDef = atmo.Є, tl, tl.Ast.Def.Orig
+					oldunchangeds[defidx], this[defidx].OrigTopChunk, this[defidx].OrigDef = Є, tl, tl.Ast.Def.Orig
 				} else if !tl.HasErrors() { // any source chunk with parse/lex errs doesn't exist for us anymore at this point
 					newdefs = append(newdefs, tl)
 				}
@@ -115,7 +115,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelD
 			}
 		}
 	}
-	atmo.SortMaybe(this)
+	SortMaybe(this)
 	*me = this
 	return
 }

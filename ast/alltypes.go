@@ -1,14 +1,14 @@
-// Package `atmolang` offers AST node structures and supporting auxiliary
+// Package `atmo/ast` offers AST node structures and supporting auxiliary
 // types and funcs, plus implements the lexing and parsing into such ASTs.
-// It has no notion of kits or imports, and very little semantic preprocession,
+// It has no notion of kits or imports, and little-to-no semantic prepossession,
 // being chiefly concerned with syntactical analysis (eg. it does not care
-// if a call is made to a number instead of a function, etc.).
-package atmolang
+// if a call is made to a number or other known-non-callable, etc.).
+package atmoast
 
 import (
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/std"
-	"github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo"
 )
 
 type ApplStyle int
@@ -28,7 +28,7 @@ type preLexTopLevelChunk struct {
 }
 
 type ctxTldParse struct {
-	curTopLevel     *SrcTopChunk
+	curTopLevel     *AstFileChunk
 	curTopDef       *AstDef
 	brackets        []byte
 	bracketsHalfIdx int
@@ -37,9 +37,9 @@ type ctxTldParse struct {
 type AstFiles []*AstFile
 
 type AstFile struct {
-	TopLevel []SrcTopChunk
+	TopLevel []AstFileChunk
 	errs     struct {
-		loading *atmo.Error
+		loading *Error
 	}
 	LastLoad struct {
 		Src      []byte
@@ -54,10 +54,10 @@ type AstFile struct {
 	SrcFilePath string
 
 	_toks udevlex.Tokens
-	_errs atmo.Errors
+	_errs Errors
 }
 
-type SrcTopChunk struct {
+type AstFileChunk struct {
 	Src     []byte
 	SrcFile *AstFile
 	offset  struct {
@@ -70,11 +70,11 @@ type SrcTopChunk struct {
 	}
 	id       [3]uint64
 	_id      string
-	_errs    atmo.Errors
+	_errs    Errors
 	srcDirty bool
 	errs     struct {
-		lexing  atmo.Errors
-		parsing *atmo.Error
+		lexing  Errors
+		parsing *Error
 	}
 	Ast AstTopLevel
 }
@@ -93,7 +93,7 @@ type IAstExpr interface {
 	IAstNode
 	IAstComments
 	IsAtomic() bool
-	Desugared(func() string) (IAstExpr, atmo.Errors)
+	Desugared(func() string) (IAstExpr, Errors)
 }
 
 type IAstExprAtomic interface {
@@ -195,12 +195,6 @@ type AstExprLet struct {
 	Body IAstExpr
 }
 
-type AstExprLam struct {
-	AstBaseExpr
-	Arg  AstDefArg
-	Body IAstExpr
-}
-
 type AstExprCases struct {
 	AstBaseExpr
 	Scrutinee    IAstExpr
@@ -214,13 +208,13 @@ type AstCase struct {
 	Body  IAstExpr
 }
 
-type Builder struct{}
+type AstBuild struct{}
 
 // IPrintFmt is fully implemented by `PrintFormatterMinimal`, for custom
 // formatters it'll be best to embed this and then override specifics.
 type IPrintFmt interface {
 	SetCtxPrint(*CtxPrint)
-	OnTopLevelChunk(*SrcTopChunk, *AstTopLevel)
+	OnTopLevelChunk(*AstFileChunk, *AstTopLevel)
 	OnDef(*AstTopLevel, *AstDef)
 	OnDefName(*AstDef, *AstIdent)
 	OnDefArg(*AstDef, int, *AstDefArg)

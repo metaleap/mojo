@@ -1,4 +1,4 @@
-package atmolang
+package atmoast
 
 import (
 	"strconv"

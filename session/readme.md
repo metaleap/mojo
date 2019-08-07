@@ -101,7 +101,7 @@ func (me *Ctx) BackgroundMessagesCount() (count int)
 #### func (*Ctx) CatchUpOnFileMods
 
 ```go
-func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile)
+func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*AstFile)
 ```
 
 #### func (*Ctx) FauxKitsAdd
@@ -119,7 +119,7 @@ func (me *Ctx) FauxKitsHas(dirPath string) bool
 #### func (*Ctx) Init
 
 ```go
-func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *atmo.Error)
+func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *Error)
 ```
 Init validates the `Ctx.Dirs` fields currently set, then builds up its `Kits`
 reflective of the structures found in the various `me.Dirs.Kits` search paths
@@ -140,19 +140,19 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit
 #### func (*Ctx) KitEnsureLoaded
 
 ```go
-func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs atmo.Errors)
+func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs Errors)
 ```
 
 #### func (*Ctx) KitsCollectAcquaintances
 
 ```go
-func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames atmo.StringKeys, indirects bool) (acquaintancesDefs map[*atmoil.IrDefTop]*Kit)
+func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames StringKeys, indirects bool) (acquaintancesDefs map[*IrDefTop]*Kit)
 ```
 
 #### func (*Ctx) KitsCollectReferences
 
 ```go
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*atmoil.IrDefTop][]atmoil.IExpr
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*IrDefTop][]IIrExpr
 ```
 
 #### func (*Ctx) KitsEnsureLoaded
@@ -182,13 +182,13 @@ again from inside such a wrapper `func` will deadlock.
 #### func (*Ctx) Preduce
 
 ```go
-func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *atmoil.IrDefTop, node atmoil.INode) atmoil.IPreduced
+func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDefTop, node IIrNode) IPreduced
 ```
 
 #### func (*Ctx) ScratchpadEntry
 
 ```go
-func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret atmoil.IPreduced, errs atmo.Errors)
+func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs Errors)
 ```
 
 #### func (*Ctx) WithInMemFileMod
@@ -207,7 +207,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 
 ```go
 type IrDefRef struct {
-	*atmoil.IrDefTop
+	*IrDefTop
 	Kit *Kit
 }
 ```
@@ -227,11 +227,11 @@ type Kit struct {
 	ImpPath           string
 	WasEverToBeLoaded bool
 
-	SrcFiles atmolang.AstFiles
+	SrcFiles AstFiles
 
 	Errs struct {
-		Stage1DirAccessDuringRefresh *atmo.Error
-		Stage1BadImports             atmo.Errors
+		Stage1DirAccessDuringRefresh *Error
+		Stage1BadImports             Errors
 	}
 }
 ```
@@ -242,13 +242,13 @@ interpreted or compiled all together as a unit.
 #### func (*Kit) AstNodeAt
 
 ```go
-func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.SrcTopChunk, theNodeAndItsAncestors []atmolang.IAstNode)
+func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *AstFileChunk, theNodeAndItsAncestors []IAstNode)
 ```
 
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs atmoil.IrTopDefs)
+func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs IrTopDefs)
 ```
 
 #### func (*Kit) DoesImport
@@ -260,7 +260,7 @@ func (me *Kit) DoesImport(kitImpPath string) bool
 #### func (*Kit) Errors
 
 ```go
-func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors)
+func (me *Kit) Errors(maybeErrsToSrcs map[*Error][]byte) (errs Errors)
 ```
 Errors collects whatever issues exist in any of the `Kit`'s source files
 (file-system errors, lexing/parsing errors, semantic errors etc).
@@ -281,7 +281,7 @@ func (me *Kit) Imports() []string
 #### func (*Kit) IrNodeOfAstNode
 
 ```go
-func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.INode)
+func (me *Kit) IrNodeOfAstNode(defId string, origNode IAstNode) (astDefTop *IrDefTop, theNodeAndItsAncestors []IIrNode)
 ```
 
 #### func (*Kit) ScratchpadClear
@@ -299,7 +299,7 @@ func (me *Kit) ScratchpadView() []byte
 #### func (*Kit) SelectNodes
 
 ```go
-func (me *Kit) SelectNodes(tldOk func(*atmoil.IrDefTop) bool, nodeOk func([]atmoil.INode, atmoil.INode, []atmoil.INode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[atmoil.INode]*atmoil.IrDefTop)
+func (me *Kit) SelectNodes(tldOk func(*IrDefTop) bool, nodeOk func([]IIrNode, IIrNode, []IIrNode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[IIrNode]*IrDefTop)
 ```
 
 #### type Kits

@@ -1,28 +1,28 @@
-package atmolang
+package atmoast
 
 import (
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo"
 )
 
-func (me *SrcTopChunk) At(byte0PosOffsetInSrcFile int) []IAstNode {
+func (me *AstFileChunk) At(byte0PosOffsetInSrcFile int) []IAstNode {
 	return me.Ast.at(&me.Ast, byte0PosOffsetInSrcFile-me.offset.B)
 }
 
-func (me *SrcTopChunk) Encloses(byte0PosOffsetInSrcFile int) bool {
+func (me *AstFileChunk) Encloses(byte0PosOffsetInSrcFile int) bool {
 	return me.Ast.Tokens.AreEnclosing(byte0PosOffsetInSrcFile - me.offset.B)
 }
 
 // PosOffsetLine implements `atmo.IErrPosOffsets`.
-func (me *SrcTopChunk) PosOffsetLine() int { return me.offset.Ln }
+func (me *AstFileChunk) PosOffsetLine() int { return me.offset.Ln }
 
 // PosOffsetByte implements `atmo.IErrPosOffsets`.
-func (me *SrcTopChunk) PosOffsetByte() int { return me.offset.B }
+func (me *AstFileChunk) PosOffsetByte() int { return me.offset.B }
 
-func (me *SrcTopChunk) Errs() atmo.Errors {
+func (me *AstFileChunk) Errs() Errors {
 	if me._errs == nil {
-		me._errs = make(atmo.Errors, 0, len(me.errs.lexing)+1)
+		me._errs = make(Errors, 0, len(me.errs.lexing)+1)
 		if me._errs.Add(me.errs.lexing...); me.errs.parsing != nil {
 			me._errs.Add(me.errs.parsing)
 		}
@@ -30,7 +30,7 @@ func (me *SrcTopChunk) Errs() atmo.Errors {
 	return me._errs
 }
 
-func (me *SrcTopChunk) HasErrors() bool {
+func (me *AstFileChunk) HasErrors() bool {
 	return me.errs.parsing != nil || len(me.errs.lexing) > 0
 }
 
@@ -59,9 +59,9 @@ func (me *AstFile) HasErrors() (r bool) {
 	return
 }
 
-func (me *AstFile) Errors() atmo.Errors {
+func (me *AstFile) Errors() Errors {
 	if me._errs == nil {
-		if me._errs = make(atmo.Errors, 0, 4); me.errs.loading != nil {
+		if me._errs = make(Errors, 0, 4); me.errs.loading != nil {
 			me._errs = append(me._errs, me.errs.loading)
 		}
 		for i := range me.TopLevel {
@@ -100,7 +100,7 @@ func (me *AstFile) CountNetLinesOfCode(onlyCountErrless bool) (sloc int) {
 	return
 }
 
-func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *SrcTopChunk {
+func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *AstFileChunk {
 	ilast := len(me.TopLevel) - 1
 	for i := range me.TopLevel {
 		if pos0ByteOffset == me.TopLevel[i].offset.B || (i == ilast && pos0ByteOffset > me.TopLevel[i].offset.B) {
@@ -116,7 +116,7 @@ func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *SrcTopChunk {
 	return nil
 }
 
-func (me *SrcTopChunk) Id() string {
+func (me *AstFileChunk) Id() string {
 	if me._id == "" {
 		me._id = ustr.Uint64s('-', me.id[:])
 	}
@@ -144,7 +144,7 @@ func (me AstFiles) ByFilePath(srcFilePath string) *AstFile {
 	return nil
 }
 
-func (me AstFiles) TopLevelChunkByDefId(defId string) *SrcTopChunk {
+func (me AstFiles) TopLevelChunkByDefId(defId string) *AstFileChunk {
 	for _, f := range me {
 		for i := range f.TopLevel {
 			if tlc := &f.TopLevel[i]; tlc.Id() == defId {

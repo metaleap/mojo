@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/metaleap/atmo/session"
+	. "github.com/metaleap/atmo/session"
 )
 
 type directives []directive
@@ -19,7 +19,7 @@ type directive struct {
 }
 
 type Repl struct {
-	Ctx             atmosess.Ctx
+	Ctx             Ctx
 	KnownDirectives directives
 	IO              struct {
 		Stdin           io.Reader

@@ -9,8 +9,8 @@ import (
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
-	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/lang"
+	. "github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo/ast"
 )
 
 // CtxDefaultCacheDirPath returns the default used by `Ctx.Init` if `Ctx.Dirs.Cache`
@@ -23,19 +23,19 @@ func CtxDefaultCacheDirPath() string {
 // Init validates the `Ctx.Dirs` fields currently set, then builds up its
 // `Kits` reflective of the structures found in the various `me.Dirs.Kits`
 // search paths and from now on in sync with live modifications to those.
-func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *atmo.Error) {
+func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfFauxKitDirActualKit string, err *Error) {
 	me.Kits.All = make(Kits, 0, 32)
 	cachedir := me.Dirs.CacheData
 	if cachedir == "" {
 		cachedir = CtxDefaultCacheDirPath()
 	}
 	if !ufs.IsDir(cachedir) {
-		err = atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoCacheDirCreationFailure, cachedir, ufs.EnsureDir(cachedir))
+		err = ErrFrom(ErrCatSess, ErrSessInit_IoCacheDirCreationFailure, cachedir, ufs.EnsureDir(cachedir))
 	} else if clearCacheDir {
-		err = atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoCacheDirDeletionFailure, cachedir, ufs.Del(cachedir))
+		err = ErrFrom(ErrCatSess, ErrSessInit_IoCacheDirDeletionFailure, cachedir, ufs.Del(cachedir))
 	}
 	if kitsdirs := me.Dirs.KitsStashes; err == nil {
-		kitsdirsenv := ustr.Split(os.Getenv(atmo.EnvVarKitsDirs), string(os.PathListSeparator))
+		kitsdirsenv := ustr.Split(os.Getenv(EnvVarKitsDirs), string(os.PathListSeparator))
 		kitsdirdefault := filepath.Join(usys.UserHomeDirPath(), ".atmo")
 		for i := range kitsdirsenv {
 			kitsdirsenv[i] = filepath.Clean(kitsdirsenv[i])
@@ -61,7 +61,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 		for i := range kitsdirs {
 			for j := range kitsdirs {
 				if iinj, jini := ustr.Pref(kitsdirs[i], kitsdirs[j]), ustr.Pref(kitsdirs[j], kitsdirs[i]); i != j && (iinj || jini) {
-					err = atmo.ErrSess(ErrSessInit_KitsDirsConflict, "", "conflicting kitstash dirs, because one contains the other: `"+kitsdirs[i]+"` vs. `"+kitsdirs[j]+"`")
+					err = ErrSess(ErrSessInit_KitsDirsConflict, "", "conflicting kitstash dirs, because one contains the other: `"+kitsdirs[i]+"` vs. `"+kitsdirs[j]+"`")
 					break
 				}
 			}
@@ -71,26 +71,26 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 		}
 		if err == nil && len(kitsdirs) == 0 {
 			if kitsdirstried := append(kitsdirsenv, kitsdirsorig...); len(kitsdirstried) == 0 {
-				err = atmo.ErrSess(ErrSessInit_KitsDirsNotSpecified, "", "no kitstash dirs were specified, neither via env-var "+atmo.EnvVarKitsDirs+" nor via command-line flags")
+				err = ErrSess(ErrSessInit_KitsDirsNotSpecified, "", "no kitstash dirs were specified, neither via env-var "+EnvVarKitsDirs+" nor via command-line flags")
 			} else {
-				err = atmo.ErrSess(ErrSessInit_KitsDirsNotFound, "", "none of the specified kitstash dirs were found:\n    "+ustr.Join(kitsdirstried, "\n    "))
+				err = ErrSess(ErrSessInit_KitsDirsNotFound, "", "none of the specified kitstash dirs were found:\n    "+ustr.Join(kitsdirstried, "\n    "))
 			}
 		}
 		if err == nil {
 			var autokitexists bool
 			for _, kd := range kitsdirs {
-				if autokitexists = ufs.DoesDirHaveFilesWithSuffix(filepath.Join(kd, atmo.NameAutoKit), atmo.SrcFileExt); autokitexists {
+				if autokitexists = ufs.DoesDirHaveFilesWithSuffix(filepath.Join(kd, NameAutoKit), SrcFileExt); autokitexists {
 					break
 				}
 			}
 			if !autokitexists {
-				err = atmo.ErrSess(ErrSessInit_KitsDirAutoNotFound, "", "Standard auto-imported kit `"+atmo.NameAutoKit+"` not found in any of:\n    "+ustr.Join(kitsdirs, "\n    "))
+				err = ErrSess(ErrSessInit_KitsDirAutoNotFound, "", "Standard auto-imported kit `"+NameAutoKit+"` not found in any of:\n    "+ustr.Join(kitsdirs, "\n    "))
 			}
 		}
 		if err == nil {
 			if me.Dirs.CacheData, me.Dirs.KitsStashes = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
 				_, kip, e := me.fauxKitsAddDir(sessionFauxKitDir, true)
-				kitImpPathIfFauxKitDirActualKit, err = kip, atmo.ErrFrom(atmo.ErrCatSess, ErrSessInit_IoFauxKitDirFailure, sessionFauxKitDir, e)
+				kitImpPathIfFauxKitDirActualKit, err = kip, ErrFrom(ErrCatSess, ErrSessInit_IoFauxKitDirFailure, sessionFauxKitDir, e)
 			}
 		}
 		if err == nil {
@@ -128,7 +128,7 @@ func (me *Ctx) fauxKitsAddDir(dirPath string, forceAcceptEvenIfNoSrcFiles bool) 
 		err = &os.PathError{Path: dirPath, Op: "directory", Err: os.ErrNotExist}
 	}
 	if err == nil {
-		if dirHasSrcFiles = ufs.DoesDirHaveFilesWithSuffix(dirPath, atmo.SrcFileExt); dirHasSrcFiles || forceAcceptEvenIfNoSrcFiles {
+		if dirHasSrcFiles = ufs.DoesDirHaveFilesWithSuffix(dirPath, SrcFileExt); dirHasSrcFiles || forceAcceptEvenIfNoSrcFiles {
 			var in bool
 			for _, kitsdirpath := range me.Dirs.KitsStashes {
 				pref := kitsdirpath + string(os.PathSeparator)
@@ -172,7 +172,7 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 	return
 }
 
-func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage1Errs atmo.Errors, freshStage2AndBeyondErrs atmo.Errors) {
+func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage1Errs Errors, freshStage2AndBeyondErrs Errors) {
 	me.Kits.All.ensureErrTldPosOffsets()
 	hadfresherrs := len(freshStage1Errs) > 0 || len(freshStage2AndBeyondErrs) > 0
 	if hadfresherrs {
@@ -182,7 +182,7 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage1Errs atmo.Err
 					me.bgMsg(true, e.Error())
 				}
 			}
-			atmo.SortMaybe(freshStage2AndBeyondErrs)
+			SortMaybe(freshStage2AndBeyondErrs)
 			for _, e := range freshStage2AndBeyondErrs {
 				if pos := e.Pos(); pos == nil || (pos.FilePath != "" && pos.FilePath != me.Options.Scratchpad.FauxFileNameForErrorMessages) {
 					me.bgMsg(true, e.Error())
@@ -195,7 +195,7 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage1Errs atmo.Err
 	}
 }
 
-func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
+func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*AstFile) {
 	if me.Options.FileModsCatchup.BurstLimit > 0 {
 		now := time.Now()
 		if (!me.state.fileModsWatch.lastCatchup.IsZero()) &&
@@ -207,7 +207,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*atmolang.AstFile
 	me.catchUpOnFileMods(nil, ensureFilesMarkedAsChanged...)
 }
 
-func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*atmolang.AstFile) {
+func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*AstFile) {
 	me.state.fileModsWatch.collectFileModsForNextCatchup(me.Dirs.KitsStashes, me.Dirs.fauxKits)
 
 	var latest []map[string]os.FileInfo
@@ -261,7 +261,7 @@ func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (r
 
 func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do func()) (recoveredPanic interface{}) {
 	if len(srcFilePathsAndAltSrcs) > 0 {
-		srcfiles := make(atmolang.AstFiles, 0, len(srcFilePathsAndAltSrcs))
+		srcfiles := make(AstFiles, 0, len(srcFilePathsAndAltSrcs))
 		restoreFinally := func() {
 			if recoveredPanic = recover(); recoveredPanic != nil {
 				debug.PrintStack()

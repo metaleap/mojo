@@ -1,13 +1,13 @@
-// Package `atmoil` implements the intermediate-language representation that a
-// lexed-and-parsed `atmolang` AST is transformed into as a next step. Whereas
-// the lex-and-parse phase in the `atmolang` package ("stage 0") only cared
-// about syntax, a few initial (more) semantic validations occur at the very
+// Package `atmo/il` implements the intermediate-language representation that
+// a lexed-and-parsed `atmo/ast` is transformed into as a next step. Whereas
+// the lex-and-parse phase in the `atmo/ast` package ("stage 0") only cared
+// about syntax, a few initial (more-)semantic validations occur at the very
 // next "stage 1" (AST-to-IL), such as eg. def-name and arg-name validations,
-// nonsensical placeholders et al. The following "stage 2" (in `atmosess`) then
-// does prerequisite initial names-analyses and it too both operates chiefly
-// on `atmoil` node types plus utilizes its auxiliary types provided for this.
+// nonsensical placeholders et al. The following "stage 2" (in `atmo/session`)
+// then does prerequisite initial names-analyses and it too both operates chiefly
+// on `atmo/il` node types plus utilizes its auxiliary types provided for this.
 //
-// `atmolang` transforms and/or desugars into `atmoil` such that only idents,
+// `atmo/ast` transforms and/or desugars into `atmo/il` such that only idents,
 // atomic literals, unary calls, and nullary or unary defs remain in the IL.
 // Case expressions desugar into combinations of calls to basic `Std`-built-in
 // funcs such as `true`, `false`, `or`, `==` etc. Underscore placeholders obtain
@@ -23,14 +23,14 @@ package atmoil
 
 import (
 	"github.com/go-leap/dev/lex"
-	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/lang"
+	. "github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo/ast"
 )
 
 type ctxIrFromAst struct {
 	curTopLevelDef  *IrDefTop
 	defsScope       *IrDefs
-	coerceCallables map[INode]IExpr
+	coerceCallables map[IIrNode]IIrExpr
 	counter         struct {
 		val   byte
 		times int
@@ -41,22 +41,22 @@ type IrDefs []IrDef
 
 type IrTopDefs []*IrDefTop
 
-type INode interface {
-	Print() atmolang.IAstNode
-	Origin() atmolang.IAstNode
+type IIrNode interface {
+	Print() IAstNode
+	Origin() IAstNode
 	origToks() udevlex.Tokens
-	EquivTo(INode) bool
-	findByOrig(INode, atmolang.IAstNode) []INode
+	EquivTo(IIrNode) bool
+	findByOrig(IIrNode, IAstNode) []IIrNode
 	IsDef() *IrDef
 	IsExt() bool
 	Let() *IrExprLetBase
 	RefersTo(string) bool
-	refsTo(string) []IExpr
-	walk(ancestors []INode, self INode, on func([]INode, INode, ...INode) bool) bool
+	refsTo(string) []IIrExpr
+	walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) bool
 }
 
-type IExpr interface {
-	INode
+type IIrExpr interface {
+	IIrNode
 	IsAtomic() bool
 	exprBase() *IrExprBase
 }
@@ -65,37 +65,37 @@ type irNodeBase struct {
 	// some `IIrExpr`s' own `Orig` fields or `INode.Origin()` implementations might
 	// point to (on-the-fly dynamically computed in-memory) desugared nodes, this
 	// one always points to the "real origin" node (might be identical or not)
-	Orig atmolang.IAstNode
+	Orig IAstNode
 }
 
 type IrLam struct {
 	IrExprBase
-	OrigDef *atmolang.AstDef
+	OrigDef *AstDef
 	Arg     IrArg
-	Body    IExpr
+	Body    IIrExpr
 }
 
 type IrDef struct {
 	irNodeBase
-	OrigDef *atmolang.AstDef
+	OrigDef *AstDef
 
 	Name IrIdentDecl
 	Arg  *IrArg
-	Body IExpr
+	Body IIrExpr
 }
 
 type IrDefTop struct {
 	IrDef
 
 	Id           string
-	OrigTopChunk *atmolang.SrcTopChunk
+	OrigTopChunk *AstFileChunk
 	Anns         struct {
 		Preduced IPreduced
 	}
 	Errs struct {
-		Stage1AstToIr  atmo.Errors
-		Stage2BadNames atmo.Errors
-		Stage3Preduce  atmo.Errors
+		Stage1AstToIr  Errors
+		Stage2BadNames Errors
+		Stage3Preduce  Errors
 	}
 
 	refersTo map[string]bool
@@ -103,7 +103,7 @@ type IrDefTop struct {
 
 type IrArg struct {
 	IrIdentDecl
-	Orig *atmolang.AstDefArg
+	Orig *AstDefArg
 }
 
 type IrExprBase struct {
@@ -135,7 +135,7 @@ type IrLitTag struct {
 
 type IrExprLetBase struct {
 	Defs      IrDefs
-	letOrig   *atmolang.AstExprLet
+	letOrig   *AstExprLet
 	letPrefix string
 
 	Anns struct {
@@ -170,22 +170,21 @@ type IrIdentName struct {
 	Anns struct {
 		// like `IrExprLetBase.Anns.NamesInScope`, contains the following `IIrNode` types:
 		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
-		Candidates []INode
+		Candidates []IIrNode
 	}
 }
 
 type IrAppl struct {
 	IrExprBase
 	IrExprLetBase
-	Orig    *atmolang.AstExprAppl
-	Callee  IExpr
-	CallArg IExpr
+	Orig    *AstExprAppl
+	Callee  IIrExpr
+	CallArg IIrExpr
 }
 
-type AnnNamesInScope map[string][]INode
+type AnnNamesInScope map[string][]IIrNode
 
-type Builder struct{}
-
+type IrBuild struct{}
 type IPreduced interface {
 	IsErrOrAbyss() bool
 	Self() *Preduced
@@ -213,7 +212,7 @@ type PPrimAtomicConstTag struct {
 
 type PErr struct {
 	Preduced
-	Err *atmo.Error
+	Err *Error
 }
 
 type PAbyss struct {

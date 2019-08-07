@@ -2,11 +2,11 @@ package atmoil
 
 import (
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/lang"
+	. "github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo/ast"
 )
 
-func (me *IrDef) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDef) (errs atmo.Errors) {
+func (me *IrDef) initFrom(ctx *ctxIrFromAst, orig *AstDef) (errs Errors) {
 	me.OrigDef = orig.ToUnary()
 	errs.Add(me.initName(ctx)...)
 	errs.Add(me.initArg(ctx)...)
@@ -19,7 +19,7 @@ func (me *IrDef) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDef) (errs atmo.E
 	return
 }
 
-func (me *IrDef) initName(ctx *ctxIrFromAst) (errs atmo.Errors) {
+func (me *IrDef) initName(ctx *ctxIrFromAst) (errs Errors) {
 	// even if our name is erroneous as detected further down below:
 	// don't want this to stay empty, generally speaking
 	me.Name.Val = me.OrigDef.Name.Val
@@ -30,7 +30,7 @@ func (me *IrDef) initName(ctx *ctxIrFromAst) (errs atmo.Errors) {
 			tok = me.OrigDef.Body.Toks().First1()
 		}
 	}
-	var ident IExpr
+	var ident IIrExpr
 	ident, errs = ctx.newExprFromIdent(&me.OrigDef.Name)
 	if name, _ := ident.(*IrIdentName); name == nil {
 		errs.AddNaming(ErrFromAst_DefNameInvalidIdent, tok, "invalid def name: `"+tok.String()+"`") // some non-name ident: Tag or Undef or placeholder etc..
@@ -38,15 +38,15 @@ func (me *IrDef) initName(ctx *ctxIrFromAst) (errs atmo.Errors) {
 		me.Name.IrIdentBase = name.IrIdentBase
 	}
 	if me.OrigDef.NameAffix != nil {
-		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(me.OrigDef.NameAffix)).(IExpr))
+		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(me.OrigDef.NameAffix)).(IIrExpr))
 	}
 	return
 }
 
-func (me *IrDef) initBody(ctx *ctxIrFromAst) (errs atmo.Errors) {
+func (me *IrDef) initBody(ctx *ctxIrFromAst) (errs Errors) {
 	// fast-track special-casing for a def-body of mere-underscore
-	if ident, _ := me.OrigDef.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
-		tag := Build.IdentTag(me.Name.Val)
+	if ident, _ := me.OrigDef.Body.(*AstIdent); ident != nil && ident.IsPlaceholder() {
+		tag := BuildIr.IdentTag(me.Name.Val)
 		tag.Orig, me.Body = ident, tag
 	} else {
 		me.Body, errs = ctx.newExprFrom(me.OrigDef.Body)
@@ -57,7 +57,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst) (errs atmo.Errors) {
 		if me.Arg != nil {
 			if coerce, ok := ctx.coerceCallables[me.Arg]; ok {
 				me.Body = ctx.bodyWithCoercion(coerce, ctx.ensureAtomic(me.Body),
-					func() IExpr { return Build.IdentNameCopy(&me.Arg.IrIdentBase) })
+					func() IIrExpr { return BuildIr.IdentNameCopy(&me.Arg.IrIdentBase) })
 			}
 		}
 		if coerce, ok := ctx.coerceCallables[me]; ok {
@@ -67,7 +67,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	return
 }
 
-func (me *IrDef) initArg(ctx *ctxIrFromAst) (errs atmo.Errors) {
+func (me *IrDef) initArg(ctx *ctxIrFromAst) (errs Errors) {
 	if len(me.OrigDef.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
 		var arg IrArg
 		errs.Add(arg.initFrom(ctx, &me.OrigDef.Args[0])...)
@@ -76,7 +76,7 @@ func (me *IrDef) initArg(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	return
 }
 
-func (me *IrDef) initMetas(ctx *ctxIrFromAst) (errs atmo.Errors) {
+func (me *IrDef) initMetas(ctx *ctxIrFromAst) (errs Errors) {
 	if len(me.OrigDef.Meta) > 0 {
 		errs.AddTodo(0, me.OrigDef.Meta[0].Toks(), "def metas")
 		for i := range me.OrigDef.Meta {
@@ -86,12 +86,12 @@ func (me *IrDef) initMetas(ctx *ctxIrFromAst) (errs atmo.Errors) {
 	return
 }
 
-func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDefArg) (errs atmo.Errors) {
+func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
 	me.Orig = orig
 
 	isexpr := true
 	switch v := orig.NameOrConstVal.(type) {
-	case *atmolang.AstIdent:
+	case *AstIdent:
 		if !(v.IsTag || v.IsVar()) {
 			if v.IsPlaceholder() {
 				isexpr, me.IrIdentBase.Val, me.IrIdentBase.Orig =
@@ -107,26 +107,26 @@ func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstDefArg) (errs atm
 
 	if isexpr {
 		me.IrIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
-		appl := Build.Appl1(Build.IdentName(atmo.KnownIdentCoerce), ctx.ensureAtomic(errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IExpr)))
+		appl := BuildIr.Appl1(BuildIr.IdentName(KnownIdentCoerce), ctx.ensureAtomic(errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IIrExpr)))
 		appl.IrExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)
 	}
 	if orig.Affix != nil {
-		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(orig.Affix)).(IExpr))
+		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(orig.Affix)).(IIrExpr))
 	}
 	return
 }
 
-func (me *irLitBase) initFrom(ctx *ctxIrFromAst, orig atmolang.IAstExprAtomic) {
+func (me *irLitBase) initFrom(ctx *ctxIrFromAst, orig IAstExprAtomic) {
 	me.Orig = orig
 }
 
-func (me *IrLitFloat) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstExprLitFloat) {
+func (me *IrLitFloat) initFrom(ctx *ctxIrFromAst, orig *AstExprLitFloat) {
 	me.irLitBase.initFrom(ctx, orig)
 	me.Val = orig.Val
 }
 
-func (me *IrLitUint) initFrom(ctx *ctxIrFromAst, orig *atmolang.AstExprLitUint) {
+func (me *IrLitUint) initFrom(ctx *ctxIrFromAst, orig *AstExprLitUint) {
 	me.irLitBase.initFrom(ctx, orig)
 	me.Val = orig.Val
 }

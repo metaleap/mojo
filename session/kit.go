@@ -6,16 +6,16 @@ import (
 
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/il"
-	"github.com/metaleap/atmo/lang"
+	. "github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo/ast"
+	. "github.com/metaleap/atmo/il"
 )
 
-func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs atmo.Errors) {
+func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs Errors) {
 	return me.kitEnsureLoaded(kit, true)
 }
 
-func (me *Ctx) kitEnsureLoaded(kit *Kit, reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers bool) (freshErrs atmo.Errors) {
+func (me *Ctx) kitEnsureLoaded(kit *Kit, reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers bool) (freshErrs Errors) {
 	stage1errs := me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
 	freshErrs.Add(stage1errs...)
 	if reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers {
@@ -35,7 +35,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 		}
 	}
 
-	var fresherrs atmo.Errors
+	var fresherrs Errors
 	if len(kitImpPaths) > 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
@@ -94,7 +94,7 @@ func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames m
 	return
 }
 
-func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) (freshErrs atmo.Errors) {
+func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) (freshErrs Errors) {
 	var srcfileschanged bool
 	var err error
 
@@ -116,14 +116,14 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 
 		// any new files get added
 		for _, file := range diritems {
-			if (!file.IsDir()) && ustr.Suff(file.Name(), atmo.SrcFileExt) {
+			if (!file.IsDir()) && ustr.Suff(file.Name(), SrcFileExt) {
 				if fp := filepath.Join(kit.DirPath, file.Name()); kit.SrcFiles.Index(fp) < 0 {
-					srcfileschanged, kit.SrcFiles = true, append(kit.SrcFiles, &atmolang.AstFile{SrcFilePath: fp})
+					srcfileschanged, kit.SrcFiles = true, append(kit.SrcFiles, &AstFile{SrcFilePath: fp})
 				}
 			}
 		}
 		if srcfileschanged {
-			atmo.SortMaybe(kit.SrcFiles)
+			SortMaybe(kit.SrcFiles)
 		}
 	}
 
@@ -171,7 +171,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				}
 				freshErrs.Add(fresherrs...)
 			}
-			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*atmoil.IrDefTop, len(kit.topLevelDefs))
+			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*IrDefTop, len(kit.topLevelDefs))
 			for _, tldef := range kit.topLevelDefs {
 				kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Name.Val] =
 					tldef, append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.Id)
@@ -197,7 +197,7 @@ func (me *Kit) ensureErrTldPosOffsets() {
 
 // Errors collects whatever issues exist in any of the `Kit`'s source files
 // (file-system errors, lexing/parsing errors, semantic errors etc).
-func (me *Kit) Errors(maybeErrsToSrcs map[*atmo.Error][]byte) (errs atmo.Errors) {
+func (me *Kit) Errors(maybeErrsToSrcs map[*Error][]byte) (errs Errors) {
 	if me.Errs.Stage1DirAccessDuringRefresh != nil {
 		errs.Add(me.Errs.Stage1DirAccessDuringRefresh)
 	}
@@ -228,8 +228,8 @@ func (me *Kit) DoesImport(kitImpPath string) bool {
 func (me *Kit) Imports() []string {
 	if me.imports == nil {
 		me.imports = make([]string, 0, 1)
-		if me.ImpPath != atmo.NameAutoKit {
-			me.imports = append(me.imports, atmo.NameAutoKit)
+		if me.ImpPath != NameAutoKit {
+			me.imports = append(me.imports, NameAutoKit)
 		}
 	}
 	return me.imports
@@ -244,7 +244,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return len(me.lookups.tlDefIDsByName[name]) > 0
 }
 
-func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs atmoil.IrTopDefs) {
+func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs IrTopDefs) {
 	for len(name) > 0 && name[0] == '_' {
 		name = name[1:]
 	}
@@ -265,7 +265,7 @@ func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs atmoil.IrTopDef
 	return
 }
 
-func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *atmolang.SrcTopChunk, theNodeAndItsAncestors []atmolang.IAstNode) {
+func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk *AstFileChunk, theNodeAndItsAncestors []IAstNode) {
 	if srcfile := me.SrcFiles.ByFilePath(srcFilePath); srcfile != nil {
 		if topLevelChunk = srcfile.TopLevelChunkAt(pos0ByteOffset); topLevelChunk != nil {
 			theNodeAndItsAncestors = topLevelChunk.At(pos0ByteOffset)
@@ -274,19 +274,19 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 	return
 }
 
-func (me *Kit) IrNodeOfAstNode(defId string, origNode atmolang.IAstNode) (astDefTop *atmoil.IrDefTop, theNodeAndItsAncestors []atmoil.INode) {
+func (me *Kit) IrNodeOfAstNode(defId string, origNode IAstNode) (astDefTop *IrDefTop, theNodeAndItsAncestors []IIrNode) {
 	if astDefTop = me.lookups.tlDefsByID[defId]; astDefTop != nil {
 		theNodeAndItsAncestors = astDefTop.FindByOrig(origNode)
 	}
 	return
 }
 
-func (me *Kit) SelectNodes(tldOk func(*atmoil.IrDefTop) bool, nodeOk func([]atmoil.INode, atmoil.INode, []atmoil.INode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[atmoil.INode]*atmoil.IrDefTop) {
+func (me *Kit) SelectNodes(tldOk func(*IrDefTop) bool, nodeOk func([]IIrNode, IIrNode, []IIrNode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[IIrNode]*IrDefTop) {
 	var alldone bool
-	matches = map[atmoil.INode]*atmoil.IrDefTop{}
+	matches = map[IIrNode]*IrDefTop{}
 	for _, tld := range me.topLevelDefs {
 		if tldOk(tld) {
-			tld.Walk(func(curnodeancestors []atmoil.INode, curnode atmoil.INode, curnodedescendantsthatwillbetraversedifreturningtrue ...atmoil.INode) (traverse bool) {
+			tld.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodedescendantsthatwillbetraversedifreturningtrue ...IIrNode) (traverse bool) {
 				ismatch, dontdescend, donetld, doneall := nodeOk(curnodeancestors, curnode, curnodedescendantsthatwillbetraversedifreturningtrue)
 				if doneall {
 					alldone = true

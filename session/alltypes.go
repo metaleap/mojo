@@ -21,17 +21,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/il"
-	"github.com/metaleap/atmo/lang"
+	. "github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo/ast"
+	. "github.com/metaleap/atmo/il"
 )
 
 type ctxPreducing struct {
 	dbgIndent  int
 	curSessCtx *Ctx
-	curDefs    map[*atmoil.IrDef]atmo.Exist
+	curDefs    map[*IrDef]Exist
 	curNode    struct {
-		owningTopDef *atmoil.IrDefTop
+		owningTopDef *IrDefTop
 		owningKit    *Kit
 	}
 }
@@ -89,26 +89,26 @@ type Kit struct {
 	WasEverToBeLoaded bool
 
 	imports      []string
-	topLevelDefs atmoil.IrTopDefs
-	SrcFiles     atmolang.AstFiles
+	topLevelDefs IrTopDefs
+	SrcFiles     AstFiles
 	state        struct {
 		defsGoneIdsNames map[string]string
 		defsBornIdsNames map[string]string
 	}
 	lookups struct {
-		tlDefsByID      map[string]*atmoil.IrDefTop
+		tlDefsByID      map[string]*IrDefTop
 		tlDefIDsByName  map[string][]string
-		namesInScopeOwn atmoil.AnnNamesInScope
-		namesInScopeExt atmoil.AnnNamesInScope
-		namesInScopeAll atmoil.AnnNamesInScope
+		namesInScopeOwn AnnNamesInScope
+		namesInScopeExt AnnNamesInScope
+		namesInScopeAll AnnNamesInScope
 	}
 	Errs struct {
-		Stage1DirAccessDuringRefresh *atmo.Error
-		Stage1BadImports             atmo.Errors
+		Stage1DirAccessDuringRefresh *Error
+		Stage1BadImports             Errors
 	}
 }
 
 type IrDefRef struct {
-	*atmoil.IrDefTop
+	*IrDefTop
 	Kit *Kit
 }

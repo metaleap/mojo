@@ -5,7 +5,7 @@ import (
 	"github.com/metaleap/atmo"
 )
 
-func (me AnnNamesInScope) Add(name string, nodes ...INode) {
+func (me AnnNamesInScope) Add(name string, nodes ...IIrNode) {
 	me[name] = append(me[name], nodes...)
 }
 
@@ -72,7 +72,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.
 	return
 }
 
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors) {
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors) {
 	inscope := me
 	if let := node.Let(); let != nil {
 		if len(let.Defs) > 0 {
@@ -102,7 +102,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, 
 	return
 }
 
-func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDefTop, errs *atmo.Errors, node INode, name string) {
+func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDefTop, errs *atmo.Errors, node IIrNode, name string) {
 	toks := node.origToks()
 	if def := node.IsDef(); def != nil {
 		if t := def.Name.origToks(); len(t) > 0 {

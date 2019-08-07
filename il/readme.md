@@ -2,16 +2,16 @@
 --
     import "github.com/metaleap/atmo/il"
 
-Package `atmoil` implements the intermediate-language representation that a
-lexed-and-parsed `atmolang` AST is transformed into as a next step. Whereas the
-lex-and-parse phase in the `atmolang` package ("stage 0") only cared about
-syntax, a few initial (more) semantic validations occur at the very next "stage
+Package `atmo/il` implements the intermediate-language representation that a
+lexed-and-parsed `atmo/ast` is transformed into as a next step. Whereas the
+lex-and-parse phase in the `atmo/ast` package ("stage 0") only cared about
+syntax, a few initial (more-)semantic validations occur at the very next "stage
 1" (AST-to-IL), such as eg. def-name and arg-name validations, nonsensical
-placeholders et al. The following "stage 2" (in `atmosess`) then does
-prerequisite initial names-analyses and it too both operates chiefly on `atmoil`
-node types plus utilizes its auxiliary types provided for this.
+placeholders et al. The following "stage 2" (in `atmo/session`) then does
+prerequisite initial names-analyses and it too both operates chiefly on
+`atmo/il` node types plus utilizes its auxiliary types provided for this.
 
-`atmolang` transforms and/or desugars into `atmoil` such that only idents,
+`atmo/ast` transforms and/or desugars into `atmo/il` such that only idents,
 atomic literals, unary calls, and nullary or unary defs remain in the IL. Case
 expressions desugar into combinations of calls to basic `Std`-built-in funcs
 such as `true`, `false`, `or`, `==` etc. Underscore placeholders obtain meaning
@@ -44,108 +44,59 @@ const (
 #### func  DbgPrintToStderr
 
 ```go
-func DbgPrintToStderr(node INode)
+func DbgPrintToStderr(node IIrNode)
 ```
 
 #### func  DbgPrintToString
 
 ```go
-func DbgPrintToString(node INode) string
+func DbgPrintToString(node IIrNode) string
+```
+
+#### func  ExprFrom
+
+```go
+func ExprFrom(orig IAstExpr) (IIrExpr, Errors)
 ```
 
 #### type AnnNamesInScope
 
 ```go
-type AnnNamesInScope map[string][]INode
+type AnnNamesInScope map[string][]IIrNode
 ```
 
 
 #### func (AnnNamesInScope) Add
 
 ```go
-func (me AnnNamesInScope) Add(name string, nodes ...INode)
+func (me AnnNamesInScope) Add(name string, nodes ...IIrNode)
 ```
 
 #### func (AnnNamesInScope) RepopulateDefsAndIdentsFor
 
 ```go
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node INode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors)
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors)
 ```
 
-#### type Builder
+#### type IIrExpr
 
 ```go
-type Builder struct{}
-```
-
-
-```go
-var (
-	Build Builder
-)
-```
-
-#### func (Builder) Appl1
-
-```go
-func (Builder) Appl1(callee IExpr, callArg IExpr) *IrAppl
-```
-
-#### func (Builder) ApplN
-
-```go
-func (Builder) ApplN(ctx *ctxIrFromAst, callee IExpr, callArgs ...IExpr) (appl *IrAppl)
-```
-
-#### func (Builder) IdentName
-
-```go
-func (Builder) IdentName(name string) *IrIdentName
-```
-
-#### func (Builder) IdentNameCopy
-
-```go
-func (Builder) IdentNameCopy(identBase *IrIdentBase) *IrIdentName
-```
-
-#### func (Builder) IdentTag
-
-```go
-func (Builder) IdentTag(name string) *IrLitTag
-```
-
-#### func (Builder) Undef
-
-```go
-func (Builder) Undef() *IrNonValue
-```
-
-#### type IExpr
-
-```go
-type IExpr interface {
-	INode
+type IIrExpr interface {
+	IIrNode
 	IsAtomic() bool
 	// contains filtered or unexported methods
 }
 ```
 
 
-#### func  ExprFrom
+#### type IIrNode
 
 ```go
-func ExprFrom(orig atmolang.IAstExpr) (IExpr, atmo.Errors)
-```
+type IIrNode interface {
+	Print() IAstNode
+	Origin() IAstNode
 
-#### type INode
-
-```go
-type INode interface {
-	Print() atmolang.IAstNode
-	Origin() atmolang.IAstNode
-
-	EquivTo(INode) bool
+	EquivTo(IIrNode) bool
 
 	IsDef() *IrDef
 	IsExt() bool
@@ -173,9 +124,9 @@ type IPreduced interface {
 type IrAppl struct {
 	IrExprBase
 	IrExprLetBase
-	Orig    *atmolang.AstExprAppl
-	Callee  IExpr
-	CallArg IExpr
+	Orig    *AstExprAppl
+	Callee  IIrExpr
+	CallArg IIrExpr
 }
 ```
 
@@ -183,7 +134,7 @@ type IrAppl struct {
 #### func (*IrAppl) EquivTo
 
 ```go
-func (me *IrAppl) EquivTo(node INode) bool
+func (me *IrAppl) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrAppl) IsDef
@@ -207,13 +158,13 @@ func (me *IrAppl) Let() *IrExprLetBase
 #### func (*IrAppl) Origin
 
 ```go
-func (me *IrAppl) Origin() atmolang.IAstNode
+func (me *IrAppl) Origin() IAstNode
 ```
 
 #### func (*IrAppl) Print
 
 ```go
-func (me *IrAppl) Print() atmolang.IAstNode
+func (me *IrAppl) Print() IAstNode
 ```
 
 #### func (*IrAppl) RefersTo
@@ -227,7 +178,7 @@ func (me *IrAppl) RefersTo(name string) bool
 ```go
 type IrArg struct {
 	IrIdentDecl
-	Orig *atmolang.AstDefArg
+	Orig *AstDefArg
 }
 ```
 
@@ -235,7 +186,7 @@ type IrArg struct {
 #### func (*IrArg) EquivTo
 
 ```go
-func (me *IrArg) EquivTo(node INode) bool
+func (me *IrArg) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrArg) IsDef
@@ -259,24 +210,73 @@ func (*IrArg) Let() *IrExprLetBase
 #### func (*IrArg) Origin
 
 ```go
-func (me *IrArg) Origin() atmolang.IAstNode
+func (me *IrArg) Origin() IAstNode
 ```
 
 #### func (*IrArg) Print
 
 ```go
-func (me *IrArg) Print() atmolang.IAstNode
+func (me *IrArg) Print() IAstNode
+```
+
+#### type IrBuild
+
+```go
+type IrBuild struct{}
+```
+
+
+```go
+var (
+	BuildIr IrBuild
+)
+```
+
+#### func (IrBuild) Appl1
+
+```go
+func (IrBuild) Appl1(callee IIrExpr, callArg IIrExpr) *IrAppl
+```
+
+#### func (IrBuild) ApplN
+
+```go
+func (IrBuild) ApplN(ctx *ctxIrFromAst, callee IIrExpr, callArgs ...IIrExpr) (appl *IrAppl)
+```
+
+#### func (IrBuild) IdentName
+
+```go
+func (IrBuild) IdentName(name string) *IrIdentName
+```
+
+#### func (IrBuild) IdentNameCopy
+
+```go
+func (IrBuild) IdentNameCopy(identBase *IrIdentBase) *IrIdentName
+```
+
+#### func (IrBuild) IdentTag
+
+```go
+func (IrBuild) IdentTag(name string) *IrLitTag
+```
+
+#### func (IrBuild) Undef
+
+```go
+func (IrBuild) Undef() *IrNonValue
 ```
 
 #### type IrDef
 
 ```go
 type IrDef struct {
-	OrigDef *atmolang.AstDef
+	OrigDef *AstDef
 
 	Name IrIdentDecl
 	Arg  *IrArg
-	Body IExpr
+	Body IIrExpr
 }
 ```
 
@@ -284,13 +284,13 @@ type IrDef struct {
 #### func (*IrDef) EquivTo
 
 ```go
-func (me *IrDef) EquivTo(node INode) bool
+func (me *IrDef) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrDef) HasArgRefsOtherThan
 
 ```go
-func (me *IrDef) HasArgRefsOtherThan(argNamesHave atmo.StringKeys) (argNamesIncomplete bool)
+func (me *IrDef) HasArgRefsOtherThan(argNamesHave StringKeys) (argNamesIncomplete bool)
 ```
 
 #### func (*IrDef) IsDef
@@ -314,13 +314,13 @@ func (*IrDef) Let() *IrExprLetBase
 #### func (*IrDef) Origin
 
 ```go
-func (me *IrDef) Origin() atmolang.IAstNode
+func (me *IrDef) Origin() IAstNode
 ```
 
 #### func (*IrDef) Print
 
 ```go
-func (me *IrDef) Print() atmolang.IAstNode
+func (me *IrDef) Print() IAstNode
 ```
 
 #### func (*IrDef) RefersTo
@@ -336,14 +336,14 @@ type IrDefTop struct {
 	IrDef
 
 	Id           string
-	OrigTopChunk *atmolang.SrcTopChunk
+	OrigTopChunk *AstFileChunk
 	Anns         struct {
 		Preduced IPreduced
 	}
 	Errs struct {
-		Stage1AstToIr  atmo.Errors
-		Stage2BadNames atmo.Errors
-		Stage3Preduce  atmo.Errors
+		Stage1AstToIr  Errors
+		Stage2BadNames Errors
+		Stage3Preduce  Errors
 	}
 }
 ```
@@ -352,31 +352,31 @@ type IrDefTop struct {
 #### func (*IrDefTop) Errors
 
 ```go
-func (me *IrDefTop) Errors() (errs atmo.Errors)
+func (me *IrDefTop) Errors() (errs Errors)
 ```
 
 #### func (*IrDefTop) FindAll
 
 ```go
-func (me *IrDefTop) FindAll(where func(INode) bool) (matches [][]INode)
+func (me *IrDefTop) FindAll(where func(IIrNode) bool) (matches [][]IIrNode)
 ```
 
 #### func (*IrDefTop) FindAny
 
 ```go
-func (me *IrDefTop) FindAny(where func(INode) bool) (firstMatch []INode)
+func (me *IrDefTop) FindAny(where func(IIrNode) bool) (firstMatch []IIrNode)
 ```
 
 #### func (*IrDefTop) FindByOrig
 
 ```go
-func (me *IrDefTop) FindByOrig(orig atmolang.IAstNode) []INode
+func (me *IrDefTop) FindByOrig(orig IAstNode) []IIrNode
 ```
 
 #### func (*IrDefTop) FindDescendants
 
 ```go
-func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(INode) bool) (paths [][]INode)
+func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(IIrNode) bool) (paths [][]IIrNode)
 ```
 
 #### func (*IrDefTop) ForAllLocalDefs
@@ -388,13 +388,13 @@ func (me *IrDefTop) ForAllLocalDefs(onLocalDef func(*IrDef) (done bool))
 #### func (*IrDefTop) HasAnyOf
 
 ```go
-func (me *IrDefTop) HasAnyOf(nodes ...INode) bool
+func (me *IrDefTop) HasAnyOf(nodes ...IIrNode) bool
 ```
 
 #### func (*IrDefTop) HasDef
 
 ```go
-func (me *IrDefTop) HasDef(maybeDef INode) (defIfLocal *IrDef)
+func (me *IrDefTop) HasDef(maybeDef IIrNode) (defIfLocal *IrDef)
 ```
 
 #### func (*IrDefTop) HasErrors
@@ -424,13 +424,13 @@ func (*IrDefTop) Let() *IrExprLetBase
 #### func (*IrDefTop) OrigToks
 
 ```go
-func (me *IrDefTop) OrigToks(node INode) (toks udevlex.Tokens)
+func (me *IrDefTop) OrigToks(node IIrNode) (toks udevlex.Tokens)
 ```
 
 #### func (*IrDefTop) Print
 
 ```go
-func (me *IrDefTop) Print() atmolang.IAstNode
+func (me *IrDefTop) Print() IAstNode
 ```
 
 #### func (*IrDefTop) RefersTo
@@ -448,13 +448,13 @@ func (me *IrDefTop) RefersToOrDefines(name string) (relatesTo bool)
 #### func (*IrDefTop) RefsTo
 
 ```go
-func (me *IrDefTop) RefsTo(name string) (refs []IExpr)
+func (me *IrDefTop) RefsTo(name string) (refs []IIrExpr)
 ```
 
 #### func (*IrDefTop) Walk
 
 ```go
-func (me *IrDefTop) Walk(shouldTraverse func(curNodeAncestors []INode, curNode INode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...INode) bool)
+func (me *IrDefTop) Walk(shouldTraverse func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool)
 ```
 
 #### type IrDefs
@@ -538,7 +538,7 @@ func (*IrExprBase) Let() *IrExprLetBase
 #### func (*IrExprBase) Origin
 
 ```go
-func (me *IrExprBase) Origin() atmolang.IAstNode
+func (me *IrExprBase) Origin() IAstNode
 ```
 
 #### type IrExprLetBase
@@ -587,7 +587,7 @@ func (*IrIdentBase) Let() *IrExprLetBase
 #### func (*IrIdentBase) Print
 
 ```go
-func (me *IrIdentBase) Print() atmolang.IAstNode
+func (me *IrIdentBase) Print() IAstNode
 ```
 
 #### type IrIdentDecl
@@ -602,7 +602,7 @@ type IrIdentDecl struct {
 #### func (*IrIdentDecl) EquivTo
 
 ```go
-func (me *IrIdentDecl) EquivTo(node INode) bool
+func (me *IrIdentDecl) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrIdentDecl) IsDef
@@ -633,7 +633,7 @@ type IrIdentName struct {
 	Anns struct {
 		// like `IrExprLetBase.Anns.NamesInScope`, contains the following `IIrNode` types:
 		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
-		Candidates []INode
+		Candidates []IIrNode
 	}
 }
 ```
@@ -642,7 +642,7 @@ type IrIdentName struct {
 #### func (*IrIdentName) EquivTo
 
 ```go
-func (me *IrIdentName) EquivTo(node INode) bool
+func (me *IrIdentName) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrIdentName) IsArgRef
@@ -672,13 +672,13 @@ func (me *IrIdentName) Let() *IrExprLetBase
 #### func (*IrIdentName) Origin
 
 ```go
-func (me *IrIdentName) Origin() atmolang.IAstNode
+func (me *IrIdentName) Origin() IAstNode
 ```
 
 #### func (*IrIdentName) Print
 
 ```go
-func (me *IrIdentName) Print() atmolang.IAstNode
+func (me *IrIdentName) Print() IAstNode
 ```
 
 #### func (*IrIdentName) RefersTo
@@ -690,7 +690,7 @@ func (me *IrIdentName) RefersTo(name string) bool
 #### func (*IrIdentName) ResolvesTo
 
 ```go
-func (me *IrIdentName) ResolvesTo(n INode) bool
+func (me *IrIdentName) ResolvesTo(n IIrNode) bool
 ```
 
 #### type IrLam
@@ -698,9 +698,9 @@ func (me *IrIdentName) ResolvesTo(n INode) bool
 ```go
 type IrLam struct {
 	IrExprBase
-	OrigDef *atmolang.AstDef
+	OrigDef *AstDef
 	Arg     IrArg
-	Body    IExpr
+	Body    IIrExpr
 }
 ```
 
@@ -708,7 +708,7 @@ type IrLam struct {
 #### func (*IrLam) EquivTo
 
 ```go
-func (me *IrLam) EquivTo(node INode) bool
+func (me *IrLam) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrLam) IsDef
@@ -732,7 +732,7 @@ func (*IrLam) Let() *IrExprLetBase
 #### func (*IrLam) Print
 
 ```go
-func (me *IrLam) Print() atmolang.IAstNode
+func (me *IrLam) Print() IAstNode
 ```
 
 #### func (*IrLam) RefersTo
@@ -753,13 +753,13 @@ type IrLitFloat struct {
 #### func (*IrLitFloat) EquivTo
 
 ```go
-func (me *IrLitFloat) EquivTo(node INode) bool
+func (me *IrLitFloat) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrLitFloat) Print
 
 ```go
-func (me *IrLitFloat) Print() atmolang.IAstNode
+func (me *IrLitFloat) Print() IAstNode
 ```
 
 #### type IrLitTag
@@ -774,13 +774,13 @@ type IrLitTag struct {
 #### func (*IrLitTag) EquivTo
 
 ```go
-func (me *IrLitTag) EquivTo(node INode) bool
+func (me *IrLitTag) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrLitTag) Print
 
 ```go
-func (me *IrLitTag) Print() atmolang.IAstNode
+func (me *IrLitTag) Print() IAstNode
 ```
 
 #### type IrLitUint
@@ -795,13 +795,13 @@ type IrLitUint struct {
 #### func (*IrLitUint) EquivTo
 
 ```go
-func (me *IrLitUint) EquivTo(node INode) bool
+func (me *IrLitUint) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrLitUint) Print
 
 ```go
-func (me *IrLitUint) Print() atmolang.IAstNode
+func (me *IrLitUint) Print() IAstNode
 ```
 
 #### type IrNonValue
@@ -821,7 +821,7 @@ type IrNonValue struct {
 #### func (*IrNonValue) EquivTo
 
 ```go
-func (me *IrNonValue) EquivTo(node INode) bool
+func (me *IrNonValue) EquivTo(node IIrNode) bool
 ```
 
 #### func (*IrNonValue) IsDef
@@ -845,7 +845,7 @@ func (*IrNonValue) Let() *IrExprLetBase
 #### func (*IrNonValue) Print
 
 ```go
-func (me *IrNonValue) Print() atmolang.IAstNode
+func (me *IrNonValue) Print() IAstNode
 ```
 
 #### type IrTopDefs
@@ -858,7 +858,7 @@ type IrTopDefs []*IrDefTop
 #### func (IrTopDefs) ByName
 
 ```go
-func (me IrTopDefs) ByName(name string, onlyFor *atmolang.AstFile) (defs []*IrDefTop)
+func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDefTop)
 ```
 
 #### func (IrTopDefs) IndexByID
@@ -882,7 +882,7 @@ func (me IrTopDefs) Less(i int, j int) bool
 #### func (*IrTopDefs) ReInitFrom
 
 ```go
-func (me *IrTopDefs) ReInitFrom(kitSrcFiles atmolang.AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs atmo.Errors)
+func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs Errors)
 ```
 
 #### func (IrTopDefs) Swap
@@ -934,7 +934,7 @@ func (me *PCallable) SummaryCompact() string
 ```go
 type PErr struct {
 	Preduced
-	Err *atmo.Error
+	Err *Error
 }
 ```
 

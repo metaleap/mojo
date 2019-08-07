@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo"
 )
 
 const (
@@ -105,7 +105,7 @@ func (me *Repl) decoAddNotice(altStyle bool, altPrefix string, compact bool, not
 func (me *Repl) decoMsgNotice(bg bool, lines ...string) {
 	for i := 0; i < len(lines); i++ {
 		ln := lines[i]
-		if pos := ustr.Pos(ln, ": ["); pos > 0 && ustr.Has(ln[:pos], atmo.SrcFileExt+":") {
+		if pos := ustr.Pos(ln, ": ["); pos > 0 && ustr.Has(ln[:pos], SrcFileExt+":") {
 			prefix, suffix := lines[:i], lines[i+1:]
 			i, lines = i+1, append(append(prefix, ln[:pos], ln[pos+2:]), suffix...)
 		}

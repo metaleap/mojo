@@ -1,4 +1,4 @@
-package atmolang
+package atmoast
 
 import (
 	"github.com/go-leap/dev/lex"

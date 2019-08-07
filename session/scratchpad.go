@@ -2,14 +2,14 @@ package atmosess
 
 import (
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/il"
-	"github.com/metaleap/atmo/lang"
+	. "github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo/ast"
+	. "github.com/metaleap/atmo/il"
 )
 
-func (me *Kit) ensureScratchpadFile() (pretendFile *atmolang.AstFile) {
+func (me *Kit) ensureScratchpadFile() (pretendFile *AstFile) {
 	if pretendFile = me.SrcFiles.ByFilePath(""); pretendFile == nil {
-		pretendFile = &atmolang.AstFile{}
+		pretendFile = &AstFile{}
 		me.SrcFiles = append(me.SrcFiles, pretendFile)
 		me.ScratchpadClear() // must be after the append
 	}
@@ -24,13 +24,13 @@ func (me *Kit) ScratchpadClear() {
 	me.ensureScratchpadFile().Options.TmpAltSrc = make([]byte, 0, 128) // what matters is that it mustn't be `nil` for scratchpad purposes
 }
 
-func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret atmoil.IPreduced, errs atmo.Errors) {
+func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs Errors) {
 	if src = ustr.Trim(src); len(src) == 0 {
 		return
 	}
 	spfile, bgmsgs := kit.ensureScratchpadFile(), me.Options.BgMsgs.IncludeLiveKitsErrs
 	origsrc, tmpaltsrc := spfile.Options.TmpAltSrc, spfile.Options.TmpAltSrc
-	isdef, _, toks, err := atmolang.LexAndGuess("", []byte(src))
+	isdef, _, toks, err := LexAndGuess("", []byte(src))
 	var restoreorigsrc bool
 	var prefixlength int
 	defer func() {
@@ -60,16 +60,16 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 
 	var defname string
 	if !isdef { // entry is an expr: add temp def `eval‹RandomNoise› := ‹input›` then eval that name
-		defname = "eval" + atmo.StrRand(true)
+		defname = "eval" + StrRand(true)
 		prefix := "_" + defname + " :=\n "
 		src, prefixlength = prefix+src, len(prefix)
-	} else if defnode, e := atmolang.LexAndParseDefOrExpr(isdef, toks); e != nil {
+	} else if defnode, e := LexAndParseDefOrExpr(isdef, toks); e != nil {
 		errs.Add(e)
 		return
 	} else { // a full def to add to (or update in) the scratch-pad
-		def := defnode.(*atmolang.AstDef)
+		def := defnode.(*AstDef)
 		defname = def.Name.Val
-		var alreadyinscratchpad *atmolang.SrcTopChunk
+		var alreadyinscratchpad *AstFileChunk
 		for _, t := range kit.topLevelDefs {
 			if t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname) {
 				if t.OrigTopChunk.SrcFile.SrcFilePath == "" {
@@ -82,7 +82,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 			boff := alreadyinscratchpad.PosOffsetByte()
 			pref, suff := tmpaltsrc[:boff], tmpaltsrc[boff+len(alreadyinscratchpad.Src):]
 			tmpaltsrc = append(append(make([]byte, 0, len(pref)+len(suff)), pref...), suff...)
-			if ident, _ := def.Body.(*atmolang.AstIdent); ident != nil && ident.IsPlaceholder() {
+			if ident, _ := def.Body.(*AstIdent); ident != nil && ident.IsPlaceholder() {
 				src = ""
 			}
 		}
@@ -113,11 +113,11 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		} else if isdef {
 			me.bgMsg(false, "def added to scratchpad: "+defname)
 		}
-		identexpr := atmoil.Build.IdentName(defname)
-		identexpr.Anns.Candidates = []atmoil.INode{defs[0]}
-		atmoil.DbgPrintToStderr(identexpr.Anns.Candidates[0])
+		identexpr := BuildIr.IdentName(defname)
+		identexpr.Anns.Candidates = []IIrNode{defs[0]}
+		DbgPrintToStderr(identexpr.Anns.Candidates[0])
 		ret = me.Preduce(kit, nil, identexpr)
-		if reterr, _ := ret.(*atmoil.PErr); reterr != nil {
+		if reterr, _ := ret.(*PErr); reterr != nil {
 			errs.Add(reterr.Err)
 			ret = nil
 		}

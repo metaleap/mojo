@@ -24,7 +24,7 @@ var (
 
 ```go
 type Repl struct {
-	Ctx             atmosess.Ctx
+	Ctx             Ctx
 	KnownDirectives directives
 	IO              struct {
 		Stdin           io.Reader

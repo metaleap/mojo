@@ -1,4 +1,4 @@
-package atmolang
+package atmoast
 
 import (
 	"io"
@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/go-leap/std"
-	"github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo"
 )
 
-func DbgPrintToStderr(node IAstNode) { PrintTo(nil, node, os.Stderr, true, 1) }
+func PrintToStderr(node IAstNode) { PrintTo(nil, node, os.Stderr, true, 1) }
 
 func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebugPurposes bool, applStyle ApplStyle) {
 	ctxp := &CtxPrint{NoComments: true, CurTopLevel: curTopLevel, OneIndentLevel: "    "}
@@ -69,7 +69,7 @@ func (me *AstFile) Print(fmt IPrintFmt) []byte {
 	return pctx.BytesWriter.Data
 }
 
-func (me *SrcTopChunk) Print(p *CtxPrint) {
+func (me *AstFileChunk) Print(p *CtxPrint) {
 	if p.CurIndentLevel, p.CurTopLevel = 0, me.Ast.Def.Orig; !p.fmtCtxSet {
 		p.fmtCtxSet = true
 		p.Fmt.SetCtxPrint(p)
@@ -132,7 +132,7 @@ func (me *AstDef) print(p *CtxPrint) {
 		p.Fmt.OnDefMeta(me, i, me.Meta[i])
 	}
 	p.WriteByte(' ')
-	p.WriteString(atmo.KnownIdentDecl)
+	p.WriteString(KnownIdentDecl)
 	p.Fmt.OnDefBody(me, me.Body)
 }
 
@@ -206,14 +206,6 @@ func (me *AstExprLet) print(p *CtxPrint) {
 	}
 }
 
-func (me *AstExprLam) print(p *CtxPrint) {
-	p.WriteString("(\\")
-	me.Arg.print(p)
-	p.WriteString("->")
-	me.Body.print(p)
-	p.WriteByte(')')
-}
-
 func (me *AstExprCases) print(p *CtxPrint) {
 	istopleveldefsbody := (p.CurTopLevel == nil || me == p.CurTopLevel.Body)
 	if me.Scrutinee != nil {
@@ -242,7 +234,7 @@ func (me *AstCase) print(p *CtxPrint) {
 }
 
 func (me *PrintFmtMinimal) SetCtxPrint(ctxPrint *CtxPrint) { me.CtxPrint = ctxPrint }
-func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *SrcTopChunk, node *AstTopLevel) {
+func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *AstFileChunk, node *AstTopLevel) {
 	if isntfirst := (tlc != &tlc.SrcFile.TopLevel[0]); isntfirst {
 		me.WriteByte('\n')
 	}
@@ -327,7 +319,7 @@ func (me *PrintFmtMinimal) PrintInParensIf(node IAstNode, ifCases bool, ifNotAto
 	}
 }
 
-func (me *PrintFmtPretty) OnTopLevelChunk(tlc *SrcTopChunk, node *AstTopLevel) {
+func (me *PrintFmtPretty) OnTopLevelChunk(tlc *AstFileChunk, node *AstTopLevel) {
 	me.WriteByte('\n')
 	me.Print(node)
 	me.WriteString("\n\n")

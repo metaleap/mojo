@@ -1,10 +1,10 @@
 package atmoil
 
 var (
-	Build Builder
+	BuildIr IrBuild
 )
 
-func (Builder) Appl1(callee IExpr, callArg IExpr) *IrAppl {
+func (IrBuild) Appl1(callee IIrExpr, callArg IIrExpr) *IrAppl {
 	if requireAtomicCalleeAndCallArg {
 		if !callee.IsAtomic() {
 			panic(callee)
@@ -16,7 +16,7 @@ func (Builder) Appl1(callee IExpr, callArg IExpr) *IrAppl {
 	return &IrAppl{Callee: callee, CallArg: callArg}
 }
 
-func (Builder) ApplN(ctx *ctxIrFromAst, callee IExpr, callArgs ...IExpr) (appl *IrAppl) {
+func (IrBuild) ApplN(ctx *ctxIrFromAst, callee IIrExpr, callArgs ...IIrExpr) (appl *IrAppl) {
 	if requireAtomicCalleeAndCallArg && !callee.IsAtomic() {
 		panic(callee)
 	}
@@ -33,19 +33,19 @@ func (Builder) ApplN(ctx *ctxIrFromAst, callee IExpr, callArgs ...IExpr) (appl *
 	return
 }
 
-func (Builder) IdentName(name string) *IrIdentName {
+func (IrBuild) IdentName(name string) *IrIdentName {
 	return &IrIdentName{IrIdentBase: IrIdentBase{Val: name}}
 }
 
-func (Builder) IdentNameCopy(identBase *IrIdentBase) *IrIdentName {
+func (IrBuild) IdentNameCopy(identBase *IrIdentBase) *IrIdentName {
 	return &IrIdentName{IrIdentBase: *identBase}
 }
 
-func (Builder) IdentTag(name string) *IrLitTag {
+func (IrBuild) IdentTag(name string) *IrLitTag {
 	return &IrLitTag{Val: name}
 }
 
-func (Builder) Undef() *IrNonValue {
+func (IrBuild) Undef() *IrNonValue {
 	var node IrNonValue
 	node.OneOf.Undefined = true
 	return &node

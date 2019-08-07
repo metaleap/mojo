@@ -1,12 +1,12 @@
-# atmolang
+# atmoast
 --
-    import "github.com/metaleap/atmo/lang"
+    import "github.com/metaleap/atmo/ast"
 
-Package `atmolang` offers AST node structures and supporting auxiliary types and
+Package `atmo/ast` offers AST node structures and supporting auxiliary types and
 funcs, plus implements the lexing and parsing into such ASTs. It has no notion
-of kits or imports, and very little semantic preprocession, being chiefly
+of kits or imports, and little-to-no semantic prepossession, being chiefly
 concerned with syntactical analysis (eg. it does not care if a call is made to a
-number instead of a function, etc.).
+number or other known-non-callable, etc.).
 
 ## Usage
 
@@ -52,22 +52,28 @@ const (
 )
 ```
 
-#### func  DbgPrintToStderr
-
-```go
-func DbgPrintToStderr(node IAstNode)
-```
-
 #### func  LexAndGuess
 
 ```go
-func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, guessIsExpr bool, lexedToks udevlex.Tokens, err *atmo.Error)
+func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, guessIsExpr bool, lexedToks udevlex.Tokens, err *Error)
+```
+
+#### func  LexAndParseDefOrExpr
+
+```go
+func LexAndParseDefOrExpr(def bool, toks udevlex.Tokens) (ret IAstNode, err *Error)
 ```
 
 #### func  PrintTo
 
 ```go
 func PrintTo(curTopLevel *AstDef, node IAstNode, out io.Writer, prominentForDebugPurposes bool, applStyle ApplStyle)
+```
+
+#### func  PrintToStderr
+
+```go
+func PrintToStderr(node IAstNode)
 ```
 
 #### type ApplStyle
@@ -112,7 +118,7 @@ type AstBaseExpr struct {
 #### func (*AstBaseExpr) Desugared
 
 ```go
-func (*AstBaseExpr) Desugared(func() string) (IAstExpr, atmo.Errors)
+func (*AstBaseExpr) Desugared(func() string) (IAstExpr, Errors)
 ```
 
 #### func (*AstBaseExpr) IsAtomic
@@ -158,6 +164,85 @@ type AstBaseTokens struct {
 
 ```go
 func (me *AstBaseTokens) Toks() udevlex.Tokens
+```
+
+#### type AstBuild
+
+```go
+type AstBuild struct{}
+```
+
+
+```go
+var (
+	BuildAst AstBuild
+)
+```
+
+#### func (AstBuild) Appl
+
+```go
+func (AstBuild) Appl(callee IAstExpr, args ...IAstExpr) *AstExprAppl
+```
+
+#### func (AstBuild) Arg
+
+```go
+func (AstBuild) Arg(nameOrConstVal IAstExprAtomic, affix IAstExpr) *AstDefArg
+```
+
+#### func (AstBuild) Cases
+
+```go
+func (AstBuild) Cases(scrutinee IAstExpr, alts ...AstCase) *AstExprCases
+```
+
+#### func (AstBuild) Def
+
+```go
+func (AstBuild) Def(name string, body IAstExpr, argNames ...string) *AstDef
+```
+
+#### func (AstBuild) Ident
+
+```go
+func (AstBuild) Ident(val string) *AstIdent
+```
+
+#### func (AstBuild) Let
+
+```go
+func (AstBuild) Let(body IAstExpr, defs ...AstDef) *AstExprLet
+```
+
+#### func (AstBuild) LitFloat
+
+```go
+func (AstBuild) LitFloat(val float64) *AstExprLitFloat
+```
+
+#### func (AstBuild) LitRune
+
+```go
+func (AstBuild) LitRune(val int32) *AstExprLitUint
+```
+
+#### func (AstBuild) LitStr
+
+```go
+func (AstBuild) LitStr(val string) *AstExprLitStr
+```
+
+#### func (AstBuild) LitUint
+
+```go
+func (AstBuild) LitUint(val uint64) *AstExprLitUint
+```
+
+#### func (AstBuild) Tag
+
+```go
+func (AstBuild) Tag(val string) (ret *AstIdent)
 ```
 
 #### type AstCase
@@ -253,7 +338,7 @@ func (me *AstExprAppl) ClaspishByTokens() (claspish bool)
 #### func (*AstExprAppl) Desugared
 
 ```go
-func (me *AstExprAppl) Desugared(prefix func() string) (IAstExpr, atmo.Errors)
+func (me *AstExprAppl) Desugared(prefix func() string) (IAstExpr, Errors)
 ```
 
 #### func (*AstExprAppl) ToUnary
@@ -282,19 +367,8 @@ func (me *AstExprCases) Default() *AstCase
 #### func (*AstExprCases) Desugared
 
 ```go
-func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors)
+func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs Errors)
 ```
-
-#### type AstExprLam
-
-```go
-type AstExprLam struct {
-	AstBaseExpr
-	Arg  AstDefArg
-	Body IAstExpr
-}
-```
-
 
 #### type AstExprLet
 
@@ -310,7 +384,7 @@ type AstExprLet struct {
 #### func (*AstExprLet) Desugared
 
 ```go
-func (me *AstExprLet) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors)
+func (me *AstExprLet) Desugared(prefix func() string) (expr IAstExpr, errs Errors)
 ```
 
 #### type AstExprLitFloat
@@ -371,7 +445,7 @@ func (me *AstExprLitUint) String() string
 
 ```go
 type AstFile struct {
-	TopLevel []SrcTopChunk
+	TopLevel []AstFileChunk
 
 	LastLoad struct {
 		Src      []byte
@@ -403,7 +477,7 @@ func (me *AstFile) CountTopLevelDefs(onlyCountErrless bool) (total int, unexport
 #### func (*AstFile) Errors
 
 ```go
-func (me *AstFile) Errors() atmo.Errors
+func (me *AstFile) Errors() Errors
 ```
 
 #### func (*AstFile) HasDefs
@@ -421,13 +495,13 @@ func (me *AstFile) HasErrors() (r bool)
 #### func (*AstFile) LexAndParseFile
 
 ```go
-func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool, noChangesDetected *bool) (freshErrs atmo.Errors)
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool, noChangesDetected *bool) (freshErrs Errors)
 ```
 
 #### func (*AstFile) LexAndParseSrc
 
 ```go
-func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs atmo.Errors)
+func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs Errors)
 ```
 
 #### func (*AstFile) Print
@@ -439,7 +513,69 @@ func (me *AstFile) Print(fmt IPrintFmt) []byte
 #### func (*AstFile) TopLevelChunkAt
 
 ```go
-func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *SrcTopChunk
+func (me *AstFile) TopLevelChunkAt(pos0ByteOffset int) *AstFileChunk
+```
+
+#### type AstFileChunk
+
+```go
+type AstFileChunk struct {
+	Src     []byte
+	SrcFile *AstFile
+
+	Ast AstTopLevel
+}
+```
+
+
+#### func (*AstFileChunk) At
+
+```go
+func (me *AstFileChunk) At(byte0PosOffsetInSrcFile int) []IAstNode
+```
+
+#### func (*AstFileChunk) Encloses
+
+```go
+func (me *AstFileChunk) Encloses(byte0PosOffsetInSrcFile int) bool
+```
+
+#### func (*AstFileChunk) Errs
+
+```go
+func (me *AstFileChunk) Errs() Errors
+```
+
+#### func (*AstFileChunk) HasErrors
+
+```go
+func (me *AstFileChunk) HasErrors() bool
+```
+
+#### func (*AstFileChunk) Id
+
+```go
+func (me *AstFileChunk) Id() string
+```
+
+#### func (*AstFileChunk) PosOffsetByte
+
+```go
+func (me *AstFileChunk) PosOffsetByte() int
+```
+PosOffsetByte implements `atmo.IErrPosOffsets`.
+
+#### func (*AstFileChunk) PosOffsetLine
+
+```go
+func (me *AstFileChunk) PosOffsetLine() int
+```
+PosOffsetLine implements `atmo.IErrPosOffsets`.
+
+#### func (*AstFileChunk) Print
+
+```go
+func (me *AstFileChunk) Print(p *CtxPrint)
 ```
 
 #### type AstFiles
@@ -488,7 +624,7 @@ func (me AstFiles) Swap(i int, j int)
 #### func (AstFiles) TopLevelChunkByDefId
 
 ```go
-func (me AstFiles) TopLevelChunkByDefId(defId string) *SrcTopChunk
+func (me AstFiles) TopLevelChunkByDefId(defId string) *AstFileChunk
 ```
 
 #### type AstIdent
@@ -542,85 +678,6 @@ type AstTopLevel struct {
 ```
 
 
-#### type Builder
-
-```go
-type Builder struct{}
-```
-
-
-```go
-var (
-	Build Builder
-)
-```
-
-#### func (Builder) Appl
-
-```go
-func (Builder) Appl(callee IAstExpr, args ...IAstExpr) *AstExprAppl
-```
-
-#### func (Builder) Arg
-
-```go
-func (Builder) Arg(nameOrConstVal IAstExprAtomic, affix IAstExpr) *AstDefArg
-```
-
-#### func (Builder) Cases
-
-```go
-func (Builder) Cases(scrutinee IAstExpr, alts ...AstCase) *AstExprCases
-```
-
-#### func (Builder) Def
-
-```go
-func (Builder) Def(name string, body IAstExpr, argNames ...string) *AstDef
-```
-
-#### func (Builder) Ident
-
-```go
-func (Builder) Ident(val string) *AstIdent
-```
-
-#### func (Builder) Let
-
-```go
-func (Builder) Let(body IAstExpr, defs ...AstDef) *AstExprLet
-```
-
-#### func (Builder) LitFloat
-
-```go
-func (Builder) LitFloat(val float64) *AstExprLitFloat
-```
-
-#### func (Builder) LitRune
-
-```go
-func (Builder) LitRune(val int32) *AstExprLitUint
-```
-
-#### func (Builder) LitStr
-
-```go
-func (Builder) LitStr(val string) *AstExprLitStr
-```
-
-#### func (Builder) LitUint
-
-```go
-func (Builder) LitUint(val uint64) *AstExprLitUint
-```
-
-#### func (Builder) Tag
-
-```go
-func (Builder) Tag(val string) (ret *AstIdent)
-```
-
 #### type CtxPrint
 
 ```go
@@ -665,7 +722,7 @@ type IAstExpr interface {
 	IAstNode
 	IAstComments
 	IsAtomic() bool
-	Desugared(func() string) (IAstExpr, atmo.Errors)
+	Desugared(func() string) (IAstExpr, Errors)
 }
 ```
 
@@ -690,18 +747,12 @@ type IAstNode interface {
 ```
 
 
-#### func  LexAndParseDefOrExpr
-
-```go
-func LexAndParseDefOrExpr(def bool, toks udevlex.Tokens) (ret IAstNode, err *atmo.Error)
-```
-
 #### type IPrintFmt
 
 ```go
 type IPrintFmt interface {
 	SetCtxPrint(*CtxPrint)
-	OnTopLevelChunk(*SrcTopChunk, *AstTopLevel)
+	OnTopLevelChunk(*AstFileChunk, *AstTopLevel)
 	OnDef(*AstTopLevel, *AstDef)
 	OnDefName(*AstDef, *AstIdent)
 	OnDefArg(*AstDef, int, *AstDefArg)
@@ -810,7 +861,7 @@ func (me *PrintFmtMinimal) OnExprLetDef(_ *AstExprLet, _ int, node *AstDef)
 #### func (*PrintFmtMinimal) OnTopLevelChunk
 
 ```go
-func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *SrcTopChunk, node *AstTopLevel)
+func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *AstFileChunk, node *AstTopLevel)
 ```
 
 #### func (*PrintFmtMinimal) PrintInParensIf
@@ -878,67 +929,5 @@ func (me *PrintFmtPretty) OnExprLetDef(let *AstExprLet, idx int, node *AstDef)
 #### func (*PrintFmtPretty) OnTopLevelChunk
 
 ```go
-func (me *PrintFmtPretty) OnTopLevelChunk(tlc *SrcTopChunk, node *AstTopLevel)
-```
-
-#### type SrcTopChunk
-
-```go
-type SrcTopChunk struct {
-	Src     []byte
-	SrcFile *AstFile
-
-	Ast AstTopLevel
-}
-```
-
-
-#### func (*SrcTopChunk) At
-
-```go
-func (me *SrcTopChunk) At(byte0PosOffsetInSrcFile int) []IAstNode
-```
-
-#### func (*SrcTopChunk) Encloses
-
-```go
-func (me *SrcTopChunk) Encloses(byte0PosOffsetInSrcFile int) bool
-```
-
-#### func (*SrcTopChunk) Errs
-
-```go
-func (me *SrcTopChunk) Errs() atmo.Errors
-```
-
-#### func (*SrcTopChunk) HasErrors
-
-```go
-func (me *SrcTopChunk) HasErrors() bool
-```
-
-#### func (*SrcTopChunk) Id
-
-```go
-func (me *SrcTopChunk) Id() string
-```
-
-#### func (*SrcTopChunk) PosOffsetByte
-
-```go
-func (me *SrcTopChunk) PosOffsetByte() int
-```
-PosOffsetByte implements `atmo.IErrPosOffsets`.
-
-#### func (*SrcTopChunk) PosOffsetLine
-
-```go
-func (me *SrcTopChunk) PosOffsetLine() int
-```
-PosOffsetLine implements `atmo.IErrPosOffsets`.
-
-#### func (*SrcTopChunk) Print
-
-```go
-func (me *SrcTopChunk) Print(p *CtxPrint)
+func (me *PrintFmtPretty) OnTopLevelChunk(tlc *AstFileChunk, node *AstTopLevel)
 ```

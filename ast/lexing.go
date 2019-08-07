@@ -1,4 +1,4 @@
-package atmolang
+package atmoast
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/std"
-	"github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo"
 )
 
 func init() {
@@ -16,7 +16,7 @@ func init() {
 		"([{}])", ",", true, "\"'", '\''
 }
 
-func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool, noChangesDetected *bool) (freshErrs atmo.Errors) {
+func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool, noChangesDetected *bool) (freshErrs Errors) {
 	if me.Options.TmpAltSrc != nil {
 		me.LastLoad.Time, me.LastLoad.FileSize = 0, 0
 	} else if me.SrcFilePath != "" {
@@ -43,7 +43,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 			reader = srcfile
 			defer srcfile.Close()
 		} else {
-			me.errs.loading = freshErrs.AddLex(ErrLexing_IoFileOpenFailure, atmo.ErrFauxPos(me.SrcFilePath), err.Error())
+			me.errs.loading = freshErrs.AddLex(ErrLexing_IoFileOpenFailure, ErrFauxPos(me.SrcFilePath), err.Error())
 		}
 	} else if stdinIfNoSrcFile {
 		reader = os.Stdin
@@ -54,7 +54,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	return
 }
 
-func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, guessIsExpr bool, lexedToks udevlex.Tokens, err *atmo.Error) {
+func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, guessIsExpr bool, lexedToks udevlex.Tokens, err *Error) {
 	if len(src) > 0 {
 		indentguess := ' '
 		if src[0] == '\t' {
@@ -74,10 +74,10 @@ func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, gu
 
 		toks, errs := udevlex.Lex(src, fauxSrcFileNameForErrs, 32, indentguess)
 		for _, e := range errs {
-			return false, false, nil, atmo.ErrLex(ErrLexing_Tokenization, &e.Pos, e.Msg)
+			return false, false, nil, ErrLex(ErrLexing_Tokenization, &e.Pos, e.Msg)
 		}
 		lexedToks = toks
-		idxdecl, idxcomma := toks.Index(atmo.KnownIdentDecl, false), toks.Index(",", false)
+		idxdecl, idxcomma := toks.Index(KnownIdentDecl, false), toks.Index(",", false)
 		if idxdecl < 0 {
 			guessIsExpr = true
 		} else if idxcomma < 0 {
@@ -91,7 +91,7 @@ func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, gu
 	return
 }
 
-func LexAndParseDefOrExpr(def bool, toks udevlex.Tokens) (ret IAstNode, err *atmo.Error) {
+func LexAndParseDefOrExpr(def bool, toks udevlex.Tokens) (ret IAstNode, err *Error) {
 	ctx := ctxTldParse{bracketsHalfIdx: len(udevlex.SepsGroupers) / 2}
 	if def {
 		ctx.curTopDef = &AstDef{IsTopLevel: true}
@@ -104,9 +104,9 @@ func LexAndParseDefOrExpr(def bool, toks udevlex.Tokens) (ret IAstNode, err *atm
 	return
 }
 
-func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs atmo.Errors) {
+func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshErrs Errors) {
 	if src, err := ustd.ReadAll(r, me.LastLoad.FileSize); err != nil {
-		me.errs.loading = freshErrs.AddLex(ErrLexing_IoFileReadFailure, atmo.ErrFauxPos(me.SrcFilePath), err.Error())
+		me.errs.loading = freshErrs.AddLex(ErrLexing_IoFileReadFailure, ErrFauxPos(me.SrcFilePath), err.Error())
 	} else {
 		if bytes.Equal(src, me.LastLoad.Src) {
 			if noChangesDetected != nil {
@@ -133,7 +133,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 						indent = '\t'
 					} else {
 						inderr, freshErrs = true, append(freshErrs,
-							this.errs.lexing.AddAt(atmo.ErrCatLexing, ErrLexing_IndentationInconsistent,
+							this.errs.lexing.AddAt(ErrCatLexing, ErrLexing_IndentationInconsistent,
 								&udevlex.Pos{FilePath: this.SrcFile.SrcFilePath, Col1: 1, Ln1: this.offset.Ln},
 								len(this.Src),
 								"inconsistent indentation in this top-level block: either replace leading tabs with spaces or vice-versa"))
@@ -260,7 +260,7 @@ func (me *AstFile) topChunksCompare(tlChunks []preLexTopLevelChunk) (allTheSame 
 	}
 	if !allTheSame {
 		oldtlc := me.TopLevel
-		me._toks, me.TopLevel = nil, make([]SrcTopChunk, len(tlChunks))
+		me._toks, me.TopLevel = nil, make([]AstFileChunk, len(tlChunks))
 		for newidx := range tlChunks {
 			if oldidx, ok := srcsame[newidx]; ok {
 				me.TopLevel[newidx] = oldtlc[oldidx]

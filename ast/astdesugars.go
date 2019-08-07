@@ -1,13 +1,13 @@
-package atmolang
+package atmoast
 
 import (
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo"
 )
 
-func (*AstBaseExpr) Desugared(func() string) (IAstExpr, atmo.Errors) { return nil, nil }
+func (*AstBaseExpr) Desugared(func() string) (IAstExpr, Errors) { return nil, nil }
 
-func (me *AstExprAppl) Desugared(prefix func() string) (IAstExpr, atmo.Errors) {
+func (me *AstExprAppl) Desugared(prefix func() string) (IAstExpr, Errors) {
 	if lamb := me.desugarToLetExprIfPlaceholders(prefix); lamb != nil {
 		return lamb, nil
 	} else if lamb := me.desugarToLetExprIfUnionTest(prefix); lamb != nil {
@@ -37,24 +37,24 @@ func (me *AstExprAppl) desugarToLetExprIfPlaceholders(prefix func() string) *Ast
 
 	def := AstDef{Name: AstIdent{Val: prefix() + "┌"}, Args: make([]AstDefArg, num)}
 	for i := range def.Args {
-		def.Args[i].NameOrConstVal = Build.Ident(ustr.Int(i) + "_")
+		def.Args[i].NameOrConstVal = BuildAst.Ident(ustr.Int(i) + "_")
 	}
 	var appl AstExprAppl
 	if appl.Callee = me.Callee; lamc != "" {
-		appl.Callee = Build.Ident(lamc)
+		appl.Callee = BuildAst.Ident(lamc)
 	}
 	if appl.Args = me.Args; lama != nil {
 		appl.Args = make([]IAstExpr, len(me.Args))
 		for i := range appl.Args {
 			if la := lama[i]; la != "" {
-				appl.Args[i] = Build.Ident(la)
+				appl.Args[i] = BuildAst.Ident(la)
 			} else {
 				appl.Args[i] = me.Args[i]
 			}
 		}
 	}
 	def.Body = &appl
-	return Build.Let(&def.Name, def)
+	return BuildAst.Let(&def.Name, def)
 }
 
 func (me *AstExprAppl) desugarToLetExprIfUnionTest(prefix func() string) *AstExprLet {
@@ -63,21 +63,21 @@ func (me *AstExprAppl) desugarToLetExprIfUnionTest(prefix func() string) *AstExp
 		for i := range me.Args {
 			check.Alts[0].Conds[i] = me.Args[i]
 		}
-		def := Build.Def("┬"+prefix(), &check, prefix())
+		def := BuildAst.Def("┬"+prefix(), &check, prefix())
 		check.Scrutinee, check.Alts[0].Body = def.Args[0].NameOrConstVal, def.Args[0].NameOrConstVal
-		return Build.Let(&def.Name, *def)
+		return BuildAst.Let(&def.Name, *def)
 	}
 	return nil
 }
 
-func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors) {
+func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs Errors) {
 	havescrut := (me.Scrutinee != nil)
 	var opeq, scrut *AstIdent
 	var let *AstExprLet
 	if havescrut {
 		let = &AstExprLet{Defs: []AstDef{{Body: me.Scrutinee}}}
 		let.AstBaseTokens, let.AstBaseComments, opeq, scrut, let.Defs[0].Tokens, let.Defs[0].Name.Val, let.Defs[0].Name.Tokens =
-			me.AstBaseTokens, me.AstBaseComments, Build.Ident(atmo.KnownIdentEq), &let.Defs[0].Name, me.Scrutinee.Toks(), prefix()+"scrut", me.Scrutinee.Toks()
+			me.AstBaseTokens, me.AstBaseComments, BuildAst.Ident(KnownIdentEq), &let.Defs[0].Name, me.Scrutinee.Toks(), prefix()+"scrut", me.Scrutinee.Toks()
 	}
 	var appl, applcur *AstExprAppl
 	var defcase IAstExpr
@@ -91,18 +91,18 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 			alt.Conds = make([]IAstExpr, len(alt.Conds)) // copying slice, too
 			if havescrut {
 				for c := range alt.Conds {
-					alt.Conds[c] = Build.Appl(opeq, scrut, me.Alts[i].Conds[c])
+					alt.Conds[c] = BuildAst.Appl(opeq, scrut, me.Alts[i].Conds[c])
 				}
 			} else {
 				copy(alt.Conds, me.Alts[i].Conds)
 			}
 			for len(alt.Conds) > 1 {
-				cond0, cond1, opor := alt.Conds[0], alt.Conds[1], Build.Ident(atmo.KnownIdentOpOr)
-				cond := Build.Appl(opor, cond0, cond1)
+				cond0, cond1, opor := alt.Conds[0], alt.Conds[1], BuildAst.Ident(KnownIdentOpOr)
+				cond := BuildAst.Appl(opor, cond0, cond1)
 				cond.Tokens, opor.Tokens = alt.Tokens.FromUntil(cond0.Toks().First1(), cond1.Toks().Last1(), true), alt.Tokens.Between(cond0.Toks().Last1(), cond1.Toks().First1())
 				alt.Conds = append([]IAstExpr{cond}, alt.Conds[2:]...)
 			}
-			ifthenelse := Build.Appl(alt.Conds[0], alt.Body, nil)
+			ifthenelse := BuildAst.Appl(alt.Conds[0], alt.Body, nil)
 			if ifthenelse.AstBaseTokens = alt.AstBaseTokens; applcur != nil {
 				applcur.Args[1] = ifthenelse
 			}
@@ -112,7 +112,7 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 		}
 	}
 	if defcase == nil {
-		defcase = Build.Ident(atmo.KnownIdentUndef)
+		defcase = BuildAst.Ident(KnownIdentUndef)
 	}
 	if appl.Args[1] = defcase; havescrut {
 		expr, let.Body = let, appl
@@ -122,6 +122,6 @@ func (me *AstExprCases) Desugared(prefix func() string) (expr IAstExpr, errs atm
 	return
 }
 
-func (me *AstExprLet) Desugared(prefix func() string) (expr IAstExpr, errs atmo.Errors) {
+func (me *AstExprLet) Desugared(prefix func() string) (expr IAstExpr, errs Errors) {
 	return
 }

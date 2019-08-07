@@ -5,10 +5,10 @@ import (
 
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
-	"github.com/metaleap/atmo"
-	"github.com/metaleap/atmo/il"
-	"github.com/metaleap/atmo/lang"
-	"github.com/metaleap/atmo/session"
+	. "github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo/ast"
+	. "github.com/metaleap/atmo/il"
+	. "github.com/metaleap/atmo/session"
 )
 
 func (me *Repl) initEnsureDefaultDirectives() {
@@ -139,7 +139,7 @@ func (me *Repl) dListDefs(whatKit string) {
 				}
 			}
 		}
-		if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kit.SrcFiles), "`*"+atmo.SrcFileExt+"` source file")); numdefs > 0 {
+		if me.IO.writeLns("", "Total: "+ustr.Plu(numdefs, "def")+" in "+ustr.Plu(len(kit.SrcFiles), "`*"+SrcFileExt+"` source file")); numdefs > 0 {
 			me.IO.writeLns("", "(To see more details, try also:", "`:info "+whatKit+"` or `:info "+whatKit+" ‹def›`.)")
 		}
 	}
@@ -196,26 +196,26 @@ func (me *Repl) dInfoKit(whatKit string) {
 }
 
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
-	me.withKitDefs(whatKit, whatName, "info", func(kit *atmosess.Kit, def *atmoil.IrDefTop) {
+	me.withKitDefs(whatKit, whatName, "info", func(kit *Kit, def *IrDefTop) {
 		me.IO.writeLns("TODO")
 	})
 }
 
 func (me *Repl) DSrcs(what string) bool {
 	if whatkit, whatname := me.what2KitAndName(what); whatkit != "" && whatname != "" {
-		ctxp := atmolang.CtxPrint{OneIndentLevel: "    ", Fmt: &atmolang.PrintFmtPretty{},
-			ApplStyle: atmolang.APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
+		ctxp := CtxPrint{OneIndentLevel: "    ", Fmt: &PrintFmtPretty{},
+			ApplStyle: APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
-		me.withKitDefs(whatkit, whatname, "srcs", func(kit *atmosess.Kit, def *atmoil.IrDefTop) {
+		me.withKitDefs(whatkit, whatname, "srcs", func(kit *Kit, def *IrDefTop) {
 			me.decoAddNotice(false, "", true, ustr.FirstOf(def.OrigTopChunk.SrcFile.SrcFilePath, me.Ctx.Options.Scratchpad.FauxFileNameForErrorMessages))
 			ctxp.ApplStyle = def.OrigTopChunk.SrcFile.Options.ApplStyle
 			def.OrigTopChunk.Print(&ctxp)
 			ctxp.WriteTo(me.IO.Stdout)
 			ctxp.Reset()
 			if !def.HasErrors() {
-				ir2lang := def.Print().(*atmolang.AstDef)
+				ir2lang := def.Print().(*AstDef)
 				me.decoAddNotice(false, "", true, "internal representation:", "")
-				ctxp.ApplStyle = atmolang.APPLSTYLE_VSO
+				ctxp.ApplStyle = APPLSTYLE_VSO
 				ctxp.CurTopLevel = ir2lang
 				ir2lang.Print(&ctxp)
 				ctxp.WriteTo(me.IO.Stdout)
@@ -228,9 +228,9 @@ func (me *Repl) DSrcs(what string) bool {
 	return false
 }
 
-func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*atmosess.Kit, *atmoil.IrDefTop)) {
+func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*Kit, *IrDefTop)) {
 	kits := me.Ctx.Kits.All
-	var kit *atmosess.Kit
+	var kit *Kit
 	if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {
 		if kit = kits.ByImpPath(whatKit); kit == nil && (whatKit == "." || whatKit == "·") {
 			for i := range kits {
@@ -241,7 +241,7 @@ func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on 
 			}
 		}
 	} else {
-		var finds atmosess.Kits
+		var finds Kits
 		for _, k := range kits {
 			if searchall {
 				me.Ctx.KitEnsureLoaded(k)

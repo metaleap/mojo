@@ -1,49 +1,49 @@
-package atmolang
+package atmoast
 
 import (
 	"github.com/go-leap/str"
 )
 
 var (
-	Build Builder
+	BuildAst AstBuild
 )
 
-func (Builder) Tag(val string) (ret *AstIdent) {
-	ret = Build.Ident(val)
+func (AstBuild) Tag(val string) (ret *AstIdent) {
+	ret = BuildAst.Ident(val)
 	ret.IsTag = true
 	return
 }
 
-func (Builder) Ident(val string) *AstIdent {
+func (AstBuild) Ident(val string) *AstIdent {
 	isnotopish := val[0] == '_' || ustr.BeginsLetter(val)
 	return &AstIdent{Val: val, IsTag: ustr.BeginsUpper(val), IsOpish: !isnotopish}
 }
 
-func (Builder) LitFloat(val float64) *AstExprLitFloat {
+func (AstBuild) LitFloat(val float64) *AstExprLitFloat {
 	return &AstExprLitFloat{Val: val}
 }
 
-func (Builder) LitUint(val uint64) *AstExprLitUint {
+func (AstBuild) LitUint(val uint64) *AstExprLitUint {
 	return &AstExprLitUint{Val: val}
 }
 
-func (Builder) LitRune(val int32) *AstExprLitUint {
+func (AstBuild) LitRune(val int32) *AstExprLitUint {
 	return &AstExprLitUint{Val: uint64(val)}
 }
 
-func (Builder) LitStr(val string) *AstExprLitStr {
+func (AstBuild) LitStr(val string) *AstExprLitStr {
 	return &AstExprLitStr{Val: val}
 }
 
-func (Builder) Let(body IAstExpr, defs ...AstDef) *AstExprLet {
+func (AstBuild) Let(body IAstExpr, defs ...AstDef) *AstExprLet {
 	return &AstExprLet{Body: body, Defs: defs}
 }
 
-func (Builder) Appl(callee IAstExpr, args ...IAstExpr) *AstExprAppl {
+func (AstBuild) Appl(callee IAstExpr, args ...IAstExpr) *AstExprAppl {
 	return &AstExprAppl{Callee: callee, Args: args}
 }
 
-func (Builder) Def(name string, body IAstExpr, argNames ...string) *AstDef {
+func (AstBuild) Def(name string, body IAstExpr, argNames ...string) *AstDef {
 	def := AstDef{Body: body, Args: make([]AstDefArg, len(argNames))}
 	def.Name.Val = name
 	for i := range argNames {
@@ -52,11 +52,11 @@ func (Builder) Def(name string, body IAstExpr, argNames ...string) *AstDef {
 	return &def
 }
 
-func (Builder) Arg(nameOrConstVal IAstExprAtomic, affix IAstExpr) *AstDefArg {
+func (AstBuild) Arg(nameOrConstVal IAstExprAtomic, affix IAstExpr) *AstDefArg {
 	return &AstDefArg{NameOrConstVal: nameOrConstVal, Affix: affix}
 }
 
-func (Builder) Cases(scrutinee IAstExpr, alts ...AstCase) *AstExprCases {
+func (AstBuild) Cases(scrutinee IAstExpr, alts ...AstCase) *AstExprCases {
 	defaultindex := -1
 	for i := range alts {
 		if len(alts[i].Conds) == 0 {

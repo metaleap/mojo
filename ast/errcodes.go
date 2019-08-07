@@ -1,4 +1,4 @@
-package atmolang
+package atmoast
 
 const (
 	_ = 1100 + iota
