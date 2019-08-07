@@ -29,7 +29,6 @@ import (
 
 type ctxIrFromAst struct {
 	curTopLevelDef  *IrDefTop
-	defsScope       *IrDefs
 	defArgs         map[*IrDef]*IrArg
 	coerceCallables map[IIrNode]IIrExpr
 	counter         struct {
@@ -50,7 +49,7 @@ type IIrNode interface {
 	findByOrig(IIrNode, IAstNode) []IIrNode
 	IsDef() *IrDef
 	IsExt() bool
-	Let() *IrExprLetBase
+	// Let() *IrExprLetBase
 	RefersTo(string) bool
 	refsTo(string) []IIrExpr
 	walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) bool
@@ -63,9 +62,6 @@ type IIrExpr interface {
 }
 
 type irNodeBase struct {
-	// some `IIrExpr`s' own `Orig` fields or `INode.Origin()` implementations might
-	// point to (on-the-fly dynamically computed in-memory) desugared nodes, this
-	// one always points to the "real origin" node (might be identical or not)
 	Orig IAstNode
 }
 
@@ -130,17 +126,15 @@ type IrLitTag struct {
 	Val string
 }
 
-type IrExprLetBase struct {
-	Defs      IrDefs
-	letOrig   *AstExprLet
-	letPrefix string
+// type IrExprLetBase struct {
+// 	Defs      IrDefs
+// 	letOrig   *AstExprLet
+// 	letPrefix string
 
-	Anns struct {
-		// like `IrIdentName.Anns.Candidates`, contains the following `INode` types:
-		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
-		NamesInScope AnnNamesInScope
-	}
-}
+// 	Anns struct {
+// 		NamesInScope AnnNamesInScope
+// 	}
+// }
 
 type IrNonValue struct {
 	IrExprAtomBase
@@ -162,10 +156,9 @@ type IrIdentDecl struct {
 
 type IrIdentName struct {
 	IrIdentBase
-	IrExprLetBase
+	// IrExprLetBase
 
 	Anns struct {
-		// like `IrExprLetBase.Anns.NamesInScope`, contains the following `IIrNode` types:
 		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
 		Candidates []IIrNode
 	}
@@ -173,7 +166,7 @@ type IrIdentName struct {
 
 type IrAppl struct {
 	IrExprBase
-	IrExprLetBase
+	// IrExprLetBase
 	Callee  IIrExpr
 	CallArg IIrExpr
 }

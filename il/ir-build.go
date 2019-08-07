@@ -5,29 +5,15 @@ var (
 )
 
 func (IrBuild) Appl1(callee IIrExpr, callArg IIrExpr) *IrAppl {
-	if requireAtomicCalleeAndCallArg {
-		if !callee.IsAtomic() {
-			panic(callee)
-		}
-		if !callArg.IsAtomic() {
-			panic(callArg)
-		}
-	}
 	return &IrAppl{Callee: callee, CallArg: callArg}
 }
 
 func (IrBuild) ApplN(ctx *ctxIrFromAst, callee IIrExpr, callArgs ...IIrExpr) (appl *IrAppl) {
-	if requireAtomicCalleeAndCallArg && !callee.IsAtomic() {
-		panic(callee)
-	}
 	for i := range callArgs {
-		if requireAtomicCalleeAndCallArg && !callArgs[i].IsAtomic() {
-			panic(i)
-		}
 		if i == 0 {
 			appl = &IrAppl{Callee: callee, CallArg: callArgs[i]}
 		} else {
-			appl = &IrAppl{Callee: ctx.ensureAtomic(appl), CallArg: callArgs[i]}
+			appl = &IrAppl{Callee: appl, CallArg: callArgs[i]}
 		}
 	}
 	return

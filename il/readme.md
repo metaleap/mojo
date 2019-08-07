@@ -100,7 +100,7 @@ type IIrNode interface {
 
 	IsDef() *IrDef
 	IsExt() bool
-	Let() *IrExprLetBase
+	// Let() *IrExprLetBase
 	RefersTo(string) bool
 	// contains filtered or unexported methods
 }
@@ -123,7 +123,7 @@ type IPreduced interface {
 ```go
 type IrAppl struct {
 	IrExprBase
-	IrExprLetBase
+	// IrExprLetBase
 	Callee  IIrExpr
 	CallArg IIrExpr
 }
@@ -146,12 +146,6 @@ func (*IrAppl) IsDef() *IrDef
 
 ```go
 func (*IrAppl) IsExt() bool
-```
-
-#### func (*IrAppl) Let
-
-```go
-func (me *IrAppl) Let() *IrExprLetBase
 ```
 
 #### func (*IrAppl) Origin
@@ -197,12 +191,6 @@ func (*IrArg) IsDef() *IrDef
 
 ```go
 func (*IrArg) IsExt() bool
-```
-
-#### func (*IrArg) Let
-
-```go
-func (*IrArg) Let() *IrExprLetBase
 ```
 
 #### func (*IrArg) Origin
@@ -300,12 +288,6 @@ func (*IrDef) IsExt() bool
 func (me *IrDef) IsLam() (ifSo *IrLam)
 ```
 
-#### func (*IrDef) Let
-
-```go
-func (*IrDef) Let() *IrExprLetBase
-```
-
 #### func (*IrDef) OrigDef
 
 ```go
@@ -380,22 +362,10 @@ func (me *IrDefTop) FindByOrig(orig IAstNode) []IIrNode
 func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(IIrNode) bool) (paths [][]IIrNode)
 ```
 
-#### func (*IrDefTop) ForAllLocalDefs
-
-```go
-func (me *IrDefTop) ForAllLocalDefs(onLocalDef func(*IrDef) (done bool))
-```
-
 #### func (*IrDefTop) HasAnyOf
 
 ```go
 func (me *IrDefTop) HasAnyOf(nodes ...IIrNode) bool
-```
-
-#### func (*IrDefTop) HasDef
-
-```go
-func (me *IrDefTop) HasDef(maybeDef IIrNode) (defIfLocal *IrDef)
 ```
 
 #### func (*IrDefTop) HasErrors
@@ -414,12 +384,6 @@ func (me *IrDefTop) HasIdentDecl(name string) bool
 
 ```go
 func (*IrDefTop) IsExt() bool
-```
-
-#### func (*IrDefTop) Let
-
-```go
-func (*IrDefTop) Let() *IrExprLetBase
 ```
 
 #### func (*IrDefTop) OrigToks
@@ -498,12 +462,6 @@ func (*IrExprAtomBase) IsDef() *IrDef
 func (*IrExprAtomBase) IsExt() bool
 ```
 
-#### func (*IrExprAtomBase) Let
-
-```go
-func (*IrExprAtomBase) Let() *IrExprLetBase
-```
-
 #### func (*IrExprAtomBase) Origin
 
 ```go
@@ -542,32 +500,11 @@ func (*IrExprBase) IsDef() *IrDef
 func (*IrExprBase) IsExt() bool
 ```
 
-#### func (*IrExprBase) Let
-
-```go
-func (*IrExprBase) Let() *IrExprLetBase
-```
-
 #### func (*IrExprBase) Origin
 
 ```go
 func (me *IrExprBase) Origin() IAstNode
 ```
-
-#### type IrExprLetBase
-
-```go
-type IrExprLetBase struct {
-	Defs IrDefs
-
-	Anns struct {
-		// like `IrIdentName.Anns.Candidates`, contains the following `INode` types:
-		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
-		NamesInScope AnnNamesInScope
-	}
-}
-```
-
 
 #### type IrIdentBase
 
@@ -589,12 +526,6 @@ func (*IrIdentBase) IsDef() *IrDef
 
 ```go
 func (*IrIdentBase) IsExt() bool
-```
-
-#### func (*IrIdentBase) Let
-
-```go
-func (*IrIdentBase) Let() *IrExprLetBase
 ```
 
 #### func (*IrIdentBase) Origin
@@ -636,12 +567,6 @@ func (*IrIdentDecl) IsDef() *IrDef
 func (*IrIdentDecl) IsExt() bool
 ```
 
-#### func (*IrIdentDecl) Let
-
-```go
-func (*IrIdentDecl) Let() *IrExprLetBase
-```
-
 #### func (*IrIdentDecl) Origin
 
 ```go
@@ -653,10 +578,8 @@ func (me *IrIdentDecl) Origin() IAstNode
 ```go
 type IrIdentName struct {
 	IrIdentBase
-	IrExprLetBase
 
 	Anns struct {
-		// like `IrExprLetBase.Anns.NamesInScope`, contains the following `IIrNode` types:
 		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
 		Candidates []IIrNode
 	}
@@ -688,22 +611,10 @@ func (*IrIdentName) IsDef() *IrDef
 func (*IrIdentName) IsExt() bool
 ```
 
-#### func (*IrIdentName) Let
-
-```go
-func (me *IrIdentName) Let() *IrExprLetBase
-```
-
 #### func (*IrIdentName) Origin
 
 ```go
 func (me *IrIdentName) Origin() IAstNode
-```
-
-#### func (*IrIdentName) Print
-
-```go
-func (me *IrIdentName) Print() IAstNode
 ```
 
 #### func (*IrIdentName) RefersTo
@@ -745,12 +656,6 @@ func (*IrLam) IsDef() *IrDef
 
 ```go
 func (*IrLam) IsExt() bool
-```
-
-#### func (*IrLam) Let
-
-```go
-func (*IrLam) Let() *IrExprLetBase
 ```
 
 #### func (*IrLam) Origin
@@ -864,12 +769,6 @@ func (*IrNonValue) IsDef() *IrDef
 
 ```go
 func (*IrNonValue) IsExt() bool
-```
-
-#### func (*IrNonValue) Let
-
-```go
-func (*IrNonValue) Let() *IrExprLetBase
 ```
 
 #### func (*IrNonValue) Origin

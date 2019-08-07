@@ -63,20 +63,18 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 		// each takes the arg val (or ret val) and returns either it or undef
 		if defarg != nil {
 			if coerce, ok := ctx.coerceCallables[defarg]; ok {
-				me.Body = ctx.bodyWithCoercion(coerce, ctx.ensureAtomic(me.Body),
+				me.Body = ctx.bodyWithCoercion(coerce, me.Body,
 					func() IIrExpr { return BuildIr.IdentNameCopy(&defarg.IrIdentBase) })
 			}
 		}
 		if coerce, ok := ctx.coerceCallables[me]; ok {
-			me.Body = ctx.bodyWithCoercion(coerce, ctx.ensureAtomic(me.Body), nil)
+			me.Body = ctx.bodyWithCoercion(coerce, me.Body, nil)
 		}
 	}
 	if defarg != nil {
-		var lam IrLam
-		lam.Orig = me.Orig
-		lam.Arg = *defarg
-		lam.Body = me.Body
-		me.Body = &lam
+		delete(ctx.defArgs, me)
+		lam := IrLam{Arg: *defarg, Body: me.Body}
+		lam.Orig, me.Body = me.Orig, &lam
 	}
 	return
 }
@@ -112,7 +110,7 @@ func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
 
 	if isexpr {
 		me.IrIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
-		appl := BuildIr.Appl1(BuildIr.IdentName(KnownIdentCoerce), ctx.ensureAtomic(errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IIrExpr)))
+		appl := BuildIr.Appl1(BuildIr.IdentName(KnownIdentCoerce), errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IIrExpr))
 		appl.IrExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)
 	}

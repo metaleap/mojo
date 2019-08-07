@@ -103,13 +103,8 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 			this, newTopLevelDefIdsAndNames[def.Id] =
 				append(this, def), tlc.Ast.Def.Orig.Name.Val
 			// populate it
-			var let IrExprLetBase
-			ctxinit := ctxIrFromAst{defsScope: &let.Defs, curTopLevelDef: def, defArgs: make(map[*IrDef]*IrArg, 8)}
-			let.letPrefix = ctxinit.nextPrefix()
+			ctxinit := ctxIrFromAst{curTopLevelDef: def, defArgs: make(map[*IrDef]*IrArg, 8)}
 			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, orig)...)
-			if len(let.Defs) > 0 {
-				def.Errs.Stage1AstToIr.Add(ctxinit.addLetDefsToNode(orig.Body, def.Body, &let)...)
-			}
 			if len(def.Errs.Stage1AstToIr) > 0 {
 				freshErrs.Add(def.Errs.Stage1AstToIr...)
 			}
