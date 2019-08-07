@@ -7,80 +7,85 @@ import (
 )
 
 func (me *IrDef) initFrom(ctx *ctxIrFromAst, orig *AstDef) (errs Errors) {
-	me.OrigDef = orig.ToUnary()
-	errs.Add(me.initName(ctx)...)
-	errs.Add(me.initArg(ctx)...)
-	errs.Add(me.initMetas(ctx)...)
-	errs.Add(me.initBody(ctx)...)
-
-	// all inits worked off the orig-unary-fied, but for all
-	// post-init usage we restore the real source orig-def:
-	me.OrigDef = orig
+	me.Orig = orig
+	origUnary := orig.ToUnary()
+	// the ordering of these 4 matters: the latter ones depend on work done by the former ones
+	errs.Add(me.initName(ctx, origUnary)...)
+	errs.Add(me.initArg(ctx, origUnary)...)
+	errs.Add(me.initMetas(ctx, origUnary)...)
+	errs.Add(me.initBody(ctx, origUnary)...)
 	return
 }
 
-func (me *IrDef) initName(ctx *ctxIrFromAst) (errs Errors) {
+func (me *IrDef) initName(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
 	// even if our name is erroneous as detected further down below:
 	// don't want this to stay empty, generally speaking
-	me.Name.Val = me.OrigDef.Name.Val
+	me.Name.Val = origDefUnary.Name.Val
 
-	tok := me.OrigDef.Name.Tokens.First1() // could have none so dont just Tokens[0]
+	tok := origDefUnary.Name.Tokens.First1() // could have none so dont just Tokens[0]
 	if tok == nil {
-		if tok = me.OrigDef.Tokens.First1(); tok == nil {
-			tok = me.OrigDef.Body.Toks().First1()
+		if tok = origDefUnary.Tokens.First1(); tok == nil {
+			tok = origDefUnary.Body.Toks().First1()
 		}
 	}
 	var ident IIrExpr
-	ident, errs = ctx.newExprFromIdent(&me.OrigDef.Name)
+	ident, errs = ctx.newExprFromIdent(&origDefUnary.Name)
 	if name, _ := ident.(*IrIdentName); name == nil {
 		errs.AddNaming(ErrFromAst_DefNameInvalidIdent, tok, "invalid def name: `"+tok.String()+"`") // some non-name ident: Tag or Undef or placeholder etc..
 	} else {
 		me.Name.IrIdentBase = name.IrIdentBase
 	}
-	if me.OrigDef.NameAffix != nil {
-		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(me.OrigDef.NameAffix)).(IIrExpr))
+	if origDefUnary.NameAffix != nil {
+		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(origDefUnary.NameAffix)).(IIrExpr))
 	}
 	return
 }
 
-func (me *IrDef) initBody(ctx *ctxIrFromAst) (errs Errors) {
+func (me *IrDef) initArg(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
+	if len(origDefUnary.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
+		var arg IrArg
+		errs.Add(arg.initFrom(ctx, &origDefUnary.Args[0])...)
+		ctx.defArgs[me] = &arg
+	}
+	return
+}
+
+func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
 	// fast-track special-casing for a def-body of mere-underscore
-	if ident, _ := me.OrigDef.Body.(*AstIdent); ident != nil && ident.IsPlaceholder() {
+	if ident, _ := origDefUnary.Body.(*AstIdent); ident != nil && ident.IsPlaceholder() {
 		tag := BuildIr.IdentTag(me.Name.Val)
 		tag.Orig, me.Body = ident, tag
 	} else {
-		me.Body, errs = ctx.newExprFrom(me.OrigDef.Body)
+		me.Body, errs = ctx.newExprFrom(origDefUnary.Body)
 	}
+	defarg := ctx.defArgs[me]
 	if len(ctx.coerceCallables) > 0 {
 		// each takes the arg val (or ret val) and returns either it or undef
-
-		if me.Arg != nil {
-			if coerce, ok := ctx.coerceCallables[me.Arg]; ok {
+		if defarg != nil {
+			if coerce, ok := ctx.coerceCallables[defarg]; ok {
 				me.Body = ctx.bodyWithCoercion(coerce, ctx.ensureAtomic(me.Body),
-					func() IIrExpr { return BuildIr.IdentNameCopy(&me.Arg.IrIdentBase) })
+					func() IIrExpr { return BuildIr.IdentNameCopy(&defarg.IrIdentBase) })
 			}
 		}
 		if coerce, ok := ctx.coerceCallables[me]; ok {
 			me.Body = ctx.bodyWithCoercion(coerce, ctx.ensureAtomic(me.Body), nil)
 		}
 	}
-	return
-}
-
-func (me *IrDef) initArg(ctx *ctxIrFromAst) (errs Errors) {
-	if len(me.OrigDef.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
-		var arg IrArg
-		errs.Add(arg.initFrom(ctx, &me.OrigDef.Args[0])...)
-		me.Arg = &arg
+	if defarg != nil {
+		var lam IrLam
+		lam.Orig = me.Orig
+		lam.Arg = *defarg
+		lam.Body = me.Body
+		me.Body = &lam
 	}
 	return
 }
 
-func (me *IrDef) initMetas(ctx *ctxIrFromAst) (errs Errors) {
-	if len(me.OrigDef.Meta) > 0 {
-		errs.AddTodo(0, me.OrigDef.Meta[0].Toks(), "def metas")
-		for i := range me.OrigDef.Meta {
-			_ = errs.AddVia(ctx.newExprFrom(me.OrigDef.Meta[i]))
+func (me *IrDef) initMetas(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
+	if len(origDefUnary.Meta) > 0 {
+		errs.AddTodo(0, origDefUnary.Meta[0].Toks(), "def metas")
+		for i := range origDefUnary.Meta {
+			_ = errs.AddVia(ctx.newExprFrom(origDefUnary.Meta[i]))
 		}
 	}
 	return

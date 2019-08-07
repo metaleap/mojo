@@ -33,7 +33,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.
 			if cands := me[namestoadd[i]]; len(cands) > 0 {
 				for _, cand := range cands {
 					if cd := cand.IsDef(); cd == nil ||
-						((!cd.IsExt()) && (cd.Arg == nil || adddefs[i].Arg == nil)) {
+						((!cd.IsExt()) && (cd.IsLam() == nil || adddefs[i].IsLam() == nil)) {
 						me.errNameWouldShadow(tld, errs, &adddefs[i], namestoadd[i])
 						numerrs, namestoadd[i] = numerrs+1, ""
 						break
@@ -85,8 +85,8 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode
 	}
 	switch n := node.(type) {
 	case *IrDef:
-		if n.Arg != nil {
-			inscope = inscope.copyAndAdd(tld, n.Arg, &errs)
+		if lam := n.IsLam(); lam != nil {
+			inscope = inscope.copyAndAdd(tld, &lam.Arg, &errs)
 		}
 		errs.Add(inscope.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames)...)
 	case *IrAppl:

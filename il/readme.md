@@ -124,7 +124,6 @@ type IPreduced interface {
 type IrAppl struct {
 	IrExprBase
 	IrExprLetBase
-	Orig    *AstExprAppl
 	Callee  IIrExpr
 	CallArg IIrExpr
 }
@@ -178,7 +177,6 @@ func (me *IrAppl) RefersTo(name string) bool
 ```go
 type IrArg struct {
 	IrIdentDecl
-	Orig *AstDefArg
 }
 ```
 
@@ -272,10 +270,7 @@ func (IrBuild) Undef() *IrNonValue
 
 ```go
 type IrDef struct {
-	OrigDef *AstDef
-
 	Name IrIdentDecl
-	Arg  *IrArg
 	Body IIrExpr
 }
 ```
@@ -285,12 +280,6 @@ type IrDef struct {
 
 ```go
 func (me *IrDef) EquivTo(node IIrNode) bool
-```
-
-#### func (*IrDef) HasArgRefsOtherThan
-
-```go
-func (me *IrDef) HasArgRefsOtherThan(argNamesHave StringKeys) (argNamesIncomplete bool)
 ```
 
 #### func (*IrDef) IsDef
@@ -305,10 +294,22 @@ func (me *IrDef) IsDef() *IrDef
 func (*IrDef) IsExt() bool
 ```
 
+#### func (*IrDef) IsLam
+
+```go
+func (me *IrDef) IsLam() (ifSo *IrLam)
+```
+
 #### func (*IrDef) Let
 
 ```go
 func (*IrDef) Let() *IrExprLetBase
+```
+
+#### func (*IrDef) OrigDef
+
+```go
+func (me *IrDef) OrigDef() (origDef *AstDef)
 ```
 
 #### func (*IrDef) Origin
@@ -427,6 +428,12 @@ func (*IrDefTop) Let() *IrExprLetBase
 func (me *IrDefTop) OrigToks(node IIrNode) (toks udevlex.Tokens)
 ```
 
+#### func (*IrDefTop) Origin
+
+```go
+func (me *IrDefTop) Origin() IAstNode
+```
+
 #### func (*IrDefTop) Print
 
 ```go
@@ -495,6 +502,12 @@ func (*IrExprAtomBase) IsExt() bool
 
 ```go
 func (*IrExprAtomBase) Let() *IrExprLetBase
+```
+
+#### func (*IrExprAtomBase) Origin
+
+```go
+func (me *IrExprAtomBase) Origin() IAstNode
 ```
 
 #### func (*IrExprAtomBase) RefersTo
@@ -584,6 +597,12 @@ func (*IrIdentBase) IsExt() bool
 func (*IrIdentBase) Let() *IrExprLetBase
 ```
 
+#### func (*IrIdentBase) Origin
+
+```go
+func (me *IrIdentBase) Origin() IAstNode
+```
+
 #### func (*IrIdentBase) Print
 
 ```go
@@ -621,6 +640,12 @@ func (*IrIdentDecl) IsExt() bool
 
 ```go
 func (*IrIdentDecl) Let() *IrExprLetBase
+```
+
+#### func (*IrIdentDecl) Origin
+
+```go
+func (me *IrIdentDecl) Origin() IAstNode
 ```
 
 #### type IrIdentName
@@ -698,9 +723,8 @@ func (me *IrIdentName) ResolvesTo(n IIrNode) bool
 ```go
 type IrLam struct {
 	IrExprBase
-	OrigDef *AstDef
-	Arg     IrArg
-	Body    IIrExpr
+	Arg  IrArg
+	Body IIrExpr
 }
 ```
 
@@ -727,6 +751,12 @@ func (*IrLam) IsExt() bool
 
 ```go
 func (*IrLam) Let() *IrExprLetBase
+```
+
+#### func (*IrLam) Origin
+
+```go
+func (me *IrLam) Origin() IAstNode
 ```
 
 #### func (*IrLam) Print
@@ -840,6 +870,12 @@ func (*IrNonValue) IsExt() bool
 
 ```go
 func (*IrNonValue) Let() *IrExprLetBase
+```
+
+#### func (*IrNonValue) Origin
+
+```go
+func (me *IrNonValue) Origin() IAstNode
 ```
 
 #### func (*IrNonValue) Print

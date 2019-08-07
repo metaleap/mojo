@@ -30,6 +30,7 @@ import (
 type ctxIrFromAst struct {
 	curTopLevelDef  *IrDefTop
 	defsScope       *IrDefs
+	defArgs         map[*IrDef]*IrArg
 	coerceCallables map[IIrNode]IIrExpr
 	counter         struct {
 		val   byte
@@ -70,17 +71,14 @@ type irNodeBase struct {
 
 type IrLam struct {
 	IrExprBase
-	OrigDef *AstDef
-	Arg     IrArg
-	Body    IIrExpr
+	Arg  IrArg
+	Body IIrExpr
 }
 
 type IrDef struct {
 	irNodeBase
-	OrigDef *AstDef
 
 	Name IrIdentDecl
-	Arg  *IrArg
 	Body IIrExpr
 }
 
@@ -103,7 +101,6 @@ type IrDefTop struct {
 
 type IrArg struct {
 	IrIdentDecl
-	Orig *AstDefArg
 }
 
 type IrExprBase struct {
@@ -177,7 +174,6 @@ type IrIdentName struct {
 type IrAppl struct {
 	IrExprBase
 	IrExprLetBase
-	Orig    *AstExprAppl
 	Callee  IIrExpr
 	CallArg IIrExpr
 }

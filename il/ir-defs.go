@@ -35,7 +35,7 @@ func (me IrDefs) index(name string) int {
 func (me IrTopDefs) Len() int          { return len(me) }
 func (me IrTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me IrTopDefs) Less(i int, j int) bool {
-	dis, dat := &me[i].OrigDef.Tokens[0].Pos, &me[j].OrigDef.Tokens[0].Pos
+	dis, dat := &me[i].origToks().First1().Pos, &me[j].origToks().First1().Pos
 	return (dis.FilePath == dat.FilePath && me[i].OrigTopChunk.PosOffsetByte() < me[j].OrigTopChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 
@@ -43,7 +43,7 @@ func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDefTop) {
 	allfiles := (onlyFor == nil)
 	for _, tld := range me {
 		if allfiles || (tld.OrigTopChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
-			if tld.Name.Val == name || (tld.OrigDef != nil && tld.OrigDef.Name.Val == name) {
+			if orig := tld.OrigDef(); tld.Name.Val == name || (orig != nil && orig.Name.Val == name) {
 				defs = append(defs, tld)
 			}
 		}
@@ -68,7 +68,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 		for j := range kitSrcFiles[i].TopLevel {
 			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
 				if defidx := this.IndexByID(tl.Id()); defidx >= 0 {
-					oldunchangeds[defidx], this[defidx].OrigTopChunk, this[defidx].OrigDef = Є, tl, tl.Ast.Def.Orig
+					oldunchangeds[defidx], this[defidx].OrigTopChunk, this[defidx].Orig = Є, tl, tl.Ast.Def.Orig
 				} else if !tl.HasErrors() { // any source chunk with parse/lex errs doesn't exist for us anymore at this point
 					newdefs = append(newdefs, tl)
 				}
@@ -99,16 +99,16 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 		newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
 		for _, tlc := range newdefs {
 			// add the def skeleton
-			def := &IrDefTop{OrigTopChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool)}
-			this, def.OrigDef, newTopLevelDefIdsAndNames[def.Id] =
-				append(this, def), tlc.Ast.Def.Orig, tlc.Ast.Def.Orig.Name.Val
+			orig, def := tlc.Ast.Def.Orig, &IrDefTop{OrigTopChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool, 8)}
+			this, newTopLevelDefIdsAndNames[def.Id] =
+				append(this, def), tlc.Ast.Def.Orig.Name.Val
 			// populate it
 			var let IrExprLetBase
-			var ctxinit ctxIrFromAst
-			let.letPrefix, ctxinit.defsScope, ctxinit.curTopLevelDef = ctxinit.nextPrefix(), &let.Defs, def
-			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, def.OrigDef)...)
+			ctxinit := ctxIrFromAst{defsScope: &let.Defs, curTopLevelDef: def, defArgs: make(map[*IrDef]*IrArg, 8)}
+			let.letPrefix = ctxinit.nextPrefix()
+			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, orig)...)
 			if len(let.Defs) > 0 {
-				def.Errs.Stage1AstToIr.Add(ctxinit.addLetDefsToNode(def.OrigDef.Body, def.Body, &let)...)
+				def.Errs.Stage1AstToIr.Add(ctxinit.addLetDefsToNode(orig.Body, def.Body, &let)...)
 			}
 			if len(def.Errs.Stage1AstToIr) > 0 {
 				freshErrs.Add(def.Errs.Stage1AstToIr...)

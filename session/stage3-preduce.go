@@ -86,7 +86,7 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 	case *IrDef:
 		println(ustr.Times("\t", me.dbgIndent)+"INTO_DEF", ustr.ReplB(DbgPrintToString(this), '\n', ' '))
 		me.dbgIndent++
-		if this.Arg == nil {
+		if this.IsLam() == nil {
 			ret = me.preduce(this.Body)
 		} else {
 			ret = &PCallable{Arg: &PHole{Def: this}, Ret: &PHole{Def: this}}

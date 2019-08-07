@@ -110,7 +110,7 @@ func (me *ctxIrFromAst) newExprFrom(origin IAstExpr) (expr IIrExpr, errs Errors)
 			for i := range origdes.Defs {
 				astdef := &origdes.Defs[i]
 				lam := IrLam{Body: expr}
-				lam.Orig, lam.OrigDef, lam.Arg.exprBase().Orig, lam.Arg.Val = astdef, astdef, &astdef.Name, astdef.Name.Val
+				lam.Orig, lam.Arg.exprBase().Orig, lam.Arg.Val = astdef, &astdef.Name, astdef.Name.Val
 				appl := IrAppl{Callee: &lam, CallArg: errs.AddVia(me.newExprFrom(astdef.Body)).(IIrExpr)}
 				expr = &appl
 			}
@@ -129,7 +129,9 @@ func (me *ctxIrFromAst) newExprFrom(origin IAstExpr) (expr IIrExpr, errs Errors)
 		}
 	case *AstExprAppl:
 		origdes = origdes.ToUnary()
-		appl, isatomiccallee, isatomicarg := IrAppl{Orig: origdes}, (!requireAtomicCalleeAndCallArg) || origdes.Callee.IsAtomic(), (!requireAtomicCalleeAndCallArg) || origdes.Args[0].IsAtomic()
+		var appl IrAppl
+		appl.Orig = origdes
+		isatomiccallee, isatomicarg := (!requireAtomicCalleeAndCallArg) || origdes.Callee.IsAtomic(), (!requireAtomicCalleeAndCallArg) || origdes.Args[0].IsAtomic()
 		if isatomiccallee {
 			appl.Callee = errs.AddVia(me.newExprFrom(origdes.Callee)).(IIrExpr)
 		}

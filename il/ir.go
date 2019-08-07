@@ -11,41 +11,26 @@ const requireAtomicCalleeAndCallArg = false
 func (*irNodeBase) Let() *IrExprLetBase { return nil }
 func (*irNodeBase) IsDef() *IrDef       { return nil }
 func (*irNodeBase) IsExt() bool         { return false }
+func (me *irNodeBase) Origin() IAstNode { return me.Orig }
 
 func (me *IrDef) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
-	if orig == me.OrigDef {
+	if orig == me.OrigDef() {
 		nodes = []IIrNode{self}
-	} else if nodes = me.Name.findByOrig(&me.Name, orig); len(nodes) > 0 {
+	} else if nodes = me.Name.findByOrig(&me.Name, orig); len(nodes) != 0 {
 		nodes = append(nodes, self)
-	} else if nodes = me.Body.findByOrig(me.Body, orig); len(nodes) > 0 {
+	} else if nodes = me.Body.findByOrig(me.Body, orig); len(nodes) != 0 {
 		nodes = append(nodes, self)
-	} else if me.Arg != nil {
-		if nodes = me.Arg.findByOrig(me.Arg, orig); len(nodes) > 0 {
-			nodes = append(nodes, self)
-		}
 	}
 	return
 }
-func (me *IrDef) IsDef() *IrDef    { return me }
-func (me *IrDef) Origin() IAstNode { return me.OrigDef }
+func (me *IrDef) IsDef() *IrDef              { return me }
+func (me *IrDef) IsLam() (ifSo *IrLam)       { ifSo, _ = me.Body.(*IrLam); return }
+func (me *IrDef) OrigDef() (origDef *AstDef) { origDef, _ = me.Orig.(*AstDef); return }
 func (me *IrDef) origToks() (toks udevlex.Tokens) {
-	if me.OrigDef != nil && me.OrigDef.Tokens != nil {
-		toks = me.OrigDef.Tokens
+	if orig := me.OrigDef(); orig != nil && orig.Tokens != nil {
+		toks = orig.Tokens
 	} else if toks = me.Name.origToks(); len(toks) == 0 {
-		if toks = me.Body.origToks(); len(toks) == 0 && me.Arg != nil {
-			toks = me.Arg.origToks()
-		}
-	}
-	return
-}
-func (me *IrDef) HasArgRefsOtherThan(argNamesHave StringKeys) (argNamesIncomplete bool) {
-	if argNamesIncomplete = (me.Arg != nil && len(argNamesHave) == 0); !argNamesIncomplete {
-		_ = me.walk(nil, me, func(ancestors []IIrNode, n IIrNode, descendants ...IIrNode) bool {
-			if ident, ok := n.(*IrIdentName); ok && ident.IsArgRef(nil) {
-				argNamesIncomplete = argNamesIncomplete || !argNamesHave.Exists(ident.Val)
-			}
-			return !argNamesIncomplete
-		})
+		toks = me.Body.origToks()
 	}
 	return
 }
@@ -53,24 +38,20 @@ func (me *IrDef) RefersTo(name string) bool    { return me.Body.RefersTo(name) }
 func (me *IrDef) refsTo(name string) []IIrExpr { return me.Body.refsTo(name) }
 func (me *IrDef) EquivTo(node IIrNode) bool {
 	cmp, _ := node.(*IrDef)
-	return cmp != nil && cmp.Name.Val == me.Name.Val && me.Body.EquivTo(cmp.Body) &&
-		((me.Arg == nil) == (cmp.Arg == nil)) && ((me.Arg == nil) || me.Arg.EquivTo(cmp.Arg))
+	return cmp != nil && cmp.Name.Val == me.Name.Val && me.Body.EquivTo(cmp.Body)
 }
 func (me *IrDef) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) (keepGoing bool) {
-	if keepGoing = on(ancestors, self, &me.Name, me.Arg, me.Body); keepGoing {
+	if keepGoing = on(ancestors, self, &me.Name, me.Body); keepGoing {
 		ancestors = append(ancestors, self)
 		if keepGoing = me.Name.walk(ancestors, &me.Name, on); keepGoing {
-			if me.Arg != nil {
-				keepGoing = me.Arg.walk(ancestors, me.Arg, on)
-			}
-			keepGoing = keepGoing && me.Body.walk(ancestors, me.Body, on)
+			keepGoing = me.Body.walk(ancestors, me.Body, on)
 		}
 	}
 	return
 }
 
 func (me *IrDefTop) HasErrors() bool {
-	return len(me.Errs.Stage1AstToIr) > 0 || len(me.Errs.Stage2BadNames) > 0 || len(me.Errs.Stage3Preduce) > 0
+	return len(me.Errs.Stage1AstToIr) != 0 || len(me.Errs.Stage2BadNames) != 0 || len(me.Errs.Stage3Preduce) != 0
 }
 func (me *IrDefTop) Errors() (errs Errors) {
 	errs = make(Errors, 0, len(me.Errs.Stage1AstToIr)+len(me.Errs.Stage2BadNames)+len(me.Errs.Stage3Preduce))
@@ -94,7 +75,7 @@ func (me *IrDefTop) OrigToks(node IIrNode) (toks udevlex.Tokens) {
 	if toks = node.origToks(); len(toks) == 0 {
 		if paths := me.FindDescendants(false, 1, func(n IIrNode) bool { return n == node }); len(paths) == 1 {
 			for i := len(paths[0]) - 1; i >= 0; i-- {
-				if toks = paths[0][i].origToks(); len(toks) > 0 {
+				if toks = paths[0][i].origToks(); len(toks) != 0 {
 					break
 				}
 			}
@@ -135,15 +116,15 @@ func (me *IrDefTop) RefersTo(name string) (refersTo bool) {
 	return
 }
 func (me *IrDefTop) RefsTo(name string) (refs []IIrExpr) {
-	for len(name) > 0 && name[0] == '_' {
+	for len(name) != 0 && name[0] == '_' {
 		name = name[1:]
 	}
-	if len(name) > 0 {
+	if len(name) != 0 {
 		// leverage the bool cache already in place two ways, though we dont cache the occurrences
 		// in detail (they're usually for editor or error-message scenarios, not hi-perf paths)
 		if refersto, known := me.refersTo[name]; refersto || !known {
 			if refs = me.IrDef.refsTo(name); !known {
-				me.refersTo[name] = (len(refs) > 0)
+				me.refersTo[name] = (len(refs) != 0)
 			}
 		}
 	}
@@ -205,14 +186,16 @@ func (me *IrArg) EquivTo(node IIrNode) bool {
 func (me *IrArg) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 	if me.Orig == orig {
 		nodes = []IIrNode{me}
-	} else if nodes = me.IrIdentDecl.findByOrig(&me.IrIdentDecl, orig); len(nodes) > 0 {
+	} else if nodes = me.IrIdentDecl.findByOrig(&me.IrIdentDecl, orig); len(nodes) != 0 {
 		nodes = append(nodes, me)
 	}
 	return
 }
 func (me *IrArg) origToks() udevlex.Tokens {
-	if me.Orig != nil && me.Orig.Tokens != nil {
-		return me.Orig.Tokens
+	if me.Orig != nil {
+		if toks := me.Orig.Toks(); len(toks) != 0 {
+			return toks
+		}
 	}
 	return me.IrIdentDecl.origToks()
 }
@@ -232,7 +215,6 @@ func (me *IrArg) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrN
 
 func (me *IrExprBase) exprBase() *IrExprBase { return me }
 func (*IrExprBase) IsAtomic() bool           { return false }
-func (me *IrExprBase) Origin() IAstNode      { return me.Orig }
 func (me *IrExprBase) origToks() udevlex.Tokens {
 	if me.Orig != nil {
 		return me.Orig.Toks()
@@ -285,7 +267,7 @@ func (me *IrExprLetBase) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNod
 		nodes = []IIrNode{self}
 	} else {
 		for i := range me.Defs {
-			if nodes = me.Defs[i].findByOrig(&me.Defs[i], orig); len(nodes) > 0 {
+			if nodes = me.Defs[i].findByOrig(&me.Defs[i], orig); len(nodes) != 0 {
 				nodes = append(nodes, self)
 				break
 			}
@@ -434,9 +416,9 @@ func (me *IrAppl) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 	if me.Orig == orig {
 		nodes = []IIrNode{me}
 	} else {
-		if nodes = me.Callee.findByOrig(me.Callee, orig); len(nodes) > 0 {
+		if nodes = me.Callee.findByOrig(me.Callee, orig); len(nodes) != 0 {
 			nodes = append(nodes, me)
-		} else if nodes = me.CallArg.findByOrig(me.CallArg, orig); len(nodes) > 0 {
+		} else if nodes = me.CallArg.findByOrig(me.CallArg, orig); len(nodes) != 0 {
 			nodes = append(nodes, me)
 		} else {
 			nodes = me.IrExprLetBase.findByOrig(me, orig)
@@ -447,18 +429,16 @@ func (me *IrAppl) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 func (me *IrAppl) Origin() IAstNode {
 	if me.letOrig != nil {
 		return me.letOrig
-	} else if me.Orig != nil {
-		return me.Orig
 	}
-	return me.IrExprBase.Orig
+	return me.Orig
 }
 func (me *IrAppl) origToks() (toks udevlex.Tokens) {
-	if me.letOrig != nil && me.letOrig.Tokens != nil {
+	if me.letOrig != nil && len(me.letOrig.Tokens) != 0 {
 		toks = me.letOrig.Tokens
-	} else if me.Orig != nil && me.Orig.Tokens != nil {
-		toks = me.Orig.Tokens
-	} else if toks = me.Callee.origToks(); len(toks) == 0 {
-		toks = me.CallArg.origToks()
+	} else if toks = me.IrExprBase.origToks(); len(toks) == 0 {
+		if toks = me.Callee.origToks(); len(toks) == 0 {
+			toks = me.CallArg.origToks()
+		}
 	}
 	return
 }
@@ -496,11 +476,11 @@ func (me *IrLam) EquivTo(node IIrNode) bool {
 }
 func (me *IrLam) RefersTo(name string) bool { return me.Body.RefersTo(name) }
 func (me *IrLam) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
-	if orig == me.OrigDef {
+	if orig == me.Orig {
 		nodes = []IIrNode{self}
-	} else if nodes = me.Body.findByOrig(me.Body, orig); len(nodes) > 0 {
+	} else if nodes = me.Body.findByOrig(me.Body, orig); len(nodes) != 0 {
 		nodes = append(nodes, self)
-	} else if nodes = me.Arg.findByOrig(&me.Arg, orig); len(nodes) > 0 {
+	} else if nodes = me.Arg.findByOrig(&me.Arg, orig); len(nodes) != 0 {
 		nodes = append(nodes, self)
 	}
 	return

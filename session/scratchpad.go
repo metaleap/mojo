@@ -71,7 +71,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		defname = def.Name.Val
 		var alreadyinscratchpad *AstFileChunk
 		for _, t := range kit.topLevelDefs {
-			if t.Name.Val == defname || (t.OrigDef != nil && t.OrigDef.Name.Val == defname) {
+			if orig := t.OrigDef(); t.Name.Val == defname || (orig != nil && orig.Name.Val == defname) {
 				if t.OrigTopChunk.SrcFile.SrcFilePath == "" {
 					alreadyinscratchpad = t.OrigTopChunk
 					break

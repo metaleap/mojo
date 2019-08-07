@@ -44,14 +44,10 @@ func (me *IrExprLetBase) print(body IAstExpr) IAstNode {
 }
 
 func (me *IrDef) Print() IAstNode {
-	var argnames []string
-	if me.Arg != nil {
-		argnames = []string{me.Arg.Val}
-	}
 	if me.Body == nil {
-		return BuildAst.Def(me.Name.Val, BuildAst.Ident("?!?!?!"), argnames...)
+		return BuildAst.Def(me.Name.Val, BuildAst.Ident("?!?!?!"))
 	}
-	return BuildAst.Def(me.Name.Val, me.Body.Print().(IAstExpr), argnames...)
+	return BuildAst.Def(me.Name.Val, me.Body.Print().(IAstExpr))
 }
 
 func (me *IrDefTop) Print() IAstNode {
@@ -65,5 +61,6 @@ func (me *IrArg) Print() IAstNode {
 }
 
 func (me *IrLam) Print() IAstNode {
-	return BuildAst.Def("λ", me.Body.Print().(IAstExpr), me.Arg.Val)
+	return BuildAst.Let(BuildAst.Ident("λ"),
+		*BuildAst.Def("λ", me.Body.Print().(IAstExpr), me.Arg.Val))
 }
