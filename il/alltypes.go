@@ -8,17 +8,15 @@
 // on `atmo/il` node types plus utilizes its auxiliary types provided for this.
 //
 // `atmo/ast` transforms and/or desugars into `atmo/il` such that only idents,
-// atomic literals, unary calls, and nullary or unary defs remain in the IL.
+// atomic literals, unary calls, lambdas, and nullary defs remain in the IL.
 // Case expressions desugar into combinations of calls to basic `Std`-built-in
-// funcs such as `true`, `false`, `or`, `==` etc. Underscore placeholders obtain
-// meaning (or err), usually going from "de-facto lambdas" towards added inner
-// named-local defs ("let"s). (Both ident exprs and call exprs can own any
-// number of named local defs, whether from AST or dynamically generated.)
+// funcs such as `true`, `false`, `or`, `==` etc. Underscore placeholders
+// obtain meaning (or err), usually going from "de-facto lambdas" towards
+// actual lambdas. Every "let" def turns into an application-of-a-lambda.
 // Def-name and def-arg affixes are repositioned as wrapping around the def's
-// body. N-ary defs are unary-fied via added inner named-locals, n-ary calls
-// via nested sub-calls. ~~All callees and call-args are ensured to be atomic
-// via added inner named-locals if and as needed.~~ Other than these transforms,
-// no reductions, rewritings or removals occur in this (AST-to-IL) "stage 1".
+// body. N-ary defs are unary-then-nullary-fied via inner lambdas, n-ary calls
+// via nested sub-calls. Other than these transforms, no reductions,
+// rewritings or removals occur in this (AST-to-IL) "stage 1".
 package atmoil
 
 import (
@@ -49,7 +47,6 @@ type IIrNode interface {
 	findByOrig(IIrNode, IAstNode) []IIrNode
 	IsDef() *IrDef
 	IsExt() bool
-	// Let() *IrExprLetBase
 	RefersTo(string) bool
 	refsTo(string) []IIrExpr
 	walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) bool
@@ -126,16 +123,6 @@ type IrLitTag struct {
 	Val string
 }
 
-// type IrExprLetBase struct {
-// 	Defs      IrDefs
-// 	letOrig   *AstExprLet
-// 	letPrefix string
-
-// 	Anns struct {
-// 		NamesInScope AnnNamesInScope
-// 	}
-// }
-
 type IrNonValue struct {
 	IrExprAtomBase
 	OneOf struct {
@@ -156,7 +143,6 @@ type IrIdentDecl struct {
 
 type IrIdentName struct {
 	IrIdentBase
-	// IrExprLetBase
 
 	Anns struct {
 		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
@@ -166,7 +152,6 @@ type IrIdentName struct {
 
 type IrAppl struct {
 	IrExprBase
-	// IrExprLetBase
 	Callee  IIrExpr
 	CallArg IIrExpr
 }
