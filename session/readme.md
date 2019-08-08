@@ -284,6 +284,12 @@ func (me *Kit) Imports() []string
 func (me *Kit) IrNodeOfAstNode(defId string, origNode IAstNode) (astDefTop *IrDef, theNodeAndItsAncestors []IIrNode)
 ```
 
+#### func (*Kit) NamesInScope
+
+```go
+func (me *Kit) NamesInScope() AnnNamesInScope
+```
+
 #### func (*Kit) ScratchpadClear
 
 ```go
