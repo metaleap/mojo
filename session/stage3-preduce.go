@@ -17,7 +17,7 @@ func (me *ctxPreducing) toks(n IIrNode) (toks udevlex.Tokens) {
 	return
 }
 
-func (me *Ctx) rePreduceTopLevelDefs(defIds map[*IrDefTop]*Kit) (freshErrs Errors) {
+func (me *Ctx) rePreduceTopLevelDefs(defIds map[*IrDef]*Kit) (freshErrs Errors) {
 	if 1 > 0 {
 		return
 	}
@@ -32,7 +32,7 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*IrDefTop]*Kit) (freshErrs Error
 	return
 }
 
-func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDefTop, node IIrNode) IPreduced {
+func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) IPreduced {
 	ctxpreduce := &ctxPreducing{curSessCtx: me, curDefs: make(map[*IrDef]Exist, 32)}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
 	return ctxpreduce.preduce(node)
@@ -66,10 +66,10 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 	case IrDefRef:
 		curkit := me.curNode.owningKit
 		me.curNode.owningKit = this.Kit
-		ret = me.preduce(this.IrDefTop)
+		ret = me.preduce(this.IrDef)
 		me.curNode.owningKit = curkit
 
-	case *IrDefTop:
+	case *IrDef:
 		if 1 > 0 || (this.Anns.Preduced == nil && this.Errs.Stage3Preduce == nil) { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
 			this.Errs.Stage3Preduce = make(Errors, 0, 0) // not nil anymore now
 			if this.HasErrors() {
@@ -77,22 +77,21 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 			} else {
 				curtopdef := me.curNode.owningTopDef
 				me.curNode.owningTopDef = this
-				this.Anns.Preduced = me.preduce(&this.IrDef)
+				{
+					println(ustr.Times("\t", me.dbgIndent)+"INTO_DEF", ustr.ReplB(DbgPrintToString(this), '\n', ' '))
+					me.dbgIndent++
+					if this.IsLam() == nil {
+						this.Anns.Preduced = me.preduce(this.Body)
+					} else {
+						this.Anns.Preduced = &PCallable{Arg: &PHole{Def: this}, Ret: &PHole{Def: this}}
+					}
+					me.dbgIndent--
+					println(ustr.Times("\t", me.dbgIndent)+"DONE_DEF", this.Anns.Preduced.SummaryCompact())
+				}
 				me.curNode.owningTopDef = curtopdef
 			}
 		}
 		ret = this.Anns.Preduced
-
-	case *IrDef:
-		println(ustr.Times("\t", me.dbgIndent)+"INTO_DEF", ustr.ReplB(DbgPrintToString(this), '\n', ' '))
-		me.dbgIndent++
-		if this.IsLam() == nil {
-			ret = me.preduce(this.Body)
-		} else {
-			ret = &PCallable{Arg: &PHole{Def: this}, Ret: &PHole{Def: this}}
-		}
-		me.dbgIndent--
-		println(ustr.Times("\t", me.dbgIndent)+"DONE_DEF", ret.SummaryCompact())
 
 	case *IrArg:
 		println(ustr.Times("\t", me.dbgIndent)+"INTO_ARG", this.Val)

@@ -31,7 +31,7 @@ type ctxPreducing struct {
 	curSessCtx *Ctx
 	curDefs    map[*IrDef]Exist
 	curNode    struct {
-		owningTopDef *IrDefTop
+		owningTopDef *IrDef
 		owningKit    *Kit
 	}
 }
@@ -96,7 +96,7 @@ type Kit struct {
 		defsBornIdsNames map[string]string
 	}
 	lookups struct {
-		tlDefsByID      map[string]*IrDefTop
+		tlDefsByID      map[string]*IrDef
 		tlDefIDsByName  map[string][]string
 		namesInScopeOwn AnnNamesInScope
 		namesInScopeExt AnnNamesInScope
@@ -109,6 +109,6 @@ type Kit struct {
 }
 
 type IrDefRef struct {
-	*IrDefTop
+	*IrDef
 	Kit *Kit
 }

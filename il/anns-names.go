@@ -9,7 +9,7 @@ func (me AnnNamesInScope) Add(name string, nodes ...IIrNode) {
 	me[name] = append(me[name], nodes...)
 }
 
-func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.Errors) (namesInScopeCopy AnnNamesInScope) {
+func (me AnnNamesInScope) copyAndAdd(tld *IrDef, add interface{}, errs *atmo.Errors) (namesInScopeCopy AnnNamesInScope) {
 	var addarg *IrArg
 	var adddefs IrDefs
 	var namestoadd []string
@@ -72,7 +72,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDefTop, add interface{}, errs *atmo.
 	return
 }
 
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors) {
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors) {
 	inscope := me
 	switch n := node.(type) {
 	case *IrDef:
@@ -93,7 +93,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode
 	return
 }
 
-func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDefTop, errs *atmo.Errors, node IIrNode, name string) {
+func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDef, errs *atmo.Errors, node IIrNode, name string) {
 	toks := node.origToks()
 	if def := node.IsDef(); def != nil {
 		if t := def.Name.origToks(); len(t) > 0 {

@@ -31,7 +31,6 @@ func (me *IrDef) origToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *IrDef) RefersTo(name string) bool    { return me.Body.RefersTo(name) }
 func (me *IrDef) refsTo(name string) []IIrExpr { return me.Body.refsTo(name) }
 func (me *IrDef) EquivTo(node IIrNode) bool {
 	cmp, _ := node.(*IrDef)
@@ -46,19 +45,18 @@ func (me *IrDef) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrN
 	}
 	return
 }
-
-func (me *IrDefTop) HasErrors() bool {
+func (me *IrDef) HasErrors() bool {
 	return len(me.Errs.Stage1AstToIr) != 0 || len(me.Errs.Stage2BadNames) != 0 || len(me.Errs.Stage3Preduce) != 0
 }
-func (me *IrDefTop) Errors() (errs Errors) {
+func (me *IrDef) Errors() (errs Errors) {
 	errs = make(Errors, 0, len(me.Errs.Stage1AstToIr)+len(me.Errs.Stage2BadNames)+len(me.Errs.Stage3Preduce))
 	errs = append(append(append(errs, me.Errs.Stage1AstToIr...), me.Errs.Stage2BadNames...), me.Errs.Stage3Preduce...)
 	return
 }
-func (me *IrDefTop) FindByOrig(orig IAstNode) []IIrNode {
-	return me.IrDef.findByOrig(me, orig)
+func (me *IrDef) FindByOrig(orig IAstNode) []IIrNode {
+	return me.findByOrig(me, orig)
 }
-func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(IIrNode) bool) (paths [][]IIrNode) {
+func (me *IrDef) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(IIrNode) bool) (paths [][]IIrNode) {
 	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodedescendants ...IIrNode) bool {
 		if pred(curnode) {
 			paths = append(paths, append(curnodeancestors, curnode))
@@ -68,7 +66,7 @@ func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred f
 	})
 	return
 }
-func (me *IrDefTop) OrigToks(node IIrNode) (toks udevlex.Tokens) {
+func (me *IrDef) OrigToks(node IIrNode) (toks udevlex.Tokens) {
 	if toks = node.origToks(); len(toks) == 0 {
 		if paths := me.FindDescendants(false, 1, func(n IIrNode) bool { return n == node }); len(paths) == 1 {
 			for i := len(paths[0]) - 1; i >= 0; i-- {
@@ -80,7 +78,7 @@ func (me *IrDefTop) OrigToks(node IIrNode) (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *IrDefTop) RefersToOrDefines(name string) (relatesTo bool) {
+func (me *IrDef) RefersToOrDefines(name string) (relatesTo bool) {
 	relatesTo = me.Name.Val == name || me.RefersTo(name)
 	// if !relatesTo {
 	// 	me.ForAllLocalDefs(func(localdef *IrDef) (done bool) {
@@ -90,17 +88,17 @@ func (me *IrDefTop) RefersToOrDefines(name string) (relatesTo bool) {
 	// }
 	return
 }
-func (me *IrDefTop) RefersTo(name string) (refersTo bool) {
-	// as long as an IrDefTop exists, it represents the same original code snippet: so any given
+func (me *IrDef) RefersTo(name string) (refersTo bool) {
+	// as long as an IrDef exists, it represents the same original code snippet: so any given
 	// RefersTo(foo) truth will hold throughout: so we cache instead of continuously re-searching
 	var known bool
 	if refersTo, known = me.refersTo[name]; !known {
-		refersTo = me.IrDef.RefersTo(name)
+		refersTo = me.Body.RefersTo(name)
 		me.refersTo[name] = refersTo
 	}
 	return
 }
-func (me *IrDefTop) RefsTo(name string) (refs []IIrExpr) {
+func (me *IrDef) RefsTo(name string) (refs []IIrExpr) {
 	for len(name) != 0 && name[0] == '_' {
 		name = name[1:]
 	}
@@ -108,17 +106,17 @@ func (me *IrDefTop) RefsTo(name string) (refs []IIrExpr) {
 		// leverage the bool cache already in place two ways, though we dont cache the occurrences
 		// in detail (they're usually for editor or error-message scenarios, not hi-perf paths)
 		if refersto, known := me.refersTo[name]; refersto || !known {
-			if refs = me.IrDef.refsTo(name); !known {
+			if refs = me.refsTo(name); !known {
 				me.refersTo[name] = (len(refs) != 0)
 			}
 		}
 	}
 	return
 }
-func (me *IrDefTop) Walk(shouldTraverse func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool) {
+func (me *IrDef) Walk(shouldTraverse func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool) {
 	_ = me.walk(nil, me, shouldTraverse)
 }
-func (me *IrDefTop) FindAny(where func(IIrNode) bool) (firstMatch []IIrNode) {
+func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatch []IIrNode) {
 	me.Walk(func(ancestors []IIrNode, curnode IIrNode, descendants ...IIrNode) bool {
 		if where(curnode) {
 			firstMatch = append(ancestors, curnode)
@@ -127,7 +125,7 @@ func (me *IrDefTop) FindAny(where func(IIrNode) bool) (firstMatch []IIrNode) {
 	})
 	return
 }
-func (me *IrDefTop) FindAll(where func(IIrNode) bool) (matches [][]IIrNode) {
+func (me *IrDef) FindAll(where func(IIrNode) bool) (matches [][]IIrNode) {
 	me.Walk(func(ancestors []IIrNode, curnode IIrNode, descendants ...IIrNode) bool {
 		if where(curnode) {
 			matches = append(matches, append(ancestors, curnode))
@@ -136,7 +134,7 @@ func (me *IrDefTop) FindAll(where func(IIrNode) bool) (matches [][]IIrNode) {
 	})
 	return
 }
-func (me *IrDefTop) HasAnyOf(nodes ...IIrNode) bool {
+func (me *IrDef) HasAnyOf(nodes ...IIrNode) bool {
 	return nil != me.FindAny(func(node IIrNode) bool {
 		for _, n := range nodes {
 			if n == node {
@@ -146,7 +144,7 @@ func (me *IrDefTop) HasAnyOf(nodes ...IIrNode) bool {
 		return false
 	})
 }
-func (me *IrDefTop) HasIdentDecl(name string) bool {
+func (me *IrDef) HasIdentDecl(name string) bool {
 	return 0 < len(me.FindAny(func(n IIrNode) bool {
 		identdecl, ok := n.(*IrIdentDecl)
 		return ok && identdecl.Val == name

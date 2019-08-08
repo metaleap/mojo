@@ -196,7 +196,7 @@ func (me *Repl) dInfoKit(whatKit string) {
 }
 
 func (me *Repl) dInfoDef(whatKit string, whatName string) {
-	me.withKitDefs(whatKit, whatName, "info", func(kit *Kit, def *IrDefTop) {
+	me.withKitDefs(whatKit, whatName, "info", func(kit *Kit, def *IrDef) {
 		me.IO.writeLns("TODO")
 	})
 }
@@ -206,7 +206,7 @@ func (me *Repl) DSrcs(what string) bool {
 		ctxp := CtxPrint{OneIndentLevel: "    ", Fmt: &PrintFmtPretty{},
 			ApplStyle: APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
-		me.withKitDefs(whatkit, whatname, "srcs", func(kit *Kit, def *IrDefTop) {
+		me.withKitDefs(whatkit, whatname, "srcs", func(kit *Kit, def *IrDef) {
 			me.decoAddNotice(false, "", true, ustr.FirstOf(def.OrigTopChunk.SrcFile.SrcFilePath, me.Ctx.Options.Scratchpad.FauxFileNameForErrorMessages))
 			ctxp.ApplStyle = def.OrigTopChunk.SrcFile.Options.ApplStyle
 			def.OrigTopChunk.Print(&ctxp)
@@ -228,7 +228,7 @@ func (me *Repl) DSrcs(what string) bool {
 	return false
 }
 
-func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*Kit, *IrDefTop)) {
+func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on func(*Kit, *IrDef)) {
 	kits := me.Ctx.Kits.All
 	var kit *Kit
 	if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {

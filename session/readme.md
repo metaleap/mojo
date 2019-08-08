@@ -146,13 +146,13 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs Errors)
 #### func (*Ctx) KitsCollectAcquaintances
 
 ```go
-func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames StringKeys, indirects bool) (acquaintancesDefs map[*IrDefTop]*Kit)
+func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames StringKeys, indirects bool) (acquaintancesDefs map[*IrDef]*Kit)
 ```
 
 #### func (*Ctx) KitsCollectReferences
 
 ```go
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*IrDefTop][]IIrExpr
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*IrDef][]IIrExpr
 ```
 
 #### func (*Ctx) KitsEnsureLoaded
@@ -182,7 +182,7 @@ again from inside such a wrapper `func` will deadlock.
 #### func (*Ctx) Preduce
 
 ```go
-func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDefTop, node IIrNode) IPreduced
+func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) IPreduced
 ```
 
 #### func (*Ctx) ScratchpadEntry
@@ -207,7 +207,7 @@ func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do fu
 
 ```go
 type IrDefRef struct {
-	*IrDefTop
+	*IrDef
 	Kit *Kit
 }
 ```
@@ -281,7 +281,7 @@ func (me *Kit) Imports() []string
 #### func (*Kit) IrNodeOfAstNode
 
 ```go
-func (me *Kit) IrNodeOfAstNode(defId string, origNode IAstNode) (astDefTop *IrDefTop, theNodeAndItsAncestors []IIrNode)
+func (me *Kit) IrNodeOfAstNode(defId string, origNode IAstNode) (astDefTop *IrDef, theNodeAndItsAncestors []IIrNode)
 ```
 
 #### func (*Kit) ScratchpadClear
@@ -299,7 +299,7 @@ func (me *Kit) ScratchpadView() []byte
 #### func (*Kit) SelectNodes
 
 ```go
-func (me *Kit) SelectNodes(tldOk func(*IrDefTop) bool, nodeOk func([]IIrNode, IIrNode, []IIrNode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[IIrNode]*IrDefTop)
+func (me *Kit) SelectNodes(tldOk func(*IrDef) bool, nodeOk func([]IIrNode, IIrNode, []IIrNode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[IIrNode]*IrDef)
 ```
 
 #### type Kits

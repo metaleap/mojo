@@ -14,15 +14,6 @@ func (me IrDefs) byName(name string) *IrDef {
 	return nil
 }
 
-func (me *IrDefs) add(name string, body IIrExpr) (def *IrDef) {
-	this := *me
-	idx := len(this)
-	this = append(this, IrDef{Body: body})
-	*me, def = this, &this[idx]
-	def.Name.Val = name
-	return
-}
-
 func (me IrDefs) index(name string) int {
 	for i := range me {
 		if me[i].Name.Val == name {
@@ -39,7 +30,7 @@ func (me IrTopDefs) Less(i int, j int) bool {
 	return (dis.FilePath == dat.FilePath && me[i].OrigTopChunk.PosOffsetByte() < me[j].OrigTopChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 
-func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDefTop) {
+func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef) {
 	allfiles := (onlyFor == nil)
 	for _, tld := range me {
 		if allfiles || (tld.OrigTopChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
@@ -99,7 +90,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 		newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
 		for _, tlc := range newdefs {
 			// add the def skeleton
-			orig, def := tlc.Ast.Def.Orig, &IrDefTop{OrigTopChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool, 8)}
+			orig, def := tlc.Ast.Def.Orig, &IrDef{OrigTopChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool, 8)}
 			this, newTopLevelDefIdsAndNames[def.Id] =
 				append(this, def), tlc.Ast.Def.Orig.Name.Val
 			// populate it

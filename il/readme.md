@@ -73,7 +73,7 @@ func (me AnnNamesInScope) Add(name string, nodes ...IIrNode)
 #### func (AnnNamesInScope) RepopulateDefsAndIdentsFor
 
 ```go
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDefTop, node IIrNode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors)
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors)
 ```
 
 #### type IIrExpr
@@ -256,6 +256,17 @@ func (IrBuild) Undef() *IrNonValue
 type IrDef struct {
 	Name IrIdentDecl
 	Body IIrExpr
+
+	Id           string
+	OrigTopChunk *AstFileChunk
+	Anns         struct {
+		Preduced IPreduced
+	}
+	Errs struct {
+		Stage1AstToIr  Errors
+		Stage2BadNames Errors
+		Stage3Preduce  Errors
+	}
 }
 ```
 
@@ -264,6 +275,54 @@ type IrDef struct {
 
 ```go
 func (me *IrDef) EquivTo(node IIrNode) bool
+```
+
+#### func (*IrDef) Errors
+
+```go
+func (me *IrDef) Errors() (errs Errors)
+```
+
+#### func (*IrDef) FindAll
+
+```go
+func (me *IrDef) FindAll(where func(IIrNode) bool) (matches [][]IIrNode)
+```
+
+#### func (*IrDef) FindAny
+
+```go
+func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatch []IIrNode)
+```
+
+#### func (*IrDef) FindByOrig
+
+```go
+func (me *IrDef) FindByOrig(orig IAstNode) []IIrNode
+```
+
+#### func (*IrDef) FindDescendants
+
+```go
+func (me *IrDef) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(IIrNode) bool) (paths [][]IIrNode)
+```
+
+#### func (*IrDef) HasAnyOf
+
+```go
+func (me *IrDef) HasAnyOf(nodes ...IIrNode) bool
+```
+
+#### func (*IrDef) HasErrors
+
+```go
+func (me *IrDef) HasErrors() bool
+```
+
+#### func (*IrDef) HasIdentDecl
+
+```go
+func (me *IrDef) HasIdentDecl(name string) bool
 ```
 
 #### func (*IrDef) IsDef
@@ -290,6 +349,12 @@ func (me *IrDef) IsLam() (ifSo *IrLam)
 func (me *IrDef) OrigDef() (origDef *AstDef)
 ```
 
+#### func (*IrDef) OrigToks
+
+```go
+func (me *IrDef) OrigToks(node IIrNode) (toks udevlex.Tokens)
+```
+
 #### func (*IrDef) Origin
 
 ```go
@@ -305,123 +370,25 @@ func (me *IrDef) Print() IAstNode
 #### func (*IrDef) RefersTo
 
 ```go
-func (me *IrDef) RefersTo(name string) bool
+func (me *IrDef) RefersTo(name string) (refersTo bool)
 ```
 
-#### type IrDefTop
+#### func (*IrDef) RefersToOrDefines
 
 ```go
-type IrDefTop struct {
-	IrDef
-
-	Id           string
-	OrigTopChunk *AstFileChunk
-	Anns         struct {
-		Preduced IPreduced
-	}
-	Errs struct {
-		Stage1AstToIr  Errors
-		Stage2BadNames Errors
-		Stage3Preduce  Errors
-	}
-}
+func (me *IrDef) RefersToOrDefines(name string) (relatesTo bool)
 ```
 
-
-#### func (*IrDefTop) Errors
+#### func (*IrDef) RefsTo
 
 ```go
-func (me *IrDefTop) Errors() (errs Errors)
+func (me *IrDef) RefsTo(name string) (refs []IIrExpr)
 ```
 
-#### func (*IrDefTop) FindAll
+#### func (*IrDef) Walk
 
 ```go
-func (me *IrDefTop) FindAll(where func(IIrNode) bool) (matches [][]IIrNode)
-```
-
-#### func (*IrDefTop) FindAny
-
-```go
-func (me *IrDefTop) FindAny(where func(IIrNode) bool) (firstMatch []IIrNode)
-```
-
-#### func (*IrDefTop) FindByOrig
-
-```go
-func (me *IrDefTop) FindByOrig(orig IAstNode) []IIrNode
-```
-
-#### func (*IrDefTop) FindDescendants
-
-```go
-func (me *IrDefTop) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(IIrNode) bool) (paths [][]IIrNode)
-```
-
-#### func (*IrDefTop) HasAnyOf
-
-```go
-func (me *IrDefTop) HasAnyOf(nodes ...IIrNode) bool
-```
-
-#### func (*IrDefTop) HasErrors
-
-```go
-func (me *IrDefTop) HasErrors() bool
-```
-
-#### func (*IrDefTop) HasIdentDecl
-
-```go
-func (me *IrDefTop) HasIdentDecl(name string) bool
-```
-
-#### func (*IrDefTop) IsExt
-
-```go
-func (*IrDefTop) IsExt() bool
-```
-
-#### func (*IrDefTop) OrigToks
-
-```go
-func (me *IrDefTop) OrigToks(node IIrNode) (toks udevlex.Tokens)
-```
-
-#### func (*IrDefTop) Origin
-
-```go
-func (me *IrDefTop) Origin() IAstNode
-```
-
-#### func (*IrDefTop) Print
-
-```go
-func (me *IrDefTop) Print() IAstNode
-```
-
-#### func (*IrDefTop) RefersTo
-
-```go
-func (me *IrDefTop) RefersTo(name string) (refersTo bool)
-```
-
-#### func (*IrDefTop) RefersToOrDefines
-
-```go
-func (me *IrDefTop) RefersToOrDefines(name string) (relatesTo bool)
-```
-
-#### func (*IrDefTop) RefsTo
-
-```go
-func (me *IrDefTop) RefsTo(name string) (refs []IIrExpr)
-```
-
-#### func (*IrDefTop) Walk
-
-```go
-func (me *IrDefTop) Walk(shouldTraverse func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool)
+func (me *IrDef) Walk(shouldTraverse func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool)
 ```
 
 #### type IrDefs
@@ -576,7 +543,7 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
-		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
+		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDef, atmosess.IrDefRef
 		Candidates []IIrNode
 	}
 }
@@ -782,14 +749,14 @@ func (me *IrNonValue) Print() IAstNode
 #### type IrTopDefs
 
 ```go
-type IrTopDefs []*IrDefTop
+type IrTopDefs []*IrDef
 ```
 
 
 #### func (IrTopDefs) ByName
 
 ```go
-func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDefTop)
+func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef)
 ```
 
 #### func (IrTopDefs) IndexByID

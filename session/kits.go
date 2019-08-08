@@ -191,7 +191,7 @@ func (me *Ctx) fileModsHandleDir(kitsDirs []string, fauxKitDirs []string, dirFul
 	}
 }
 
-func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*IrDefTop][]IIrExpr {
+func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) map[*IrDef][]IIrExpr {
 	if name == "" {
 		return nil
 	}
@@ -201,11 +201,11 @@ func (me *Ctx) KitsCollectReferences(forceLoadAllKnownKits bool, name string) ma
 	return me.Kits.All.collectReferences(name)
 }
 
-func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames StringKeys, indirects bool) (acquaintancesDefs map[*IrDefTop]*Kit) {
+func (me *Ctx) KitsCollectAcquaintances(forceLoadAllKnownKits bool, defNames StringKeys, indirects bool) (acquaintancesDefs map[*IrDef]*Kit) {
 	if forceLoadAllKnownKits {
 		me.KitsEnsureLoaded(true, me.KnownKitImpPaths()...)
 	}
-	acquaintancesDefs = make(map[*IrDefTop]*Kit)
+	acquaintancesDefs = make(map[*IrDef]*Kit)
 	var dones StringKeys
 	if indirects {
 		dones = make(StringKeys, len(defNames))
@@ -235,7 +235,7 @@ func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs Errors) {
 
 		namesofchange, _, _, ferrs := me.kitsRepopulateNamesInScope()
 		freshErrs = ferrs
-		defidsofacquaintancesofnamesofchange := make(map[*IrDefTop]*Kit)
+		defidsofacquaintancesofnamesofchange := make(map[*IrDef]*Kit)
 		me.Kits.All.collectAcquaintances(namesofchange, defidsofacquaintancesofnamesofchange, make(StringKeys, len(namesofchange)))
 		freshErrs.Add(me.rePreduceTopLevelDefs(defidsofacquaintancesofnamesofchange)...)
 	}
@@ -323,12 +323,12 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 	return
 }
 
-func (me Kits) collectReferences(name string) (refs map[*IrDefTop][]IIrExpr) {
+func (me Kits) collectReferences(name string) (refs map[*IrDef][]IIrExpr) {
 	for _, kit := range me {
 		for _, tld := range kit.topLevelDefs {
 			if nodes := tld.RefsTo(name); len(nodes) > 0 {
 				if refs == nil {
-					refs = make(map[*IrDefTop][]IIrExpr)
+					refs = make(map[*IrDef][]IIrExpr)
 				}
 				refs[tld] = nodes
 			}
@@ -337,7 +337,7 @@ func (me Kits) collectReferences(name string) (refs map[*IrDefTop][]IIrExpr) {
 	return
 }
 
-func (me Kits) collectAcquaintances(defNames StringKeys, acquaintancesDefs map[*IrDefTop]*Kit, doneAlready StringKeys) {
+func (me Kits) collectAcquaintances(defNames StringKeys, acquaintancesDefs map[*IrDef]*Kit, doneAlready StringKeys) {
 	if len(defNames) == 0 {
 		return
 	}

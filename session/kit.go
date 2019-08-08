@@ -171,7 +171,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				}
 				freshErrs.Add(fresherrs...)
 			}
-			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*IrDefTop, len(kit.topLevelDefs))
+			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*IrDef, len(kit.topLevelDefs))
 			for _, tldef := range kit.topLevelDefs {
 				kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Name.Val] =
 					tldef, append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.Id)
@@ -274,16 +274,16 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 	return
 }
 
-func (me *Kit) IrNodeOfAstNode(defId string, origNode IAstNode) (astDefTop *IrDefTop, theNodeAndItsAncestors []IIrNode) {
+func (me *Kit) IrNodeOfAstNode(defId string, origNode IAstNode) (astDefTop *IrDef, theNodeAndItsAncestors []IIrNode) {
 	if astDefTop = me.lookups.tlDefsByID[defId]; astDefTop != nil {
 		theNodeAndItsAncestors = astDefTop.FindByOrig(origNode)
 	}
 	return
 }
 
-func (me *Kit) SelectNodes(tldOk func(*IrDefTop) bool, nodeOk func([]IIrNode, IIrNode, []IIrNode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[IIrNode]*IrDefTop) {
+func (me *Kit) SelectNodes(tldOk func(*IrDef) bool, nodeOk func([]IIrNode, IIrNode, []IIrNode) (ismatch bool, dontdescend bool, tlddone bool, alldone bool)) (matches map[IIrNode]*IrDef) {
 	var alldone bool
-	matches = map[IIrNode]*IrDefTop{}
+	matches = map[IIrNode]*IrDef{}
 	for _, tld := range me.topLevelDefs {
 		if tldOk(tld) {
 			tld.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodedescendantsthatwillbetraversedifreturningtrue ...IIrNode) (traverse bool) {

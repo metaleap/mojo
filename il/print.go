@@ -29,15 +29,15 @@ func (me *IrAppl) Print() IAstNode {
 	return BuildAst.Appl(me.Callee.Print().(IAstExpr), me.CallArg.Print().(IAstExpr))
 }
 
-func (me *IrDef) Print() IAstNode {
+func (me *IrDef) print() IAstNode {
 	if me.Body == nil {
 		return BuildAst.Def(me.Name.Val, BuildAst.Ident("?!?!?!"))
 	}
 	return BuildAst.Def(me.Name.Val, me.Body.Print().(IAstExpr))
 }
 
-func (me *IrDefTop) Print() IAstNode {
-	def := me.IrDef.Print().(*AstDef)
+func (me *IrDef) Print() IAstNode {
+	def := me.print().(*AstDef)
 	def.IsTopLevel = true
 	return def
 }

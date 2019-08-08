@@ -62,10 +62,10 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 							for name, nodesown := range kimp.lookups.namesInScopeOwn {
 								nodes := make([]atmoil.IIrNode, 0, len(nodesown))
 								for _, n := range nodesown {
-									deftop := n.(*atmoil.IrDefTop) /* ok to panic here bc should-never-happen-else-its-a-bug */
+									deftop := n.(*atmoil.IrDef) /* ok to panic here bc should-never-happen-else-its-a-bug */
 									if !deftop.OrigTopChunk.Ast.Def.IsUnexported {
 										nodes = append(nodes, IrDefRef{Kit: kimp,
-											IrDefTop: deftop})
+											IrDef: deftop})
 									}
 								}
 								kit.lookups.namesInScopeExt.Add(name, nodes...)
@@ -90,7 +90,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 		}
 		me.kitGatherAllUnparsedGlobalsNames(kit, badglobalsnames)
 		for _, tld := range kit.topLevelDefs {
-			tld.Errs.Stage2BadNames.Add(kit.lookups.namesInScopeAll.RepopulateDefsAndIdentsFor(tld, &tld.IrDef, badglobalsnames)...)
+			tld.Errs.Stage2BadNames.Add(kit.lookups.namesInScopeAll.RepopulateDefsAndIdentsFor(tld, tld, badglobalsnames)...)
 			errs.Add(tld.Errs.Stage2BadNames...)
 		}
 	}

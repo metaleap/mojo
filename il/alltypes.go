@@ -26,7 +26,7 @@ import (
 )
 
 type ctxIrFromAst struct {
-	curTopLevelDef  *IrDefTop
+	curTopLevelDef  *IrDef
 	defArgs         map[*IrDef]*IrArg
 	coerceCallables map[IIrNode]IIrExpr
 	counter         struct {
@@ -37,7 +37,7 @@ type ctxIrFromAst struct {
 
 type IrDefs []IrDef
 
-type IrTopDefs []*IrDefTop
+type IrTopDefs []*IrDef
 
 type IIrNode interface {
 	Print() IAstNode
@@ -73,10 +73,6 @@ type IrDef struct {
 
 	Name IrIdentDecl
 	Body IIrExpr
-}
-
-type IrDefTop struct {
-	IrDef
 
 	Id           string
 	OrigTopChunk *AstFileChunk
@@ -145,7 +141,7 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
-		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDefTop, atmosess.IrDefRef
+		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDef, atmosess.IrDefRef
 		Candidates []IIrNode
 	}
 }
