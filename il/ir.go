@@ -116,12 +116,12 @@ func (me *IrDef) RefsTo(name string) (refs []IIrExpr) {
 func (me *IrDef) Walk(shouldTraverse func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool) {
 	_ = me.walk(nil, me, shouldTraverse)
 }
-func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatch []IIrNode) {
+func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatchWithAncestorsPrepended []IIrNode) {
 	me.Walk(func(ancestors []IIrNode, curnode IIrNode, descendants ...IIrNode) bool {
 		if where(curnode) {
-			firstMatch = append(ancestors, curnode)
+			firstMatchWithAncestorsPrepended = append(ancestors, curnode)
 		}
-		return firstMatch == nil
+		return firstMatchWithAncestorsPrepended == nil
 	})
 	return
 }
@@ -149,6 +149,18 @@ func (me *IrDef) HasIdentDecl(name string) bool {
 		identdecl, ok := n.(*IrIdentDecl)
 		return ok && identdecl.Val == name
 	}))
+}
+func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsInScope AnnNamesInScope) (namesInScope AnnNamesInScope) {
+	namesInScope = knownGlobalsInScope.copy()
+	if descendantNodeInQuestion != me {
+		nodepath := me.FindAny(func(n IIrNode) bool { return n == descendantNodeInQuestion })
+		for _, n := range nodepath {
+			if lam, islam := n.(*IrLam); islam {
+				namesInScope.Add(lam.Arg.Val, &lam.Arg)
+			}
+		}
+	}
+	return
 }
 
 func (me *IrArg) EquivTo(node IIrNode) bool {

@@ -63,6 +63,9 @@ func ExprFrom(orig IAstExpr) (IIrExpr, Errors)
 type AnnNamesInScope map[string][]IIrNode
 ```
 
+AnnNamesInScope contains per-name all nodes known-in-scope that declare that
+name; every `IIrNode` is one of `*atmoil.IrDef`, `*atmoil.IrArg`,
+`atmosess.IrDefRef`
 
 #### func (AnnNamesInScope) Add
 
@@ -292,7 +295,7 @@ func (me *IrDef) FindAll(where func(IIrNode) bool) (matches [][]IIrNode)
 #### func (*IrDef) FindAny
 
 ```go
-func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatch []IIrNode)
+func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatchWithAncestorsPrepended []IIrNode)
 ```
 
 #### func (*IrDef) FindByOrig
@@ -341,6 +344,12 @@ func (*IrDef) IsExt() bool
 
 ```go
 func (me *IrDef) IsLam() (ifSo *IrLam)
+```
+
+#### func (*IrDef) NamesInScopeAt
+
+```go
+func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsInScope AnnNamesInScope) (namesInScope AnnNamesInScope)
 ```
 
 #### func (*IrDef) OrigDef
@@ -543,7 +552,7 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
-		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDef, atmosess.IrDefRef
+		// *atmoil.IrDef, *atmoil.IrArg, atmosess.IrDefRef
 		Candidates []IIrNode
 	}
 }

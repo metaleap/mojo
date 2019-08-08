@@ -141,7 +141,7 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
-		// *atmoil.IrDef, *atmoil.IrArg, *atmoil.IrDef, atmosess.IrDefRef
+		// *atmoil.IrDef, *atmoil.IrArg, atmosess.IrDefRef
 		Candidates []IIrNode
 	}
 }
@@ -152,6 +152,8 @@ type IrAppl struct {
 	CallArg IIrExpr
 }
 
+// AnnNamesInScope contains per-name all nodes known-in-scope that declare that name;
+// every `IIrNode` is one of `*atmoil.IrDef`, `*atmoil.IrArg`, `atmosess.IrDefRef`
 type AnnNamesInScope map[string][]IIrNode
 
 type IrBuild struct{}

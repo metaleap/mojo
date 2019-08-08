@@ -80,13 +80,11 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange atmo.StringKeys, defI
 	for kit, badglobalsnames := range kitrepops {
 		kit.state.defsBornIdsNames, kit.state.defsGoneIdsNames = nil, nil
 		kit.lookups.namesInScopeAll = make(atmoil.AnnNamesInScope, len(kit.lookups.namesInScopeExt)+len(kit.lookups.namesInScopeOwn))
-		for k, v := range kit.lookups.namesInScopeOwn {
-			nodes := make([]atmoil.IIrNode, len(v))
-			copy(nodes, v)
-			kit.lookups.namesInScopeAll[k] = nodes
+		for name, nodes := range kit.lookups.namesInScopeOwn {
+			kit.lookups.namesInScopeAll.Add(name, nodes...)
 		}
-		for k, v := range kit.lookups.namesInScopeExt {
-			kit.lookups.namesInScopeAll.Add(k, v...)
+		for name, nodes := range kit.lookups.namesInScopeExt {
+			kit.lookups.namesInScopeAll.Add(name, nodes...)
 		}
 		me.kitGatherAllUnparsedGlobalsNames(kit, badglobalsnames)
 		for _, tld := range kit.topLevelDefs {
