@@ -349,7 +349,7 @@ func (me *IrDef) IsLam() (ifSo *IrLam)
 #### func (*IrDef) NamesInScopeAt
 
 ```go
-func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsInScope AnnNamesInScope) (namesInScope AnnNamesInScope)
+func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsInScope AnnNamesInScope, excludeInternalIdents bool) (namesInScope AnnNamesInScope)
 ```
 
 #### func (*IrDef) OrigDef

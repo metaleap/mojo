@@ -2,6 +2,7 @@ package atmoil
 
 import (
 	"github.com/go-leap/dev/lex"
+	"github.com/go-leap/str"
 	. "github.com/metaleap/atmo"
 	. "github.com/metaleap/atmo/ast"
 )
@@ -150,13 +151,15 @@ func (me *IrDef) HasIdentDecl(name string) bool {
 		return ok && identdecl.Val == name
 	}))
 }
-func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsInScope AnnNamesInScope) (namesInScope AnnNamesInScope) {
+func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsInScope AnnNamesInScope, excludeInternalIdents bool) (namesInScope AnnNamesInScope) {
 	namesInScope = knownGlobalsInScope.copy()
 	if descendantNodeInQuestion != me {
 		nodepath := me.FindAny(func(n IIrNode) bool { return n == descendantNodeInQuestion })
 		for _, n := range nodepath {
 			if lam, islam := n.(*IrLam); islam {
-				namesInScope.Add(lam.Arg.Val, &lam.Arg)
+				if (!excludeInternalIdents) || !ustr.Pref(lam.Arg.Val, "__") {
+					namesInScope.Add(lam.Arg.Val, &lam.Arg)
+				}
 			}
 		}
 	}
