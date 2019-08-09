@@ -26,7 +26,7 @@ func (me IrDefs) index(name string) int {
 func (me IrTopDefs) Len() int          { return len(me) }
 func (me IrTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me IrTopDefs) Less(i int, j int) bool {
-	dis, dat := &me[i].origToks().First1().Pos, &me[j].origToks().First1().Pos
+	dis, dat := &me[i].OrigToks(nil).First1().Pos, &me[j].OrigToks(nil).First1().Pos
 	return (dis.FilePath == dat.FilePath && me[i].OrigTopChunk.PosOffsetByte() < me[j].OrigTopChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 

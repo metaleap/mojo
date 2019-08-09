@@ -21,17 +21,9 @@ func (me *IrDef) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
 	}
 	return
 }
-func (me *IrDef) IsDef() *IrDef              { return me }
-func (me *IrDef) IsLam() (ifSo *IrLam)       { ifSo, _ = me.Body.(*IrLam); return }
-func (me *IrDef) OrigDef() (origDef *AstDef) { origDef, _ = me.Orig.(*AstDef); return }
-func (me *IrDef) origToks() (toks udevlex.Tokens) {
-	if orig := me.OrigDef(); orig != nil && orig.Tokens != nil {
-		toks = orig.Tokens
-	} else if toks = me.Name.origToks(); len(toks) == 0 {
-		toks = me.Body.origToks()
-	}
-	return
-}
+func (me *IrDef) IsDef() *IrDef                { return me }
+func (me *IrDef) IsLam() (ifSo *IrLam)         { ifSo, _ = me.Body.(*IrLam); return }
+func (me *IrDef) OrigDef() (origDef *AstDef)   { origDef, _ = me.Orig.(*AstDef); return }
 func (me *IrDef) refsTo(name string) []IIrExpr { return me.Body.refsTo(name) }
 func (me *IrDef) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrDef)
@@ -58,26 +50,27 @@ func (me *IrDef) Errors() (errs Errors) {
 func (me *IrDef) FindByOrig(orig IAstNode) []IIrNode {
 	return me.findByOrig(me, orig)
 }
-func (me *IrDef) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(IIrNode) bool) (paths [][]IIrNode) {
-	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodedescendants ...IIrNode) bool {
-		if pred(curnode) {
-			paths = append(paths, append(curnodeancestors, curnode))
-			return traverseIntoMatchesToo
+func (me *IrDef) AncestorsAndDescendantsOf(node IIrNode) (nodeAncestors []IIrNode, nodeDescendants []IIrNode) {
+	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodedescendants ...IIrNode) (keepGoing bool) {
+		if curnode == node {
+			nodeAncestors, nodeDescendants = curnodeancestors, curnodedescendants
 		}
-		return max <= 0 || len(paths) < max
+		return nodeAncestors == nil && nodeDescendants == nil
 	})
 	return
 }
 func (me *IrDef) OrigToks(node IIrNode) (toks udevlex.Tokens) {
-	if toks = node.origToks(); len(toks) == 0 {
-		if paths := me.FindDescendants(false, 1, func(n IIrNode) bool { return n == node }); len(paths) == 1 {
-			for i := len(paths[0]) - 1; i >= 0; i-- {
-				if toks = paths[0][i].origToks(); len(toks) != 0 {
-					break
-				}
+	if node == nil {
+		node = me
+	}
+	_ = node.walk(nil, node, func(_ []IIrNode, cn IIrNode, _ ...IIrNode) bool {
+		if len(toks) == 0 {
+			if orig := cn.Origin(); orig != nil {
+				toks = orig.Toks()
 			}
 		}
-	}
+		return len(toks) == 0
+	})
 	return
 }
 func (me *IrDef) RefersToOrDefines(name string) (relatesTo bool) {
@@ -181,11 +174,9 @@ func (me *IrArg) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 }
 func (me *IrArg) origToks() udevlex.Tokens {
 	if me.Orig != nil {
-		if toks := me.Orig.Toks(); len(toks) != 0 {
-			return toks
-		}
+		return me.Orig.Toks()
 	}
-	return me.IrIdentDecl.origToks()
+	return nil
 }
 func (me *IrArg) Origin() IAstNode {
 	if me.Orig != nil {
@@ -203,15 +194,11 @@ func (me *IrArg) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrN
 
 func (me *IrExprBase) exprBase() *IrExprBase { return me }
 func (*IrExprBase) IsAtomic() bool           { return false }
-func (me *IrExprBase) origToks() udevlex.Tokens {
-	if me.Orig != nil {
-		return me.Orig.Toks()
-	}
-	return nil
-}
 
 func (me *IrExprAtomBase) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
-	if me.Orig == orig || orig.Toks().EqLenAndOffsets(me.origToks(), false) {
+	if me.Orig == orig {
+		nodes = []IIrNode{self}
+	} else if me.Orig != nil && orig.Toks().EqLenAndOffsets(me.Orig.Toks(), false) {
 		nodes = []IIrNode{self}
 	}
 	return
@@ -326,14 +313,6 @@ func (me *IrAppl) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 		nodes = append(nodes, me)
 	} else if me.Orig == orig {
 		nodes = []IIrNode{me}
-	}
-	return
-}
-func (me *IrAppl) origToks() (toks udevlex.Tokens) {
-	if toks = me.IrExprBase.origToks(); len(toks) == 0 {
-		if toks = me.Callee.origToks(); len(toks) == 0 {
-			toks = me.CallArg.origToks()
-		}
 	}
 	return
 }

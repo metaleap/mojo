@@ -20,7 +20,6 @@
 package atmoil
 
 import (
-	"github.com/go-leap/dev/lex"
 	. "github.com/metaleap/atmo"
 	. "github.com/metaleap/atmo/ast"
 )
@@ -42,7 +41,6 @@ type IrTopDefs []*IrDef
 type IIrNode interface {
 	Print() IAstNode
 	Origin() IAstNode
-	origToks() udevlex.Tokens
 	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
 	findByOrig(IIrNode, IAstNode) []IIrNode
 	IsDef() *IrDef

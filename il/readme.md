@@ -96,7 +96,6 @@ type IIrExpr interface {
 type IIrNode interface {
 	Print() IAstNode
 	Origin() IAstNode
-
 	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
 
 	IsDef() *IrDef
@@ -274,6 +273,12 @@ type IrDef struct {
 ```
 
 
+#### func (*IrDef) AncestorsAndDescendantsOf
+
+```go
+func (me *IrDef) AncestorsAndDescendantsOf(node IIrNode) (nodeAncestors []IIrNode, nodeDescendants []IIrNode)
+```
+
 #### func (*IrDef) EquivTo
 
 ```go
@@ -302,12 +307,6 @@ func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatchWithAncestorsPrepe
 
 ```go
 func (me *IrDef) FindByOrig(orig IAstNode) []IIrNode
-```
-
-#### func (*IrDef) FindDescendants
-
-```go
-func (me *IrDef) FindDescendants(traverseIntoMatchesToo bool, max int, pred func(IIrNode) bool) (paths [][]IIrNode)
 ```
 
 #### func (*IrDef) HasAnyOf
