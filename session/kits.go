@@ -25,7 +25,7 @@ func (me *Ctx) KnownKitImpPaths() (kitImpPaths []string) {
 func (me *Ctx) initKits() {
 	me.state.fileModsWatch.collectFileModsForNextCatchup = ufs.ModificationsWatcher(SrcFileExt, me.fileModsDirOk, 0,
 		func(mods map[string]os.FileInfo, starttime int64, wasfirstrun bool) {
-			if len(mods) > 0 {
+			if len(mods) != 0 {
 				me.state.fileModsWatch.latest = append(me.state.fileModsWatch.latest, mods)
 			}
 		},
@@ -35,7 +35,7 @@ func (me *Ctx) initKits() {
 
 func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo, forceFor *Kit) {
 	var alllatestfilemods map[string]os.FileInfo
-	if len(latest) > 0 {
+	if len(latest) != 0 {
 		alllatestfilemods = make(map[string]os.FileInfo, len(latest[0]))
 		for i := range latest {
 			for k, v := range latest[i] {
@@ -61,7 +61,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 		}
 	}
 
-	if len(modkitdirs) > 0 || forceFor != nil {
+	if len(modkitdirs) != 0 || forceFor != nil {
 		shouldrefresh := make(StringKeys, 1+len(modkitdirs))
 		if forceFor != nil {
 			shouldrefresh[forceFor.DirPath] = Є
@@ -326,7 +326,7 @@ func (me Kits) Where(check func(*Kit) bool) (kits Kits) {
 func (me Kits) collectReferences(name string) (refs map[*IrDef][]IIrExpr) {
 	for _, kit := range me {
 		for _, tld := range kit.topLevelDefs {
-			if nodes := tld.RefsTo(name); len(nodes) > 0 {
+			if nodes := tld.RefsTo(name); len(nodes) != 0 {
 				if refs == nil {
 					refs = make(map[*IrDef][]IIrExpr)
 				}

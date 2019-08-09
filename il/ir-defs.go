@@ -86,7 +86,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 	}
 
 	// add what's new
-	if len(newdefs) > 0 {
+	if len(newdefs) != 0 {
 		newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
 		for _, tlc := range newdefs {
 			// add the def skeleton
@@ -96,7 +96,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 			// populate it
 			ctxinit := ctxIrFromAst{curTopLevelDef: def, defArgs: make(map[*IrDef]*IrArg, 8)}
 			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, orig)...)
-			if len(def.Errs.Stage1AstToIr) > 0 {
+			if len(def.Errs.Stage1AstToIr) != 0 {
 				freshErrs.Add(def.Errs.Stage1AstToIr...)
 			}
 		}

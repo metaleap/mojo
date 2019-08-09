@@ -104,7 +104,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 			restoreorigsrc = true
 			panic(len(defs))
 		}
-		if errs = defs[0].Errors(); len(errs) > 0 {
+		if errs = defs[0].Errors(); len(errs) != 0 {
 			restoreorigsrc = true
 			return
 		}

@@ -59,7 +59,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 		me.Body, errs = ctx.newExprFrom(origDefUnary.Body)
 	}
 	defarg := ctx.defArgs[me]
-	if len(ctx.coerceCallables) > 0 {
+	if len(ctx.coerceCallables) != 0 {
 		// each takes the arg val (or ret val) and returns either it or undef
 		if defarg != nil {
 			if coerce, ok := ctx.coerceCallables[defarg]; ok {
@@ -80,7 +80,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 }
 
 func (me *IrDef) initMetas(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
-	if len(origDefUnary.Meta) > 0 {
+	if len(origDefUnary.Meta) != 0 {
 		errs.AddTodo(0, origDefUnary.Meta[0].Toks(), "def metas")
 		for i := range origDefUnary.Meta {
 			_ = errs.AddVia(ctx.newExprFrom(origDefUnary.Meta[i]))

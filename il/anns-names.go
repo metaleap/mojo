@@ -1,7 +1,7 @@
 package atmoil
 
 import (
-	"github.com/metaleap/atmo"
+	. "github.com/metaleap/atmo"
 )
 
 func (me AnnNamesInScope) Add(name string, nodes ...IIrNode) {
@@ -16,9 +16,9 @@ func (me AnnNamesInScope) copy() (fullCopy AnnNamesInScope) {
 	return
 }
 
-func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrArg, errs *atmo.Errors) (namesInScopeCopy AnnNamesInScope) {
+func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrArg, errs *Errors) (namesInScopeCopy AnnNamesInScope) {
 	argname := addArg.IrIdentBase.Val
-	if cands := me[argname]; len(cands) > 0 {
+	if cands := me[argname]; len(cands) != 0 {
 		for _, cand := range cands {
 			if !cand.IsExt() {
 				me.errNameWouldShadow(tld, errs, addArg, argname)
@@ -39,26 +39,44 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrArg, errs *atmo.Error
 	return
 }
 
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors) {
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, currentlyErroneousButKnownGlobalsNames StringKeys, nodeAncestors ...IIrNode) (errs Errors) {
 	switch n := node.(type) {
 	case *IrDef:
-		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames)...)
+		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrLam:
-		errs.Add(me.copyAndAdd(tld, &n.Arg, &errs).RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames)...)
+		errs.Add(me.copyAndAdd(tld, &n.Arg, &errs).RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrAppl:
-		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Callee, currentlyErroneousButKnownGlobalsNames)...)
-		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.CallArg, currentlyErroneousButKnownGlobalsNames)...)
+		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Callee, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
+		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.CallArg, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrIdentName:
-		if existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed > 0 {
+		if _, existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed {
 			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.OrigToks(n), "`"+n.Val+"` found but with syntax errors")
 		} else {
 			n.Anns.Candidates = me[n.Val]
+			for _, c := range n.Anns.Candidates {
+				if arg, isarg := c.(*IrArg); isarg {
+					n.Anns.ArgIdx = 0
+					var found bool
+					for i := len(nodeAncestors) - 1; i != 0; i-- {
+						if lam, islam := nodeAncestors[i].(*IrLam); islam {
+							n.Anns.ArgIdx++
+							if found = (arg == &lam.Arg); found {
+								break
+							}
+						}
+					}
+					if !found {
+						panic(tld.Name.Val + "~" + n.Val + ": ident points to arg `" + arg.Val + "` but didnt find it climbing up the ancestors?!")
+					}
+					break
+				}
+			}
 		}
 	}
 	return
 }
 
-func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDef, errs *atmo.Errors, node *IrArg, name string) {
+func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDef, errs *Errors, node *IrArg, name string) {
 	toks := node.origToks()
 	if len(toks) == 0 && maybeTld != nil {
 		toks = maybeTld.OrigToks(node)

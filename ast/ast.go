@@ -40,14 +40,14 @@ func (me *AstDef) at(_ IAstNode, pos int) (nodes []IAstNode) {
 		}
 		if len(nodes) == 0 {
 			for i := range me.Args {
-				if nodes = me.Args[i].at(&me.Args[i], pos); len(nodes) > 0 {
+				if nodes = me.Args[i].at(&me.Args[i], pos); len(nodes) != 0 {
 					break
 				}
 			}
 		}
 		if len(nodes) == 0 {
 			for i := range me.Meta {
-				if nodes = me.Meta[i].at(me.Meta[i], pos); len(nodes) > 0 {
+				if nodes = me.Meta[i].at(me.Meta[i], pos); len(nodes) != 0 {
 					break
 				}
 			}
@@ -75,7 +75,7 @@ func (*AstBaseExpr) IsAtomic() bool { return false }
 func (*AstBaseExprAtom) IsAtomic() bool { return true }
 
 func (me *AstExprLitUint) FromRune() bool {
-	return len(me.Tokens) == 1 && len(me.Tokens[0].Lexeme) > 0 && me.Tokens[0].Lexeme[0] == '\''
+	return len(me.Tokens) == 1 && len(me.Tokens[0].Lexeme) != 0 && me.Tokens[0].Lexeme[0] == '\''
 }
 
 func (me *AstExprLitUint) String() string { return strconv.FormatUint(me.Val, 10) }
@@ -100,7 +100,7 @@ func (me *AstExprAppl) at(_ IAstNode, pos int) (nodes []IAstNode) {
 		}
 		if len(nodes) == 0 {
 			for _, arg := range me.Args {
-				if nodes = arg.at(arg, pos); len(nodes) > 0 {
+				if nodes = arg.at(arg, pos); len(nodes) != 0 {
 					break
 				}
 			}
@@ -117,7 +117,7 @@ func (me *AstExprLet) at(_ IAstNode, pos int) (nodes []IAstNode) {
 		}
 		if len(nodes) == 0 {
 			for i := range me.Defs {
-				if nodes = me.Defs[i].at(&me.Defs[i], pos); len(nodes) > 0 {
+				if nodes = me.Defs[i].at(&me.Defs[i], pos); len(nodes) != 0 {
 					break
 				}
 			}
@@ -134,7 +134,7 @@ func (me *AstExprCases) at(_ IAstNode, pos int) (nodes []IAstNode) {
 		}
 		if len(nodes) == 0 {
 			for i := range me.Alts {
-				if nodes = me.Alts[i].at(&me.Alts[i], pos); len(nodes) > 0 {
+				if nodes = me.Alts[i].at(&me.Alts[i], pos); len(nodes) != 0 {
 					break
 				}
 			}
@@ -151,7 +151,7 @@ func (me *AstCase) at(_ IAstNode, pos int) (nodes []IAstNode) {
 		}
 		if len(nodes) == 0 {
 			for _, c := range me.Conds {
-				if nodes = c.at(c, pos); len(nodes) > 0 {
+				if nodes = c.at(c, pos); len(nodes) != 0 {
 					break
 				}
 			}
@@ -189,7 +189,7 @@ func (me *AstExprCases) removeAltAt(idx int) {
 }
 
 func (me *AstExprAppl) ClaspishByTokens() (claspish bool) {
-	return len(me.Tokens) > 0 && (!me.Tokens.HasSpaces()) && !me.Tokens.HasKind(udevlex.TOKEN_COMMENT)
+	return len(me.Tokens) != 0 && (!me.Tokens.HasSpaces()) && !me.Tokens.HasKind(udevlex.TOKEN_COMMENT)
 }
 
 func (me *AstExprAppl) CalleeAndArgsOrdered(applStyle ApplStyle) (ret []IAstExpr) {

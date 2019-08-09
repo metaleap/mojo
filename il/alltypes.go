@@ -141,6 +141,9 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
+		// ArgIdx is 0 if not pointing to an `*IrArg`, else the De Bruijn index
+		ArgIdx int
+
 		// *atmoil.IrDef, *atmoil.IrArg, atmosess.IrDefRef
 		Candidates []IIrNode
 	}

@@ -76,7 +76,7 @@ func (me AnnNamesInScope) Add(name string, nodes ...IIrNode)
 #### func (AnnNamesInScope) RepopulateDefsAndIdentsFor
 
 ```go
-func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, currentlyErroneousButKnownGlobalsNames map[string]int) (errs atmo.Errors)
+func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, currentlyErroneousButKnownGlobalsNames StringKeys, nodeAncestors ...IIrNode) (errs Errors)
 ```
 
 #### type IIrExpr
@@ -552,6 +552,9 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
+		// ArgIdx is 0 if not pointing to an `*IrArg`, else the De Bruijn index
+		ArgIdx int
+
 		// *atmoil.IrDef, *atmoil.IrArg, atmosess.IrDefRef
 		Candidates []IIrNode
 	}

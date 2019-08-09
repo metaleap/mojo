@@ -8,7 +8,7 @@ import (
 
 func (me *AstFile) parse(this *AstFileChunk) (freshErrs Errors) {
 	toks := this.Ast.Tokens
-	if this.Ast.comments.Leading, toks = parseLeadingComments(toks); len(toks) > 0 {
+	if this.Ast.comments.Leading, toks = parseLeadingComments(toks); len(toks) != 0 {
 		if this.Ast.Def.Orig, this.Ast.Def.NameIfErr, this.errs.parsing = this.parseTopLevelDef(toks); this.errs.parsing != nil {
 			freshErrs.Add(this.errs.parsing)
 		} else if this.Ast.Def.IsUnexported = (this.Ast.Def.Orig.Name.Val[0] == '_' && len(this.Ast.Def.Orig.Name.Val) > 1); this.Ast.Def.IsUnexported {
@@ -20,7 +20,7 @@ func (me *AstFile) parse(this *AstFileChunk) (freshErrs Errors) {
 
 func parseLeadingComments(toks udevlex.Tokens) (ret []AstComment, rest udevlex.Tokens) {
 	toks, rest = toks.BreakOnLeadingComments()
-	if len(toks) > 0 {
+	if len(toks) != 0 {
 		ret = make([]AstComment, len(toks))
 		for i := range ret {
 			ret[i].initFrom(toks, i)
@@ -145,11 +145,11 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error)
 	})
 	var exprcur IAstExpr
 	var accumcomments []udevlex.Tokens
-	for greed, hasgreeds := 0, len(greeds) > 0; err == nil && len(toks) > 0; exprcur = nil {
+	for greed, hasgreeds := 0, len(greeds) != 0; err == nil && len(toks) != 0; exprcur = nil {
 		if hasgreeds {
 			greed = greeds[&toks[0]]
 		}
-		if greed > 0 { // logically should check for >1 but `Cliques` guarantees this already and >0 should be (low-level-wise) slightly less crunchy
+		if greed > 1 {
 			exprcur, err = me.parseExpr(toks[:greed])
 			toks = toks[greed:]
 		} else {
@@ -216,14 +216,14 @@ func (me *ctxTldParse) parseExpr(toks udevlex.Tokens) (ret IAstExpr, err *Error)
 			}
 		}
 		if err == nil && exprcur != nil {
-			if accum = append(accum, exprcur); len(accumcomments) > 0 {
+			if accum = append(accum, exprcur); len(accumcomments) != 0 {
 				exprcur.Comments().Leading.initFrom(accumcomments)
 				accumcomments = accumcomments[0:0]
 			}
 		}
 	}
 	if err == nil {
-		if ret, err = me.parseExprApplOrIdent(accum, alltoks); err == nil && len(accumcomments) > 0 {
+		if ret, err = me.parseExprApplOrIdent(accum, alltoks); err == nil && len(accumcomments) != 0 {
 			ret.Comments().Trailing.initFrom(accumcomments)
 		}
 	}
@@ -268,7 +268,7 @@ func (me *ctxTldParse) parseExprCase(toks udevlex.Tokens, accum []IAstExpr, allT
 		return
 	}
 	var cases AstExprCases
-	if len(accum) > 0 {
+	if len(accum) != 0 {
 		cases.Scrutinee, _ = me.parseExprApplOrIdent(accum, allToks.FromUntil(nil, &toks[0], false))
 	}
 	cases.Tokens, cases.defaultIndex = allToks, -1
@@ -331,7 +331,7 @@ func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr
 	}
 	toks, rest = toks[1:].BreakOnIndent(allToks[0].LineIndent)
 	numdefs, numothers, chunks := 0, 0, toks.Chunked(",", "")
-	for len(chunks) > 0 && len(chunks[len(chunks)-1]) == 0 { // allow & drop trailing commas
+	for len(chunks) != 0 && len(chunks[len(chunks)-1]) == 0 { // allow & drop trailing commas
 		chunks = chunks[:len(chunks)-1]
 	}
 	toklast := tokcomma
@@ -346,9 +346,9 @@ func (me *ctxTldParse) parseCommaSeparated(toks udevlex.Tokens, accum []IAstExpr
 			numothers++
 		}
 	}
-	if numdefs > 0 && numothers == 0 {
+	if numdefs != 0 && numothers == 0 {
 		ret, err = me.parseExprLetInner(precomma, chunks, allToks)
-	} else if numdefs > 0 && numothers > 0 {
+	} else if numdefs != 0 && numothers != 0 {
 		err = ErrAtPos(ErrCatParsing, ErrParsing_CommasMixDefsAndExprs,
 			&tokcomma.Pos, allToks.FromUntil(tokcomma, toks.Last1(), true).Length(),
 			"cannot group expressions and defs together (parenthesize to disambiguate)")
@@ -415,7 +415,7 @@ func (me *ctxTldParse) parseMetas(chunks []udevlex.Tokens) (metas []IAstExpr, er
 	metas = make([]IAstExpr, 0, len(chunks))
 	var meta IAstExpr
 	for i := range chunks {
-		if len(chunks[i]) > 0 {
+		if len(chunks[i]) != 0 {
 			if meta, err = me.parseExpr(chunks[i]); err != nil {
 				metas = nil
 				return

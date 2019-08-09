@@ -22,7 +22,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 	} else if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
 			if onlyIfModifiedSinceLastLoad && me.errs.loading == nil && srcfileinfo.Size() == me.LastLoad.FileSize {
-				if modtime := srcfileinfo.ModTime().UnixNano(); modtime > 0 && me.LastLoad.Time > modtime {
+				if modtime := srcfileinfo.ModTime().UnixNano(); modtime != 0 && me.LastLoad.Time > modtime {
 					if noChangesDetected != nil {
 						*noChangesDetected = true
 					}
@@ -55,7 +55,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 }
 
 func LexAndGuess(fauxSrcFileNameForErrs string, src []byte) (guessIsDef bool, guessIsExpr bool, lexedToks udevlex.Tokens, err *Error) {
-	if len(src) > 0 {
+	if len(src) != 0 {
 		indentguess := ' '
 		if src[0] == '\t' {
 			indentguess = '\t'
@@ -128,7 +128,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 					false, nil, nil, nil, nil, nil
 
 				indent, inderr := ' ', false
-				if this.preLex.numLinesTabIndented > 0 {
+				if this.preLex.numLinesTabIndented != 0 {
 					if this.preLex.numLinesSpaceIndented == 0 {
 						indent = '\t'
 					} else {
@@ -141,7 +141,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 				}
 				if !inderr {
 					toks, errs := udevlex.Lex(this.Src, me.SrcFilePath, 64, indent)
-					if this.Ast.Tokens = toks; len(errs) > 0 {
+					if this.Ast.Tokens = toks; len(errs) != 0 {
 						for _, e := range errs {
 							freshErrs = append(freshErrs,
 								this.errs.lexing.AddLex(ErrLexing_Tokenization, &e.Pos, e.Msg))
@@ -212,7 +212,7 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 		tlChunks = append(tlChunks, preLexTopLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln, numLinesSpaceIndented: numspaces, numLinesTabIndented: numtabs})
 	}
 	// fix naive tlChunks: stitch together what belongs together
-	for i := len(tlChunks) - 1; i > 0; i-- {
+	for i := len(tlChunks) - 1; i != 0; i-- {
 		if tlChunks[i-1].line == tlChunks[i].line-1 && /* prev chunk is prev line and begins `//`? */
 			len(tlChunks[i-1].src) >= 2 && tlChunks[i-1].src[0] == '/' && tlChunks[i-1].src[1] == '/' {
 			tlChunks[i-1].src = append(tlChunks[i-1].src, tlChunks[i].src...)
@@ -225,7 +225,7 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 
 	for newidx := range tlChunks { // trim-right \n bytes really helps with not reloading more than necessary
 		var numn int
-		for j := len(tlChunks[newidx].src) - 1; j > 0; j-- {
+		for j := len(tlChunks[newidx].src) - 1; j != 0; j-- {
 			if tlChunks[newidx].src[j] == '\n' {
 				numn++
 			} else {

@@ -16,7 +16,7 @@ func DbgPrintToString(node IIrNode) string {
 func (me *IrNonValue) Print() IAstNode {
 	if me.OneOf.Undefined {
 		return BuildAst.Ident(KnownIdentUndef)
-	} else if me.Orig != nil && len(me.Orig.Toks()) > 0 {
+	} else if me.Orig != nil && len(me.Orig.Toks()) != 0 {
 		return BuildAst.Ident(me.Orig.Toks().First1().Lexeme)
 	}
 	return BuildAst.Ident("!?SpecialBadlyInitialized")

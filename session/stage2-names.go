@@ -9,13 +9,13 @@ import (
 func (me IrDefRef) IsExt() bool { return true }
 
 func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs Errors) {
-	kitrepops := make(map[*Kit]map[string]int, len(me.Kits.All))
+	kitrepops := make(map[*Kit]StringKeys, len(me.Kits.All))
 	defIdsBorn, defIdsGone, namesOfChange = make(map[string]*Kit, 2), make(map[string]*Kit, 2), make(StringKeys, 4)
 
 	{ // FIRST: namesInScopeOwn
 		for _, kit := range me.Kits.All {
 			if kit.WasEverToBeLoaded {
-				if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 {
+				if len(kit.state.defsGoneIdsNames) != 0 || len(kit.state.defsBornIdsNames) != 0 {
 					for defid, defname := range kit.state.defsGoneIdsNames {
 						defIdsGone[defid] = kit
 						namesOfChange[defname] = Є
@@ -26,7 +26,7 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange StringKeys, defIdsBor
 					}
 
 					kitrepops[kit], kit.lookups.namesInScopeAll, kit.lookups.namesInScopeOwn =
-						map[string]int{}, nil, make(AnnNamesInScope, len(kit.topLevelDefs))
+						StringKeys{}, nil, make(AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
 						tld.Errs.Stage2BadNames = nil
 						if tld.Name.Val != "" {
@@ -40,18 +40,18 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange StringKeys, defIdsBor
 	{ // NEXT: namesInScopeExt (utilizing above namesInScopeOwn adds hence separate Ctx.Kits.all loop)
 		for _, kit := range me.Kits.All {
 			if kit.WasEverToBeLoaded {
-				if kitimports := kit.Imports(); len(kitimports) > 0 {
+				if kitimports := kit.Imports(); len(kitimports) != 0 {
 					var totaldefscount int
 					var anychangesinkimps bool
 					kimps := me.Kits.All.Where(func(k *Kit) (iskimp bool) {
 						if iskimp = ustr.In(k.ImpPath, kitimports...); iskimp {
-							totaldefscount, anychangesinkimps = totaldefscount+len(k.topLevelDefs), anychangesinkimps || len(k.state.defsGoneIdsNames) > 0 || len(k.state.defsBornIdsNames) > 0
+							totaldefscount, anychangesinkimps = totaldefscount+len(k.topLevelDefs), anychangesinkimps || len(k.state.defsGoneIdsNames) != 0 || len(k.state.defsBornIdsNames) != 0
 						}
 						return
 					})
 					if anychangesinkimps || len(kit.lookups.namesInScopeExt) == 0 {
 						if _, alreadymarked := kitrepops[kit]; !alreadymarked {
-							kitrepops[kit] = map[string]int{}
+							kitrepops[kit] = StringKeys{}
 							for _, tld := range kit.topLevelDefs {
 								tld.Errs.Stage2BadNames = nil
 							}

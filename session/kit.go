@@ -36,7 +36,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 	}
 
 	var fresherrs Errors
-	if len(kitImpPaths) > 0 {
+	if len(kitImpPaths) != 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
 				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)...)
@@ -58,7 +58,7 @@ func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) 
 func (me *Ctx) KitByImpPath(impPath string) *Kit {
 	idx := me.Kits.All.IndexImpPath(impPath)
 	if idx < 0 && (impPath == "" || impPath == "." || impPath == "·") {
-		if fauxkitdirs := me.Dirs.fauxKits; len(fauxkitdirs) > 0 {
+		if fauxkitdirs := me.Dirs.fauxKits; len(fauxkitdirs) != 0 {
 			idx = me.Kits.All.IndexDirPath(fauxkitdirs[0])
 		}
 		if idx < 0 {
@@ -73,7 +73,7 @@ func (me *Ctx) KitByImpPath(impPath string) *Kit {
 	return nil
 }
 
-func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames map[string]int) {
+func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames StringKeys) {
 	kitimports := kit.Imports()
 	kits := make(Kits, 1, 1+len(kitimports))
 	kits[0] = kit
@@ -86,7 +86,7 @@ func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames m
 		for _, srcfile := range kit.SrcFiles {
 			for i := range srcfile.TopLevel {
 				if tld := &srcfile.TopLevel[i].Ast.Def; tld.NameIfErr != "" {
-					unparsedGlobalsNames[tld.NameIfErr] = 1 + unparsedGlobalsNames[tld.NameIfErr]
+					unparsedGlobalsNames[tld.NameIfErr] = Є
 				}
 			}
 		}
@@ -147,7 +147,7 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				}
 			}
 
-			if len(kit.Errs.Stage1BadImports) > 0 {
+			if len(kit.Errs.Stage1BadImports) != 0 {
 				freshErrs.Add(kit.Errs.Stage1BadImports...)
 			}
 
@@ -158,15 +158,15 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 				defsgone, defsborn, fresherrs := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
 				if len(kit.state.defsGoneIdsNames) == 0 {
 					kit.state.defsGoneIdsNames = defsgone
-				} else if len(defsgone) > 0 {
+				} else if len(defsgone) != 0 {
 					panic("TO-BE-INVESTIGATED (GONES)")
 				}
 				if len(kit.state.defsBornIdsNames) == 0 {
 					kit.state.defsBornIdsNames = defsborn
-				} else if len(defsborn) > 0 {
+				} else if len(defsborn) != 0 {
 					panic("TO-BE-INVESTIGATED (BORNS)")
 				}
-				if len(kit.state.defsGoneIdsNames) > 0 || len(kit.state.defsBornIdsNames) > 0 || len(fresherrs) > 0 {
+				if len(kit.state.defsGoneIdsNames) != 0 || len(kit.state.defsBornIdsNames) != 0 || len(fresherrs) != 0 {
 					me.Kits.reprocessingNeeded = true
 				}
 				freshErrs.Add(fresherrs...)
@@ -241,14 +241,14 @@ func (me *Kit) kitsDirPath() string {
 
 // HasDefs returns whether any of the `Kit`'s source files define `name`.
 func (me *Kit) HasDefs(name string) bool {
-	return len(me.lookups.tlDefIDsByName[name]) > 0
+	return len(me.lookups.tlDefIDsByName[name]) != 0
 }
 
 func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs IrTopDefs) {
-	for len(name) > 0 && name[0] == '_' {
+	for len(name) != 0 && name[0] == '_' {
 		name = name[1:]
 	}
-	if len(name) > 0 {
+	if len(name) != 0 {
 		for _, id := range me.lookups.tlDefIDsByName[name] {
 			if def := me.lookups.tlDefsByID[id]; def != nil {
 				defs = append(defs, def)

@@ -88,7 +88,7 @@ func (me *Ctx) Init(clearCacheDir bool, sessionFauxKitDir string) (kitImpPathIfF
 			}
 		}
 		if err == nil {
-			if me.Dirs.CacheData, me.Dirs.KitsStashes = cachedir, kitsdirs; len(sessionFauxKitDir) > 0 {
+			if me.Dirs.CacheData, me.Dirs.KitsStashes = cachedir, kitsdirs; len(sessionFauxKitDir) != 0 {
 				_, kip, e := me.fauxKitsAddDir(sessionFauxKitDir, true)
 				kitImpPathIfFauxKitDirActualKit, err = kip, ErrFrom(ErrCatSess, ErrSessInit_IoFauxKitDirFailure, sessionFauxKitDir, e)
 			}
@@ -174,7 +174,7 @@ func (me *Ctx) BackgroundMessagesCount() (count int) {
 
 func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage1Errs Errors, freshStage2AndBeyondErrs Errors) {
 	me.Kits.All.ensureErrTldPosOffsets()
-	hadfresherrs := len(freshStage1Errs) > 0 || len(freshStage2AndBeyondErrs) > 0
+	hadfresherrs := len(freshStage1Errs) != 0 || len(freshStage2AndBeyondErrs) != 0
 	if hadfresherrs {
 		if me.Options.BgMsgs.IncludeLiveKitsErrs {
 			for _, e := range freshStage1Errs {
@@ -202,7 +202,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*AstFile) {
 			now.Sub(me.state.fileModsWatch.lastCatchup) < me.Options.FileModsCatchup.BurstLimit {
 			return
 		}
-		me.state.fileModsWatch.lastCatchup = now
+		me.state.fileModsWatch.lastCatchup = now > 0
 	}
 	me.catchUpOnFileMods(nil, ensureFilesMarkedAsChanged...)
 }
@@ -213,7 +213,7 @@ func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*A
 	var latest []map[string]os.FileInfo
 	latest, me.state.fileModsWatch.latest = me.state.fileModsWatch.latest, nil
 
-	if len(ensureFilesMarkedAsChanged) > 0 {
+	if len(ensureFilesMarkedAsChanged) != 0 {
 		extra := make(map[string]os.FileInfo, len(ensureFilesMarkedAsChanged))
 		for _, srcfile := range ensureFilesMarkedAsChanged {
 			if srcfile.SrcFilePath != "" {
@@ -230,12 +230,12 @@ func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*A
 				}
 			}
 		}
-		if len(extra) > 0 {
+		if len(extra) != 0 {
 			latest = append(latest, extra)
 		}
 	}
 
-	if len(latest) > 0 || forceFor != nil {
+	if len(latest) != 0 || forceFor != nil {
 		me.fileModsHandle(me.Dirs.KitsStashes, me.Dirs.fauxKits, latest, forceFor)
 	}
 }
@@ -260,7 +260,7 @@ func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (r
 }
 
 func (me *Ctx) WithInMemFileMods(srcFilePathsAndAltSrcs map[string]string, do func()) (recoveredPanic interface{}) {
-	if len(srcFilePathsAndAltSrcs) > 0 {
+	if len(srcFilePathsAndAltSrcs) != 0 {
 		srcfiles := make(AstFiles, 0, len(srcFilePathsAndAltSrcs))
 		restoreFinally := func() {
 			if recoveredPanic = recover(); recoveredPanic != nil {

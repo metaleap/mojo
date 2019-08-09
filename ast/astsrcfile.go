@@ -31,7 +31,7 @@ func (me *AstFileChunk) Errs() Errors {
 }
 
 func (me *AstFileChunk) HasErrors() bool {
-	return me.errs.parsing != nil || len(me.errs.lexing) > 0
+	return me.errs.parsing != nil || len(me.errs.lexing) != 0
 }
 
 func (me *AstFile) HasDefs(name string, includeUnparsed bool) bool {

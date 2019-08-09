@@ -108,7 +108,7 @@ func (me *AstDef) print(p *CtxPrint) {
 			p.Fmt.OnDefArg(me, i, &me.Args[i])
 		}
 	case APPLSTYLE_SVO:
-		if len(me.Args) > 0 {
+		if len(me.Args) != 0 {
 			p.Fmt.OnDefArg(me, 0, &me.Args[0])
 		}
 		if p.Fmt.OnDefName(me, &me.Name); me.NameAffix != nil {
@@ -152,7 +152,7 @@ func (me *AstBaseExprAtomLit) print(p *CtxPrint) {
 }
 
 func (me *AstExprLitFloat) print(p *CtxPrint) {
-	if len(me.Tokens) > 0 {
+	if len(me.Tokens) != 0 {
 		p.Print(&me.AstBaseExprAtomLit)
 	} else {
 		p.WriteString(strconv.FormatFloat(me.Val, 'f', -1, 64))
@@ -160,7 +160,7 @@ func (me *AstExprLitFloat) print(p *CtxPrint) {
 }
 
 func (me *AstExprLitUint) print(p *CtxPrint) {
-	if len(me.Tokens) > 0 {
+	if len(me.Tokens) != 0 {
 		p.Print(&me.AstBaseExprAtomLit)
 	} else {
 		p.WriteString(strconv.FormatUint(me.Val, 10))
@@ -168,7 +168,7 @@ func (me *AstExprLitUint) print(p *CtxPrint) {
 }
 
 func (me *AstExprLitStr) print(p *CtxPrint) {
-	if len(me.Tokens) > 0 {
+	if len(me.Tokens) != 0 {
 		p.Print(&me.AstBaseExprAtomLit)
 	} else {
 		p.WriteString(strconv.Quote(me.Val))
@@ -184,7 +184,7 @@ func (me *AstExprAppl) print(p *CtxPrint) {
 			p.Fmt.OnExprApplArg(istopleveldefsbody, me, i, me.Args[i])
 		}
 	case APPLSTYLE_SVO:
-		if len(me.Args) > 0 {
+		if len(me.Args) != 0 {
 			p.Fmt.OnExprApplArg(istopleveldefsbody, me, 0, me.Args[0])
 		}
 		p.Fmt.OnExprApplName(istopleveldefsbody, me, me.Callee)
@@ -213,7 +213,7 @@ func (me *AstExprCases) print(p *CtxPrint) {
 	}
 	p.WriteByte('?')
 	for i := range me.Alts {
-		if i > 0 {
+		if i != 0 {
 			p.WriteByte('|')
 		}
 		me.Alts[i].print(p)
@@ -222,7 +222,7 @@ func (me *AstExprCases) print(p *CtxPrint) {
 
 func (me *AstCase) print(p *CtxPrint) {
 	for i := range me.Conds {
-		if i > 0 {
+		if i != 0 {
 			p.WriteByte('|')
 		}
 		p.Fmt.OnExprCasesCond(me, i, me.Conds[i])
@@ -244,7 +244,7 @@ func (me *PrintFmtMinimal) OnTopLevelChunk(tlc *AstFileChunk, node *AstTopLevel)
 func (me *PrintFmtMinimal) OnDef(_ *AstTopLevel, node *AstDef)  { me.Print(node) }
 func (me *PrintFmtMinimal) OnDefName(_ *AstDef, node *AstIdent) { me.Print(node) }
 func (me *PrintFmtMinimal) OnDefArg(_ *AstDef, argIdx int, node *AstDefArg) {
-	if me.ApplStyle == APPLSTYLE_VSO || (me.ApplStyle == APPLSTYLE_SVO && argIdx > 0) {
+	if me.ApplStyle == APPLSTYLE_VSO || (me.ApplStyle == APPLSTYLE_SVO && argIdx != 0) {
 		me.WriteByte(' ')
 	}
 	me.Print(node)
@@ -272,7 +272,7 @@ func (me *PrintFmtMinimal) OnExprApplName(_ bool, _ *AstExprAppl, node IAstExpr)
 }
 func (me *PrintFmtMinimal) OnExprApplArg(_ bool, appl *AstExprAppl, argIdx int, node IAstExpr) {
 	claspish, svo := appl.ClaspishByTokens(), (me.ApplStyle == APPLSTYLE_SVO)
-	if (!claspish) && (me.ApplStyle == APPLSTYLE_VSO || (svo && argIdx > 0)) {
+	if (!claspish) && (me.ApplStyle == APPLSTYLE_VSO || (svo && argIdx != 0)) {
 		me.WriteByte(' ')
 	}
 	me.PrintInParensIf(node, false, true)
