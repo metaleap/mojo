@@ -397,7 +397,7 @@ func (me *IrDef) RefsTo(name string) (refs []IIrExpr)
 #### func (*IrDef) Walk
 
 ```go
-func (me *IrDef) Walk(shouldTraverse func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool)
+func (me *IrDef) Walk(whetherToKeepTraversing func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool)
 ```
 
 #### type IrDefs

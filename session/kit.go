@@ -286,7 +286,7 @@ func (me *Kit) SelectNodes(tldOk func(*IrDef) bool, nodeOk func([]IIrNode, IIrNo
 	matches = map[IIrNode]*IrDef{}
 	for _, tld := range me.topLevelDefs {
 		if tldOk(tld) {
-			tld.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodedescendantsthatwillbetraversedifreturningtrue ...IIrNode) (traverse bool) {
+			tld.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodedescendantsthatwillbetraversedifreturningtrue ...IIrNode) (descendFurther bool) {
 				ismatch, dontdescend, donetld, doneall := nodeOk(curnodeancestors, curnode, curnodedescendantsthatwillbetraversedifreturningtrue)
 				if doneall {
 					alldone = true
