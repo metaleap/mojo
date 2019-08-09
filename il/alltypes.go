@@ -43,7 +43,7 @@ type IIrNode interface {
 	Print() IAstNode
 	Origin() IAstNode
 	origToks() udevlex.Tokens
-	EquivTo(IIrNode) bool
+	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
 	findByOrig(IIrNode, IAstNode) []IIrNode
 	IsDef() *IrDef
 	IsExt() bool

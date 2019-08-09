@@ -33,9 +33,10 @@ func (me *IrDef) origToks() (toks udevlex.Tokens) {
 	return
 }
 func (me *IrDef) refsTo(name string) []IIrExpr { return me.Body.refsTo(name) }
-func (me *IrDef) EquivTo(node IIrNode) bool {
+func (me *IrDef) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrDef)
-	return cmp != nil && cmp.Name.Val == me.Name.Val && me.Body.EquivTo(cmp.Body)
+	return cmp != nil && (ignoreNames || cmp.Name.Val == me.Name.Val) &&
+		me.Body.EquivTo(cmp.Body, ignoreNames)
 }
 func (me *IrDef) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) (keepGoing bool) {
 	if keepGoing = on(ancestors, self, &me.Name, me.Body); keepGoing {
@@ -166,9 +167,9 @@ func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsIn
 	return
 }
 
-func (me *IrArg) EquivTo(node IIrNode) bool {
+func (me *IrArg) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrArg)
-	return ((me == nil) == (cmp == nil)) && (me == nil || me.Val == cmp.Val)
+	return cmp != nil && (ignoreNames || me.Val == cmp.Val)
 }
 func (me *IrArg) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 	if me.Orig == orig {
@@ -231,7 +232,7 @@ func (me *irLitBase) refsTo(self IIrExpr, s string) []IIrExpr {
 	return nil
 }
 
-func (me *IrLitUint) EquivTo(node IIrNode) bool {
+func (me *IrLitUint) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrLitUint)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -240,7 +241,7 @@ func (me *IrLitUint) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, 
 	return me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-func (me *IrLitFloat) EquivTo(node IIrNode) bool {
+func (me *IrLitFloat) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrLitFloat)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -258,9 +259,9 @@ func (me *IrIdentBase) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode)
 	return
 }
 
-func (me *IrNonValue) EquivTo(node IIrNode) bool {
+func (me *IrNonValue) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrNonValue)
-	return (cmp == nil) == (me == nil) && ((me == nil) || me.OneOf == cmp.OneOf)
+	return cmp != nil && me.OneOf == cmp.OneOf
 }
 func (me *IrNonValue) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 	return me.IrExprAtomBase.findByOrig(me, orig)
@@ -269,7 +270,7 @@ func (me *IrNonValue) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode,
 	return me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-func (me *IrLitTag) EquivTo(node IIrNode) bool {
+func (me *IrLitTag) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrLitTag)
 	return cmp != nil && cmp.Val == me.Val
 }
@@ -280,9 +281,9 @@ func (me *IrLitTag) refsTo(name string) (refs []IIrExpr) {
 	return
 }
 
-func (me *IrIdentDecl) EquivTo(node IIrNode) bool {
+func (me *IrIdentDecl) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrIdentDecl)
-	return cmp != nil && cmp.Val == me.Val
+	return cmp != nil && (ignoreNames || cmp.Val == me.Val)
 }
 func (me *IrIdentDecl) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 	return me.IrIdentBase.findByOrig(me, orig)
@@ -317,9 +318,10 @@ func (me *IrIdentName) ResolvesTo(n IIrNode) bool {
 	}
 	return false
 }
-func (me *IrIdentName) EquivTo(node IIrNode) bool {
+func (me *IrIdentName) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrIdentName)
-	return cmp != nil && cmp.Val == me.Val
+	return cmp != nil && ((ignoreNames && me.Anns.ArgIdx == cmp.Anns.ArgIdx) ||
+		((!ignoreNames) && cmp.Val == me.Val))
 }
 func (me *IrIdentName) walk(ancestors []IIrNode, _ IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) bool {
 	return me.IrExprAtomBase.walk(ancestors, me, on)
@@ -345,9 +347,10 @@ func (me *IrAppl) origToks() (toks udevlex.Tokens) {
 	}
 	return
 }
-func (me *IrAppl) EquivTo(node IIrNode) bool {
+func (me *IrAppl) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrAppl)
-	return cmp != nil && cmp.Callee.EquivTo(me.Callee) && cmp.CallArg.EquivTo(me.CallArg)
+	return cmp != nil && cmp.Callee.EquivTo(me.Callee, ignoreNames) &&
+		cmp.CallArg.EquivTo(me.CallArg, ignoreNames)
 }
 func (me *IrAppl) RefersTo(name string) bool {
 	return me.Callee.RefersTo(name) || me.CallArg.RefersTo(name)
@@ -369,9 +372,10 @@ func (me *IrAppl) walk(ancestors []IIrNode, _ IIrNode, on func([]IIrNode, IIrNod
 	return
 }
 
-func (me *IrLam) EquivTo(node IIrNode) bool {
+func (me *IrLam) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrLam)
-	return cmp != nil && me.Arg.EquivTo(&cmp.Arg) && me.Body.EquivTo(cmp.Body)
+	return cmp != nil && me.Arg.EquivTo(&cmp.Arg, ignoreNames) &&
+		me.Body.EquivTo(cmp.Body, ignoreNames)
 }
 func (me *IrLam) RefersTo(name string) bool { return me.Body.RefersTo(name) }
 func (me *IrLam) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {

@@ -97,7 +97,7 @@ type IIrNode interface {
 	Print() IAstNode
 	Origin() IAstNode
 
-	EquivTo(IIrNode) bool
+	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
 
 	IsDef() *IrDef
 	IsExt() bool
@@ -132,7 +132,7 @@ type IrAppl struct {
 #### func (*IrAppl) EquivTo
 
 ```go
-func (me *IrAppl) EquivTo(node IIrNode) bool
+func (me *IrAppl) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrAppl) IsDef
@@ -177,7 +177,7 @@ type IrArg struct {
 #### func (*IrArg) EquivTo
 
 ```go
-func (me *IrArg) EquivTo(node IIrNode) bool
+func (me *IrArg) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrArg) IsDef
@@ -277,7 +277,7 @@ type IrDef struct {
 #### func (*IrDef) EquivTo
 
 ```go
-func (me *IrDef) EquivTo(node IIrNode) bool
+func (me *IrDef) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrDef) Errors
@@ -524,7 +524,7 @@ type IrIdentDecl struct {
 #### func (*IrIdentDecl) EquivTo
 
 ```go
-func (me *IrIdentDecl) EquivTo(node IIrNode) bool
+func (me *IrIdentDecl) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrIdentDecl) IsDef
@@ -565,7 +565,7 @@ type IrIdentName struct {
 #### func (*IrIdentName) EquivTo
 
 ```go
-func (me *IrIdentName) EquivTo(node IIrNode) bool
+func (me *IrIdentName) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrIdentName) IsArgRef
@@ -618,7 +618,7 @@ type IrLam struct {
 #### func (*IrLam) EquivTo
 
 ```go
-func (me *IrLam) EquivTo(node IIrNode) bool
+func (me *IrLam) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrLam) IsDef
@@ -663,7 +663,7 @@ type IrLitFloat struct {
 #### func (*IrLitFloat) EquivTo
 
 ```go
-func (me *IrLitFloat) EquivTo(node IIrNode) bool
+func (me *IrLitFloat) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrLitFloat) Print
@@ -684,7 +684,7 @@ type IrLitTag struct {
 #### func (*IrLitTag) EquivTo
 
 ```go
-func (me *IrLitTag) EquivTo(node IIrNode) bool
+func (me *IrLitTag) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrLitTag) Print
@@ -705,7 +705,7 @@ type IrLitUint struct {
 #### func (*IrLitUint) EquivTo
 
 ```go
-func (me *IrLitUint) EquivTo(node IIrNode) bool
+func (me *IrLitUint) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrLitUint) Print
@@ -731,7 +731,7 @@ type IrNonValue struct {
 #### func (*IrNonValue) EquivTo
 
 ```go
-func (me *IrNonValue) EquivTo(node IIrNode) bool
+func (me *IrNonValue) EquivTo(node IIrNode, ignoreNames bool) bool
 ```
 
 #### func (*IrNonValue) IsDef

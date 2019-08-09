@@ -202,7 +202,7 @@ func (me *Ctx) CatchUpOnFileMods(ensureFilesMarkedAsChanged ...*AstFile) {
 			now.Sub(me.state.fileModsWatch.lastCatchup) < me.Options.FileModsCatchup.BurstLimit {
 			return
 		}
-		me.state.fileModsWatch.lastCatchup = now > 0
+		me.state.fileModsWatch.lastCatchup = now
 	}
 	me.catchUpOnFileMods(nil, ensureFilesMarkedAsChanged...)
 }

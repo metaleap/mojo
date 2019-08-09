@@ -17,12 +17,12 @@ func init() {
 }
 
 func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSrcFile bool, noChangesDetected *bool) (freshErrs Errors) {
-	if me.Options.TmpAltSrc != nil {
+	if me.Options.TmpAltSrc != nil || me.SrcFilePath == "" {
 		me.LastLoad.Time, me.LastLoad.FileSize = 0, 0
 	} else if me.SrcFilePath != "" {
 		if srcfileinfo, _ := os.Stat(me.SrcFilePath); srcfileinfo != nil {
 			if onlyIfModifiedSinceLastLoad && me.errs.loading == nil && srcfileinfo.Size() == me.LastLoad.FileSize {
-				if modtime := srcfileinfo.ModTime().UnixNano(); modtime != 0 && me.LastLoad.Time > modtime {
+				if me.LastLoad.Time > srcfileinfo.ModTime().UnixNano() {
 					if noChangesDetected != nil {
 						*noChangesDetected = true
 					}
@@ -31,6 +31,7 @@ func (me *AstFile) LexAndParseFile(onlyIfModifiedSinceLastLoad bool, stdinIfNoSr
 			}
 			me.LastLoad.FileSize = srcfileinfo.Size()
 		}
+		me.LastLoad.Time = time.Now().UnixNano() // we havent even begun but for future modtime comparison this is indeed the proper moment
 	}
 
 	var reader io.Reader
@@ -114,7 +115,7 @@ func (me *AstFile) LexAndParseSrc(r io.Reader, noChangesDetected *bool) (freshEr
 			}
 			return
 		}
-		me.LastLoad.Time, me.LastLoad.Src = time.Now().UnixNano(), src
+		me.LastLoad.Src = src
 		if me.topChunksCompare(me.topLevelChunksGatherFrom(src)) {
 			if noChangesDetected != nil {
 				*noChangesDetected = true
