@@ -236,8 +236,7 @@ func (me *IrLitFloat) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode,
 }
 
 func (me *IrNonValue) EquivTo(node IIrNode, ignoreNames bool) bool {
-	cmp, _ := node.(*IrNonValue)
-	return cmp != nil && me.OneOf == cmp.OneOf
+	return false
 }
 func (me *IrNonValue) findByOrig(_ IIrNode, orig IAstNode) []IIrNode {
 	return me.IrExprAtomBase.findByOrig(me, orig)
