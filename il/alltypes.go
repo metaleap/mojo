@@ -194,10 +194,9 @@ type PAbyss struct {
 
 type PHole struct {
 	Preduced
-	Def *IrDef
 }
 
-type PCallable struct {
+type PFunc struct {
 	Preduced
 	Arg *PHole
 	Ret *PHole

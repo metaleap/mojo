@@ -827,23 +827,6 @@ func (me *PAbyss) IsErrOrAbyss() bool
 func (me *PAbyss) SummaryCompact() string
 ```
 
-#### type PCallable
-
-```go
-type PCallable struct {
-	Preduced
-	Arg *PHole
-	Ret *PHole
-}
-```
-
-
-#### func (*PCallable) SummaryCompact
-
-```go
-func (me *PCallable) SummaryCompact() string
-```
-
 #### type PErr
 
 ```go
@@ -866,12 +849,28 @@ func (me *PErr) IsErrOrAbyss() bool
 func (me *PErr) SummaryCompact() string
 ```
 
+#### type PFunc
+
+```go
+type PFunc struct {
+	Preduced
+	Arg *PHole
+	Ret *PHole
+}
+```
+
+
+#### func (*PFunc) SummaryCompact
+
+```go
+func (me *PFunc) SummaryCompact() string
+```
+
 #### type PHole
 
 ```go
 type PHole struct {
 	Preduced
-	Def *IrDef
 }
 ```
 

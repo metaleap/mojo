@@ -1,17 +1,13 @@
 package atmoil
 
 import (
-	"github.com/go-leap/str"
 	"strconv"
 )
 
 func (me *Preduced) IsErrOrAbyss() bool { return false }
 func (me *Preduced) Self() *Preduced    { return me }
 
-func (me *PCallable) SummaryCompact() string {
-	if me.Arg.Def != nil {
-		return ustr.ReplB(DbgPrintToString(me.Arg.Def), '\n', ' ')
-	}
+func (me *PFunc) SummaryCompact() string {
 	return me.Arg.SummaryCompact() + "->" + me.Ret.SummaryCompact()
 }
 
