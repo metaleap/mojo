@@ -94,8 +94,8 @@ type IIrExpr interface {
 
 ```go
 type IIrNode interface {
+	AstOrig() IAstNode
 	Print() IAstNode
-	Origin() IAstNode
 	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
 
 	IsDef() *IrDef
@@ -128,6 +128,12 @@ type IrAppl struct {
 ```
 
 
+#### func (*IrAppl) AstOrig
+
+```go
+func (me *IrAppl) AstOrig() IAstNode
+```
+
 #### func (*IrAppl) EquivTo
 
 ```go
@@ -144,12 +150,6 @@ func (*IrAppl) IsDef() *IrDef
 
 ```go
 func (*IrAppl) IsExt() bool
-```
-
-#### func (*IrAppl) Origin
-
-```go
-func (me *IrAppl) Origin() IAstNode
 ```
 
 #### func (*IrAppl) Print
@@ -173,6 +173,12 @@ type IrArg struct {
 ```
 
 
+#### func (*IrArg) AstOrig
+
+```go
+func (me *IrArg) AstOrig() IAstNode
+```
+
 #### func (*IrArg) EquivTo
 
 ```go
@@ -189,12 +195,6 @@ func (*IrArg) IsDef() *IrDef
 
 ```go
 func (*IrArg) IsExt() bool
-```
-
-#### func (*IrArg) Origin
-
-```go
-func (me *IrArg) Origin() IAstNode
 ```
 
 #### func (*IrArg) Print
@@ -273,10 +273,28 @@ type IrDef struct {
 ```
 
 
-#### func (*IrDef) AncestorsAndDescendantsOf
+#### func (*IrDef) AncestorsAndChildrenOf
 
 ```go
-func (me *IrDef) AncestorsAndDescendantsOf(node IIrNode) (nodeAncestors []IIrNode, nodeDescendants []IIrNode)
+func (me *IrDef) AncestorsAndChildrenOf(node IIrNode) (nodeAncestors []IIrNode, nodeChildren []IIrNode)
+```
+
+#### func (*IrDef) AncestorsOf
+
+```go
+func (me *IrDef) AncestorsOf(node IIrNode) (nodeAncestors []IIrNode)
+```
+
+#### func (*IrDef) AstOrig
+
+```go
+func (me *IrDef) AstOrig() IAstNode
+```
+
+#### func (*IrDef) AstOrigToks
+
+```go
+func (me *IrDef) AstOrigToks(node IIrNode) (toks udevlex.Tokens)
 ```
 
 #### func (*IrDef) EquivTo
@@ -357,18 +375,6 @@ func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsIn
 func (me *IrDef) OrigDef() (origDef *AstDef)
 ```
 
-#### func (*IrDef) OrigToks
-
-```go
-func (me *IrDef) OrigToks(node IIrNode) (toks udevlex.Tokens)
-```
-
-#### func (*IrDef) Origin
-
-```go
-func (me *IrDef) Origin() IAstNode
-```
-
 #### func (*IrDef) Print
 
 ```go
@@ -396,7 +402,7 @@ func (me *IrDef) RefsTo(name string) (refs []IIrExpr)
 #### func (*IrDef) Walk
 
 ```go
-func (me *IrDef) Walk(whetherToKeepTraversing func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool)
+func (me *IrDef) Walk(whetherToKeepTraversing func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeChildrenThatWillBeTraversedIfReturningTrue ...IIrNode) bool)
 ```
 
 #### type IrDefs
@@ -414,6 +420,12 @@ type IrExprAtomBase struct {
 }
 ```
 
+
+#### func (*IrExprAtomBase) AstOrig
+
+```go
+func (me *IrExprAtomBase) AstOrig() IAstNode
+```
 
 #### func (*IrExprAtomBase) IsAtomic
 
@@ -433,12 +445,6 @@ func (*IrExprAtomBase) IsDef() *IrDef
 func (*IrExprAtomBase) IsExt() bool
 ```
 
-#### func (*IrExprAtomBase) Origin
-
-```go
-func (me *IrExprAtomBase) Origin() IAstNode
-```
-
 #### func (*IrExprAtomBase) RefersTo
 
 ```go
@@ -452,6 +458,12 @@ type IrExprBase struct {
 }
 ```
 
+
+#### func (*IrExprBase) AstOrig
+
+```go
+func (me *IrExprBase) AstOrig() IAstNode
+```
 
 #### func (*IrExprBase) IsAtomic
 
@@ -471,12 +483,6 @@ func (*IrExprBase) IsDef() *IrDef
 func (*IrExprBase) IsExt() bool
 ```
 
-#### func (*IrExprBase) Origin
-
-```go
-func (me *IrExprBase) Origin() IAstNode
-```
-
 #### type IrIdentBase
 
 ```go
@@ -486,6 +492,12 @@ type IrIdentBase struct {
 }
 ```
 
+
+#### func (*IrIdentBase) AstOrig
+
+```go
+func (me *IrIdentBase) AstOrig() IAstNode
+```
 
 #### func (*IrIdentBase) IsDef
 
@@ -497,12 +509,6 @@ func (*IrIdentBase) IsDef() *IrDef
 
 ```go
 func (*IrIdentBase) IsExt() bool
-```
-
-#### func (*IrIdentBase) Origin
-
-```go
-func (me *IrIdentBase) Origin() IAstNode
 ```
 
 #### func (*IrIdentBase) Print
@@ -519,6 +525,12 @@ type IrIdentDecl struct {
 }
 ```
 
+
+#### func (*IrIdentDecl) AstOrig
+
+```go
+func (me *IrIdentDecl) AstOrig() IAstNode
+```
 
 #### func (*IrIdentDecl) EquivTo
 
@@ -538,12 +550,6 @@ func (*IrIdentDecl) IsDef() *IrDef
 func (*IrIdentDecl) IsExt() bool
 ```
 
-#### func (*IrIdentDecl) Origin
-
-```go
-func (me *IrIdentDecl) Origin() IAstNode
-```
-
 #### type IrIdentName
 
 ```go
@@ -560,6 +566,12 @@ type IrIdentName struct {
 }
 ```
 
+
+#### func (*IrIdentName) AstOrig
+
+```go
+func (me *IrIdentName) AstOrig() IAstNode
+```
 
 #### func (*IrIdentName) EquivTo
 
@@ -585,12 +597,6 @@ func (*IrIdentName) IsDef() *IrDef
 func (*IrIdentName) IsExt() bool
 ```
 
-#### func (*IrIdentName) Origin
-
-```go
-func (me *IrIdentName) Origin() IAstNode
-```
-
 #### func (*IrIdentName) RefersTo
 
 ```go
@@ -614,6 +620,12 @@ type IrLam struct {
 ```
 
 
+#### func (*IrLam) AstOrig
+
+```go
+func (me *IrLam) AstOrig() IAstNode
+```
+
 #### func (*IrLam) EquivTo
 
 ```go
@@ -630,12 +642,6 @@ func (*IrLam) IsDef() *IrDef
 
 ```go
 func (*IrLam) IsExt() bool
-```
-
-#### func (*IrLam) Origin
-
-```go
-func (me *IrLam) Origin() IAstNode
 ```
 
 #### func (*IrLam) Print
@@ -727,6 +733,12 @@ type IrNonValue struct {
 ```
 
 
+#### func (*IrNonValue) AstOrig
+
+```go
+func (me *IrNonValue) AstOrig() IAstNode
+```
+
 #### func (*IrNonValue) EquivTo
 
 ```go
@@ -743,12 +755,6 @@ func (*IrNonValue) IsDef() *IrDef
 
 ```go
 func (*IrNonValue) IsExt() bool
-```
-
-#### func (*IrNonValue) Origin
-
-```go
-func (me *IrNonValue) Origin() IAstNode
 ```
 
 #### func (*IrNonValue) Print

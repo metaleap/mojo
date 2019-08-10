@@ -29,7 +29,6 @@ import (
 type ctxPreducing struct {
 	dbgIndent  int
 	curSessCtx *Ctx
-	curDefs    map[*IrDef]Exist
 	curNode    struct {
 		owningTopDef *IrDef
 		owningKit    *Kit

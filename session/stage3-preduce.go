@@ -7,33 +7,24 @@ import (
 	. "github.com/metaleap/atmo/il"
 )
 
-func (me *ctxPreducing) toks(n IIrNode) (toks udevlex.Tokens) {
-	if tld := me.curNode.owningTopDef; tld != nil {
-		toks = tld.OrigToks(n)
-	}
-	if orig := n.Origin(); orig != nil {
-		toks = orig.Toks()
-	}
-	return
+func (me *ctxPreducing) toks(n IIrNode) udevlex.Tokens {
+	return me.curNode.owningTopDef.AstOrigToks(n)
 }
 
 func (me *Ctx) rePreduceTopLevelDefs(defIds map[*IrDef]*Kit) (freshErrs Errors) {
-	if 1 > 0 {
-		return
-	}
 	for def := range defIds {
 		def.Anns.Preduced, def.Errs.Stage3Preduce = nil, nil
 	}
-	ctxpred := ctxPreducing{curSessCtx: me, curDefs: make(map[*IrDef]Exist, 128)}
+	ctxpred := ctxPreducing{curSessCtx: me}
 	for def, kit := range defIds {
 		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef = kit, def
-		_ = ctxpred.preduce(def)
+		_ = ctxpred.preduce(def) // does set def.Anns.Preduced, and it must happen there not here
 	}
 	return
 }
 
 func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) IPreduced {
-	ctxpreduce := &ctxPreducing{curSessCtx: me, curDefs: make(map[*IrDef]Exist, 32)}
+	ctxpreduce := &ctxPreducing{curSessCtx: me}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
 	return ctxpreduce.preduce(node)
 }

@@ -39,8 +39,8 @@ type IrDefs []IrDef
 type IrTopDefs []*IrDef
 
 type IIrNode interface {
+	AstOrig() IAstNode
 	Print() IAstNode
-	Origin() IAstNode
 	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
 	findByOrig(IIrNode, IAstNode) []IIrNode
 	IsDef() *IrDef

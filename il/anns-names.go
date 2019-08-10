@@ -50,7 +50,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.CallArg, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrIdentName:
 		if _, existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed {
-			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.OrigToks(n), "`"+n.Val+"` found but with syntax errors")
+			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.AstOrigToks(n), "`"+n.Val+"` found but with syntax errors")
 		} else {
 			n.Anns.Candidates = me[n.Val]
 			for _, c := range n.Anns.Candidates {
@@ -77,9 +77,6 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 }
 
 func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDef, errs *Errors, node *IrArg, name string) {
-	toks := node.origToks()
-	if len(toks) == 0 && maybeTld != nil {
-		toks = maybeTld.OrigToks(node)
-	}
+	toks := maybeTld.AstOrigToks(node)
 	errs.AddNaming(ErrNames_ShadowingNotAllowed, toks.First1(), "name `"+name+"` already defined (rename required)")
 }

@@ -7,9 +7,9 @@ import (
 	. "github.com/metaleap/atmo/ast"
 )
 
-func (*irNodeBase) IsDef() *IrDef       { return nil }
-func (*irNodeBase) IsExt() bool         { return false }
-func (me *irNodeBase) Origin() IAstNode { return me.Orig }
+func (*irNodeBase) IsDef() *IrDef        { return nil }
+func (*irNodeBase) IsExt() bool          { return false }
+func (me *irNodeBase) AstOrig() IAstNode { return me.Orig }
 
 func (me *IrDef) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
 	if nodes = me.Name.findByOrig(&me.Name, orig); len(nodes) != 0 {
@@ -50,27 +50,48 @@ func (me *IrDef) Errors() (errs Errors) {
 func (me *IrDef) FindByOrig(orig IAstNode) []IIrNode {
 	return me.findByOrig(me, orig)
 }
-func (me *IrDef) AncestorsAndDescendantsOf(node IIrNode) (nodeAncestors []IIrNode, nodeDescendants []IIrNode) {
-	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodedescendants ...IIrNode) (keepGoing bool) {
+func (me *IrDef) AncestorsOf(node IIrNode) (nodeAncestors []IIrNode) {
+	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, _ ...IIrNode) (keepGoing bool) {
 		if curnode == node {
-			nodeAncestors, nodeDescendants = curnodeancestors, curnodedescendants
+			nodeAncestors = curnodeancestors
+			return false
 		}
-		return nodeAncestors == nil && nodeDescendants == nil
+		return nodeAncestors == nil
 	})
 	return
 }
-func (me *IrDef) OrigToks(node IIrNode) (toks udevlex.Tokens) {
+func (me *IrDef) AncestorsAndChildrenOf(node IIrNode) (nodeAncestors []IIrNode, nodeChildren []IIrNode) {
+	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodechildren ...IIrNode) (keepGoing bool) {
+		if curnode == node {
+			nodeAncestors, nodeChildren = curnodeancestors, curnodechildren
+		}
+		return nodeAncestors == nil && nodeChildren == nil
+	})
+	return
+}
+func (me *IrDef) AstOrigToks(node IIrNode) (toks udevlex.Tokens) {
 	if node == nil {
 		node = me
 	}
+	if node == nil {
+		return
+	}
 	_ = node.walk(nil, node, func(_ []IIrNode, cn IIrNode, _ ...IIrNode) bool {
 		if len(toks) == 0 {
-			if orig := cn.Origin(); orig != nil {
+			if orig := cn.AstOrig(); orig != nil {
 				toks = orig.Toks()
 			}
 		}
 		return len(toks) == 0
 	})
+	if me != nil && len(toks) == 0 {
+		nodeancestors := me.AncestorsOf(node)
+		for i := len(nodeancestors) - 1; len(toks) == 0 && i >= 0; i-- {
+			if orig := nodeancestors[i].AstOrig(); orig != nil {
+				toks = orig.Toks()
+			}
+		}
+	}
 	return
 }
 func (me *IrDef) RefersToOrDefines(name string) (relatesTo bool) {
@@ -108,11 +129,11 @@ func (me *IrDef) RefsTo(name string) (refs []IIrExpr) {
 	}
 	return
 }
-func (me *IrDef) Walk(whetherToKeepTraversing func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeDescendantsThatWillBeTraversedIfReturningTrue ...IIrNode) bool) {
+func (me *IrDef) Walk(whetherToKeepTraversing func(curNodeAncestors []IIrNode, curNode IIrNode, curNodeChildrenThatWillBeTraversedIfReturningTrue ...IIrNode) bool) {
 	_ = me.walk(nil, me, whetherToKeepTraversing)
 }
 func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatchWithAncestorsPrepended []IIrNode) {
-	me.Walk(func(ancestors []IIrNode, curnode IIrNode, descendants ...IIrNode) bool {
+	me.Walk(func(ancestors []IIrNode, curnode IIrNode, children ...IIrNode) bool {
 		if where(curnode) {
 			firstMatchWithAncestorsPrepended = append(ancestors, curnode)
 		}
@@ -121,9 +142,9 @@ func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatchWithAncestorsPrepe
 	return
 }
 func (me *IrDef) FindAll(where func(IIrNode) bool) (matches [][]IIrNode) {
-	me.Walk(func(ancestors []IIrNode, curnode IIrNode, descendants ...IIrNode) bool {
+	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodechildren ...IIrNode) bool {
 		if where(curnode) {
-			matches = append(matches, append(ancestors, curnode))
+			matches = append(matches, append(curnodeancestors, curnode))
 		}
 		return true
 	})
@@ -172,17 +193,11 @@ func (me *IrArg) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
 	}
 	return
 }
-func (me *IrArg) origToks() udevlex.Tokens {
-	if me.Orig != nil {
-		return me.Orig.Toks()
-	}
-	return nil
-}
-func (me *IrArg) Origin() IAstNode {
+func (me *IrArg) AstOrig() IAstNode {
 	if me.Orig != nil {
 		return me.Orig
 	}
-	return me.IrIdentDecl.Origin()
+	return me.IrIdentDecl.AstOrig()
 }
 func (me *IrArg) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) (keepGoing bool) {
 	if keepGoing = on(ancestors, me, &me.IrIdentDecl); keepGoing {
