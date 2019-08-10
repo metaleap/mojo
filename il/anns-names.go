@@ -27,15 +27,12 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrArg, errs *Errors) (n
 		}
 	}
 	namesInScopeCopy = make(AnnNamesInScope, len(me)+1)
-	// copy old names:
 	for name, nodes := range me {
 		if name != argname {
-			namesInScopeCopy[name] = nodes // safe to keep existing slice as-is
-		} else {
-			namesInScopeCopy.Add(name, nodes...) // effectively copy existing slice
+			namesInScopeCopy[name] = nodes
 		}
 	}
-	namesInScopeCopy.Add(argname, addArg)
+	namesInScopeCopy[argname] = []IIrNode{addArg}
 	return
 }
 
@@ -55,6 +52,9 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 			n.Anns.Candidates = me[n.Val]
 			for _, c := range n.Anns.Candidates {
 				if arg, isarg := c.(*IrArg); isarg {
+					if len(n.Anns.Candidates) > 1 {
+						panic(tld.Name.Val + "~" + n.Val + ": ident points to arg `" + arg.Val + "` but multiple candidates still!?")
+					}
 					n.Anns.ArgIdx = 0
 					var found bool
 					for i := len(nodeAncestors) - 1; i != 0; i-- {
