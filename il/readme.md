@@ -34,7 +34,6 @@ const (
 
 ```go
 const (
-	ErrNames_ShadowingNotAllowed
 	ErrNames_IdentRefersToMalformedDef
 )
 ```

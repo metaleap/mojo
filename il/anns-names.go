@@ -18,14 +18,6 @@ func (me AnnNamesInScope) copy() (fullCopy AnnNamesInScope) {
 
 func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrArg, errs *Errors) (namesInScopeCopy AnnNamesInScope) {
 	argname := addArg.IrIdentBase.Val
-	if cands := me[argname]; len(cands) != 0 {
-		for _, cand := range cands {
-			if !cand.IsExt() {
-				me.errNameWouldShadow(tld, errs, addArg, argname)
-				return me
-			}
-		}
-	}
 	namesInScopeCopy = make(AnnNamesInScope, len(me)+1)
 	for name, nodes := range me {
 		if name != argname {
@@ -74,9 +66,4 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 		}
 	}
 	return
-}
-
-func (AnnNamesInScope) errNameWouldShadow(maybeTld *IrDef, errs *Errors, node *IrArg, name string) {
-	toks := maybeTld.AstOrigToks(node)
-	errs.AddNaming(ErrNames_ShadowingNotAllowed, toks.First1(), "name `"+name+"` already defined (rename required)")
 }

@@ -8,6 +8,5 @@ const (
 )
 const (
 	_ = 2200 + iota
-	ErrNames_ShadowingNotAllowed
 	ErrNames_IdentRefersToMalformedDef
 )
