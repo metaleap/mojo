@@ -53,7 +53,9 @@ func (me *IrDef) initArg(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) 
 func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
 	defarg := ctx.defArgs[me]
 	if defarg != nil {
-		ctx.lamIdx++
+		if ctx.absIdx++; ctx.absIdx > ctx.absMax {
+			ctx.absMax = ctx.absIdx
+		}
 	}
 
 	// fast-track special-casing for a def-body of mere-underscore
@@ -78,10 +80,13 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 	}
 
 	if defarg != nil {
-		delete(ctx.defArgs, me)
-		lam := IrLam{Arg: *defarg, Body: me.Body}
-		lam.Orig, lam.Arg.Anns.LamIdx, me.Body = me.Orig, ctx.lamIdx, &lam
-		ctx.lamIdx--
+		abs := IrAbs{Arg: *defarg, Body: me.Body}
+		abs.Orig, abs.Arg.Anns.AbsIdx, me.Body = me.Orig, ctx.absIdx, &abs
+		if ctx.absIdx == 0 {
+			abs.Arg.Anns.AbsIdx = -ctx.absMax
+			ctx.absMax = 0
+		}
+		ctx.absIdx--
 	}
 	return
 }
@@ -97,7 +102,7 @@ func (me *IrDef) initMetas(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors
 }
 
 func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
-	me.Orig, me.Anns.LamIdx = orig, -1
+	me.Orig, me.Anns.AbsIdx = orig, -1
 
 	isexpr := true
 	switch v := orig.NameOrConstVal.(type) {

@@ -31,6 +31,28 @@ func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node II
 func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 	switch this := node.(type) {
 
+	case *IrDef:
+		if this.Anns.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
+			this.Errs.Stage3Preduce = make(Errors, 0, 0) // not nil anymore now
+			if !this.HasErrors() {
+				prevtopdef := me.curNode.owningTopDef
+				me.curNode.owningTopDef = this
+				{
+					me.dbgIndent++
+					this.Anns.Preduced = me.preduce(this.Body)
+					me.dbgIndent--
+				}
+				me.curNode.owningTopDef = prevtopdef
+			}
+		}
+		ret = this.Anns.Preduced
+
+	case IrDefRef:
+		prevkit := me.curNode.owningKit
+		me.curNode.owningKit = this.Kit
+		ret = me.preduce(this.IrDef)
+		me.curNode.owningKit = prevkit
+
 	case *IrLitFloat:
 		ret = &PPrimAtomicConstFloat{Val: this.Val}
 
@@ -51,33 +73,11 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 		}
 		me.dbgIndent--
 
-	case IrDefRef:
-		prevkit := me.curNode.owningKit
-		me.curNode.owningKit = this.Kit
-		ret = me.preduce(this.IrDef)
-		me.curNode.owningKit = prevkit
-
-	case *IrDef:
-		if this.Anns.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
-			this.Errs.Stage3Preduce = make(Errors, 0, 0) // not nil anymore now
-			if !this.HasErrors() {
-				prevtopdef := me.curNode.owningTopDef
-				me.curNode.owningTopDef = this
-				{
-					me.dbgIndent++
-					this.Anns.Preduced = me.preduce(this.Body)
-					me.dbgIndent--
-				}
-				me.curNode.owningTopDef = prevtopdef
-			}
-		}
-		ret = this.Anns.Preduced
+	case *IrAbs:
+		ret = &PFunc{Orig: this, Arg: &PMeta{}, Ret: &PMeta{}}
 
 	case *IrArg:
-		ret = &PAbyss{}
-
-	case *IrLam:
-		ret = &PFunc{Arg: &PHole{}, Ret: &PHole{}}
+		ret = &PMeta{}
 
 	case *IrAppl:
 		rcallee := me.preduce(this.Callee)
@@ -87,9 +87,16 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 				ret = rc
 			case *PAbyss:
 				ret = rc
-			case *PHole:
+			case *PMeta:
 				ret = rc
 			case *PFunc:
+				isoutermost := (me.envStack == nil)
+				if isoutermost {
+				}
+
+				if isoutermost {
+					me.envStack = nil
+				}
 				ret = rc.Ret
 			default:
 				ret = &PErr{Err: ErrNaming(6789, me.toks(this).First1(), "notCallable: "+rc.SummaryCompact())}

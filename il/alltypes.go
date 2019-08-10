@@ -32,12 +32,11 @@ type ctxIrFromAst struct {
 		val   byte
 		times int
 	}
-	lamIdx int
+	absIdx int
+	absMax int
 }
 
-type IrDefs []IrDef
-
-type IrTopDefs []*IrDef
+type IrDefs []*IrDef
 
 type IIrNode interface {
 	AstOrig() IAstNode
@@ -61,7 +60,7 @@ type irNodeBase struct {
 	Orig IAstNode
 }
 
-type IrLam struct {
+type IrAbs struct {
 	IrExprBase
 	Arg  IrArg
 	Body IIrExpr
@@ -91,7 +90,7 @@ type IrArg struct {
 	IrIdentDecl
 
 	Anns struct {
-		LamIdx int
+		AbsIdx int
 	}
 }
 
@@ -144,10 +143,8 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
-		// ArgIdx is 0 if not pointing to an `*IrArg`, else the De Bruijn index
-		ArgIdx int
-
-		// *atmoil.IrDef, *atmoil.IrArg, atmosess.IrDefRef
+		AbsIdx     int
+		ArgIdx     int
 		Candidates []IIrNode
 	}
 }
@@ -197,12 +194,13 @@ type PAbyss struct {
 	Preduced
 }
 
-type PHole struct {
+type PMeta struct {
 	Preduced
 }
 
 type PFunc struct {
 	Preduced
-	Arg *PHole
-	Ret *PHole
+	Orig *IrAbs
+	Arg  *PMeta
+	Ret  *PMeta
 }

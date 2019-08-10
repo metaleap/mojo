@@ -244,7 +244,7 @@ func (me *Kit) HasDefs(name string) bool {
 	return len(me.lookups.tlDefIDsByName[name]) != 0
 }
 
-func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs IrTopDefs) {
+func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs IrDefs) {
 	for len(name) != 0 && name[0] == '_' {
 		name = name[1:]
 	}

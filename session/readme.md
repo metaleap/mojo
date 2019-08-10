@@ -248,7 +248,7 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 #### func (*Kit) Defs
 
 ```go
-func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs IrTopDefs)
+func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs IrDefs)
 ```
 
 #### func (*Kit) DoesImport

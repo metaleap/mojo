@@ -46,7 +46,7 @@ func (me *IrArg) Print() IAstNode {
 	return BuildAst.Arg(me.IrIdentBase.Print().(IAstExprAtomic), nil)
 }
 
-func (me *IrLam) Print() IAstNode {
+func (me *IrAbs) Print() IAstNode {
 	name := "λ" + StrRand(false)
 	return BuildAst.Let(BuildAst.Ident(name),
 		*BuildAst.Def(name, me.Body.Print().(IAstExpr), me.Arg.Val))

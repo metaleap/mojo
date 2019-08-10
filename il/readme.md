@@ -116,6 +116,53 @@ type IPreduced interface {
 ```
 
 
+#### type IrAbs
+
+```go
+type IrAbs struct {
+	IrExprBase
+	Arg  IrArg
+	Body IIrExpr
+}
+```
+
+
+#### func (*IrAbs) AstOrig
+
+```go
+func (me *IrAbs) AstOrig() IAstNode
+```
+
+#### func (*IrAbs) EquivTo
+
+```go
+func (me *IrAbs) EquivTo(node IIrNode, ignoreNames bool) bool
+```
+
+#### func (*IrAbs) IsDef
+
+```go
+func (*IrAbs) IsDef() *IrDef
+```
+
+#### func (*IrAbs) IsExt
+
+```go
+func (*IrAbs) IsExt() bool
+```
+
+#### func (*IrAbs) Print
+
+```go
+func (me *IrAbs) Print() IAstNode
+```
+
+#### func (*IrAbs) RefersTo
+
+```go
+func (me *IrAbs) RefersTo(name string) bool
+```
+
 #### type IrAppl
 
 ```go
@@ -170,7 +217,7 @@ type IrArg struct {
 	IrIdentDecl
 
 	Anns struct {
-		LamIdx int
+		AbsIdx int
 	}
 }
 ```
@@ -360,12 +407,6 @@ func (me *IrDef) IsDef() *IrDef
 func (*IrDef) IsExt() bool
 ```
 
-#### func (*IrDef) IsLam
-
-```go
-func (me *IrDef) IsLam() (ifSo *IrLam)
-```
-
 #### func (*IrDef) NamesInScopeAt
 
 ```go
@@ -411,9 +452,45 @@ func (me *IrDef) Walk(whetherToKeepTraversing func(curNodeAncestors []IIrNode, c
 #### type IrDefs
 
 ```go
-type IrDefs []IrDef
+type IrDefs []*IrDef
 ```
 
+
+#### func (IrDefs) ByName
+
+```go
+func (me IrDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef)
+```
+
+#### func (IrDefs) IndexByID
+
+```go
+func (me IrDefs) IndexByID(id string) int
+```
+
+#### func (IrDefs) Len
+
+```go
+func (me IrDefs) Len() int
+```
+
+#### func (IrDefs) Less
+
+```go
+func (me IrDefs) Less(i int, j int) bool
+```
+
+#### func (*IrDefs) ReInitFrom
+
+```go
+func (me *IrDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs Errors)
+```
+
+#### func (IrDefs) Swap
+
+```go
+func (me IrDefs) Swap(i int, j int)
+```
 
 #### type IrExprAtomBase
 
@@ -560,10 +637,8 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
-		// ArgIdx is 0 if not pointing to an `*IrArg`, else the De Bruijn index
-		ArgIdx int
-
-		// *atmoil.IrDef, *atmoil.IrArg, atmosess.IrDefRef
+		AbsIdx     int
+		ArgIdx     int
 		Candidates []IIrNode
 	}
 }
@@ -610,53 +685,6 @@ func (me *IrIdentName) RefersTo(name string) bool
 
 ```go
 func (me *IrIdentName) ResolvesTo(n IIrNode) bool
-```
-
-#### type IrLam
-
-```go
-type IrLam struct {
-	IrExprBase
-	Arg  IrArg
-	Body IIrExpr
-}
-```
-
-
-#### func (*IrLam) AstOrig
-
-```go
-func (me *IrLam) AstOrig() IAstNode
-```
-
-#### func (*IrLam) EquivTo
-
-```go
-func (me *IrLam) EquivTo(node IIrNode, ignoreNames bool) bool
-```
-
-#### func (*IrLam) IsDef
-
-```go
-func (*IrLam) IsDef() *IrDef
-```
-
-#### func (*IrLam) IsExt
-
-```go
-func (*IrLam) IsExt() bool
-```
-
-#### func (*IrLam) Print
-
-```go
-func (me *IrLam) Print() IAstNode
-```
-
-#### func (*IrLam) RefersTo
-
-```go
-func (me *IrLam) RefersTo(name string) bool
 ```
 
 #### type IrLitFloat
@@ -766,49 +794,6 @@ func (*IrNonValue) IsExt() bool
 func (me *IrNonValue) Print() IAstNode
 ```
 
-#### type IrTopDefs
-
-```go
-type IrTopDefs []*IrDef
-```
-
-
-#### func (IrTopDefs) ByName
-
-```go
-func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef)
-```
-
-#### func (IrTopDefs) IndexByID
-
-```go
-func (me IrTopDefs) IndexByID(id string) int
-```
-
-#### func (IrTopDefs) Len
-
-```go
-func (me IrTopDefs) Len() int
-```
-
-#### func (IrTopDefs) Less
-
-```go
-func (me IrTopDefs) Less(i int, j int) bool
-```
-
-#### func (*IrTopDefs) ReInitFrom
-
-```go
-func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs Errors)
-```
-
-#### func (IrTopDefs) Swap
-
-```go
-func (me IrTopDefs) Swap(i int, j int)
-```
-
 #### type PAbyss
 
 ```go
@@ -857,8 +842,9 @@ func (me *PErr) SummaryCompact() string
 ```go
 type PFunc struct {
 	Preduced
-	Arg *PHole
-	Ret *PHole
+	Orig *IrAbs
+	Arg  *PMeta
+	Ret  *PMeta
 }
 ```
 
@@ -869,19 +855,19 @@ type PFunc struct {
 func (me *PFunc) SummaryCompact() string
 ```
 
-#### type PHole
+#### type PMeta
 
 ```go
-type PHole struct {
+type PMeta struct {
 	Preduced
 }
 ```
 
 
-#### func (*PHole) SummaryCompact
+#### func (*PMeta) SummaryCompact
 
 ```go
-func (me *PHole) SummaryCompact() string
+func (me *PMeta) SummaryCompact() string
 ```
 
 #### type PPrimAtomicConstFloat

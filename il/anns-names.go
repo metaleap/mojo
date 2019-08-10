@@ -32,7 +32,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 	switch n := node.(type) {
 	case *IrDef:
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
-	case *IrLam:
+	case *IrAbs:
 		errs.Add(me.copyAndAdd(tld, &n.Arg, &errs).RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrAppl:
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Callee, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
@@ -44,8 +44,20 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 			n.Anns.Candidates = me[n.Val]
 			if len(n.Anns.Candidates) == 1 {
 				if arg, isarg := n.Anns.Candidates[0].(*IrArg); isarg {
-					n.Anns.ArgIdx = arg.Anns.LamIdx
-					break
+					if n.Anns.AbsIdx = arg.Anns.AbsIdx; n.Anns.AbsIdx < 0 {
+						n.Anns.AbsIdx = 0
+					}
+
+					n.Anns.ArgIdx = 0
+					var found bool
+					for i := len(nodeAncestors) - 1; i != 0; i-- {
+						if abs, isabs := nodeAncestors[i].(*IrAbs); isabs {
+							n.Anns.ArgIdx++
+							if found = (arg == &abs.Arg); found {
+								break
+							}
+						}
+					}
 				}
 			}
 		}

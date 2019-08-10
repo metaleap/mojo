@@ -33,6 +33,7 @@ type ctxPreducing struct {
 		owningTopDef *IrDef
 		owningKit    *Kit
 	}
+	envStack []interface{}
 }
 
 // Ctx fields must never be written to from the outside after the `Ctx.Init` call.
@@ -88,7 +89,7 @@ type Kit struct {
 	WasEverToBeLoaded bool
 
 	imports      []string
-	topLevelDefs IrTopDefs
+	topLevelDefs IrDefs
 	SrcFiles     AstFiles
 	state        struct {
 		defsGoneIdsNames map[string]string

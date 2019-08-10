@@ -22,7 +22,6 @@ func (me *IrDef) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
 	return
 }
 func (me *IrDef) IsDef() *IrDef                { return me }
-func (me *IrDef) IsLam() (ifSo *IrLam)         { ifSo, _ = me.Body.(*IrLam); return }
 func (me *IrDef) OrigDef() (origDef *AstDef)   { origDef, _ = me.Orig.(*AstDef); return }
 func (me *IrDef) refsTo(name string) []IIrExpr { return me.Body.refsTo(name) }
 func (me *IrDef) EquivTo(node IIrNode, ignoreNames bool) bool {
@@ -171,9 +170,9 @@ func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsIn
 	if descendantNodeInQuestion != me {
 		nodepath := me.FindAny(func(n IIrNode) bool { return n == descendantNodeInQuestion })
 		for _, n := range nodepath {
-			if lam, islam := n.(*IrLam); islam {
-				if (!excludeInternalIdents) || !ustr.Pref(lam.Arg.Val, "__") {
-					namesInScope.Add(lam.Arg.Val, &lam.Arg)
+			if abs, isabs := n.(*IrAbs); isabs {
+				if (!excludeInternalIdents) || !ustr.Pref(abs.Arg.Val, "__") {
+					namesInScope.Add(abs.Arg.Val, &abs.Arg)
 				}
 			}
 		}
@@ -313,7 +312,7 @@ func (me *IrIdentName) ResolvesTo(n IIrNode) bool {
 }
 func (me *IrIdentName) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrIdentName)
-	return cmp != nil && ((ignoreNames && me.Anns.ArgIdx == cmp.Anns.ArgIdx) ||
+	return cmp != nil && ((ignoreNames && me.Anns.AbsIdx == cmp.Anns.AbsIdx) ||
 		((!ignoreNames) && cmp.Val == me.Val))
 }
 func (me *IrIdentName) walk(ancestors []IIrNode, _ IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) bool {
@@ -355,13 +354,13 @@ func (me *IrAppl) walk(ancestors []IIrNode, _ IIrNode, on func([]IIrNode, IIrNod
 	return
 }
 
-func (me *IrLam) EquivTo(node IIrNode, ignoreNames bool) bool {
-	cmp, _ := node.(*IrLam)
+func (me *IrAbs) EquivTo(node IIrNode, ignoreNames bool) bool {
+	cmp, _ := node.(*IrAbs)
 	return cmp != nil && me.Arg.EquivTo(&cmp.Arg, ignoreNames) &&
 		me.Body.EquivTo(cmp.Body, ignoreNames)
 }
-func (me *IrLam) RefersTo(name string) bool { return me.Body.RefersTo(name) }
-func (me *IrLam) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
+func (me *IrAbs) RefersTo(name string) bool { return me.Body.RefersTo(name) }
+func (me *IrAbs) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
 	if nodes = me.Body.findByOrig(me.Body, orig); len(nodes) != 0 {
 		nodes = append(nodes, self)
 	} else if nodes = me.Arg.findByOrig(&me.Arg, orig); len(nodes) != 0 {
@@ -371,8 +370,8 @@ func (me *IrLam) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
 	}
 	return
 }
-func (me *IrLam) refsTo(name string) []IIrExpr { return me.Body.refsTo(name) }
-func (me *IrLam) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) (keepGoing bool) {
+func (me *IrAbs) refsTo(name string) []IIrExpr { return me.Body.refsTo(name) }
+func (me *IrAbs) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) (keepGoing bool) {
 	if keepGoing = on(ancestors, self, &me.Arg, me.Body); keepGoing {
 		ancestors = append(ancestors, self)
 		if keepGoing = me.Arg.walk(ancestors, &me.Arg, on); keepGoing {

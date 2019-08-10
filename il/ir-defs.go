@@ -5,32 +5,14 @@ import (
 	. "github.com/metaleap/atmo/ast"
 )
 
-func (me IrDefs) byName(name string) *IrDef {
-	for i := range me {
-		if me[i].Name.Val == name {
-			return &me[i]
-		}
-	}
-	return nil
-}
-
-func (me IrDefs) index(name string) int {
-	for i := range me {
-		if me[i].Name.Val == name {
-			return i
-		}
-	}
-	return -1
-}
-
-func (me IrTopDefs) Len() int          { return len(me) }
-func (me IrTopDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
-func (me IrTopDefs) Less(i int, j int) bool {
+func (me IrDefs) Len() int          { return len(me) }
+func (me IrDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
+func (me IrDefs) Less(i int, j int) bool {
 	dis, dat := &me[i].AstOrigToks(nil).First1().Pos, &me[j].AstOrigToks(nil).First1().Pos
 	return (dis.FilePath == dat.FilePath && me[i].OrigTopChunk.PosOffsetByte() < me[j].OrigTopChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 
-func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef) {
+func (me IrDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef) {
 	allfiles := (onlyFor == nil)
 	for _, tld := range me {
 		if allfiles || (tld.OrigTopChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
@@ -42,7 +24,7 @@ func (me IrTopDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef) {
 	return
 }
 
-func (me IrTopDefs) IndexByID(id string) int {
+func (me IrDefs) IndexByID(id string) int {
 	for i := range me {
 		if me[i].Id == id {
 			return i
@@ -51,7 +33,7 @@ func (me IrTopDefs) IndexByID(id string) int {
 	return -1
 }
 
-func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs Errors) {
+func (me *IrDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndNames map[string]string, newTopLevelDefIdsAndNames map[string]string, freshErrs Errors) {
 	this, newdefs, oldunchangeds := *me, make([]*AstFileChunk, 0, 2), make(map[int]Exist, len(*me))
 
 	// gather what's "new" (newly added or source-wise modified) and what's "old" (source-wise unchanged)
@@ -73,7 +55,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 
 	// drop what's gone
 	if l := len(oldunchangeds); l < len(this) { // either some (l>0) or all (l==0) are gone, the latter will occur too seldomly in practice to optimize for
-		thiswithout := make(IrTopDefs, 0, l+len(newdefs))
+		thiswithout := make(IrDefs, 0, l+len(newdefs))
 		droppedTopLevelDefIdsAndNames = make(map[string]string, len(this)-l)
 		for i := range this {
 			if _, oldunchanged := oldunchangeds[i]; oldunchanged {
@@ -94,7 +76,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 			this, newTopLevelDefIdsAndNames[def.Id] =
 				append(this, def), tlc.Ast.Def.Orig.Name.Val
 			// populate it
-			ctxinit := ctxIrFromAst{curTopLevelDef: def, defArgs: make(map[*IrDef]*IrArg, 8), lamIdx: -1}
+			ctxinit := ctxIrFromAst{curTopLevelDef: def, defArgs: make(map[*IrDef]*IrArg, 8), absIdx: -1}
 			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, orig)...)
 			if len(def.Errs.Stage1AstToIr) != 0 {
 				freshErrs.Add(def.Errs.Stage1AstToIr...)
