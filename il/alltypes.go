@@ -32,6 +32,7 @@ type ctxIrFromAst struct {
 		val   byte
 		times int
 	}
+	lamIdx int
 }
 
 type IrDefs []IrDef
@@ -88,6 +89,10 @@ type IrDef struct {
 
 type IrArg struct {
 	IrIdentDecl
+
+	Anns struct {
+		LamIdx int
+	}
 }
 
 type IrExprBase struct {

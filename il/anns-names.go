@@ -42,24 +42,9 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.AstOrigToks(n), "`"+n.Val+"` found but with syntax errors")
 		} else {
 			n.Anns.Candidates = me[n.Val]
-			for _, c := range n.Anns.Candidates {
-				if arg, isarg := c.(*IrArg); isarg {
-					if len(n.Anns.Candidates) > 1 {
-						panic(tld.Name.Val + "~" + n.Val + ": ident points to arg `" + arg.Val + "` but multiple candidates still!?")
-					}
-					n.Anns.ArgIdx = 0
-					var found bool
-					for i := len(nodeAncestors) - 1; i != 0; i-- {
-						if lam, islam := nodeAncestors[i].(*IrLam); islam {
-							n.Anns.ArgIdx++
-							if found = (arg == &lam.Arg); found {
-								break
-							}
-						}
-					}
-					if !found {
-						panic(tld.Name.Val + "~" + n.Val + ": ident points to arg `" + arg.Val + "` but didnt find it climbing up the ancestors?!")
-					}
+			if len(n.Anns.Candidates) == 1 {
+				if arg, isarg := n.Anns.Candidates[0].(*IrArg); isarg {
+					n.Anns.ArgIdx = arg.Anns.LamIdx
 					break
 				}
 			}

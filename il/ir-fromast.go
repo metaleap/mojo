@@ -42,7 +42,7 @@ func (me *IrDef) initName(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 }
 
 func (me *IrDef) initArg(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
-	if len(origDefUnary.Args) == 1 { // can only be 0 or 1 as toUnary-zation happened before here
+	if len(origDefUnary.Args) != 0 { // can only be 0 or 1 as toUnary-zation happened before here
 		var arg IrArg
 		errs.Add(arg.initFrom(ctx, &origDefUnary.Args[0])...)
 		ctx.defArgs[me] = &arg
@@ -51,6 +51,11 @@ func (me *IrDef) initArg(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) 
 }
 
 func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
+	defarg := ctx.defArgs[me]
+	if defarg != nil {
+		ctx.lamIdx++
+	}
+
 	// fast-track special-casing for a def-body of mere-underscore
 	if ident, _ := origDefUnary.Body.(*AstIdent); ident != nil && ident.IsPlaceholder() {
 		tag := BuildIr.IdentTag(me.Name.Val)
@@ -58,7 +63,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 	} else {
 		me.Body, errs = ctx.newExprFrom(origDefUnary.Body)
 	}
-	defarg := ctx.defArgs[me]
+
 	if len(ctx.coerceCallables) != 0 {
 		// each takes the arg val (or ret val) and returns either it or undef
 		if defarg != nil {
@@ -71,10 +76,12 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 			me.Body = ctx.bodyWithCoercion(coerce, me.Body, nil)
 		}
 	}
+
 	if defarg != nil {
 		delete(ctx.defArgs, me)
 		lam := IrLam{Arg: *defarg, Body: me.Body}
-		lam.Orig, me.Body = me.Orig, &lam
+		lam.Orig, lam.Arg.Anns.LamIdx, me.Body = me.Orig, ctx.lamIdx, &lam
+		ctx.lamIdx--
 	}
 	return
 }
@@ -90,7 +97,7 @@ func (me *IrDef) initMetas(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors
 }
 
 func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
-	me.Orig = orig
+	me.Orig, me.Anns.LamIdx = orig, -1
 
 	isexpr := true
 	switch v := orig.NameOrConstVal.(type) {

@@ -94,7 +94,7 @@ func (me *IrTopDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndN
 			this, newTopLevelDefIdsAndNames[def.Id] =
 				append(this, def), tlc.Ast.Def.Orig.Name.Val
 			// populate it
-			ctxinit := ctxIrFromAst{curTopLevelDef: def, defArgs: make(map[*IrDef]*IrArg, 8)}
+			ctxinit := ctxIrFromAst{curTopLevelDef: def, defArgs: make(map[*IrDef]*IrArg, 8), lamIdx: -1}
 			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, orig)...)
 			if len(def.Errs.Stage1AstToIr) != 0 {
 				freshErrs.Add(def.Errs.Stage1AstToIr...)

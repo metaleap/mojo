@@ -168,6 +168,10 @@ func (me *IrAppl) RefersTo(name string) bool
 ```go
 type IrArg struct {
 	IrIdentDecl
+
+	Anns struct {
+		LamIdx int
+	}
 }
 ```
 
