@@ -1,0 +1,39 @@
+
+
+
+bool := 321
+
+some _test := _&&some
+
+moo sup :=
+    lam
+    bla lam := bla + moo
+
+
+a yoo b c d :=
+    yo * ab,    x   := oy
+    yo := a+b,  ab  := c+d
+
+case :=
+    yoo ? sup               => test
+        | yoya | mo | cse   => rev
+        | test              => sup
+
+x mo := x ? Yo | Ya | Oy | Ay => x
+
+cse := (1 + 2) * (1 + 2)
+
+Yo yoya := Ya
+
+yoYa := Yo , Ya
+
+123 rev b := b ⊤ 1.23 ⊥ 321
+
+a case2 b :=
+    a   ? "a"   => b
+        | 'a'   => b    ? "b"   => a
+                        | 'b'   => 123
+
+
+
+// a temporary mere func sig := _

@@ -1,0 +1,51 @@
+stage zero:
+  - names unresolved
+
+
+stage one: resolve names
+  - resolve to all (>=1) candidates (id->imppath) on record
+
+
+stage two: fact substs & name-candidates drill-down
+  - happy path: 1 candidate == subst facts immediately
+  - "happy" path: 0 candidates == unknown-name error
+  - chewy path: more than 1 candidate:
+  	- EITHER: subst+cand-pick needs to be in tandem seemingly?
+      - subst what's possible without cand-pick
+      - cand-pick based on those partial facts
+      - complete facts on cand-pick
+  	- OR:
+      - expand all candidates into (pretend-real) branchings at first
+      - then eliminate nonsensical ones
+      - err if <1 or >1 left
+    - LIKELY:
+      - both (the latter goes in the middle of the former)
+
+  - facts per...
+    - ...(global or local) DEF:
+      - ARG facts (obtain from arg-consumers)
+      - RET facts (obtain from ret-contributors)
+    - ...CALL:
+      - ref-to-def for "musts"
+      - also record all "haves" (of ATOMs involved)
+      - validate musts<->haves
+    - ...ATOM:
+      - for lits, "haves" = unique known VALUE
+      - for names, "haves" = def-ref or arg-ref VALUE facts
+      - these "haves" used by parent CALL or parent DEF-RET
+    - ...VALUE:
+      - set of permitted values / ranges
+      - each set member potentially arbitrarily "predicate-d" (eg. list with min/max/exact len, boolishly-combinatorial)
+      - prims-atomic: uint, float, standalone tag
+      - prims-compound: callable x->y (def-ref or not), list, set, n-ary relations (if binary, possibly map or rec), tagged-anything
+      - callable: tricky but need to infer CALL facts
+
+
+stage three: "preduce" our-normal-form graphs per top-level-def by repeatedly:
+  - cse (new ones may appear from below activities)
+  - beta/eta = inlining (including inlining already-maximally-preduced TLDs)
+  - calc statically what's prim-ish (prim-lits; prim-ops for nums/algebra, boolish expressions, prim-compounds)
+
+
+stage four: A-normal-form?
+  http://matt.might.net/articles/a-normalization/

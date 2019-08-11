@@ -1,0 +1,18 @@
+
+foo fst _ := foo
+
+_ snd foo := foo
+
+
+// PAIRS via (x _ y) lambas, the notation meaning \xyf.fxy
+// (3 _ 8) fst      ===     3 fst 8     === 3
+// (3 _ 8) snd      ===     3 snd 8     === 8
+
+// thus we can export `& := _` or `, := _` or `: := _` and thats it
+
+
+// thought experiment for later:
+// w 0 := a        // id == 0
+// x 1 b := b 0    // fst == 1
+// y 2 b := b 1    // snd == 2
+// z 3 b := b 2    // etc?

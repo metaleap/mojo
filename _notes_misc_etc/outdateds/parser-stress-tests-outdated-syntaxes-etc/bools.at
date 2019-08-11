@@ -1,0 +1,44 @@
+
+bool    := True, False
+
+
+True    not := False
+False   not := True
+
+
+a || b :=
+    a   ? True  => a
+        | False => b bool
+
+
+a && b :=
+    a   ? False => a
+        | True  => b bool
+
+
+// ternary-op from 2 binary-ops, usage together: (someCondition ⊤ trueExpr ⊥ falseExpr)
+when ⊤ then :=
+    when    ? True  => then ever
+            | False => it
+fn ⊥ else :=
+    else fn
+// naked-aliases for ease of typing (fmt could replace with pretty symbol)
+|- := ⊤
+-| := ⊥
+
+
+// alternative way to ternary with tag-typed pseudo-args
+b if _:(Then,) yay Else nay :=
+    b   ? True  => yay
+        | False => nay
+
+
+/*
+    true := fst
+    false := snd
+    b not := b: false true
+    a or b := a: true b
+    a or b := a: a b
+    a and b := a: b false
+    a and b := a: b a
+*/

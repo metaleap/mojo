@@ -1,0 +1,16 @@
+
+// force SVO call style
+arg . fn :=
+    arg fn
+
+// force VSO call style
+fn : arg :=
+    arg fn
+
+// compose rtl
+fn2 ‹ fn1 arg :=
+    arg.fn1 fn2
+
+// compose ltr
+fn1 › fn2 arg :=
+    (arg fn1) fn2

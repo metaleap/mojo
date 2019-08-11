@@ -1,0 +1,15 @@
+
+mustVal § checkVal :=
+    checkVal ? mustVal => checkVal
+
+// id , the well-known:     \a.a        ===  func id(foo) {return foo}
+foo it := foo
+
+// flip:                    \fab.fba    === func flip(f) {return func(a,b) {return f(b,a)}}
+f ~ a b := a b.f
+
+// 1 alone comment
+// 2 alone comment
+
+// const, the well-known:   \ab.a       === func const(x) { return func(y) {return x}}
+ever := fst

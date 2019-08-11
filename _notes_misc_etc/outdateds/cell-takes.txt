@@ -1,0 +1,18 @@
+the cell model (simplified) of data/type primitives, to be used as a starting point:
+    () = any
+    atoms:
+        float
+        int
+        tags
+    composites:
+        # tagged foo
+        [] sequence of foo
+            [,] n-ary tuple = fixed-length heterogenous sequence
+            string: tagged list of int32
+        {} relations:
+            unary: set of foos
+            binary: set of len-2 tuples, and optionally map or record semantics
+            n-ary: set of len-n tuples
+
+
+realworld.io, todomvc.com, or hnpwa.com
