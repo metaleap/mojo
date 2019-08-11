@@ -125,7 +125,7 @@ func (me *ctxTldParse) parseDefHeadSig(toksHeadSig udevlex.Tokens, def *AstDef) 
 func (me *ctxTldParse) parseDefBodyExpr(toksBody udevlex.Tokens, def *AstDef) (err *Error) {
 	var chunks []udevlex.Tokens
 	if toksBody.MultipleLines() {
-		chunks = toksBody.ChunkedByIndent()
+		chunks = toksBody.ChunkedByIndent(true, true)
 	}
 	if len(chunks) > 1 {
 		def.Body, err = me.parseExprLetOuter(toksBody, chunks)
