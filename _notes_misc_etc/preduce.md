@@ -138,7 +138,7 @@ is known to and utilizable by the static "preduce-stage" analysis.
         a:["0",used],
         r: fn{
             a:["1",used],
-            r:[@not.r(..) aka _]
+            r:[@not.r(eq.r(@0)#callable.r(@1)) aka _]
         }
     }
 ```
