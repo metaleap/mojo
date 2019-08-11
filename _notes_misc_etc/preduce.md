@@ -146,13 +146,7 @@ is known to and utilizable by the static "preduce-stage" analysis.
 # must -> \need -> \have -> (((eq need) have) have) undefined
 
 ```
-    fn {
-        a:["0",used],
-        r: fn{
-            a:["1",used],
-
-        }
-    }
+    ...
 ```
 
 # dot -> \x -> \f -> f x
