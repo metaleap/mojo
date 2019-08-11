@@ -123,6 +123,10 @@ type IrAbs struct {
 	IrExprBase
 	Arg  IrArg
 	Body IIrExpr
+
+	Anns struct {
+		AbsIdx int
+	}
 }
 ```
 
@@ -215,10 +219,6 @@ func (me *IrAppl) RefersTo(name string) bool
 ```go
 type IrArg struct {
 	IrIdentDecl
-
-	Anns struct {
-		AbsIdx int
-	}
 }
 ```
 
@@ -290,10 +290,10 @@ func (IrBuild) IdentName(name string) *IrIdentName
 func (IrBuild) IdentNameCopy(identBase *IrIdentBase) *IrIdentName
 ```
 
-#### func (IrBuild) IdentTag
+#### func (IrBuild) LitTag
 
 ```go
-func (IrBuild) IdentTag(name string) *IrLitTag
+func (IrBuild) LitTag(name string) *IrLitTag
 ```
 
 #### func (IrBuild) Undef

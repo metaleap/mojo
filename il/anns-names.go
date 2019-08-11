@@ -16,8 +16,8 @@ func (me AnnNamesInScope) copy() (fullCopy AnnNamesInScope) {
 	return
 }
 
-func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrArg, errs *Errors) (namesInScopeCopy AnnNamesInScope) {
-	argname := addArg.IrIdentBase.Val
+func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrAbs, errs *Errors) (namesInScopeCopy AnnNamesInScope) {
+	argname := addArg.Arg.Val
 	namesInScopeCopy = make(AnnNamesInScope, len(me)+1)
 	for name, nodes := range me {
 		if name != argname {
@@ -33,7 +33,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 	case *IrDef:
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrAbs:
-		errs.Add(me.copyAndAdd(tld, &n.Arg, &errs).RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
+		errs.Add(me.copyAndAdd(tld, n, &errs).RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrAppl:
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Callee, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.CallArg, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
@@ -43,17 +43,17 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 		} else {
 			n.Anns.Candidates = me[n.Val]
 			if len(n.Anns.Candidates) == 1 {
-				if arg, isarg := n.Anns.Candidates[0].(*IrArg); isarg {
-					if n.Anns.AbsIdx = arg.Anns.AbsIdx; n.Anns.AbsIdx < 0 {
+				if abs, isabs := n.Anns.Candidates[0].(*IrAbs); isabs {
+					if n.Anns.AbsIdx = abs.Anns.AbsIdx; n.Anns.AbsIdx < 0 {
 						n.Anns.AbsIdx = 0
 					}
 
 					n.Anns.ArgIdx = 0
 					var found bool
 					for i := len(nodeAncestors) - 1; i != 0; i-- {
-						if abs, isabs := nodeAncestors[i].(*IrAbs); isabs {
+						if lam, is := nodeAncestors[i].(*IrAbs); is {
 							n.Anns.ArgIdx++
-							if found = (arg == &abs.Arg); found {
+							if found = (abs == lam); found {
 								break
 							}
 						}

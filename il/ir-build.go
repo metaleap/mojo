@@ -10,11 +10,8 @@ func (IrBuild) Appl1(callee IIrExpr, callArg IIrExpr) *IrAppl {
 
 func (IrBuild) ApplN(ctx *ctxIrFromAst, callee IIrExpr, callArgs ...IIrExpr) (appl *IrAppl) {
 	for i := range callArgs {
-		if i == 0 {
-			appl = &IrAppl{Callee: callee, CallArg: callArgs[i]}
-		} else {
-			appl = &IrAppl{Callee: appl, CallArg: callArgs[i]}
-		}
+		appl = &IrAppl{Callee: callee, CallArg: callArgs[i]}
+		callee = appl
 	}
 	return
 }
@@ -27,7 +24,7 @@ func (IrBuild) IdentNameCopy(identBase *IrIdentBase) *IrIdentName {
 	return &IrIdentName{IrIdentBase: *identBase}
 }
 
-func (IrBuild) IdentTag(name string) *IrLitTag {
+func (IrBuild) LitTag(name string) *IrLitTag {
 	return &IrLitTag{Val: name}
 }
 

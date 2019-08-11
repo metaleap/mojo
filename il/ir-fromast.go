@@ -6,14 +6,20 @@ import (
 	. "github.com/metaleap/atmo/ast"
 )
 
-func (me *IrDef) initFrom(ctx *ctxIrFromAst, orig *AstDef) (errs Errors) {
-	me.Orig = orig
-	origUnary := orig.ToUnary()
-	// the ordering of these 4 matters: the latter ones depend on work done by the former ones
-	errs.Add(me.initName(ctx, origUnary)...)
-	errs.Add(me.initArg(ctx, origUnary)...)
-	errs.Add(me.initMetas(ctx, origUnary)...)
-	errs.Add(me.initBody(ctx, origUnary)...)
+func (me *IrDef) initFrom(ctx *ctxIrFromAst, origDef *AstDef) (errs Errors) {
+	me.Orig = origDef
+	origunary := origDef.ToUnary()
+
+	errs.Add(me.initName(ctx, origunary)...)
+
+	var maybearg *IrArg
+	if len(origunary.Args) != 0 {
+		maybearg = &IrArg{}
+		errs.Add(maybearg.initFrom(ctx, &origunary.Args[0])...)
+	}
+
+	errs.Add(me.initMetas(ctx, origunary)...)
+	errs.Add(me.initBody(ctx, origunary, maybearg)...)
 	return
 }
 
@@ -41,18 +47,8 @@ func (me *IrDef) initName(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 	return
 }
 
-func (me *IrDef) initArg(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
-	if len(origDefUnary.Args) != 0 { // can only be 0 or 1 as toUnary-zation happened before here
-		var arg IrArg
-		errs.Add(arg.initFrom(ctx, &origDefUnary.Args[0])...)
-		ctx.defArgs[me] = &arg
-	}
-	return
-}
-
-func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
-	defarg := ctx.defArgs[me]
-	if defarg != nil {
+func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef, maybeArg *IrArg) (errs Errors) {
+	if maybeArg != nil {
 		if ctx.absIdx++; ctx.absIdx > ctx.absMax {
 			ctx.absMax = ctx.absIdx
 		}
@@ -60,7 +56,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 
 	// fast-track special-casing for a def-body of mere-underscore
 	if ident, _ := origDefUnary.Body.(*AstIdent); ident != nil && ident.IsPlaceholder() {
-		tag := BuildIr.IdentTag(me.Name.Val)
+		tag := BuildIr.LitTag(me.Name.Val)
 		tag.Orig, me.Body = ident, tag
 	} else {
 		me.Body, errs = ctx.newExprFrom(origDefUnary.Body)
@@ -68,10 +64,10 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 
 	if len(ctx.coerceCallables) != 0 {
 		// each takes the arg val (or ret val) and returns either it or undef
-		if defarg != nil {
-			if coerce, ok := ctx.coerceCallables[defarg]; ok {
+		if maybeArg != nil {
+			if coerce, ok := ctx.coerceCallables[maybeArg]; ok {
 				me.Body = ctx.bodyWithCoercion(coerce, me.Body,
-					func() IIrExpr { return BuildIr.IdentNameCopy(&defarg.IrIdentBase) })
+					func() IIrExpr { return BuildIr.IdentNameCopy(&maybeArg.IrIdentBase) })
 			}
 		}
 		if coerce, ok := ctx.coerceCallables[me]; ok {
@@ -79,11 +75,11 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 		}
 	}
 
-	if defarg != nil {
-		abs := IrAbs{Arg: *defarg, Body: me.Body}
-		abs.Orig, abs.Arg.Anns.AbsIdx, me.Body = me.Orig, ctx.absIdx, &abs
+	if maybeArg != nil {
+		abs := IrAbs{Arg: *maybeArg, Body: me.Body}
+		abs.Orig, abs.Anns.AbsIdx, me.Body = me.Orig, ctx.absIdx, &abs
 		if ctx.absIdx == 0 {
-			abs.Arg.Anns.AbsIdx = -ctx.absMax
+			abs.Anns.AbsIdx = -ctx.absMax
 			ctx.absMax = 0
 		}
 		ctx.absIdx--
@@ -102,7 +98,7 @@ func (me *IrDef) initMetas(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors
 }
 
 func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
-	me.Orig, me.Anns.AbsIdx = orig, -1
+	me.Orig = orig
 
 	isexpr := true
 	switch v := orig.NameOrConstVal.(type) {

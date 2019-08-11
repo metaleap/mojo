@@ -303,9 +303,15 @@ func (me *IrIdentName) refsTo(name string) (refs []IIrExpr) {
 	return
 }
 func (me *IrIdentName) ResolvesTo(n IIrNode) bool {
+	arg, isarg := n.(*IrArg)
+	isarg = isarg && len(me.Anns.Candidates) == 1
 	for _, cand := range me.Anns.Candidates {
 		if cand == n {
 			return true
+		} else if isarg {
+			if abs, isabs := cand.(*IrAbs); isabs && arg == &abs.Arg {
+				return true
+			}
 		}
 	}
 	return false

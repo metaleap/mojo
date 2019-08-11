@@ -64,11 +64,16 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 
 	case *IrIdentName:
 		me.dbgIndent++
-		if len(this.Anns.Candidates) == 0 {
+		switch len(this.Anns.Candidates) {
+		case 0:
 			ret = &PErr{Err: ErrNaming(4321, me.toks(this).First1(), "notInScope")}
-		} else if len(this.Anns.Candidates) == 1 {
-			ret = me.preduce(this.Anns.Candidates[0])
-		} else {
+		case 1:
+			if abs, isabs := this.Anns.Candidates[0].(*IrAbs); isabs {
+				ret = me.preduce(&abs.Arg)
+			} else {
+				ret = me.preduce(this.Anns.Candidates[0])
+			}
+		default:
 			ret = &PErr{Err: ErrNaming(1234, me.toks(this).First1(), "ambiguous")}
 		}
 		me.dbgIndent--
