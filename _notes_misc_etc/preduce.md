@@ -5,7 +5,7 @@ Let's write out many examples with fullest results that should be preduced:
 # itself -> \x -> x
 
 ```
-    fn{ a:["0",used], r:[@0] }
+    fn{ a:["0",used], r:[eq@0] }
 ```
 
 # true -> \x -> \y -> x
@@ -15,7 +15,7 @@ Let's write out many examples with fullest results that should be preduced:
         a:["0",used],
         r: fn{
             a:["1"],
-            r:[@0]
+            r:[eq@0]
         }
     }
 ```
@@ -30,7 +30,7 @@ of `true`, `false`, `konst`... will see.
         a:["0"],
         r: fn{
             a:["1",used],
-            r:[@1]
+            r:[eq@1]
         }
     }
 ```
@@ -40,7 +40,7 @@ of `true`, `false`, `konst`... will see.
 After trivials above, it's starting to get interesting...
 
 ```
-    fn{
+    fn{ // assuming no def-arg or def-name annotations
         a:["0",used,callable{a:false,r:callable{a:true,r:_}}],
         r: [] // nothing known about it at all, could be "anything"
     }
@@ -59,8 +59,8 @@ be `true|false`, each structurally).
 Now it's already decided that we can add further (non-contradictory with
 facts derived from the rest of the code or specified) constraints via def-arg
 and def-name affixes to any global or local def. They desugar into normal
-code (conditionals in the right places and using `undefined` for failure,
-which amounts to bottom / infinity / crash / program rejection when encountered).
+code (conditionals in the right places and using `abyss` for failure, the value
+that amounts to undefined / bottom / infinity / crash / rejection / failure).
 As they are analyzed same as hand-written code, they contribute to the set
 of derived facts.
 
@@ -72,9 +72,9 @@ instead of def-arg annotation, a def-name annotation such as `not:(true|false)`
 could be done and would then have to automagically further constrain `x` such
 that the derived (not redundantly specified) fact of `x:(false->true->_)`
 turns into `x:(false->true->(true|false))` from the def-name (ergo ret-val) spec.
-We now still don't know the set of possible return values but we're now
-undefined for any except structural `true` and `false`, so this becomes all
-that callers now can expected from `not`, which robustifies all call-sites too.
+We now still don't know the set of possible return values but we're now forcing
+`abyss` for all except structural `true` and `false`, so this set becomes all
+that callers now can expect from `not`, which propagates upwards / outwards.
 
 Another annotation option for the same purposes: both ret-val (def-name) and
 def-arg. Stating `not:(true|false) -> \x:(true|false) -> ...` (of course in
@@ -87,7 +87,7 @@ holds will of course be trivially addable but given the knowledge of
 `not:(true|false) -> \x:(true|false) -> ...` plus full knowledge of `true`
 and `false` &mdash; the same should really be derivable though).
 
-> Generalizing further all of the above and below is up and running, ponder
+> Generalizing further, once all of the above and below is up and running, ponder
 > the possibility of `not` (or now-called `toggle` / `invert` / `flip` or such)
 > handling any 2-value set &mdash; would have to cmp the now-possibly-non-callable
 > set members though. This goes in generics territory, which will rarely be
@@ -98,26 +98,31 @@ and `false` &mdash; the same should really be derivable though).
 
 This is how declared-truths = axioms are added to the obviously-observable
 intrinsic truths derived from abs/appl structurings. It'd be nice if they
-could be avoided but we don't want to infer facts for any given abs from the
-totality of all its outside uses (currently loaded/known), neither generate
-permutations of theorems about it to then verify against the (currently
-loaded/known) call sites.
+could be avoided but we don't want to infer facts for any given lambda
+abstraction from the totality of all its outside uses (that are currently
+loaded/known), neither generate permutations of theorems about it to then verify
+against the (currently loaded/known) call sites. (That being said, the
+overwhelming majority of lambda abstractions being preduced would be local,
+within the bounds of the top-level-def's preserved isolation from _its_ callers,
+deducing facts about the local lambda from surrounding usage might be at least
+permissible, likely beneficial, and possibly unavoidable at some point.)
 
 Axiom annotations aren't as undesirable as they first appear, in that they
 desugar into as-if-handwritten wrapper code depending only on prim-`eq` and
 the structural equivalent of `true`, aka. the K combinator or "konstant" func,
-which luckily doesn't depend on itself. Onward...
+which luckily doesn't depend on anything. Onward...
 
 One more thing, might be feasible to see how call-site preducing goes &mdash;
 maybe just ignoring potential nonsensical uses of `not` is fine as the caller
 accepts "any" ret-val as a consequence. Most calls will know that the arg
 is `true|false` (such as when received from prim-`eq` or `and`/`or` whose
-args are known to be `true|false`) &mdash; something to discover in practice.
+args are known to be `true|false` from `eq`/`neq`/etc. calls and so on)
+&mdash; something to explore and discover in practice.
 
 # and -> \x -> \y -> (x y) false
 
 ```
-    fn{
+    fn{ // assuming no def-arg or def-name annotations
         a:["0",used,callable{a:@1, r:callable{a:false,r:_}}],
         r: fn{
             a:["1",used],
@@ -146,16 +151,16 @@ remain the ground-truth of course.
 # or -> \x -> \y -> (x true) y
 
 ```
-    fn{
+    fn{ // assuming no def-arg or def-name annotations
         a:["0",used,callable{a:true,r:callable{a:@1,r:_}}],
         r: fn{
-            a:["1,used],
+            a: ["1",used],
             r: []
         }
     }
 ```
 
-Same principles apply as were just elaborated for `not` &amp; `and`.
+Same principles apply as were just elaborated for `not` / `and`.
 
 # flip -> \f -> \x -> \y -> (f y) x
 
@@ -172,29 +177,31 @@ Same principles apply as were just elaborated for `not` &amp; `and`.
     }
 ```
 
-From the code of `flip`, nothing is learned about its ret-val (only the
-arg `f` is being constrained from the appl expr); of course at call sites
-further uses of said ret-val may well constrain it further, possibly even just
-from the (unknown here) facts already substantiated for `f` and its ret-func.
+From the code of `flip` (flips func args, not bool-vals or bits or some such),
+nothing is learned about its ret-val (only the arg `f` is being constrained
+from the appl expr); of course at call sites further uses of said ret-val may
+well constrain it further, possibly even just from the (unknown here) facts
+already substantiated for `f` (and its ret-func) as well as for `x` and/or `y`.
 
-# eq:(true|false) -> \x -> \y -> _
+# eq -> \x -> \y -> _
 
-Hardcoded guarantee: only returns the (structural) `true` or `false` func.
+Hardcoded facts:
+
+- `eq:(true|false)` &mdash; only returns the (structural) `true` func or `false` func
+- `primTypeOf` both `x` and `y` identical
+- `abyss` blow-up / crash bubble otherwise
 
 In practice, will have to work out some added prim-type-compat checking that
 is known to and utilizable by the static "preduce-stage" analysis. Any uses
 of `eq` thus add equal prim-type membership to both args, or if different
 ones were already substantiated, the `eq` call is rejected / bubbles up as
-`undefined`.
+`abyss`.
 
-Prim-types are for now: uint, real, tag, func-foo-to-bar. More to come plus
-compound prims much later on. Compounds likely to be dually represented,
-lambda-calculus style at static preduce time, natively-mapped during code-gen.
 
 # neq -> \x -> \y -> not ((eq x) y)
 
 ```
-    fn{
+    fn{ // from `eq` hardcoded-facts
         a:["0",used,primTypeOf@1],
         r: fn{
             a:["1",used,primTypeOf@0],
@@ -203,24 +210,30 @@ lambda-calculus style at static preduce time, natively-mapped during code-gen.
     }
 ```
 
-The above assumes that `not` is annotated as described. Given that (and
-built-in hardcoded facts about `eq`), `neq` would not have to be annotated
-and still know that the inverse of the ret-val of the `eq` appl is our ret-val.
+The above assumes that `not` is annotated as outlined above, but since `eq`
+ret-val is passed to it such annotation shouldn't be necessary for the above
+to be preduced. Given that, `neq` would not have to be annotated and still
+know that the "inverse" of the ret-val of the `eq` appl is our ret-val.
 
-Again, were no annotations in place, many-perhaps-most call sites might (or
-rather _should_) still derive the ret-val set from the arg-vals in place.
-
-# must -> \need -> \have -> (((eq need) have) have) undefined
+# must -> \need -> \have -> (((eq need) have) have) abyss
 
 A def with a possible blow-up. We want to establish that all calls that pass
-a `have` equal to `need` return it, and all others crash / bubble-up `undefined`.
+a `have` equal to `need` return it, and all others crash / bubble-up `abyss` /
+are rejected statically (which is the real purpose of `abyss`, not runtime crash).
 
-In other words, the ret-val if there is to be one can only ever be `need`.
+Hence, the ret-val (if there is to be one at all) can only ever be `need`.
 
-This is the simplest scenario where we find we must statically capture
-branchings / divergences. It is also the simplest "type-def" func, testing
-for membership in a 1-sized set &mdash; `1234 must` defines the "type" that
-contains only `1234`. "There are no types, only values, including sets."
+At call site: if `have` is known statically as is `need`, the equality can be
+verified statically and the fact recorded for both, or rather, the code
+rejected on contradiction, because the fact of their mutual equality now holds
+always due to the call to `must` and because `abyss` cannot be explicitly
+"caught" (also not explicitly "thrown") in pure funcs, only outside of them.
+
+This is the simplest scenario where we find we must statically capture truth
+values and consequences &mdash; also imagine a similar `mustnt` using `neq`!
+It is also the simplest "type-def" func, testing for membership in a 1-sized
+set &mdash; `1234 must` defines the "type" that contains only `1234`.
+("There are no types, only values, including sets.")
 
 ```
     fn{
@@ -231,27 +244,51 @@ contains only `1234`. "There are no types, only values, including sets."
     }
 ```
 
-Now what's `eq@attr`. Does this refer to any old user-defined func named `eq`?
-Not so. Well we saw `primTypeOf@attr` before above but that was palpable &mdash;
-prim stuff is tractable statically. Well `eq` however is also as prim as it gets
-(even for unknown / semi-known values it firmly books certain ground facts),
-so calls to it _must_ translate into new (or not) substantiated facts for both
-its args as well as the result receiver (and as always bubbling up to call sites).
+Now what's `eq@attr`. Does this refer to any old user-defined func incidentally
+named `eq`? Not so. Well we saw `primTypeOf@attr` earlier but that was palpable
+&mdash; prim stuff is tractable statically. Well `eq` however is also as prim as
+it gets (even for unknown / semi-known values it firmly books certain ground
+facts), so calls to it _must_ translate into new (or not) substantiated facts for
+both its args as well as the result receiver (and as always bubbling up).
 
 # dot -> \x -> \f -> f x
 
 ```
-    ...
+    fn {
+        a: ["0",used],
+        r: fn{
+            a: ["1",used,callable{a:@0,r:_}],
+            r: []
+        }
+    }
 ```
 
 # ltr -> \f -> \g -> \x -> g (f x)
 
 ```
-    ...
+    fn {
+        a: ["0",used,callable{a:@2,r:_}],
+        r: fn{
+            a: ["1",used,callable{a:_,r:_}],
+            r: fn{
+                a: ["2",used],
+                r: []
+            }
+        }
+    }
 ```
 
 # rtl -> \g -> \f -> \x -> g (f x)
 
 ```
-    ...
+    fn {
+        a: ["0",used,callable{a:_,r:_}],
+        r: fn{
+            a: ["1",used,callable{a:@2,r:_}],
+            r: fn{
+                a: ["2",used],
+                r: []
+            }
+        }
+    }
 ```
