@@ -164,7 +164,7 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 	var curline, lastchunkedat, lastchunkedln, numtabs, numspaces int
 	var insth, insthn []byte
 	allemptysofar, il := true, len(src)-1
-	instr1, instr2, incm, incl, instr1n := []byte("\""), []byte("'"), []byte("*/"), []byte("\n"), []byte("\\\"")
+	instr1, instr2, incml, incsl, instr1n := []byte("\""), []byte("'"), []byte("*/"), []byte("\n"), []byte("\\\"")
 	for i, ch := range src {
 		isnl := (ch == '\n')
 		if isnl {
@@ -186,9 +186,9 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 			insth = instr2
 		} else if ch == '/' && i < il {
 			if chnext := src[i+1]; chnext == '*' {
-				insth = incm
+				insth = incml
 			} else if chnext == '/' {
-				insth = incl
+				insth = incsl
 			}
 		}
 		if ch == '\n' {
@@ -212,15 +212,30 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 	if me.LastLoad.NumLines = curline; lastchunkedat < il {
 		tlChunks = append(tlChunks, preLexTopLevelChunk{src: src[lastchunkedat:], pos: lastchunkedat, line: lastchunkedln, numLinesSpaceIndented: numspaces, numLinesTabIndented: numtabs})
 	}
-	// fix naive tlChunks: stitch together what belongs together
+
+	mergewithprior := func(i int) {
+		tlChunks[i-1].numLinesSpaceIndented += tlChunks[i].numLinesSpaceIndented
+		tlChunks[i-1].numLinesTabIndented += tlChunks[i].numLinesTabIndented
+		tlChunks[i-1].src = append(tlChunks[i-1].src, tlChunks[i].src...)
+		for j := i; j < len(tlChunks)-1; j++ {
+			tlChunks[j] = tlChunks[j+1]
+		}
+		tlChunks = tlChunks[0 : len(tlChunks)-1]
+	}
+
+	// fix naive tlChunks: stitch multiple top-level full-line-comments (each a sep chunk for now) together
 	for i := len(tlChunks) - 1; i != 0; i-- {
-		if tlChunks[i-1].line == tlChunks[i].line-1 && /* prev chunk is prev line and begins `//`? */
-			len(tlChunks[i-1].src) >= 2 && tlChunks[i-1].src[0] == '/' && tlChunks[i-1].src[1] == '/' {
-			tlChunks[i-1].src = append(tlChunks[i-1].src, tlChunks[i].src...)
-			for j := i; j < len(tlChunks)-1; j++ {
-				tlChunks[j] = tlChunks[j+1]
-			}
-			tlChunks = tlChunks[0 : len(tlChunks)-1]
+		if tlChunks[i-1].line == tlChunks[i].line-1 &&
+			tlChunks[i-1].beginsWithLineComment() {
+			mergewithprior(i)
+		}
+	}
+
+	// fix naive tlChunks: chunks begun from top-level full-line comments with subsequent code line indented join the prior top-def
+	for i := len(tlChunks) - 1; i != 0; i-- {
+		if rest := tlChunks[i].fromFirstNonCommentLine(); len(rest) > 0 &&
+			(rest[0] == ' ' || rest[0] == '\t') {
+			mergewithprior(i)
 		}
 	}
 
@@ -236,6 +251,22 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 		tlChunks[newidx].src = tlChunks[newidx].src[:len(tlChunks[newidx].src)-numn]
 	}
 	return
+}
+
+func (me *preLexTopLevelChunk) beginsWithLineComment() bool {
+	return len(me.src) >= 2 && me.src[0] == '/' && me.src[1] == '/'
+}
+
+func (me *preLexTopLevelChunk) fromFirstNonCommentLine() []byte {
+	if !me.beginsWithLineComment() {
+		return me.src
+	}
+	for l, i := len(me.src)-1, 3; i <= l; i++ {
+		if me.src[i-1] == '\n' && me.src[i] != '/' && (i == l || me.src[i+1] != '/') {
+			return me.src[i:]
+		}
+	}
+	return nil
 }
 
 func (me *AstFile) topChunksCompare(tlChunks []preLexTopLevelChunk) (allTheSame bool) {
