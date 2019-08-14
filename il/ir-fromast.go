@@ -101,23 +101,22 @@ func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
 	me.Orig = orig
 
 	isexpr := true
-	switch v := orig.NameOrConstVal.(type) {
-	case *AstIdent:
-		if !(v.IsTag || v.IsVar()) {
-			if v.IsPlaceholder() {
-				isexpr, me.IrIdentBase.Val, me.IrIdentBase.Orig =
-					false, ustr.Int(len(v.Val))+"_"+ctx.nextPrefix(), v
-				if len(v.Val) > 1 {
-					errs.AddNaming(ErrFromAst_DefArgNameMultipleUnderscores, &v.Tokens[0], "invalid def-arg name: use 1 underscore for discards")
+	if ident, _ := orig.NameOrConstVal.(*AstIdent); ident != nil {
+		if !(ident.IsTag || ident.IsVar()) {
+			if ident.IsPlaceholder() {
+				isexpr, me.Val, me.Orig =
+					false, ustr.Int(len(ident.Val))+"_"+ctx.nextPrefix(), ident
+				if len(ident.Val) > 1 {
+					errs.AddNaming(ErrFromAst_DefArgNameMultipleUnderscores, &ident.Tokens[0], "invalid def-arg name: use 1 underscore for discards")
 				}
-			} else if cxn, ok1 := errs.AddVia(ctx.newExprFromIdent(v)).(*IrIdentName); ok1 {
+			} else if cxn, ok := errs.AddVia(ctx.newExprFromIdent(ident)).(*IrIdentName); ok {
 				isexpr, me.IrIdentBase = false, cxn.IrIdentBase
 			}
 		}
 	}
 
 	if isexpr {
-		me.IrIdentBase.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
+		me.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
 		appl := BuildIr.Appl1(BuildIr.IdentName(KnownIdentCoerce), errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IIrExpr))
 		appl.IrExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)

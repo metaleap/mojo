@@ -11,12 +11,12 @@ func (*irNodeBase) IsDef() *IrDef        { return nil }
 func (*irNodeBase) IsExt() bool          { return false }
 func (me *irNodeBase) AstOrig() IAstNode { return me.Orig }
 
-func (me *IrDef) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
-	if nodes = me.Name.findByOrig(&me.Name, orig); len(nodes) != 0 {
+func (me *IrDef) findByOrig(self IIrNode, orig IAstNode, ok func(IIrNode) bool) (nodes []IIrNode) {
+	if nodes = me.Name.findByOrig(&me.Name, orig, ok); len(nodes) != 0 {
 		nodes = append(nodes, self)
-	} else if nodes = me.Body.findByOrig(me.Body, orig); len(nodes) != 0 {
+	} else if nodes = me.Body.findByOrig(me.Body, orig, ok); len(nodes) != 0 {
 		nodes = append(nodes, self)
-	} else if orig == me.Orig {
+	} else if orig == me.Orig && (ok == nil || ok(self)) {
 		nodes = []IIrNode{self}
 	}
 	return
@@ -46,8 +46,8 @@ func (me *IrDef) Errors() (errs Errors) {
 	errs = append(append(append(errs, me.Errs.Stage1AstToIr...), me.Errs.Stage2BadNames...), me.Errs.Stage3Preduce...)
 	return
 }
-func (me *IrDef) FindByOrig(orig IAstNode) []IIrNode {
-	return me.findByOrig(me, orig)
+func (me *IrDef) FindByOrig(orig IAstNode, ok func(IIrNode) bool) []IIrNode {
+	return me.findByOrig(me, orig, ok)
 }
 func (me *IrDef) AncestorsOf(node IIrNode) (nodeAncestors []IIrNode) {
 	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, _ ...IIrNode) (keepGoing bool) {
@@ -140,10 +140,11 @@ func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatchWithAncestorsPrepe
 	})
 	return
 }
-func (me *IrDef) FindAll(where func(IIrNode) bool) (matches [][]IIrNode) {
+func (me *IrDef) FindAll(where func(IIrNode) bool) (matchingNodesWithAncestorsPrepended [][]IIrNode) {
 	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, curnodechildren ...IIrNode) bool {
 		if where(curnode) {
-			matches = append(matches, append(curnodeancestors, curnode))
+			matchingNodesWithAncestorsPrepended = append(matchingNodesWithAncestorsPrepended,
+				append(curnodeancestors, curnode))
 		}
 		return true
 	})
@@ -171,7 +172,7 @@ func (me *IrDef) NamesInScopeAt(descendantNodeInQuestion IIrNode, knownGlobalsIn
 		nodepath := me.FindAny(func(n IIrNode) bool { return n == descendantNodeInQuestion })
 		for _, n := range nodepath {
 			if abs, isabs := n.(*IrAbs); isabs {
-				if (!excludeInternalIdents) || !ustr.Pref(abs.Arg.Val, "__") {
+				if (!excludeInternalIdents) || !abs.Arg.IsInternal() {
 					namesInScope.Add(abs.Arg.Val, &abs.Arg)
 				}
 			}
@@ -184,10 +185,10 @@ func (me *IrArg) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrArg)
 	return cmp != nil && (ignoreNames || me.Val == cmp.Val)
 }
-func (me *IrArg) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
-	if nodes = me.IrIdentDecl.findByOrig(&me.IrIdentDecl, orig); len(nodes) != 0 {
+func (me *IrArg) findByOrig(_ IIrNode, orig IAstNode, ok func(IIrNode) bool) (nodes []IIrNode) {
+	if nodes = me.IrIdentDecl.findByOrig(&me.IrIdentDecl, orig, ok); len(nodes) != 0 {
 		nodes = append(nodes, me)
-	} else if me.Orig == orig {
+	} else if me.Orig == orig && (ok == nil || ok(me)) {
 		nodes = []IIrNode{me}
 	}
 	return
@@ -209,10 +210,9 @@ func (me *IrArg) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrN
 func (me *IrExprBase) exprBase() *IrExprBase { return me }
 func (*IrExprBase) IsAtomic() bool           { return false }
 
-func (me *IrExprAtomBase) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
-	if me.Orig == orig {
-		nodes = []IIrNode{self}
-	} else if me.Orig != nil && orig.Toks().EqLenAndOffsets(me.Orig.Toks(), false) {
+func (me *IrExprAtomBase) findByOrig(self IIrNode, orig IAstNode, ok func(IIrNode) bool) (nodes []IIrNode) {
+	if (me.Orig == orig || (me.Orig != nil && orig.Toks().EqLenAndOffsets(me.Orig.Toks(), false))) &&
+		(ok == nil || ok(self)) {
 		nodes = []IIrNode{self}
 	}
 	return
@@ -252,8 +252,8 @@ func (me *IrLitFloat) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode,
 func (me *IrNonValue) EquivTo(node IIrNode, ignoreNames bool) bool {
 	return false
 }
-func (me *IrNonValue) findByOrig(_ IIrNode, orig IAstNode) []IIrNode {
-	return me.IrExprAtomBase.findByOrig(me, orig)
+func (me *IrNonValue) findByOrig(_ IIrNode, orig IAstNode, ok func(IIrNode) bool) []IIrNode {
+	return me.IrExprAtomBase.findByOrig(me, orig, ok)
 }
 func (me *IrNonValue) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) bool {
 	return me.IrExprAtomBase.walk(ancestors, me, on)
@@ -270,28 +270,23 @@ func (me *IrLitTag) refsTo(name string) (refs []IIrExpr) {
 	return
 }
 
+func (me *IrIdentBase) IsInternal() bool {
+	return ustr.Pref(me.Val, "__")
+}
+
 func (me *IrIdentDecl) EquivTo(node IIrNode, ignoreNames bool) bool {
 	cmp, _ := node.(*IrIdentDecl)
 	return cmp != nil && (ignoreNames || cmp.Val == me.Val)
 }
-func (me *IrIdentDecl) findByOrig(_ IIrNode, orig IAstNode) []IIrNode {
-	return me.IrIdentBase.findByOrig(me, orig)
+func (me *IrIdentDecl) findByOrig(_ IIrNode, orig IAstNode, ok func(IIrNode) bool) []IIrNode {
+	return me.IrIdentBase.findByOrig(me, orig, ok)
 }
 func (me *IrIdentDecl) walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) bool {
 	return me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-func (me *IrIdentName) findByOrig(_ IIrNode, orig IAstNode) []IIrNode {
-	return me.IrIdentBase.findByOrig(me, orig)
-}
-func (me *IrIdentName) IsArgRef(maybeSpecificArg *IrArg) bool {
-	anyargref := (maybeSpecificArg == nil)
-	for _, cand := range me.Anns.Candidates {
-		if arg, isargref := cand.(*IrArg); isargref && (anyargref || arg == maybeSpecificArg) {
-			return true
-		}
-	}
-	return false
+func (me *IrIdentName) findByOrig(_ IIrNode, orig IAstNode, ok func(IIrNode) bool) []IIrNode {
+	return me.IrIdentBase.findByOrig(me, orig, ok)
 }
 func (me *IrIdentName) RefersTo(name string) bool {
 	return me.Val == name
@@ -303,15 +298,9 @@ func (me *IrIdentName) refsTo(name string) (refs []IIrExpr) {
 	return
 }
 func (me *IrIdentName) ResolvesTo(n IIrNode) bool {
-	arg, isarg := n.(*IrArg)
-	isarg = isarg && len(me.Anns.Candidates) == 1
 	for _, cand := range me.Anns.Candidates {
 		if cand == n {
 			return true
-		} else if isarg {
-			if abs, isabs := cand.(*IrAbs); isabs && arg == &abs.Arg {
-				return true
-			}
 		}
 	}
 	return false
@@ -325,12 +314,12 @@ func (me *IrIdentName) walk(ancestors []IIrNode, _ IIrNode, on func([]IIrNode, I
 	return me.IrExprAtomBase.walk(ancestors, me, on)
 }
 
-func (me *IrAppl) findByOrig(_ IIrNode, orig IAstNode) (nodes []IIrNode) {
-	if nodes = me.Callee.findByOrig(me.Callee, orig); len(nodes) != 0 {
+func (me *IrAppl) findByOrig(_ IIrNode, orig IAstNode, ok func(IIrNode) bool) (nodes []IIrNode) {
+	if nodes = me.Callee.findByOrig(me.Callee, orig, ok); len(nodes) != 0 {
 		nodes = append(nodes, me)
-	} else if nodes = me.CallArg.findByOrig(me.CallArg, orig); len(nodes) != 0 {
+	} else if nodes = me.CallArg.findByOrig(me.CallArg, orig, ok); len(nodes) != 0 {
 		nodes = append(nodes, me)
-	} else if me.Orig == orig {
+	} else if me.Orig == orig && (ok == nil || ok(me)) {
 		nodes = []IIrNode{me}
 	}
 	return
@@ -366,12 +355,12 @@ func (me *IrAbs) EquivTo(node IIrNode, ignoreNames bool) bool {
 		me.Body.EquivTo(cmp.Body, ignoreNames)
 }
 func (me *IrAbs) RefersTo(name string) bool { return me.Body.RefersTo(name) }
-func (me *IrAbs) findByOrig(self IIrNode, orig IAstNode) (nodes []IIrNode) {
-	if nodes = me.Body.findByOrig(me.Body, orig); len(nodes) != 0 {
+func (me *IrAbs) findByOrig(self IIrNode, orig IAstNode, ok func(IIrNode) bool) (nodes []IIrNode) {
+	if nodes = me.Body.findByOrig(me.Body, orig, ok); len(nodes) != 0 {
 		nodes = append(nodes, self)
-	} else if nodes = me.Arg.findByOrig(&me.Arg, orig); len(nodes) != 0 {
+	} else if nodes = me.Arg.findByOrig(&me.Arg, orig, ok); len(nodes) != 0 {
 		nodes = append(nodes, self)
-	} else if orig == me.Orig {
+	} else if orig == me.Orig && (ok == nil || ok(self)) {
 		nodes = []IIrNode{self}
 	}
 	return

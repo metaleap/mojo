@@ -20,7 +20,7 @@ func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrAbs, errs *Errors) (n
 	argname := addArg.Arg.Val
 	namesInScopeCopy = make(AnnNamesInScope, len(me)+1)
 	for name, nodes := range me {
-		if name != argname {
+		if name != argname { // locals shadow
 			namesInScopeCopy[name] = nodes
 		}
 	}
@@ -41,9 +41,9 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 		if _, existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed {
 			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.AstOrigToks(n), "`"+n.Val+"` found but with syntax errors")
 		} else {
-			n.Anns.Candidates = me[n.Val]
-			if len(n.Anns.Candidates) == 1 {
+			if n.Anns.Candidates = me[n.Val]; len(n.Anns.Candidates) == 1 {
 				if abs, isabs := n.Anns.Candidates[0].(*IrAbs); isabs {
+
 					if n.Anns.AbsIdx = abs.Anns.AbsIdx; n.Anns.AbsIdx < 0 {
 						n.Anns.AbsIdx = 0
 					}
@@ -58,6 +58,8 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 							}
 						}
 					}
+
+					n.Anns.Candidates = []IIrNode{&abs.Arg}
 				}
 			}
 		}

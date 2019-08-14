@@ -41,7 +41,7 @@ type IIrNode interface {
 	AstOrig() IAstNode
 	Print() IAstNode
 	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
-	findByOrig(IIrNode, IAstNode) []IIrNode
+	findByOrig(IIrNode, IAstNode, func(IIrNode) bool) []IIrNode
 	IsDef() *IrDef
 	IsExt() bool
 	RefersTo(string) bool
@@ -53,6 +53,10 @@ type IIrExpr interface {
 	IIrNode
 	IsAtomic() bool
 	exprBase() *IrExprBase
+}
+
+type IIrIdent interface {
+	IsInternal() bool
 }
 
 type irNodeBase struct {
@@ -142,8 +146,11 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
-		AbsIdx     int
-		ArgIdx     int
+		AbsIdx int
+		ArgIdx int
+
+		// Candidates may contain either one `*atmoil.IrArg` or any number
+		// of `*atmoil.IrDef` or `atmosess.IrDefRef`.
 		Candidates []IIrNode
 	}
 }
@@ -155,7 +162,8 @@ type IrAppl struct {
 }
 
 // AnnNamesInScope contains per-name all nodes known-in-scope that declare that name;
-// every `IIrNode` is one of `*atmoil.IrDef`, `*atmoil.IrArg`, `atmosess.IrDefRef`
+// every `IIrNode` is one of `*atmoil.IrDef`, `*atmoil.IrArg`, `atmosess.IrDefRef`.
+// (That is for outside consumers, internally it temporarily contains `*atmoil.IrAbs` during `AnnNamesInScope.RepopulateDefsAndIdentsFor` while in flight.)
 type AnnNamesInScope map[string][]IIrNode
 
 type IrBuild struct{}

@@ -276,7 +276,10 @@ func (me *Kit) AstNodeAt(srcFilePath string, pos0ByteOffset int) (topLevelChunk 
 
 func (me *Kit) IrNodeOfAstNode(defId string, origNode IAstNode) (astDefTop *IrDef, theNodeAndItsAncestors []IIrNode) {
 	if astDefTop = me.lookups.tlDefsByID[defId]; astDefTop != nil {
-		theNodeAndItsAncestors = astDefTop.FindByOrig(origNode)
+		theNodeAndItsAncestors = astDefTop.FindByOrig(origNode, func(n IIrNode) bool {
+			ident, _ := n.(IIrIdent)
+			return ident == nil || !ident.IsInternal()
+		})
 	}
 	return
 }

@@ -64,7 +64,9 @@ type AnnNamesInScope map[string][]IIrNode
 
 AnnNamesInScope contains per-name all nodes known-in-scope that declare that
 name; every `IIrNode` is one of `*atmoil.IrDef`, `*atmoil.IrArg`,
-`atmosess.IrDefRef`
+`atmosess.IrDefRef`. (That is for outside consumers, internally it temporarily
+contains `*atmoil.IrAbs` during `AnnNamesInScope.RepopulateDefsAndIdentsFor`
+while in flight.)
 
 #### func (AnnNamesInScope) Add
 
@@ -85,6 +87,15 @@ type IIrExpr interface {
 	IIrNode
 	IsAtomic() bool
 	// contains filtered or unexported methods
+}
+```
+
+
+#### type IIrIdent
+
+```go
+type IIrIdent interface {
+	IsInternal() bool
 }
 ```
 
@@ -362,7 +373,7 @@ func (me *IrDef) Errors() (errs Errors)
 #### func (*IrDef) FindAll
 
 ```go
-func (me *IrDef) FindAll(where func(IIrNode) bool) (matches [][]IIrNode)
+func (me *IrDef) FindAll(where func(IIrNode) bool) (matchingNodesWithAncestorsPrepended [][]IIrNode)
 ```
 
 #### func (*IrDef) FindAny
@@ -374,7 +385,7 @@ func (me *IrDef) FindAny(where func(IIrNode) bool) (firstMatchWithAncestorsPrepe
 #### func (*IrDef) FindByOrig
 
 ```go
-func (me *IrDef) FindByOrig(orig IAstNode) []IIrNode
+func (me *IrDef) FindByOrig(orig IAstNode, ok func(IIrNode) bool) []IIrNode
 ```
 
 #### func (*IrDef) HasAnyOf
@@ -591,6 +602,12 @@ func (*IrIdentBase) IsDef() *IrDef
 func (*IrIdentBase) IsExt() bool
 ```
 
+#### func (*IrIdentBase) IsInternal
+
+```go
+func (me *IrIdentBase) IsInternal() bool
+```
+
 #### func (*IrIdentBase) Print
 
 ```go
@@ -637,8 +654,11 @@ type IrIdentName struct {
 	IrIdentBase
 
 	Anns struct {
-		AbsIdx     int
-		ArgIdx     int
+		AbsIdx int
+		ArgIdx int
+
+		// Candidates may contain either one `*atmoil.IrArg` or any number
+		// of `*atmoil.IrDef` or `atmosess.IrDefRef`.
 		Candidates []IIrNode
 	}
 }
@@ -655,12 +675,6 @@ func (me *IrIdentName) AstOrig() IAstNode
 
 ```go
 func (me *IrIdentName) EquivTo(node IIrNode, ignoreNames bool) bool
-```
-
-#### func (*IrIdentName) IsArgRef
-
-```go
-func (me *IrIdentName) IsArgRef(maybeSpecificArg *IrArg) bool
 ```
 
 #### func (*IrIdentName) IsDef
