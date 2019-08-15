@@ -111,7 +111,7 @@ func (me *Repl) Run(loadSessDirFauxKit bool, loadKitsByImpPaths ...string) {
 				me.decoAddNotice(false, "", false, "multi-line input had leading tabs, note", "that repl auto-indent is based on spaces")
 			}
 			if preduced != nil {
-				me.IO.writeLns(preduced.SummaryCompact())
+				me.IO.writeLns(preduced.String())
 			}
 
 			me.IO.writeLns("", "")

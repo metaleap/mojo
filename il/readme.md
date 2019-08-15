@@ -120,9 +120,10 @@ type IIrNode interface {
 
 ```go
 type IPreduced interface {
-	IsErrOrAbyss() bool
-	Self() *Preduced
-	SummaryCompact() string
+	From() (*IrDef, IIrNode)
+	IsEnv() *PEnv
+	Self() *PValFactBase
+	String() string
 }
 ```
 
@@ -323,7 +324,7 @@ type IrDef struct {
 	Id           string
 	OrigTopChunk *AstFileChunk
 	Anns         struct {
-		Preduced IPreduced
+		Preduced *PEnv
 	}
 	Errs struct {
 		Stage1AstToIr  Errors
@@ -808,147 +809,174 @@ func (*IrNonValue) IsExt() bool
 func (me *IrNonValue) Print() IAstNode
 ```
 
-#### type PAbyss
+#### type PEnv
 
 ```go
-type PAbyss struct {
-	Preduced
+type PEnv struct {
+	Link *PEnv
+	PVal
 }
 ```
 
 
-#### func (*PAbyss) IsErrOrAbyss
+#### func (*PEnv) Flatten
 
 ```go
-func (me *PAbyss) IsErrOrAbyss() bool
+func (me *PEnv) Flatten()
 ```
 
-#### func (*PAbyss) SummaryCompact
+#### func (*PEnv) IsEnv
 
 ```go
-func (me *PAbyss) SummaryCompact() string
+func (me *PEnv) IsEnv() *PEnv
 ```
 
-#### type PErr
+#### type PVal
 
 ```go
-type PErr struct {
-	Preduced
-	Err *Error
+type PVal struct {
+	PValFactBase
+	Facts []IPreduced
 }
 ```
 
 
-#### func (*PErr) IsErrOrAbyss
+#### func (*PVal) AddPrimConst
 
 ```go
-func (me *PErr) IsErrOrAbyss() bool
+func (me *PVal) AddPrimConst(fromNode []IIrNode, constVal interface{}) *PVal
 ```
 
-#### func (*PErr) SummaryCompact
+#### func (*PVal) String
 
 ```go
-func (me *PErr) SummaryCompact() string
+func (me *PVal) String() string
 ```
 
-#### type PFunc
+#### type PValEqType
 
 ```go
-type PFunc struct {
-	Preduced
-	Orig *IrAbs
-	Arg  *PMeta
-	Ret  *PMeta
+type PValEqType struct {
+	PValFactBase
+	Of *PVal
 }
 ```
 
 
-#### func (*PFunc) SummaryCompact
+#### func (*PValEqType) String
 
 ```go
-func (me *PFunc) SummaryCompact() string
+func (me *PValEqType) String() string
 ```
 
-#### type PMeta
+#### type PValEqVal
 
 ```go
-type PMeta struct {
-	Preduced
+type PValEqVal struct {
+	PValFactBase
+	To *PVal
 }
 ```
 
 
-#### func (*PMeta) SummaryCompact
+#### func (*PValEqVal) String
 
 ```go
-func (me *PMeta) SummaryCompact() string
+func (me *PValEqVal) String() string
 ```
 
-#### type PPrimAtomicConstFloat
+#### type PValFactBase
 
 ```go
-type PPrimAtomicConstFloat struct {
-	Preduced
-	Val float64
+type PValFactBase struct {
 }
 ```
 
 
-#### func (*PPrimAtomicConstFloat) SummaryCompact
+#### func (*PValFactBase) From
 
 ```go
-func (me *PPrimAtomicConstFloat) SummaryCompact() string
+func (me *PValFactBase) From() (*IrDef, IIrNode)
 ```
 
-#### type PPrimAtomicConstTag
+#### func (*PValFactBase) IsEnv
 
 ```go
-type PPrimAtomicConstTag struct {
-	Preduced
-	Val string
+func (me *PValFactBase) IsEnv() *PEnv
+```
+
+#### func (*PValFactBase) Self
+
+```go
+func (me *PValFactBase) Self() *PValFactBase
+```
+
+#### func (*PValFactBase) String
+
+```go
+func (me *PValFactBase) String() string
+```
+
+#### type PValFn
+
+```go
+type PValFn struct {
+	PValFactBase
+	Arg PVal
+	Ret PVal
 }
 ```
 
 
-#### func (*PPrimAtomicConstTag) SummaryCompact
+#### func (*PValFn) String
 
 ```go
-func (me *PPrimAtomicConstTag) SummaryCompact() string
+func (me *PValFn) String() string
 ```
 
-#### type PPrimAtomicConstUint
+#### type PValNever
 
 ```go
-type PPrimAtomicConstUint struct {
-	Preduced
-	Val uint64
+type PValNever struct {
+	PValFactBase
+	Never IPreduced
 }
 ```
 
 
-#### func (*PPrimAtomicConstUint) SummaryCompact
+#### func (*PValNever) String
 
 ```go
-func (me *PPrimAtomicConstUint) SummaryCompact() string
+func (me *PValNever) String() string
 ```
 
-#### type Preduced
+#### type PValPrimConst
 
 ```go
-type Preduced struct {
+type PValPrimConst struct {
+	PValFactBase
+	ConstVal interface{}
 }
 ```
 
-Preduced is embedded in all `IPreduced` implementers.
 
-#### func (*Preduced) IsErrOrAbyss
+#### func (*PValPrimConst) String
 
 ```go
-func (me *Preduced) IsErrOrAbyss() bool
+func (me *PValPrimConst) String() string
 ```
 
-#### func (*Preduced) Self
+#### type PValUsed
 
 ```go
-func (me *Preduced) Self() *Preduced
+type PValUsed struct {
+	PValFactBase
+}
+```
+
+
+#### func (*PValUsed) String
+
+```go
+func (me *PValUsed) String() string
 ```

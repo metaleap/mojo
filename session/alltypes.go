@@ -27,13 +27,11 @@ import (
 )
 
 type ctxPreducing struct {
-	dbgIndent  int
 	curSessCtx *Ctx
 	curNode    struct {
 		owningTopDef *IrDef
 		owningKit    *Kit
 	}
-	envStack []interface{}
 }
 
 // Ctx fields must never be written to from the outside after the `Ctx.Init` call.

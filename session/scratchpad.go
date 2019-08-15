@@ -116,10 +116,6 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		identexpr := BuildIr.IdentName(defname)
 		identexpr.Anns.Candidates = []IIrNode{defs[0]}
 		ret = me.Preduce(kit, nil, identexpr)
-		if reterr, _ := ret.(*PErr); reterr != nil {
-			errs.Add(reterr.Err)
-			ret = nil
-		}
 	}
 
 	return

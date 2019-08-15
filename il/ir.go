@@ -50,13 +50,15 @@ func (me *IrDef) FindByOrig(orig IAstNode, ok func(IIrNode) bool) []IIrNode {
 	return me.findByOrig(me, orig, ok)
 }
 func (me *IrDef) AncestorsOf(node IIrNode) (nodeAncestors []IIrNode) {
-	me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, _ ...IIrNode) (keepGoing bool) {
-		if curnode == node {
-			nodeAncestors = curnodeancestors
-			return false
-		}
-		return nodeAncestors == nil
-	})
+	if me != nil {
+		me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, _ ...IIrNode) (keepGoing bool) {
+			if curnode == node {
+				nodeAncestors = curnodeancestors
+				return false
+			}
+			return nodeAncestors == nil
+		})
+	}
 	return
 }
 func (me *IrDef) AncestorsAndChildrenOf(node IIrNode) (nodeAncestors []IIrNode, nodeChildren []IIrNode) {
@@ -95,12 +97,13 @@ func (me *IrDef) AstOrigToks(node IIrNode) (toks udevlex.Tokens) {
 }
 func (me *IrDef) RefersToOrDefines(name string) (relatesTo bool) {
 	relatesTo = me.Name.Val == name || me.RefersTo(name)
-	// if !relatesTo {
-	// 	me.ForAllLocalDefs(func(localdef *IrDef) (done bool) {
-	// 		relatesTo = relatesTo || (localdef.Name.Val == name)
-	// 		return relatesTo
-	// 	})
-	// }
+	if !relatesTo {
+		me.Walk(func(_ []IIrNode, node IIrNode, _ ...IIrNode) bool {
+			abs, _ := node.(*IrAbs)
+			relatesTo = relatesTo || (abs != nil && abs.Arg.Val == name)
+			return !relatesTo
+		})
+	}
 	return
 }
 func (me *IrDef) RefersTo(name string) (refersTo bool) {

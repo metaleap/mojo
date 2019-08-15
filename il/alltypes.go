@@ -72,7 +72,7 @@ type IrDef struct {
 	Id           string
 	OrigTopChunk *AstFileChunk
 	Anns         struct {
-		Preduced IPreduced
+		Preduced *PEnv
 	}
 	Errs struct {
 		Stage1AstToIr  Errors
@@ -161,53 +161,60 @@ type IrAppl struct {
 	CallArg IIrExpr
 }
 
+type IrBuild struct{}
+
 // AnnNamesInScope contains per-name all nodes known-in-scope that declare that name;
 // every `IIrNode` is one of `*atmoil.IrDef`, `*atmoil.IrArg`, `atmosess.IrDefRef`.
 // (That is for outside consumers, internally it temporarily contains `*atmoil.IrAbs` during `AnnNamesInScope.RepopulateDefsAndIdentsFor` while in flight.)
 type AnnNamesInScope map[string][]IIrNode
 
-type IrBuild struct{}
 type IPreduced interface {
-	IsErrOrAbyss() bool
-	Self() *Preduced
-	SummaryCompact() string
+	From() (*IrDef, IIrNode)
+	IsEnv() *PEnv
+	Self() *PValFactBase
+	String() string
 }
 
-// Preduced is embedded in all `IPreduced` implementers.
-type Preduced struct {
+type PValFactBase struct {
+	from []IIrNode
 }
 
-type PPrimAtomicConstUint struct {
-	Preduced
-	Val uint64
+type PValUsed struct {
+	PValFactBase
 }
 
-type PPrimAtomicConstFloat struct {
-	Preduced
-	Val float64
+type PValPrimConst struct {
+	PValFactBase
+	ConstVal interface{}
 }
 
-type PPrimAtomicConstTag struct {
-	Preduced
-	Val string
+type PValEqVal struct {
+	PValFactBase
+	To *PVal
 }
 
-type PErr struct {
-	Preduced
-	Err *Error
+type PValEqType struct {
+	PValFactBase
+	Of *PVal
 }
 
-type PAbyss struct {
-	Preduced
+type PValNever struct {
+	PValFactBase
+	Never IPreduced
 }
 
-type PMeta struct {
-	Preduced
+type PValFn struct {
+	PValFactBase
+	Arg PVal
+	Ret PVal
 }
 
-type PFunc struct {
-	Preduced
-	Orig *IrAbs
-	Arg  *PMeta
-	Ret  *PMeta
+type PVal struct {
+	PValFactBase
+	Facts []IPreduced
+}
+
+type PEnv struct {
+	Link *PEnv
+	PVal
 }
