@@ -224,7 +224,7 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 	}
 
 	// fix naive tlChunks: stitch multiple top-level full-line-comments (each a sep chunk for now) together
-	for i := len(tlChunks) - 1; i != 0; i-- {
+	for i := len(tlChunks) - 1; i > 0; i-- {
 		if tlChunks[i-1].line == tlChunks[i].line-1 &&
 			tlChunks[i-1].beginsWithLineComment() {
 			mergewithprior(i)
@@ -232,7 +232,7 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 	}
 
 	// fix naive tlChunks: chunks begun from top-level full-line comments with subsequent code line indented join the prior top-def
-	for i := len(tlChunks) - 1; i != 0; i-- {
+	for i := len(tlChunks) - 1; i > 0; i-- {
 		if rest := tlChunks[i].fromFirstNonCommentLine(); len(rest) > 0 &&
 			(rest[0] == ' ' || rest[0] == '\t') {
 			mergewithprior(i)
@@ -241,7 +241,7 @@ func (me *AstFile) topLevelChunksGatherFrom(src []byte) (tlChunks []preLexTopLev
 
 	for newidx := range tlChunks { // trim-right \n bytes really helps with not reloading more than necessary
 		var numn int
-		for j := len(tlChunks[newidx].src) - 1; j != 0; j-- {
+		for j := len(tlChunks[newidx].src) - 1; j > 0; j-- {
 			if tlChunks[newidx].src[j] == '\n' {
 				numn++
 			} else {

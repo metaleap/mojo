@@ -62,6 +62,9 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 	case *IrLitTag:
 		ret = &PPrimAtomicConstTag{Val: this.Val}
 
+	case *IrNonValue:
+		ret = &PAbyss{}
+
 	case *IrIdentName:
 		me.dbgIndent++
 		switch len(this.Anns.Candidates) {

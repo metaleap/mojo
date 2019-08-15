@@ -232,7 +232,7 @@ func (me *Repl) withKitDefs(whatKit string, whatName string, cmdName string, on 
 	kits := me.Ctx.Kits.All
 	var kit *Kit
 	if searchloadeds, searchall := (whatKit == "_"), (whatKit == "*"); !(searchall || searchloadeds) {
-		if kit = kits.ByImpPath(whatKit); kit == nil && (whatKit == "." || whatKit == "·") {
+		if kit = kits.ByImpPath(whatKit); kit == nil && whatKit == "." {
 			for i := range kits {
 				if me.Ctx.FauxKitsHas(kits[i].DirPath) {
 					kit = kits[i]

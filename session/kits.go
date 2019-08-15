@@ -34,7 +34,7 @@ func (me *Ctx) initKits() {
 	me.CatchUpOnFileMods()
 }
 
-func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo, forceFor *Kit) (timeTakenForActualRefreshes time.Duration, actuallyRefreshedKitsImpPaths []string) {
+func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo, forceFor *Kit) {
 	var alllatestfilemods map[string]os.FileInfo
 	if len(latest) != 0 {
 		alllatestfilemods = make(map[string]os.FileInfo, len(latest[0]))
@@ -86,7 +86,7 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 				if kitimppath == "" {
 					for _, dirsess := range fauxKitDirs {
 						if dirsess == kitdirpath {
-							kitimppath = ustr.Replace(kitdirpath, "/", "·")
+							kitimppath = kitdirpath
 							break
 						}
 					}
@@ -139,25 +139,19 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 		// for stable listings etc.
 		SortMaybe(me.Kits.All)
 
-		timestarted := time.Now().UnixNano()
 		// per-kit refreshers
-		actuallyRefreshedKitsImpPaths = make([]string, 0, len(shouldrefresh))
 		var freshstage1errs Errors
 		for _, kitdirpath := range shouldrefresh.Sorted(func(kdp1 string, kdp2 string) bool {
 			k1, k2 := me.Kits.All.ByDirPath(kdp1), me.Kits.All.ByDirPath(kdp2)
 			return k1.ImpPath == NameAutoKit || k2.DoesImport(k1.ImpPath) || !k1.DoesImport(k2.ImpPath)
 		}) {
 			if kit := me.Kits.All.ByDirPath(kitdirpath); kit != nil {
-				var unchanged bool
-				if freshstage1errs.Add(me.kitRefreshFilesAndMaybeReload(kit, false, &unchanged)...); !unchanged {
-					actuallyRefreshedKitsImpPaths = append(actuallyRefreshedKitsImpPaths, kit.ImpPath)
-				}
+				freshstage1errs.Add(me.kitRefreshFilesAndMaybeReload(kit, false, false)...)
 			} else {
 				panic(kitdirpath)
 			}
 		}
 		freshstage2errs := me.reprocessAffectedDefsIfAnyKitsReloaded()
-		timeTakenForActualRefreshes = time.Duration(time.Now().UnixNano() - timestarted)
 
 		// reprocess maybe
 		me.onSomeOrAllKitsPartiallyOrFullyRefreshed(freshstage1errs, freshstage2errs)
@@ -241,12 +235,14 @@ func (me Kits) SrcFilePaths() (srcFilePaths []string) {
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs Errors) {
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
+		timestarted := time.Now().UnixNano()
 
 		namesofchange, _, _, ferrs := me.kitsRepopulateNamesInScope()
 		freshErrs = ferrs
 		defidsofacquaintancesofnamesofchange := make(map[*IrDef]*Kit)
 		me.Kits.All.collectAcquaintances(namesofchange, defidsofacquaintancesofnamesofchange, make(StringKeys, len(namesofchange)))
 		freshErrs.Add(me.rePreduceTopLevelDefs(defidsofacquaintancesofnamesofchange)...)
+		me.bgMsg(false, time.Duration(time.Now().UnixNano()-timestarted).String()+" for "+ustr.Join(namesofchange.Sorted(nil), " + "))
 	}
 	return
 }

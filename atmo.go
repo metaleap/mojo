@@ -56,6 +56,9 @@ func (me StringKeys) Exists(s string) (ok bool) {
 
 func (me StringKeys) Sorted(isLessThan func(string, string) bool) (sorted []string) {
 	sorted = make([]string, len(me))
+	if isLessThan == nil {
+		isLessThan = func(s1 string, s2 string) bool { return s1 < s2 }
+	}
 	var i int
 	for k := range me {
 		sorted[i] = k

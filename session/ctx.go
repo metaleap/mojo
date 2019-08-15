@@ -237,17 +237,7 @@ func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*A
 	}
 
 	if len(latest) != 0 || forceFor != nil {
-		if refrdur, refrkits := me.fileModsHandle(me.Dirs.KitsStashes, me.Dirs.fauxKits, latest, forceFor); refrdur != 0 || len(refrkits) != 0 {
-			me.bgMsg(false, refrdur.String()+" for "+ustr.Join(refrkits, " ─ "))
-			// if len(refrkits) == 1 && refrkits[0] == "Std/Dummy" {
-			// 	if forceFor != nil {
-			// 		println("FORCE", forceFor.ImpPath)
-			// 	}
-			// 	for _, f := range ensureFilesMarkedAsChanged {
-			// 		println("MARKD", f.SrcFilePath)
-			// 	}
-			// }
-		}
+		me.fileModsHandle(me.Dirs.KitsStashes, me.Dirs.fauxKits, latest, forceFor)
 	}
 }
 

@@ -94,7 +94,7 @@ type Kit struct {
 	imports      []string
 	topLevelDefs IrDefs
 	SrcFiles     AstFiles
-	state        struct {
+	state        struct { // produced in `Ctx.kitRefreshFilesAndMaybeReload`, consumed in `Ctx.kitsRepopulateNamesInScope`
 		defsGoneIdsNames map[string]string
 		defsBornIdsNames map[string]string
 	}

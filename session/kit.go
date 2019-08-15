@@ -16,7 +16,7 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs Errors) {
 }
 
 func (me *Ctx) kitEnsureLoaded(kit *Kit, reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers bool) (freshErrs Errors) {
-	stage1errs := me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded, nil)
+	stage1errs := me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded, true)
 	freshErrs.Add(stage1errs...)
 	if reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers {
 		stage2andbeyonderrs := me.reprocessAffectedDefsIfAnyKitsReloaded()
@@ -39,7 +39,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 	if len(kitImpPaths) != 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
-				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded, nil)...)
+				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded, true)...)
 			}
 		}
 	}
@@ -57,7 +57,7 @@ func (me *Ctx) KitByDirPath(dirPath string, tryToAddToFauxKits bool) (kit *Kit) 
 
 func (me *Ctx) KitByImpPath(impPath string) *Kit {
 	idx := me.Kits.All.IndexImpPath(impPath)
-	if idx < 0 && (impPath == "" || impPath == "." || impPath == "·") {
+	if idx < 0 && (impPath == "" || impPath == ".") {
 		if fauxkitdirs := me.Dirs.fauxKits; len(fauxkitdirs) != 0 {
 			idx = me.Kits.All.IndexDirPath(fauxkitdirs[0])
 		}
@@ -94,7 +94,7 @@ func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames S
 	return
 }
 
-func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool, didReturnEarlyDueToNoChangesAtAstLevel *bool) (freshErrs Errors) {
+func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool, ensureDepsLoaded bool) (freshErrs Errors) {
 	var srcfileschanged bool
 	var err error
 
@@ -128,57 +128,57 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 	}
 
 	{ // step 2: maybe (re)load
-		if was := kit.WasEverToBeLoaded; was || reloadForceInsteadOfAuto {
-			kit.WasEverToBeLoaded, kit.Errs.Stage1BadImports =
-				true, nil
+		wasevertobeloaded := kit.WasEverToBeLoaded
+		if (!wasevertobeloaded) && !reloadForceInsteadOfAuto {
+			return
+		}
 
-			allunchanged := !srcfileschanged
-			for _, sf := range kit.SrcFiles {
-				var nochanges bool
-				freshErrs.Add(sf.LexAndParseFile(true, false, &nochanges)...)
-				allunchanged = allunchanged && nochanges
-			}
+		kit.WasEverToBeLoaded, kit.Errs.Stage1BadImports =
+			true, nil
 
-			for _, imp := range kit.Imports() {
-				if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
-					kit.Errs.Stage1BadImports.AddSess(ErrSessKits_ImportNotFound, "", "import not found: `"+imp+"`")
-				} else {
-					freshErrs.Add(me.kitEnsureLoaded(kimp, false)...)
-				}
-			}
+		allunchanged := !srcfileschanged
+		for _, sf := range kit.SrcFiles {
+			var nochanges bool
+			freshErrs.Add(sf.LexAndParseFile(true, false, &nochanges)...)
+			allunchanged = allunchanged && nochanges
+		}
 
-			if len(kit.Errs.Stage1BadImports) != 0 {
-				freshErrs.Add(kit.Errs.Stage1BadImports...)
+		for _, imp := range kit.Imports() {
+			if kimp := me.Kits.All.ByImpPath(imp); kimp == nil {
+				kit.Errs.Stage1BadImports.AddSess(ErrSessKits_ImportNotFound, "", "import not found: `"+imp+"`")
+			} else if ensureDepsLoaded {
+				freshErrs.Add(me.kitEnsureLoaded(kimp, false)...)
 			}
+		}
 
-			if was && allunchanged && len(freshErrs) == 0 && !reloadForceInsteadOfAuto {
-				if didReturnEarlyDueToNoChangesAtAstLevel != nil {
-					*didReturnEarlyDueToNoChangesAtAstLevel = true
-				}
-				return
+		if len(kit.Errs.Stage1BadImports) != 0 {
+			freshErrs.Add(kit.Errs.Stage1BadImports...)
+		}
+		if wasevertobeloaded && allunchanged && len(freshErrs) == 0 && !reloadForceInsteadOfAuto {
+			return
+		}
+		{
+			defsgone, defsborn, fresherrs := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
+
+			if len(kit.state.defsGoneIdsNames) == 0 {
+				kit.state.defsGoneIdsNames = defsgone
+			} else if len(defsgone) != 0 {
+				panic("TO-BE-INVESTIGATED (GONES)")
 			}
-			{
-				defsgone, defsborn, fresherrs := kit.topLevelDefs.ReInitFrom(kit.SrcFiles)
-				if len(kit.state.defsGoneIdsNames) == 0 {
-					kit.state.defsGoneIdsNames = defsgone
-				} else if len(defsgone) != 0 {
-					panic("TO-BE-INVESTIGATED (GONES)")
-				}
-				if len(kit.state.defsBornIdsNames) == 0 {
-					kit.state.defsBornIdsNames = defsborn
-				} else if len(defsborn) != 0 {
-					panic("TO-BE-INVESTIGATED (BORNS)")
-				}
-				if len(kit.state.defsGoneIdsNames) != 0 || len(kit.state.defsBornIdsNames) != 0 || len(fresherrs) != 0 {
-					me.Kits.reprocessingNeeded = true
-				}
-				freshErrs.Add(fresherrs...)
+			if len(kit.state.defsBornIdsNames) == 0 {
+				kit.state.defsBornIdsNames = defsborn
+			} else if len(defsborn) != 0 {
+				panic("TO-BE-INVESTIGATED (BORNS)")
 			}
-			kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*IrDef, len(kit.topLevelDefs))
-			for _, tldef := range kit.topLevelDefs {
-				kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Name.Val] =
-					tldef, append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.Id)
+			if len(kit.state.defsGoneIdsNames) != 0 || len(kit.state.defsBornIdsNames) != 0 || len(fresherrs) != 0 {
+				me.Kits.reprocessingNeeded = true
 			}
+			freshErrs.Add(fresherrs...)
+		}
+		kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*IrDef, len(kit.topLevelDefs))
+		for _, tldef := range kit.topLevelDefs {
+			kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Name.Val] =
+				tldef, append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.Id)
 		}
 	}
 	return
@@ -311,8 +311,5 @@ func (me *Kit) SelectNodes(tldOk func(*IrDef) bool, nodeOk func([]IIrNode, IIrNo
 }
 
 func IsValidKitDirName(dirName string) bool {
-	return (!ustr.IsLen1And(dirName, '_', '*', '.', ' ')) &&
-		dirName != "·" &&
-		ustr.BeginsUpper(dirName) &&
-		(!ustr.HasAnyOf(dirName, ' '))
+	return ustr.BeginsUpper(dirName) && !ustr.HasAnyOf(dirName, ' ')
 }
