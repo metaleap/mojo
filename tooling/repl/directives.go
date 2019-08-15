@@ -207,9 +207,9 @@ func (me *Repl) DSrcs(what string) bool {
 			ApplStyle: APPLSTYLE_SVO, BytesWriter: ustd.BytesWriter{Data: make([]byte, 0, 256)}, NoComments: true}
 
 		me.withKitDefs(whatkit, whatname, "srcs", func(kit *Kit, def *IrDef) {
-			me.decoAddNotice(false, "", true, ustr.FirstOf(def.OrigTopChunk.SrcFile.SrcFilePath, me.Ctx.Options.Scratchpad.FauxFileNameForErrorMessages))
-			ctxp.ApplStyle = def.OrigTopChunk.SrcFile.Options.ApplStyle
-			def.OrigTopChunk.Print(&ctxp)
+			me.decoAddNotice(false, "", true, ustr.FirstOf(def.AstFileChunk.SrcFile.SrcFilePath, me.Ctx.Options.Scratchpad.FauxFileNameForErrorMessages))
+			ctxp.ApplStyle = def.AstFileChunk.SrcFile.Options.ApplStyle
+			def.AstFileChunk.Print(&ctxp)
 			ctxp.WriteTo(me.IO.Stdout)
 			ctxp.Reset()
 			if !def.HasErrors() {

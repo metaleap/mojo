@@ -69,10 +69,10 @@ type IrDef struct {
 	Name IrIdentDecl
 	Body IIrExpr
 
-	Id           string
-	OrigTopChunk *AstFileChunk
-	Anns         struct {
-		Preduced *PEnv
+	Id string
+	*AstFileChunk
+	Anns struct {
+		Preduced IPreduced
 	}
 	Errs struct {
 		Stage1AstToIr  Errors
@@ -207,6 +207,15 @@ type PValFn struct {
 	PValFactBase
 	Arg PVal
 	Ret PVal
+}
+
+type PValAbyss struct {
+	PValFactBase
+}
+
+type PValErr struct {
+	PValFactBase
+	*Error
 }
 
 type PVal struct {

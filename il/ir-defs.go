@@ -9,13 +9,13 @@ func (me IrDefs) Len() int          { return len(me) }
 func (me IrDefs) Swap(i int, j int) { me[i], me[j] = me[j], me[i] }
 func (me IrDefs) Less(i int, j int) bool {
 	dis, dat := &me[i].AstOrigToks(nil).First1().Pos, &me[j].AstOrigToks(nil).First1().Pos
-	return (dis.FilePath == dat.FilePath && me[i].OrigTopChunk.PosOffsetByte() < me[j].OrigTopChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
+	return (dis.FilePath == dat.FilePath && me[i].AstFileChunk.PosOffsetByte() < me[j].AstFileChunk.PosOffsetByte()) || dis.FilePath < dat.FilePath
 }
 
 func (me IrDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef) {
 	allfiles := (onlyFor == nil)
 	for _, tld := range me {
-		if allfiles || (tld.OrigTopChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
+		if allfiles || (tld.AstFileChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
 			if orig := tld.OrigDef(); tld.Name.Val == name || (orig != nil && orig.Name.Val == name) {
 				defs = append(defs, tld)
 			}
@@ -41,7 +41,7 @@ func (me *IrDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndName
 		for j := range kitSrcFiles[i].TopLevel {
 			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
 				if defidx := this.IndexByID(tl.Id()); defidx >= 0 {
-					oldunchangeds[defidx], this[defidx].OrigTopChunk, this[defidx].Orig = Є, tl, tl.Ast.Def.Orig
+					oldunchangeds[defidx], this[defidx].AstFileChunk, this[defidx].Orig = Є, tl, tl.Ast.Def.Orig
 				} else {
 					newdefs = append(newdefs, tl)
 				}
@@ -80,7 +80,7 @@ func (me *IrDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndName
 			if tlc.Ast.Def.NameIfErr != "" {
 				newTopLevelDefIdsAndNames[tlc.Id()] = tlc.Ast.Def.NameIfErr
 			} else { // add the def skeleton
-				orig, def := tlc.Ast.Def.Orig, &IrDef{OrigTopChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool, 8)}
+				orig, def := tlc.Ast.Def.Orig, &IrDef{AstFileChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool, 8)}
 				this, newTopLevelDefIdsAndNames[def.Id] =
 					append(this, def), tlc.Ast.Def.Orig.Name.Val
 				// populate it

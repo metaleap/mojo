@@ -321,10 +321,10 @@ type IrDef struct {
 	Name IrIdentDecl
 	Body IIrExpr
 
-	Id           string
-	OrigTopChunk *AstFileChunk
-	Anns         struct {
-		Preduced *PEnv
+	Id string
+	*AstFileChunk
+	Anns struct {
+		Preduced IPreduced
 	}
 	Errs struct {
 		Stage1AstToIr  Errors
@@ -841,6 +841,24 @@ type PVal struct {
 ```
 
 
+#### func (*PVal) AddAbyss
+
+```go
+func (me *PVal) AddAbyss(fromNode []IIrNode) *PVal
+```
+
+#### func (*PVal) AddErr
+
+```go
+func (me *PVal) AddErr(fromNode []IIrNode, err *Error) *PVal
+```
+
+#### func (*PVal) AddFn
+
+```go
+func (me *PVal) AddFn(fromNode []IIrNode) *PVal
+```
+
 #### func (*PVal) AddPrimConst
 
 ```go
@@ -851,6 +869,21 @@ func (me *PVal) AddPrimConst(fromNode []IIrNode, constVal interface{}) *PVal
 
 ```go
 func (me *PVal) String() string
+```
+
+#### type PValAbyss
+
+```go
+type PValAbyss struct {
+	PValFactBase
+}
+```
+
+
+#### func (*PValAbyss) String
+
+```go
+func (me *PValAbyss) String() string
 ```
 
 #### type PValEqType
@@ -883,6 +916,22 @@ type PValEqVal struct {
 
 ```go
 func (me *PValEqVal) String() string
+```
+
+#### type PValErr
+
+```go
+type PValErr struct {
+	PValFactBase
+	*Error
+}
+```
+
+
+#### func (*PValErr) String
+
+```go
+func (me *PValErr) String() string
 ```
 
 #### type PValFactBase

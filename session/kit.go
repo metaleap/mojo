@@ -192,9 +192,9 @@ func (me *Kit) ensureErrTldPosOffsets() {
 		}
 	}
 	for _, tld := range me.topLevelDefs {
-		tld.Errs.Stage1AstToIr.UpdatePosOffsets(tld.OrigTopChunk)
-		tld.Errs.Stage2BadNames.UpdatePosOffsets(tld.OrigTopChunk)
-		tld.Errs.Stage3Preduce.UpdatePosOffsets(tld.OrigTopChunk)
+		tld.Errs.Stage1AstToIr.UpdatePosOffsets(tld.AstFileChunk)
+		tld.Errs.Stage2BadNames.UpdatePosOffsets(tld.AstFileChunk)
+		tld.Errs.Stage3Preduce.UpdatePosOffsets(tld.AstFileChunk)
 	}
 }
 
@@ -216,7 +216,7 @@ func (me *Kit) Errors(maybeErrsToSrcs map[*Error][]byte) (errs Errors) {
 		deferrs := append(append(me.topLevelDefs[i].Errs.Stage1AstToIr, me.topLevelDefs[i].Errs.Stage2BadNames...), me.topLevelDefs[i].Errs.Stage3Preduce...)
 		if maybeErrsToSrcs != nil {
 			for _, e := range deferrs {
-				maybeErrsToSrcs[e] = me.topLevelDefs[i].OrigTopChunk.SrcFile.LastLoad.Src
+				maybeErrsToSrcs[e] = me.topLevelDefs[i].AstFileChunk.SrcFile.LastLoad.Src
 			}
 		}
 		errs.Add(deferrs...)
@@ -259,7 +259,7 @@ func (me *Kit) Defs(name string, includeUnparsedOnes bool) (defs IrDefs) {
 		}
 		if includeUnparsedOnes {
 			for _, tld := range me.topLevelDefs {
-				if tld.OrigTopChunk.Ast.Def.NameIfErr == name {
+				if tld.AstFileChunk.Ast.Def.NameIfErr == name {
 					defs = append(defs, tld)
 				}
 			}

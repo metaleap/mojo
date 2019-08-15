@@ -3,6 +3,7 @@ package atmoil
 import (
 	"fmt"
 	"github.com/go-leap/std"
+	. "github.com/metaleap/atmo"
 )
 
 func (me *PValFactBase) From() (*IrDef, IIrNode) { return me.from[0].(*IrDef), me.from[len(me.from)-1] }
@@ -24,6 +25,29 @@ func (me *PValEqVal) String() string { return "eqTo(" + me.To.PValFactBase.Strin
 func (me *PValNever) String() string { return "never(" + me.Never.Self().String() + ")" }
 
 func (me *PValFn) String() string { return "fn(" + me.Arg.String() + "->" + me.Ret.String() + ")" }
+
+func (me *PValErr) String() string { return "err(" + me.Error.Error() + ")" }
+
+func (me *PValAbyss) String() string { return "abyss(" + me.PValFactBase.String() + ")" }
+
+func (me *PVal) AddAbyss(fromNode []IIrNode) *PVal {
+	fact := PValAbyss{}
+	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
+	return me
+}
+
+func (me *PVal) AddErr(fromNode []IIrNode, err *Error) *PVal {
+	fact := PValErr{Error: err}
+	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
+	return me
+}
+
+func (me *PVal) AddFn(fromNode []IIrNode) *PVal {
+	fact, abs := PValFn{}, fromNode[len(fromNode)-1].(*IrAbs)
+	fact.Arg.from, fact.Ret.from = append(fromNode, &abs.Arg), append(fromNode, abs.Body)
+	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
+	return me
+}
 
 func (me *PVal) AddPrimConst(fromNode []IIrNode, constVal interface{}) *PVal {
 	fact := PValPrimConst{ConstVal: constVal}

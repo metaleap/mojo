@@ -29,6 +29,7 @@ func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node II
 }
 
 func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPreduced) {
+	var newval PVal
 	switch this := node.(type) {
 
 	case IrDefRef:
@@ -41,26 +42,33 @@ func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPr
 		if this.Anns.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
 			this.Errs.Stage3Preduce = make(Errors, 0, 0) // not nil anymore now
 			if !this.HasErrors() {
-				prevtopdef := me.curNode.owningTopDef
-				me.curNode.owningTopDef = this
+				prevtopdef, prevenv := me.curNode.owningTopDef, me.curEnv
+				me.curNode.owningTopDef, me.curEnv = this, nil
 				{
-					this.Anns.Preduced = &PEnv{}
+					this.Anns.Preduced = me.preduce(this.Body)
 				}
-				me.curNode.owningTopDef = prevtopdef
+				me.curNode.owningTopDef, me.curEnv = prevtopdef, prevenv
 			}
 		}
 		ret = this.Anns.Preduced
 
 	case *IrLitFloat:
-		ret = (&PVal{}).AddPrimConst(append(nodeAncestors, this), this.Val)
+		ret = newval.AddPrimConst(append(nodeAncestors, this), this.Val)
 
 	case *IrLitUint:
-		ret = (&PVal{}).AddPrimConst(append(nodeAncestors, this), this.Val)
+		ret = newval.AddPrimConst(append(nodeAncestors, this), this.Val)
 
 	case *IrLitTag:
-		ret = (&PVal{}).AddPrimConst(append(nodeAncestors, this), this.Val)
+		ret = newval.AddPrimConst(append(nodeAncestors, this), this.Val)
 
 	case *IrNonValue:
+		ret = &newval
+		switch {
+		case this.OneOf.TempStrLit:
+			ret = newval.AddErr(append(nodeAncestors, this), ErrTodo(0, me.toks(this), "str-lits"))
+		case this.OneOf.Undefined:
+			ret = newval.AddAbyss(append(nodeAncestors, this))
+		}
 
 	case *IrIdentName:
 		switch len(this.Anns.Candidates) {
@@ -73,8 +81,7 @@ func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPr
 		}
 
 	case *IrAbs:
-
-	case *IrArg:
+		ret = newval.AddFn(append(nodeAncestors, this))
 
 	case *IrAppl:
 

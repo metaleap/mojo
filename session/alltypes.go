@@ -27,6 +27,7 @@ import (
 )
 
 type ctxPreducing struct {
+	curEnv     *PEnv
 	curSessCtx *Ctx
 	curNode    struct {
 		owningTopDef *IrDef

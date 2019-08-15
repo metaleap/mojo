@@ -62,10 +62,10 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange StringKeys, defIdsBor
 							for name, nodesown := range kimp.lookups.namesInScopeOwn {
 								nodes := make([]IIrNode, 0, len(nodesown))
 								for _, n := range nodesown {
-									deftop := n.(*IrDef) /* ok to panic here bc should-never-happen-else-its-a-bug */
-									if !deftop.OrigTopChunk.Ast.Def.IsUnexported {
+									def := n.(*IrDef) /* ok to panic here bc should-never-happen-else-its-a-bug */
+									if !def.AstFileChunk.Ast.Def.IsUnexported {
 										nodes = append(nodes, IrDefRef{Kit: kimp,
-											IrDef: deftop})
+											IrDef: def})
 									}
 								}
 								kit.lookups.namesInScopeExt.Add(name, nodes...)
