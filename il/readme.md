@@ -347,6 +347,12 @@ func (me *IrDef) AncestorsAndChildrenOf(node IIrNode) (nodeAncestors []IIrNode, 
 func (me *IrDef) AncestorsOf(node IIrNode) (nodeAncestors []IIrNode)
 ```
 
+#### func (*IrDef) ArgOwnerAbs
+
+```go
+func (me *IrDef) ArgOwnerAbs(arg *IrArg) *IrAbs
+```
+
 #### func (*IrDef) AstOrig
 
 ```go
@@ -699,7 +705,7 @@ func (me *IrIdentName) RefersTo(name string) bool
 #### func (*IrIdentName) ResolvesTo
 
 ```go
-func (me *IrIdentName) ResolvesTo(n IIrNode) bool
+func (me *IrIdentName) ResolvesTo(node IIrNode) bool
 ```
 
 #### type IrLitFloat

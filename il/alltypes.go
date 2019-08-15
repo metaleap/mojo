@@ -95,6 +95,7 @@ type IrAbs struct {
 
 type IrArg struct {
 	IrIdentDecl
+	ownerAbs *IrAbs
 }
 
 type IrExprBase struct {

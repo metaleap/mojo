@@ -74,12 +74,14 @@ func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPr
 	case *IrIdentName:
 		switch len(this.Anns.Candidates) {
 		case 1:
-			if abs, isabs := this.Anns.Candidates[0].(*IrAbs); isabs {
-				ret = me.preduce(&abs.Arg)
+			if _, isarg := this.Anns.Candidates[0].(*IrArg); isarg {
+
 			} else {
 				ret = me.preduce(this.Anns.Candidates[0])
 			}
 		}
+
+	case *IrArg:
 
 	case *IrAbs:
 		ret = me.curAbs[this]

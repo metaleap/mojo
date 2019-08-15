@@ -70,6 +70,18 @@ func (me *IrDef) AncestorsAndChildrenOf(node IIrNode) (nodeAncestors []IIrNode, 
 	})
 	return
 }
+func (me *IrDef) ArgOwnerAbs(arg *IrArg) *IrAbs {
+	if arg.ownerAbs == nil && me != nil {
+		_ = me.FindAny(func(node IIrNode) bool {
+			abs, isabs := node.(*IrAbs)
+			if isabs {
+				abs.Arg.ownerAbs = abs
+			}
+			return isabs && arg == &abs.Arg
+		})
+	}
+	return arg.ownerAbs
+}
 func (me *IrDef) AstOrigToks(node IIrNode) (toks udevlex.Tokens) {
 	if node == nil {
 		node = me
@@ -300,9 +312,9 @@ func (me *IrIdentName) refsTo(name string) (refs []IIrExpr) {
 	}
 	return
 }
-func (me *IrIdentName) ResolvesTo(n IIrNode) bool {
+func (me *IrIdentName) ResolvesTo(node IIrNode) bool {
 	for _, cand := range me.Anns.Candidates {
-		if cand == n {
+		if cand == node {
 			return true
 		}
 	}
