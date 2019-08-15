@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-leap/fs"
@@ -156,7 +157,7 @@ func (me *Ctx) bgMsg(issue bool, lines ...string) {
 	msg := ctxBgMsg{Issue: issue, Time: time.Now(), Lines: lines}
 	me.state.bgMsgs = append(me.state.bgMsgs, msg)
 	if me.On.NewBackgroundMessages != nil {
-		me.On.NewBackgroundMessages(me)
+		me.lockedMaybe(func() { me.On.NewBackgroundMessages(me) })
 	}
 }
 
@@ -191,7 +192,7 @@ func (me *Ctx) onSomeOrAllKitsPartiallyOrFullyRefreshed(freshStage1Errs Errors, 
 		}
 	}
 	if me.On.SomeKitsRefreshed != nil {
-		me.On.SomeKitsRefreshed(me, hadfresherrs)
+		me.lockedMaybe(func() { me.On.SomeKitsRefreshed(me, hadfresherrs) })
 	}
 }
 
@@ -236,7 +237,17 @@ func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*A
 	}
 
 	if len(latest) != 0 || forceFor != nil {
-		me.fileModsHandle(me.Dirs.KitsStashes, me.Dirs.fauxKits, latest, forceFor)
+		if refrdur, refrkits := me.fileModsHandle(me.Dirs.KitsStashes, me.Dirs.fauxKits, latest, forceFor); refrdur != 0 || len(refrkits) != 0 {
+			me.bgMsg(false, refrdur.String()+" for "+ustr.Join(refrkits, " ─ "))
+			// if len(refrkits) == 1 && refrkits[0] == "Std/Dummy" {
+			// 	if forceFor != nil {
+			// 		println("FORCE", forceFor.ImpPath)
+			// 	}
+			// 	for _, f := range ensureFilesMarkedAsChanged {
+			// 		println("MARKD", f.SrcFilePath)
+			// 	}
+			// }
+		}
 	}
 }
 
@@ -245,10 +256,24 @@ func (me *Ctx) catchUpOnFileMods(forceFor *Kit, ensureFilesMarkedAsChanged ...*A
 // concurrent accesses to their `Ctx`. Wrap any and all of your `Ctx` uses in
 // a `func` passed to `Locked` and concurrent accesses will queue up. Caution:
 // calling `Locked` again from  inside such a wrapper `func` will deadlock.
+// Caution: subscribers to events in `Ctx.On` must never use `Locked`.
 func (me *Ctx) Locked(do func()) {
-	me.state.notUsedInternallyButAvailableForOutsideCallersConvenience.Lock()
-	defer me.state.notUsedInternallyButAvailableForOutsideCallersConvenience.Unlock()
+	me.state.syncForOutsideCallers.Lock()
+	atomic.StoreUint32(&me.state.syncForOutsideCallers.locked, 1)
+	defer func() {
+		atomic.StoreUint32(&me.state.syncForOutsideCallers.locked, 0)
+		me.state.syncForOutsideCallers.Unlock()
+	}()
 	do()
+}
+
+// lockedMaybe is only used when raising any of the `Ctx.On` events
+func (me *Ctx) lockedMaybe(do func()) {
+	if 1 == atomic.LoadUint32(&me.state.syncForOutsideCallers.locked) {
+		do()
+	} else {
+		me.Locked(do)
+	}
 }
 
 func (me *Ctx) WithInMemFileMod(srcFilePath string, altSrc string, do func()) (recoveredPanic interface{}) {

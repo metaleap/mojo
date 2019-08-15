@@ -16,7 +16,7 @@ func (me *Ctx) KitEnsureLoaded(kit *Kit) (freshErrs Errors) {
 }
 
 func (me *Ctx) kitEnsureLoaded(kit *Kit, reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers bool) (freshErrs Errors) {
-	stage1errs := me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)
+	stage1errs := me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded, nil)
 	freshErrs.Add(stage1errs...)
 	if reprocessEverythingInSessionAsNeededImmediatelyAfterwardsAndThenNotifySubscribers {
 		stage2andbeyonderrs := me.reprocessAffectedDefsIfAnyKitsReloaded()
@@ -39,7 +39,7 @@ func (me *Ctx) KitsEnsureLoaded(plusSessDirFauxKits bool, kitImpPaths ...string)
 	if len(kitImpPaths) != 0 {
 		for _, kip := range kitImpPaths {
 			if kit := me.Kits.All.ByImpPath(kip); kit != nil {
-				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded)...)
+				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(kit, !kit.WasEverToBeLoaded, nil)...)
 			}
 		}
 	}
@@ -94,7 +94,7 @@ func (me *Ctx) kitGatherAllUnparsedGlobalsNames(kit *Kit, unparsedGlobalsNames S
 	return
 }
 
-func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool) (freshErrs Errors) {
+func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto bool, didReturnEarlyDueToNoChangesAtAstLevel *bool) (freshErrs Errors) {
 	var srcfileschanged bool
 	var err error
 
@@ -152,6 +152,9 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 			}
 
 			if was && allunchanged && len(freshErrs) == 0 && !reloadForceInsteadOfAuto {
+				if didReturnEarlyDueToNoChangesAtAstLevel != nil {
+					*didReturnEarlyDueToNoChangesAtAstLevel = true
+				}
 				return
 			}
 			{

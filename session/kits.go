@@ -3,6 +3,7 @@ package atmosess
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
@@ -33,7 +34,7 @@ func (me *Ctx) initKits() {
 	me.CatchUpOnFileMods()
 }
 
-func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo, forceFor *Kit) {
+func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []map[string]os.FileInfo, forceFor *Kit) (timeTakenForActualRefreshes time.Duration, actuallyRefreshedKitsImpPaths []string) {
 	var alllatestfilemods map[string]os.FileInfo
 	if len(latest) != 0 {
 		alllatestfilemods = make(map[string]os.FileInfo, len(latest[0]))
@@ -138,22 +139,30 @@ func (me *Ctx) fileModsHandle(kitsDirs []string, fauxKitDirs []string, latest []
 		// for stable listings etc.
 		SortMaybe(me.Kits.All)
 
-		// per-file refresher
-		var fresherrs Errors
+		timestarted := time.Now().UnixNano()
+		// per-kit refreshers
+		actuallyRefreshedKitsImpPaths = make([]string, 0, len(shouldrefresh))
+		var freshstage1errs Errors
 		for _, kitdirpath := range shouldrefresh.Sorted(func(kdp1 string, kdp2 string) bool {
 			k1, k2 := me.Kits.All.ByDirPath(kdp1), me.Kits.All.ByDirPath(kdp2)
 			return k1.ImpPath == NameAutoKit || k2.DoesImport(k1.ImpPath) || !k1.DoesImport(k2.ImpPath)
 		}) {
-			if idx := me.Kits.All.IndexDirPath(kitdirpath); idx >= 0 {
-				fresherrs.Add(me.kitRefreshFilesAndMaybeReload(me.Kits.All[idx], false)...)
+			if kit := me.Kits.All.ByDirPath(kitdirpath); kit != nil {
+				var unchanged bool
+				if freshstage1errs.Add(me.kitRefreshFilesAndMaybeReload(kit, false, &unchanged)...); !unchanged {
+					actuallyRefreshedKitsImpPaths = append(actuallyRefreshedKitsImpPaths, kit.ImpPath)
+				}
 			} else {
 				panic(kitdirpath)
 			}
 		}
+		freshstage2errs := me.reprocessAffectedDefsIfAnyKitsReloaded()
+		timeTakenForActualRefreshes = time.Duration(time.Now().UnixNano() - timestarted)
 
 		// reprocess maybe
-		me.onSomeOrAllKitsPartiallyOrFullyRefreshed(fresherrs, me.reprocessAffectedDefsIfAnyKitsReloaded())
+		me.onSomeOrAllKitsPartiallyOrFullyRefreshed(freshstage1errs, freshstage2errs)
 	}
+	return
 }
 
 func (me *Ctx) fileModsDirOk(kitsDirs []string, fauxKitDirs []string, dirFullPath string, dirName string) bool {

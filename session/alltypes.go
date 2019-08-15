@@ -69,7 +69,10 @@ type Ctx struct {
 			latest                        []map[string]os.FileInfo
 			collectFileModsForNextCatchup func([]string, []string) int
 		}
-		notUsedInternallyButAvailableForOutsideCallersConvenience sync.Mutex
+		syncForOutsideCallers struct {
+			locked uint32 // only set between Lock and Unlock
+			sync.Mutex
+		}
 	}
 }
 

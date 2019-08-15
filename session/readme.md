@@ -177,7 +177,8 @@ Locked is never used by `atmosess` itself but a convenience helper for outside
 callers that run parallel code-paths and thus need to serialize concurrent
 accesses to their `Ctx`. Wrap any and all of your `Ctx` uses in a `func` passed
 to `Locked` and concurrent accesses will queue up. Caution: calling `Locked`
-again from inside such a wrapper `func` will deadlock.
+again from inside such a wrapper `func` will deadlock. Caution: subscribers to
+events in `Ctx.On` must never use `Locked`.
 
 #### func (*Ctx) Preduce
 

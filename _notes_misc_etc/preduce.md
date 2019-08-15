@@ -77,10 +77,10 @@ from `(x false) true` but we're now forcing `abyss` for all except structural
 `true` and `false`, so this set becomes all that callers now can expect from
 `not`, which propagates upwards / outwards. Since `x` is not a global, in
 such situations it's fair to interpret such usage-site constraints / explicitly
-forced `abyss` divergences as adding to the full "type-spec" of what `not` (and
-other local uses) expects from `x`, _in addition to_ what the inner appl usage
-indicates. All `not` callers must thusly scrutinize the `x` being passed, or
-propagate the constraints to _their_ callers.
+forced `abyss` divergences as adding to the full "type-spec" of what `not` expects
+from `x`, _in addition to_ what the inner appl usage (and other, outside-`not`
+local usage of `x`, if any) indicates. All `not` callers must now scrutinize
+their `x` being passed, or propagate the constraints to whatever provides it.
 
 An appendum for the ret-val (def-name) annotation that also `!=x` always
 holds will of course be trivially addable but given the knowledge of

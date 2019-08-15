@@ -16,7 +16,7 @@ func (me AnnNamesInScope) copy() (fullCopy AnnNamesInScope) {
 	return
 }
 
-func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrAbs, errs *Errors) (namesInScopeCopy AnnNamesInScope) {
+func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrAbs) (namesInScopeCopy AnnNamesInScope) {
 	argname := addArg.Arg.Val
 	namesInScopeCopy = make(AnnNamesInScope, len(me)+1)
 	for name, nodes := range me {
@@ -33,7 +33,7 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 	case *IrDef:
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrAbs:
-		errs.Add(me.copyAndAdd(tld, n, &errs).RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
+		errs.Add(me.copyAndAdd(tld, n).RepopulateDefsAndIdentsFor(tld, n.Body, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrAppl:
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Callee, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.CallArg, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)

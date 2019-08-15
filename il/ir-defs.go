@@ -42,9 +42,11 @@ func (me *IrDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndName
 			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
 				if defidx := this.IndexByID(tl.Id()); defidx >= 0 {
 					oldunchangeds[defidx], this[defidx].OrigTopChunk, this[defidx].Orig = Є, tl, tl.Ast.Def.Orig
-				} else if !tl.HasErrors() { // any source chunk with parse/lex errs doesn't exist for us anymore at this point
+				} else { // any source chunk with parse/lex errs doesn't exist for us anymore at this point
 					newdefs = append(newdefs, tl)
 				}
+			} else if tl.Ast.Def.NameIfErr != "" {
+				newdefs = append(newdefs, tl) // temporarily
 			}
 		}
 	}
@@ -71,15 +73,18 @@ func (me *IrDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndName
 	if len(newdefs) != 0 {
 		newTopLevelDefIdsAndNames = make(map[string]string, len(newdefs))
 		for _, tlc := range newdefs {
-			// add the def skeleton
-			orig, def := tlc.Ast.Def.Orig, &IrDef{OrigTopChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool, 8)}
-			this, newTopLevelDefIdsAndNames[def.Id] =
-				append(this, def), tlc.Ast.Def.Orig.Name.Val
-			// populate it
-			ctxinit := ctxIrFromAst{curTopLevelDef: def, absIdx: -1}
-			def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, orig)...)
-			if len(def.Errs.Stage1AstToIr) != 0 {
-				freshErrs.Add(def.Errs.Stage1AstToIr...)
+			if tlc.Ast.Def.NameIfErr != "" {
+				newTopLevelDefIdsAndNames[tlc.Id()] = tlc.Ast.Def.NameIfErr
+			} else { // add the def skeleton
+				orig, def := tlc.Ast.Def.Orig, &IrDef{OrigTopChunk: tlc, Id: tlc.Id(), refersTo: make(map[string]bool, 8)}
+				this, newTopLevelDefIdsAndNames[def.Id] =
+					append(this, def), tlc.Ast.Def.Orig.Name.Val
+				// populate it
+				ctxinit := ctxIrFromAst{curTopLevelDef: def, absIdx: -1}
+				def.Errs.Stage1AstToIr.Add(def.initFrom(&ctxinit, orig)...)
+				if len(def.Errs.Stage1AstToIr) != 0 {
+					freshErrs.Add(def.Errs.Stage1AstToIr...)
+				}
 			}
 		}
 	}
