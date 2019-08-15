@@ -42,16 +42,36 @@ func (me *PVal) AddErr(fromNode []IIrNode, err *Error) *PVal {
 	return me
 }
 
-func (me *PVal) AddFn(fromNode []IIrNode) *PVal {
+func (me *PVal) EnsureFn(fromNode []IIrNode, knownToBeFirst bool) *PValFn {
+	if !knownToBeFirst {
+		for _, f := range me.Facts {
+			if fn, is := f.(*PValFn); is {
+				return fn
+			}
+		}
+	}
+
 	fact, abs := PValFn{}, fromNode[len(fromNode)-1].(*IrAbs)
 	fact.Arg.from, fact.Ret.from = append(fromNode, &abs.Arg), append(fromNode, abs.Body)
 	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
-	return me
+	return &fact
 }
 
 func (me *PVal) AddPrimConst(fromNode []IIrNode, constVal interface{}) *PVal {
 	fact := PValPrimConst{ConstVal: constVal}
 	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
+	return me
+}
+
+func (me *PVal) Add(oneOrMultipleFacts IPreduced) *PVal {
+	switch f := oneOrMultipleFacts.(type) {
+	case *PVal:
+		me.Facts = append(me.Facts, f.Facts...)
+	case *PEnv:
+		me.Facts = append(me.Facts, f.Facts...)
+	default:
+		me.Facts = append(me.Facts, f)
+	}
 	return me
 }
 

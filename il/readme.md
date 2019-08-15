@@ -841,6 +841,12 @@ type PVal struct {
 ```
 
 
+#### func (*PVal) Add
+
+```go
+func (me *PVal) Add(oneOrMultipleFacts IPreduced) *PVal
+```
+
 #### func (*PVal) AddAbyss
 
 ```go
@@ -853,16 +859,16 @@ func (me *PVal) AddAbyss(fromNode []IIrNode) *PVal
 func (me *PVal) AddErr(fromNode []IIrNode, err *Error) *PVal
 ```
 
-#### func (*PVal) AddFn
-
-```go
-func (me *PVal) AddFn(fromNode []IIrNode) *PVal
-```
-
 #### func (*PVal) AddPrimConst
 
 ```go
 func (me *PVal) AddPrimConst(fromNode []IIrNode, constVal interface{}) *PVal
+```
+
+#### func (*PVal) EnsureFn
+
+```go
+func (me *PVal) EnsureFn(fromNode []IIrNode, knownToBeFirst bool) *PValFn
 ```
 
 #### func (*PVal) String

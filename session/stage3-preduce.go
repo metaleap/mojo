@@ -16,20 +16,21 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*IrDef]*Kit) (freshErrs Errors) 
 	}
 	ctxpred := ctxPreducing{curSessCtx: me}
 	for def, kit := range defIds {
-		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef = kit, def
+		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef, ctxpred.curAbs = kit, def, make(map[*IrAbs]IPreduced, 32)
 		_ = ctxpred.preduce(def) // does set def.Anns.Preduced, and it must happen there not here
 	}
 	return
 }
 
 func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) IPreduced {
-	ctxpreduce := &ctxPreducing{curSessCtx: me}
+	ctxpreduce := &ctxPreducing{curSessCtx: me, curAbs: make(map[*IrAbs]IPreduced, 8)}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
 	return ctxpreduce.preduce(node, maybeNodeOwningTopDef.AncestorsOf(node)...)
 }
 
 func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPreduced) {
 	var newval PVal
+
 	switch this := node.(type) {
 
 	case IrDefRef:
@@ -81,7 +82,14 @@ func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPr
 		}
 
 	case *IrAbs:
-		ret = newval.AddFn(append(nodeAncestors, this))
+		ret = me.curAbs[this]
+		if ret == nil {
+			ret = &newval
+			me.curAbs[this] = ret
+			nodeancestors := append(nodeAncestors, this)
+			rfn := newval.EnsureFn(nodeancestors, true)
+			rfn.Ret.Add(me.preduce(this.Body, nodeancestors...))
+		}
 
 	case *IrAppl:
 
