@@ -42,10 +42,14 @@ func (me *IrDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndName
 			if tl := &kitSrcFiles[i].TopLevel[j]; tl.Ast.Def.Orig != nil && !tl.HasErrors() {
 				if defidx := this.IndexByID(tl.Id()); defidx >= 0 {
 					oldunchangeds[defidx], this[defidx].OrigTopChunk, this[defidx].Orig = Є, tl, tl.Ast.Def.Orig
-				} else { // any source chunk with parse/lex errs doesn't exist for us anymore at this point
+				} else {
 					newdefs = append(newdefs, tl)
 				}
 			} else if tl.Ast.Def.NameIfErr != "" {
+				// ast-with-errs almost doesn't exist in IR stage, _except_ to
+				// capture idents referencing the name. hence even if just that
+				// changes, or if the malformed (un-parsable) chunk is new, we
+				// want the appropriate partial name/scope/err-msg refreshes
 				newdefs = append(newdefs, tl) // temporarily
 			}
 		}
