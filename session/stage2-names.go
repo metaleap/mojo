@@ -6,8 +6,6 @@ import (
 	. "github.com/metaleap/atmo/il"
 )
 
-func (me IrDefRef) IsExt() bool { return true }
-
 func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange StringKeys, defIdsBorn map[string]*Kit, defIdsGone map[string]*Kit, errs Errors) {
 	kitrepops := make(map[*Kit]StringKeys, len(me.Kits.All))
 	defIdsBorn, defIdsGone, namesOfChange = make(map[string]*Kit, 2), make(map[string]*Kit, 2), make(StringKeys, 4)
@@ -29,8 +27,8 @@ func (me *Ctx) kitsRepopulateNamesInScope() (namesOfChange StringKeys, defIdsBor
 						StringKeys{}, nil, make(AnnNamesInScope, len(kit.topLevelDefs))
 					for _, tld := range kit.topLevelDefs {
 						tld.Errs.Stage2BadNames = nil
-						if tld.Name.Val != "" {
-							kit.lookups.namesInScopeOwn.Add(tld.Name.Val, tld)
+						if tld.Ident.Name != "" {
+							kit.lookups.namesInScopeOwn.Add(tld.Ident.Name, tld)
 						}
 					}
 				}

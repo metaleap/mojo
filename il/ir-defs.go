@@ -16,7 +16,7 @@ func (me IrDefs) ByName(name string, onlyFor *AstFile) (defs []*IrDef) {
 	allfiles := (onlyFor == nil)
 	for _, tld := range me {
 		if allfiles || (tld.AstFileChunk.SrcFile.SrcFilePath == onlyFor.SrcFilePath) {
-			if orig := tld.OrigDef(); tld.Name.Val == name || (orig != nil && orig.Name.Val == name) {
+			if orig := tld.OrigDef(); tld.Ident.Name == name || (orig != nil && orig.Name.Val == name) {
 				defs = append(defs, tld)
 			}
 		}
@@ -67,7 +67,7 @@ func (me *IrDefs) ReInitFrom(kitSrcFiles AstFiles) (droppedTopLevelDefIdsAndName
 			if _, oldunchanged := oldunchangeds[i]; oldunchanged {
 				thiswithout = append(thiswithout, this[i])
 			} else {
-				droppedTopLevelDefIdsAndNames[this[i].Id] = this[i].Name.Val
+				droppedTopLevelDefIdsAndNames[this[i].Id] = this[i].Ident.Name
 			}
 		}
 		this = thiswithout

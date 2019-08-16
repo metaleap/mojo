@@ -360,8 +360,8 @@ func (me Kits) collectAcquaintances(defNames StringKeys, acquaintancesDefs map[*
 			for _, tld := range kit.topLevelDefs {
 				if tld.RefersToOrDefines(defname) {
 					if acquaintancesDefs[tld] = kit; indirects {
-						if _, doneearlier := doneAlready[tld.Name.Val]; !doneearlier {
-							morenames[tld.Name.Val] = Є
+						if _, doneearlier := doneAlready[tld.Ident.Name]; !doneearlier {
+							morenames[tld.Ident.Name] = Є
 						}
 					}
 				}

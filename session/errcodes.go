@@ -17,4 +17,6 @@ const (
 )
 const (
 	_ = 3300 + iota
+	ErrNames_NotFound
+	ErrNames_Ambiguous
 )

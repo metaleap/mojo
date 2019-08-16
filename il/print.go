@@ -24,16 +24,16 @@ func (me *IrNonValue) Print() IAstNode {
 func (me *IrLitFloat) Print() IAstNode  { return BuildAst.LitFloat(me.Val) }
 func (me *IrLitUint) Print() IAstNode   { return BuildAst.LitUint(me.Val) }
 func (me *IrLitTag) Print() IAstNode    { return BuildAst.Tag(me.Val) }
-func (me *IrIdentBase) Print() IAstNode { return BuildAst.Ident(me.Val) }
+func (me *IrIdentBase) Print() IAstNode { return BuildAst.Ident(me.Name) }
 func (me *IrAppl) Print() IAstNode {
 	return BuildAst.Appl(me.Callee.Print().(IAstExpr), me.CallArg.Print().(IAstExpr))
 }
 
 func (me *IrDef) print() IAstNode {
 	if me.Body == nil {
-		return BuildAst.Def(me.Name.Val, BuildAst.Ident("?!?!?!"))
+		return BuildAst.Def(me.Ident.Name, BuildAst.Ident("?!?!?!"))
 	}
-	return BuildAst.Def(me.Name.Val, me.Body.Print().(IAstExpr))
+	return BuildAst.Def(me.Ident.Name, me.Body.Print().(IAstExpr))
 }
 
 func (me *IrDef) Print() IAstNode {
@@ -49,5 +49,5 @@ func (me *IrArg) Print() IAstNode {
 func (me *IrAbs) Print() IAstNode {
 	name := "λ" + StrRand(false)
 	return BuildAst.Let(BuildAst.Ident(name),
-		*BuildAst.Def(name, me.Body.Print().(IAstExpr), me.Arg.Val))
+		*BuildAst.Def(name, me.Body.Print().(IAstExpr), me.Arg.Name))
 }

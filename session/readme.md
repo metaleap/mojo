@@ -39,6 +39,13 @@ const (
 )
 ```
 
+```go
+const (
+	ErrNames_NotFound
+	ErrNames_Ambiguous
+)
+```
+
 #### func  CtxDefaultCacheDirPath
 
 ```go
@@ -213,12 +220,6 @@ type IrDefRef struct {
 }
 ```
 
-
-#### func (IrDefRef) IsExt
-
-```go
-func (me IrDefRef) IsExt() bool
-```
 
 #### type Kit
 

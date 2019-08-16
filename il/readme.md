@@ -109,7 +109,6 @@ type IIrNode interface {
 	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
 
 	IsDef() *IrDef
-	IsExt() bool
 	RefersTo(string) bool
 	// contains filtered or unexported methods
 }
@@ -120,8 +119,8 @@ type IIrNode interface {
 
 ```go
 type IPreduced interface {
+	Errs() Errors
 	From() (*IrDef, IIrNode)
-	IsEnv() *PEnv
 	Self() *PValFactBase
 	String() string
 }
@@ -136,7 +135,7 @@ type IrAbs struct {
 	Arg  IrArg
 	Body IIrExpr
 
-	Anns struct {
+	Ann struct {
 		AbsIdx int
 	}
 }
@@ -159,12 +158,6 @@ func (me *IrAbs) EquivTo(node IIrNode, ignoreNames bool) bool
 
 ```go
 func (*IrAbs) IsDef() *IrDef
-```
-
-#### func (*IrAbs) IsExt
-
-```go
-func (*IrAbs) IsExt() bool
 ```
 
 #### func (*IrAbs) Print
@@ -208,12 +201,6 @@ func (me *IrAppl) EquivTo(node IIrNode, ignoreNames bool) bool
 func (*IrAppl) IsDef() *IrDef
 ```
 
-#### func (*IrAppl) IsExt
-
-```go
-func (*IrAppl) IsExt() bool
-```
-
 #### func (*IrAppl) Print
 
 ```go
@@ -251,12 +238,6 @@ func (me *IrArg) EquivTo(node IIrNode, ignoreNames bool) bool
 
 ```go
 func (*IrArg) IsDef() *IrDef
-```
-
-#### func (*IrArg) IsExt
-
-```go
-func (*IrArg) IsExt() bool
 ```
 
 #### func (*IrArg) Print
@@ -318,12 +299,12 @@ func (IrBuild) Undef() *IrNonValue
 
 ```go
 type IrDef struct {
-	Name IrIdentDecl
-	Body IIrExpr
+	Ident IrIdentDecl
+	Body  IIrExpr
 
 	Id string
 	*AstFileChunk
-	Anns struct {
+	Ann struct {
 		Preduced IPreduced
 	}
 	Errs struct {
@@ -417,12 +398,6 @@ func (me *IrDef) HasIdentDecl(name string) bool
 
 ```go
 func (me *IrDef) IsDef() *IrDef
-```
-
-#### func (*IrDef) IsExt
-
-```go
-func (*IrDef) IsExt() bool
 ```
 
 #### func (*IrDef) NamesInScopeAt
@@ -537,12 +512,6 @@ func (me *IrExprAtomBase) IsAtomic() bool
 func (*IrExprAtomBase) IsDef() *IrDef
 ```
 
-#### func (*IrExprAtomBase) IsExt
-
-```go
-func (*IrExprAtomBase) IsExt() bool
-```
-
 #### func (*IrExprAtomBase) RefersTo
 
 ```go
@@ -575,18 +544,12 @@ func (*IrExprBase) IsAtomic() bool
 func (*IrExprBase) IsDef() *IrDef
 ```
 
-#### func (*IrExprBase) IsExt
-
-```go
-func (*IrExprBase) IsExt() bool
-```
-
 #### type IrIdentBase
 
 ```go
 type IrIdentBase struct {
 	IrExprAtomBase
-	Val string
+	Name string
 }
 ```
 
@@ -601,12 +564,6 @@ func (me *IrIdentBase) AstOrig() IAstNode
 
 ```go
 func (*IrIdentBase) IsDef() *IrDef
-```
-
-#### func (*IrIdentBase) IsExt
-
-```go
-func (*IrIdentBase) IsExt() bool
 ```
 
 #### func (*IrIdentBase) IsInternal
@@ -648,22 +605,15 @@ func (me *IrIdentDecl) EquivTo(node IIrNode, ignoreNames bool) bool
 func (*IrIdentDecl) IsDef() *IrDef
 ```
 
-#### func (*IrIdentDecl) IsExt
-
-```go
-func (*IrIdentDecl) IsExt() bool
-```
-
 #### type IrIdentName
 
 ```go
 type IrIdentName struct {
 	IrIdentBase
 
-	Anns struct {
+	Ann struct {
 		AbsIdx int
 		ArgIdx int
-
 		// Candidates may contain either one `*atmoil.IrArg` or any number
 		// of `*atmoil.IrDef` or `atmosess.IrDefRef`.
 		Candidates []IIrNode
@@ -688,12 +638,6 @@ func (me *IrIdentName) EquivTo(node IIrNode, ignoreNames bool) bool
 
 ```go
 func (*IrIdentName) IsDef() *IrDef
-```
-
-#### func (*IrIdentName) IsExt
-
-```go
-func (*IrIdentName) IsExt() bool
 ```
 
 #### func (*IrIdentName) RefersTo
@@ -803,12 +747,6 @@ func (me *IrNonValue) EquivTo(node IIrNode, ignoreNames bool) bool
 func (*IrNonValue) IsDef() *IrDef
 ```
 
-#### func (*IrNonValue) IsExt
-
-```go
-func (*IrNonValue) IsExt() bool
-```
-
 #### func (*IrNonValue) Print
 
 ```go
@@ -825,16 +763,16 @@ type PEnv struct {
 ```
 
 
+#### func (*PEnv) Errs
+
+```go
+func (me *PEnv) Errs() (errs Errors)
+```
+
 #### func (*PEnv) Flatten
 
 ```go
 func (me *PEnv) Flatten()
-```
-
-#### func (*PEnv) IsEnv
-
-```go
-func (me *PEnv) IsEnv() *PEnv
 ```
 
 #### type PVal
@@ -874,7 +812,13 @@ func (me *PVal) AddPrimConst(fromNode []IIrNode, constVal interface{}) *PVal
 #### func (*PVal) EnsureFn
 
 ```go
-func (me *PVal) EnsureFn(fromNode []IIrNode, knownToBeFirst bool) *PValFn
+func (me *PVal) EnsureFn(fromNode []IIrNode) *PValFn
+```
+
+#### func (*PVal) Errs
+
+```go
+func (me *PVal) Errs() (errs Errors)
 ```
 
 #### func (*PVal) String
@@ -940,6 +884,12 @@ type PValErr struct {
 ```
 
 
+#### func (*PValErr) Errs
+
+```go
+func (me *PValErr) Errs() Errors
+```
+
 #### func (*PValErr) String
 
 ```go
@@ -954,16 +904,16 @@ type PValFactBase struct {
 ```
 
 
+#### func (*PValFactBase) Errs
+
+```go
+func (me *PValFactBase) Errs() Errors
+```
+
 #### func (*PValFactBase) From
 
 ```go
 func (me *PValFactBase) From() (*IrDef, IIrNode)
-```
-
-#### func (*PValFactBase) IsEnv
-
-```go
-func (me *PValFactBase) IsEnv() *PEnv
 ```
 
 #### func (*PValFactBase) Self

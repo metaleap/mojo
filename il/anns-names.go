@@ -17,14 +17,13 @@ func (me AnnNamesInScope) copy() (fullCopy AnnNamesInScope) {
 }
 
 func (me AnnNamesInScope) copyAndAdd(tld *IrDef, addArg *IrAbs) (namesInScopeCopy AnnNamesInScope) {
-	argname := addArg.Arg.Val
-	namesInScopeCopy = make(AnnNamesInScope, len(me)+1)
+	existing := me[addArg.Arg.Name]
+	sl := append(make([]IIrNode, 1, 1+len(existing)), existing...)
+	sl[0], namesInScopeCopy = addArg, make(AnnNamesInScope, len(me)+1)
 	for name, nodes := range me {
-		if name != argname { // locals shadow
-			namesInScopeCopy[name] = nodes
-		}
+		namesInScopeCopy[name] = nodes
 	}
-	namesInScopeCopy[argname] = []IIrNode{addArg}
+	namesInScopeCopy[addArg.Arg.Name] = sl
 	return
 }
 
@@ -38,28 +37,28 @@ func (me AnnNamesInScope) RepopulateDefsAndIdentsFor(tld *IrDef, node IIrNode, c
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.Callee, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 		errs.Add(me.RepopulateDefsAndIdentsFor(tld, n.CallArg, currentlyErroneousButKnownGlobalsNames, append(nodeAncestors, n)...)...)
 	case *IrIdentName:
-		if _, existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Val]; existsunparsed {
-			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.AstOrigToks(n), "`"+n.Val+"` found but with syntax errors")
+		if _, existsunparsed := currentlyErroneousButKnownGlobalsNames[n.Name]; existsunparsed {
+			errs.AddUnreach(ErrNames_IdentRefersToMalformedDef, tld.AstOrigToks(n), "`"+n.Name+"` found but with syntax errors")
 		} else {
-			if n.Anns.Candidates = me[n.Val]; len(n.Anns.Candidates) == 1 {
-				if abs, isabs := n.Anns.Candidates[0].(*IrAbs); isabs {
+			n.Ann.Candidates = me[n.Name]
+			for i, cand := range n.Ann.Candidates {
+				if abs, isabs := cand.(*IrAbs); isabs {
+					n.Ann.Candidates[i] = &abs.Arg
 
-					if n.Anns.AbsIdx = abs.Anns.AbsIdx; n.Anns.AbsIdx < 0 {
-						n.Anns.AbsIdx = 0
+					if n.Ann.AbsIdx = abs.Ann.AbsIdx; n.Ann.AbsIdx < 0 {
+						n.Ann.AbsIdx = 0
 					}
 
-					n.Anns.ArgIdx = 0
+					n.Ann.ArgIdx = 0
 					var found bool
 					for i := len(nodeAncestors) - 1; i != 0; i-- {
 						if lam, is := nodeAncestors[i].(*IrAbs); is {
-							n.Anns.ArgIdx++
+							n.Ann.ArgIdx++
 							if found = (abs == lam); found {
 								break
 							}
 						}
 					}
-
-					n.Anns.Candidates = []IIrNode{&abs.Arg}
 				}
 			}
 		}

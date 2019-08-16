@@ -17,7 +17,7 @@ func (IrBuild) ApplN(ctx *ctxIrFromAst, callee IIrExpr, callArgs ...IIrExpr) (ap
 }
 
 func (IrBuild) IdentName(name string) *IrIdentName {
-	return &IrIdentName{IrIdentBase: IrIdentBase{Val: name}}
+	return &IrIdentName{IrIdentBase: IrIdentBase{Name: name}}
 }
 
 func (IrBuild) IdentNameCopy(identBase *IrIdentBase) *IrIdentName {

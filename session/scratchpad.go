@@ -71,7 +71,7 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 		defname = def.Name.Val
 		var alreadyinscratchpad *AstFileChunk
 		for _, t := range kit.topLevelDefs {
-			if orig := t.OrigDef(); t.Name.Val == defname || (orig != nil && orig.Name.Val == defname) {
+			if orig := t.OrigDef(); t.Ident.Name == defname || (orig != nil && orig.Name.Val == defname) {
 				if t.AstFileChunk.SrcFile.SrcFilePath == "" {
 					alreadyinscratchpad = t.AstFileChunk
 					break
@@ -114,9 +114,11 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 			me.bgMsg(false, "def added to scratchpad: "+defname)
 		}
 		identexpr := BuildIr.IdentName(defname)
-		identexpr.Anns.Candidates = []IIrNode{defs[0]}
+		identexpr.Ann.Candidates = []IIrNode{defs[0]}
 		ret = me.Preduce(kit, nil, identexpr)
+		if errs.Add(ret.Errs()...); len(errs) != 0 {
+			ret = nil
+		}
 	}
-
 	return
 }

@@ -26,7 +26,7 @@ func (me *IrDef) initFrom(ctx *ctxIrFromAst, origDef *AstDef) (errs Errors) {
 func (me *IrDef) initName(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors) {
 	// even if our name is erroneous as detected further down below:
 	// don't want this to stay empty, generally speaking
-	me.Name.Val = origDefUnary.Name.Val
+	me.Ident.Name = origDefUnary.Name.Val
 
 	tok := origDefUnary.Name.Tokens.First1() // could have none so dont just Tokens[0]
 	if tok == nil {
@@ -39,7 +39,7 @@ func (me *IrDef) initName(ctx *ctxIrFromAst, origDefUnary *AstDef) (errs Errors)
 	if name, _ := ident.(*IrIdentName); name == nil {
 		errs.AddNaming(ErrFromAst_DefNameInvalidIdent, tok, "invalid def name: `"+tok.String()+"`") // some non-name ident: Tag or Undef or placeholder etc..
 	} else {
-		me.Name.IrIdentBase = name.IrIdentBase
+		me.Ident.IrIdentBase = name.IrIdentBase
 	}
 	if origDefUnary.NameAffix != nil {
 		ctx.addCoercion(me, errs.AddVia(ctx.newExprFrom(origDefUnary.NameAffix)).(IIrExpr))
@@ -56,7 +56,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef, maybeArg *IrA
 
 	// fast-track special-casing for a def-body of mere-underscore
 	if ident, _ := origDefUnary.Body.(*AstIdent); ident != nil && ident.IsPlaceholder() {
-		tag := BuildIr.LitTag(me.Name.Val)
+		tag := BuildIr.LitTag(me.Ident.Name)
 		tag.Orig, me.Body = ident, tag
 	} else {
 		me.Body, errs = ctx.newExprFrom(origDefUnary.Body)
@@ -77,9 +77,9 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef, maybeArg *IrA
 
 	if maybeArg != nil {
 		abs := IrAbs{Arg: *maybeArg, Body: me.Body}
-		abs.Orig, abs.Anns.AbsIdx, abs.Arg.ownerAbs, me.Body = me.Orig, ctx.absIdx, &abs, &abs
+		abs.Orig, abs.Ann.AbsIdx, abs.Arg.ownerAbs, me.Body = me.Orig, ctx.absIdx, &abs, &abs
 		if ctx.absIdx == 0 {
-			abs.Anns.AbsIdx = -ctx.absMax
+			abs.Ann.AbsIdx = -ctx.absMax
 			ctx.absMax = 0
 		}
 		ctx.absIdx--
@@ -104,7 +104,7 @@ func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
 	if ident, _ := orig.NameOrConstVal.(*AstIdent); ident != nil {
 		if !(ident.IsTag || ident.IsVar()) {
 			if ident.IsPlaceholder() {
-				isexpr, me.Val, me.Orig =
+				isexpr, me.Name, me.Orig =
 					false, ustr.Int(len(ident.Val))+"_"+ctx.nextPrefix(), ident
 				if len(ident.Val) > 1 {
 					errs.AddNaming(ErrFromAst_DefArgNameMultipleUnderscores, &ident.Tokens[0], "invalid def-arg name: use 1 underscore for discards")
@@ -116,7 +116,7 @@ func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
 	}
 
 	if isexpr {
-		me.Val = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
+		me.Name = ctx.nextPrefix() + orig.NameOrConstVal.Toks()[0].Lexeme
 		appl := BuildIr.Appl1(BuildIr.IdentName(KnownIdentCoerce), errs.AddVia(ctx.newExprFrom(orig.NameOrConstVal)).(IIrExpr))
 		appl.IrExprBase.Orig = orig.NameOrConstVal
 		ctx.addCoercion(me, appl)

@@ -6,8 +6,8 @@ import (
 	. "github.com/metaleap/atmo"
 )
 
+func (me *PValFactBase) Errs() Errors            { return nil }
 func (me *PValFactBase) From() (*IrDef, IIrNode) { return me.from[0].(*IrDef), me.from[len(me.from)-1] }
-func (me *PValFactBase) IsEnv() *PEnv            { return nil }
 func (me *PValFactBase) Self() *PValFactBase     { return me }
 func (me *PValFactBase) String() string {
 	def, node := me.From()
@@ -26,6 +26,7 @@ func (me *PValNever) String() string { return "never(" + me.Never.Self().String(
 
 func (me *PValFn) String() string { return "fn(" + me.Arg.String() + "->" + me.Ret.String() + ")" }
 
+func (me *PValErr) Errs() Errors   { return Errors{me.Error} }
 func (me *PValErr) String() string { return "err(" + me.Error.Error() + ")" }
 
 func (me *PValAbyss) String() string { return "abyss(" + me.PValFactBase.String() + ")" }
@@ -42,12 +43,10 @@ func (me *PVal) AddErr(fromNode []IIrNode, err *Error) *PVal {
 	return me
 }
 
-func (me *PVal) EnsureFn(fromNode []IIrNode, knownToBeFirst bool) *PValFn {
-	if !knownToBeFirst {
-		for _, f := range me.Facts {
-			if fn, is := f.(*PValFn); is {
-				return fn
-			}
+func (me *PVal) EnsureFn(fromNode []IIrNode) *PValFn {
+	for _, f := range me.Facts {
+		if fn, is := f.(*PValFn); is {
+			return fn
 		}
 	}
 
@@ -75,6 +74,15 @@ func (me *PVal) Add(oneOrMultipleFacts IPreduced) *PVal {
 	return me
 }
 
+func (me *PVal) Errs() (errs Errors) {
+	for _, f := range me.Facts {
+		if e, _ := f.(*PValErr); e != nil {
+			errs.Add(e.Error)
+		}
+	}
+	return
+}
+
 func (me *PVal) String() string {
 	buf := ustd.BytesWriter{Data: make([]byte, 0, len(me.Facts)*16)}
 	buf.WriteByte('{')
@@ -88,7 +96,13 @@ func (me *PVal) String() string {
 	return buf.String()
 }
 
-func (me *PEnv) IsEnv() *PEnv { return me }
+func (me *PEnv) Errs() (errs Errors) {
+	if errs = me.PVal.Errs(); me.Link != nil {
+		errs.Add(me.Link.Errs()...)
+	}
+	return
+}
+
 func (me *PEnv) Flatten() {
 	if me.Link != nil {
 		me.Link.Flatten()

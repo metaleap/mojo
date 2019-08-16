@@ -43,7 +43,6 @@ type IIrNode interface {
 	EquivTo(sameTypedNode IIrNode, ignoreNames bool) bool
 	findByOrig(IIrNode, IAstNode, func(IIrNode) bool) []IIrNode
 	IsDef() *IrDef
-	IsExt() bool
 	RefersTo(string) bool
 	refsTo(string) []IIrExpr
 	walk(ancestors []IIrNode, self IIrNode, on func([]IIrNode, IIrNode, ...IIrNode) bool) bool
@@ -66,12 +65,12 @@ type irNodeBase struct {
 type IrDef struct {
 	irNodeBase
 
-	Name IrIdentDecl
-	Body IIrExpr
+	Ident IrIdentDecl
+	Body  IIrExpr
 
 	Id string
 	*AstFileChunk
-	Anns struct {
+	Ann struct {
 		Preduced IPreduced
 	}
 	Errs struct {
@@ -88,7 +87,7 @@ type IrAbs struct {
 	Arg  IrArg
 	Body IIrExpr
 
-	Anns struct {
+	Ann struct {
 		AbsIdx int
 	}
 }
@@ -136,7 +135,7 @@ type IrNonValue struct {
 
 type IrIdentBase struct {
 	IrExprAtomBase
-	Val string
+	Name string
 }
 
 type IrIdentDecl struct {
@@ -146,10 +145,9 @@ type IrIdentDecl struct {
 type IrIdentName struct {
 	IrIdentBase
 
-	Anns struct {
+	Ann struct {
 		AbsIdx int
 		ArgIdx int
-
 		// Candidates may contain either one `*atmoil.IrArg` or any number
 		// of `*atmoil.IrDef` or `atmosess.IrDefRef`.
 		Candidates []IIrNode
@@ -170,8 +168,8 @@ type IrBuild struct{}
 type AnnNamesInScope map[string][]IIrNode
 
 type IPreduced interface {
+	Errs() Errors
 	From() (*IrDef, IIrNode)
-	IsEnv() *PEnv
 	Self() *PValFactBase
 	String() string
 }

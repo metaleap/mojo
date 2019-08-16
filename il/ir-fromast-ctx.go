@@ -49,12 +49,12 @@ func (me *ctxIrFromAst) newExprFromIdent(orig *AstIdent) (ret IIrExpr, errs Erro
 
 	} else {
 		var expr IrIdentName
-		ret, expr.Val, expr.Orig = &expr, orig.Val, orig
+		ret, expr.Name, expr.Orig = &expr, orig.Val, orig
 		if orig.IsVar() {
-			expr.Val = expr.Val[1:]
+			expr.Name = expr.Name[1:]
 		}
 		if me.curTopLevelDef != nil {
-			me.curTopLevelDef.refersTo[expr.Val] = true
+			me.curTopLevelDef.refersTo[expr.Name] = true
 		}
 
 	}
@@ -95,7 +95,7 @@ func (me *ctxIrFromAst) newExprFrom(origin IAstExpr) (expr IIrExpr, errs Errors)
 		expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IIrExpr)
 		for i := range origdes.Defs {
 			astdef, abs := &origdes.Defs[i], IrAbs{Body: expr}
-			abs.Orig, abs.Arg.Orig, abs.Arg.Val = astdef, &astdef.Name, astdef.Name.Val
+			abs.Orig, abs.Arg.Orig, abs.Arg.Name = astdef, &astdef.Name, astdef.Name.Val
 			appl := IrAppl{Callee: &abs}
 			if len(astdef.Args) == 0 && astdef.NameAffix == nil && len(astdef.Meta) == 0 {
 				appl.CallArg = errs.AddVia(me.newExprFrom(astdef.Body)).(IIrExpr)

@@ -177,8 +177,8 @@ func (me *Ctx) kitRefreshFilesAndMaybeReload(kit *Kit, reloadForceInsteadOfAuto 
 		}
 		kit.lookups.tlDefIDsByName, kit.lookups.tlDefsByID = make(map[string][]string, len(kit.topLevelDefs)), make(map[string]*IrDef, len(kit.topLevelDefs))
 		for _, tldef := range kit.topLevelDefs {
-			kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Name.Val] =
-				tldef, append(kit.lookups.tlDefIDsByName[tldef.Name.Val], tldef.Id)
+			kit.lookups.tlDefsByID[tldef.Id], kit.lookups.tlDefIDsByName[tldef.Ident.Name] =
+				tldef, append(kit.lookups.tlDefIDsByName[tldef.Ident.Name], tldef.Id)
 		}
 	}
 	return
