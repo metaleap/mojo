@@ -6,6 +6,14 @@ import (
 	. "github.com/metaleap/atmo/il"
 )
 
+func (me *ctxPreducing) def() IrDefRef {
+	return IrDefRef{Kit: me.curNode.owningKit, IrDef: me.curNode.owningTopDef}
+}
+
+func (me *ctxPreducing) ref(node IIrNode) IrRef {
+	return IrRef{Node: node, Def: me.def()}
+}
+
 func (me *ctxPreducing) toks(n IIrNode) udevlex.Tokens {
 	return me.curNode.owningTopDef.AstOrigToks(n)
 }
@@ -25,10 +33,10 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*IrDef]*Kit) (freshErrs Errors) 
 func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) IPreduced {
 	ctxpreduce := &ctxPreducing{curSessCtx: me, curAbs: make(map[*IrAbs]IPreduced, 8)}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
-	return ctxpreduce.preduce(node, maybeNodeOwningTopDef.AncestorsOf(node)...)
+	return ctxpreduce.preduce(node)
 }
 
-func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPreduced) {
+func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 	var newval PVal
 
 	switch this := node.(type) {
@@ -43,7 +51,7 @@ func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPr
 		if this.Ann.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
 			this.Errs.Stage3Preduce = make(Errors, 0, 0) // not nil anymore now
 			if this.HasErrors() {
-				this.Ann.Preduced = newval.AddAbyss(append(nodeAncestors, this))
+				this.Ann.Preduced = newval.AddAbyss(me.ref(this))
 			} else {
 				prevtopdef, prevenv := me.curNode.owningTopDef, me.curEnv
 				me.curNode.owningTopDef, me.curEnv = this, nil
@@ -56,21 +64,21 @@ func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPr
 		ret = this.Ann.Preduced
 
 	case *IrLitFloat:
-		ret = newval.AddPrimConst(append(nodeAncestors, this), this.Val)
+		ret = newval.AddPrimConst(me.ref(this), this.Val)
 
 	case *IrLitUint:
-		ret = newval.AddPrimConst(append(nodeAncestors, this), this.Val)
+		ret = newval.AddPrimConst(me.ref(this), this.Val)
 
 	case *IrLitTag:
-		ret = newval.AddPrimConst(append(nodeAncestors, this), this.Val)
+		ret = newval.AddPrimConst(me.ref(this), this.Val)
 
 	case *IrNonValue:
-		ret = newval.AddAbyss(append(nodeAncestors, this))
+		ret = newval.AddAbyss(me.ref(this))
 
 	case *IrIdentName:
 		switch len(this.Ann.Candidates) {
 		case 0:
-			ret = newval.AddErr(append(nodeAncestors, this), ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
+			ret = newval.AddErr(me.ref(this), ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
 		case 1:
 			if arg, isarg := this.Ann.Candidates[0].(*IrArg); isarg {
 				ret = me.preduce(me.curNode.owningTopDef.ArgOwnerAbs(arg))
@@ -78,7 +86,7 @@ func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPr
 				ret = me.preduce(this.Ann.Candidates[0])
 			}
 		default:
-			ret = newval.AddErr(append(nodeAncestors, this), ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
+			ret = newval.AddErr(me.ref(this), ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
 		}
 
 	case *IrAbs:
@@ -86,14 +94,13 @@ func (me *ctxPreducing) preduce(node IIrNode, nodeAncestors ...IIrNode) (ret IPr
 		if ret == nil {
 			ret = &newval
 			me.curAbs[this] = ret
-			nodeancestors := append(nodeAncestors, this)
 
-			rfn := newval.EnsureFn(nodeancestors)
-			rfn.Ret.Add(me.preduce(this.Body, nodeancestors...))
+			rfn := newval.EnsureFn(me.ref(this))
+			rfn.Ret.Add(me.preduce(this.Body))
 		}
 
 	case *IrAppl:
-		ret = newval.AddAbyss(append(nodeAncestors, this))
+		ret = newval.AddAbyss(me.ref(this))
 
 	default:
 		panic(this)

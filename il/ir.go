@@ -49,13 +49,12 @@ func (me *IrDef) FindByOrig(orig IAstNode, ok func(IIrNode) bool) []IIrNode {
 	return me.findByOrig(me, orig, ok)
 }
 func (me *IrDef) AncestorsOf(node IIrNode) (nodeAncestors []IIrNode) {
-	if me != nil {
-		me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, _ ...IIrNode) (keepGoing bool) {
-			if curnode == node {
-				nodeAncestors = curnodeancestors
-				return false
+	if me != nil && node != me {
+		me.Walk(func(curnodeancestors []IIrNode, curnode IIrNode, _ ...IIrNode) (keepgoing bool) {
+			if keepgoing = (nodeAncestors == nil); curnode == node {
+				keepgoing, nodeAncestors = false, curnodeancestors
 			}
-			return nodeAncestors == nil
+			return
 		})
 	}
 	return

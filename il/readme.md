@@ -120,7 +120,6 @@ type IIrNode interface {
 ```go
 type IPreduced interface {
 	Errs() Errors
-	From() (*IrDef, IIrNode)
 	Self() *PValFactBase
 	String() string
 }
@@ -753,6 +752,18 @@ func (*IrNonValue) IsDef() *IrDef
 func (me *IrNonValue) Print() IAstNode
 ```
 
+#### type IrRef
+
+```go
+type IrRef struct {
+	Node IIrNode
+
+	// access via `IsDef`, can be *IrDef or atmosess.IrDefRef
+	Def IIrNode
+}
+```
+
+
 #### type PEnv
 
 ```go
@@ -794,25 +805,25 @@ func (me *PVal) Add(oneOrMultipleFacts IPreduced) *PVal
 #### func (*PVal) AddAbyss
 
 ```go
-func (me *PVal) AddAbyss(fromNode []IIrNode) *PVal
+func (me *PVal) AddAbyss(from IrRef) *PVal
 ```
 
 #### func (*PVal) AddErr
 
 ```go
-func (me *PVal) AddErr(fromNode []IIrNode, err *Error) *PVal
+func (me *PVal) AddErr(from IrRef, err *Error) *PVal
 ```
 
 #### func (*PVal) AddPrimConst
 
 ```go
-func (me *PVal) AddPrimConst(fromNode []IIrNode, constVal interface{}) *PVal
+func (me *PVal) AddPrimConst(from IrRef, constVal interface{}) *PVal
 ```
 
 #### func (*PVal) EnsureFn
 
 ```go
-func (me *PVal) EnsureFn(fromNode []IIrNode) *PValFn
+func (me *PVal) EnsureFn(from IrRef) *PValFn
 ```
 
 #### func (*PVal) Errs
@@ -900,6 +911,7 @@ func (me *PValErr) String() string
 
 ```go
 type PValFactBase struct {
+	From IrRef
 }
 ```
 
@@ -908,12 +920,6 @@ type PValFactBase struct {
 
 ```go
 func (me *PValFactBase) Errs() Errors
-```
-
-#### func (*PValFactBase) From
-
-```go
-func (me *PValFactBase) From() (*IrDef, IIrNode)
 ```
 
 #### func (*PValFactBase) Self

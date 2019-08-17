@@ -160,6 +160,13 @@ type IrAppl struct {
 	CallArg IIrExpr
 }
 
+type IrRef struct {
+	Node IIrNode
+
+	// access via `IsDef`, can be *IrDef or atmosess.IrDefRef
+	Def IIrNode
+}
+
 type IrBuild struct{}
 
 // AnnNamesInScope contains per-name all nodes known-in-scope that declare that name;
@@ -169,13 +176,12 @@ type AnnNamesInScope map[string][]IIrNode
 
 type IPreduced interface {
 	Errs() Errors
-	From() (*IrDef, IIrNode)
 	Self() *PValFactBase
 	String() string
 }
 
 type PValFactBase struct {
-	from []IIrNode
+	From IrRef
 }
 
 type PValUsed struct {

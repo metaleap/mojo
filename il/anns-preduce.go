@@ -6,12 +6,10 @@ import (
 	. "github.com/metaleap/atmo"
 )
 
-func (me *PValFactBase) Errs() Errors            { return nil }
-func (me *PValFactBase) From() (*IrDef, IIrNode) { return me.from[0].(*IrDef), me.from[len(me.from)-1] }
-func (me *PValFactBase) Self() *PValFactBase     { return me }
+func (me *PValFactBase) Errs() Errors        { return nil }
+func (me *PValFactBase) Self() *PValFactBase { return me }
 func (me *PValFactBase) String() string {
-	def, node := me.From()
-	return def.AstOrigToks(node).Pos().String()
+	return me.From.Def.IsDef().AstOrigToks(me.From.Node).Pos().String()
 }
 
 func (me *PValUsed) String() string { return "used(" + me.PValFactBase.String() + ")" }
@@ -31,34 +29,35 @@ func (me *PValErr) String() string { return "err(" + me.Error.Error() + ")" }
 
 func (me *PValAbyss) String() string { return "abyss(" + me.PValFactBase.String() + ")" }
 
-func (me *PVal) AddAbyss(fromNode []IIrNode) *PVal {
+func (me *PVal) AddAbyss(from IrRef) *PVal {
 	fact := PValAbyss{}
-	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
+	fact.From, me.Facts = from, append(me.Facts, &fact)
 	return me
 }
 
-func (me *PVal) AddErr(fromNode []IIrNode, err *Error) *PVal {
+func (me *PVal) AddErr(from IrRef, err *Error) *PVal {
 	fact := PValErr{Error: err}
-	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
+	fact.From, me.Facts = from, append(me.Facts, &fact)
 	return me
 }
 
-func (me *PVal) EnsureFn(fromNode []IIrNode) *PValFn {
+func (me *PVal) EnsureFn(from IrRef) *PValFn {
 	for _, f := range me.Facts {
 		if fn, is := f.(*PValFn); is {
 			return fn
 		}
 	}
 
-	fact, abs := PValFn{}, fromNode[len(fromNode)-1].(*IrAbs)
-	fact.Arg.from, fact.Ret.from = append(fromNode, &abs.Arg), append(fromNode, abs.Body)
-	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
+	fact, abs := PValFn{}, from.Node.(*IrAbs)
+	fact.Arg.From.Def, fact.Arg.From.Node = from.Def, &abs.Arg
+	fact.Ret.From.Def, fact.Ret.From.Node = from.Def, abs.Body
+	fact.From, me.Facts = from, append(me.Facts, &fact)
 	return &fact
 }
 
-func (me *PVal) AddPrimConst(fromNode []IIrNode, constVal interface{}) *PVal {
+func (me *PVal) AddPrimConst(from IrRef, constVal interface{}) *PVal {
 	fact := PValPrimConst{ConstVal: constVal}
-	fact.from, me.Facts = fromNode, append(me.Facts, &fact)
+	fact.From, me.Facts = from, append(me.Facts, &fact)
 	return me
 }
 

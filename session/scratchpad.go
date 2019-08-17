@@ -1,6 +1,8 @@
 package atmosess
 
 import (
+	"bytes"
+
 	"github.com/go-leap/str"
 	. "github.com/metaleap/atmo"
 	. "github.com/metaleap/atmo/ast"
@@ -108,14 +110,13 @@ func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret 
 			restoreorigsrc = true
 			return
 		}
-		if len(tmpaltsrc) != len(origsrc) {
+		if len(tmpaltsrc) != len(origsrc) || !bytes.Equal(tmpaltsrc, origsrc) {
 			me.bgMsg(false, "def modified in scratchpad: "+defname)
 		} else if isdef {
 			me.bgMsg(false, "def added to scratchpad: "+defname)
 		}
-		identexpr := BuildIr.IdentName(defname)
-		identexpr.Ann.Candidates = []IIrNode{defs[0]}
-		ret = me.Preduce(kit, nil, identexpr)
+
+		ret = me.Preduce(kit, nil, defs[0])
 		if errs.Add(ret.Errs()...); len(errs) != 0 {
 			ret = nil
 		}
