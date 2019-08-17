@@ -722,7 +722,6 @@ type IrNonValue struct {
 	OneOf struct {
 		LeftoverPlaceholder bool
 		Undefined           bool
-		TempStrLit          bool
 	}
 }
 ```
@@ -820,16 +819,34 @@ func (me *PVal) AddErr(from IrRef, err *Error) *PVal
 func (me *PVal) AddPrimConst(from IrRef, constVal interface{}) *PVal
 ```
 
-#### func (*PVal) EnsureFn
+#### func (*PVal) AddUsed
 
 ```go
-func (me *PVal) EnsureFn(from IrRef) *PValFn
+func (me *PVal) AddUsed(from IrRef) *PVal
 ```
 
 #### func (*PVal) Errs
 
 ```go
 func (me *PVal) Errs() (errs Errors)
+```
+
+#### func (*PVal) Fn
+
+```go
+func (me *PVal) Fn() *PValFn
+```
+
+#### func (*PVal) FnAdd
+
+```go
+func (me *PVal) FnAdd(from IrRef) *PValFn
+```
+
+#### func (*PVal) FnEnsure
+
+```go
+func (me *PVal) FnEnsure(from IrRef) (fn *PValFn)
 ```
 
 #### func (*PVal) String

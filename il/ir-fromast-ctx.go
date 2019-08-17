@@ -81,15 +81,16 @@ func (me *ctxIrFromAst) newExprFrom(origin IAstExpr) (expr IIrExpr, errs Errors)
 		expr = errs.AddVia(me.newExprFromIdent(origdes)).(IIrExpr)
 	case *AstExprLitFloat:
 		var lit IrLitFloat
-		lit.initFrom(me, origdes)
+		lit.initFrom(origdes)
 		expr = &lit
 	case *AstExprLitUint:
 		var lit IrLitUint
-		lit.initFrom(me, origdes)
+		lit.initFrom(origdes)
 		expr = &lit
 	case *AstExprLitStr:
-		var lit IrNonValue
-		lit.Orig, lit.OneOf.TempStrLit = origdes, true
+		var lit IrLitTag // temporarily, as we dont have strings (lists) yet
+		lit.initFrom(origdes)
+		lit.Val = origdes.Val
 		expr = &lit
 	case *AstExprLet:
 		expr = errs.AddVia(me.newExprFrom(origdes.Body)).(IIrExpr)

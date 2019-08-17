@@ -129,7 +129,6 @@ type IrNonValue struct {
 	OneOf struct {
 		LeftoverPlaceholder bool
 		Undefined           bool
-		TempStrLit          bool
 	}
 }
 

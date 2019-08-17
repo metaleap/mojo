@@ -35,24 +35,40 @@ func (me *PVal) AddAbyss(from IrRef) *PVal {
 	return me
 }
 
+func (me *PVal) AddUsed(from IrRef) *PVal {
+	fact := PValUsed{}
+	fact.From, me.Facts = from, append(me.Facts, &fact)
+	return me
+}
+
 func (me *PVal) AddErr(from IrRef, err *Error) *PVal {
 	fact := PValErr{Error: err}
 	fact.From, me.Facts = from, append(me.Facts, &fact)
 	return me
 }
 
-func (me *PVal) EnsureFn(from IrRef) *PValFn {
+func (me *PVal) Fn() *PValFn {
 	for _, f := range me.Facts {
 		if fn, is := f.(*PValFn); is {
 			return fn
 		}
 	}
+	return nil
+}
 
+func (me *PVal) FnAdd(from IrRef) *PValFn {
 	fact, abs := PValFn{}, from.Node.(*IrAbs)
 	fact.Arg.From.Def, fact.Arg.From.Node = from.Def, &abs.Arg
 	fact.Ret.From.Def, fact.Ret.From.Node = from.Def, abs.Body
 	fact.From, me.Facts = from, append(me.Facts, &fact)
 	return &fact
+}
+
+func (me *PVal) FnEnsure(from IrRef) (fn *PValFn) {
+	if fn = me.Fn(); fn == nil {
+		fn = me.FnAdd(from)
+	}
+	return
 }
 
 func (me *PVal) AddPrimConst(from IrRef, constVal interface{}) *PVal {

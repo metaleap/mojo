@@ -81,7 +81,7 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 			ret = newval.AddErr(me.ref(this), ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
 		case 1:
 			if arg, isarg := this.Ann.Candidates[0].(*IrArg); isarg {
-				ret = me.preduce(me.curNode.owningTopDef.ArgOwnerAbs(arg))
+				ret = me.preduce(arg)
 			} else {
 				ret = me.preduce(this.Ann.Candidates[0])
 			}
@@ -89,13 +89,19 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 			ret = newval.AddErr(me.ref(this), ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
 		}
 
+	case *IrArg:
+		rfn := me.preduce(me.curNode.owningTopDef.ArgOwnerAbs(this))
+		arg := &(rfn.(*PVal).Fn().Arg)
+		arg.AddUsed(me.ref(this))
+		ret = arg
+
 	case *IrAbs:
 		ret = me.curAbs[this]
 		if ret == nil {
 			ret = &newval
 			me.curAbs[this] = ret
 
-			rfn := newval.EnsureFn(me.ref(this))
+			rfn := newval.FnAdd(me.ref(this))
 			rfn.Ret.Add(me.preduce(this.Body))
 		}
 

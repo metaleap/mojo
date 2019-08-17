@@ -127,16 +127,16 @@ func (me *IrArg) initFrom(ctx *ctxIrFromAst, orig *AstDefArg) (errs Errors) {
 	return
 }
 
-func (me *irLitBase) initFrom(ctx *ctxIrFromAst, orig IAstExprAtomic) {
+func (me *irLitBase) initFrom(orig IAstExprAtomic) {
 	me.Orig = orig
 }
 
-func (me *IrLitFloat) initFrom(ctx *ctxIrFromAst, orig *AstExprLitFloat) {
-	me.irLitBase.initFrom(ctx, orig)
+func (me *IrLitFloat) initFrom(orig *AstExprLitFloat) {
+	me.irLitBase.initFrom(orig)
 	me.Val = orig.Val
 }
 
-func (me *IrLitUint) initFrom(ctx *ctxIrFromAst, orig *AstExprLitUint) {
-	me.irLitBase.initFrom(ctx, orig)
+func (me *IrLitUint) initFrom(orig *AstExprLitUint) {
+	me.irLitBase.initFrom(orig)
 	me.Val = orig.Val
 }
