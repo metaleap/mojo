@@ -317,7 +317,8 @@ later scrutinizing.
   - else to local-ctx copy's `a`
 - whole:
   - if _lhs_ not `fn` then `abyss`
-  - else _lhs_.r after any refs to _rhs_ filled in
+  - else _lhs_.r copy with any refs to _rhs_ filled in
+  - since this is per-appl, inner refs to outer rhs will be filled
 
 Most is naive propagation with the meat coming from prim-ops and prim-types.
 

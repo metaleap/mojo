@@ -77,7 +77,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef, maybeArg *IrA
 
 	if maybeArg != nil {
 		abs := IrAbs{Arg: *maybeArg, Body: me.Body}
-		abs.Orig, abs.Ann.AbsIdx, abs.Arg.ownerAbs, me.Body = me.Orig, ctx.absIdx, &abs, &abs
+		abs.Orig, abs.Ann.AbsIdx, abs.Arg.Ann.Parent, me.Body = me.Orig, ctx.absIdx, &abs, &abs
 		if ctx.absIdx == 0 {
 			abs.Ann.AbsIdx = -ctx.absMax
 			ctx.absMax = 0

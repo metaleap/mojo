@@ -217,6 +217,9 @@ func (me *IrAppl) RefersTo(name string) bool
 ```go
 type IrArg struct {
 	IrIdentDecl
+	Ann struct {
+		Parent *IrAbs
+	}
 }
 ```
 
@@ -763,28 +766,6 @@ type IrRef struct {
 ```
 
 
-#### type PEnv
-
-```go
-type PEnv struct {
-	Link *PEnv
-	PVal
-}
-```
-
-
-#### func (*PEnv) Errs
-
-```go
-func (me *PEnv) Errs() (errs Errors)
-```
-
-#### func (*PEnv) Flatten
-
-```go
-func (me *PEnv) Flatten()
-```
-
 #### type PVal
 
 ```go
@@ -804,25 +785,31 @@ func (me *PVal) Add(oneOrMultipleFacts IPreduced) *PVal
 #### func (*PVal) AddAbyss
 
 ```go
-func (me *PVal) AddAbyss(from IrRef) *PVal
+func (me *PVal) AddAbyss(loc IrRef) *PVal
 ```
 
 #### func (*PVal) AddErr
 
 ```go
-func (me *PVal) AddErr(from IrRef, err *Error) *PVal
+func (me *PVal) AddErr(loc IrRef, err *Error) *PVal
+```
+
+#### func (*PVal) AddLink
+
+```go
+func (me *PVal) AddLink(loc IrRef, to *PVal) *PVal
 ```
 
 #### func (*PVal) AddPrimConst
 
 ```go
-func (me *PVal) AddPrimConst(from IrRef, constVal interface{}) *PVal
+func (me *PVal) AddPrimConst(loc IrRef, constVal interface{}) *PVal
 ```
 
 #### func (*PVal) AddUsed
 
 ```go
-func (me *PVal) AddUsed(from IrRef) *PVal
+func (me *PVal) AddUsed(loc IrRef) *PVal
 ```
 
 #### func (*PVal) Errs
@@ -840,13 +827,19 @@ func (me *PVal) Fn() *PValFn
 #### func (*PVal) FnAdd
 
 ```go
-func (me *PVal) FnAdd(from IrRef) *PValFn
+func (me *PVal) FnAdd(loc IrRef) *PValFn
 ```
 
 #### func (*PVal) FnEnsure
 
 ```go
-func (me *PVal) FnEnsure(from IrRef) (ret *PValFn)
+func (me *PVal) FnEnsure(loc IrRef) (ret *PValFn)
+```
+
+#### func (*PVal) FromAppl
+
+```go
+func (me *PVal) FromAppl(fn *PValFn, curApplArg *PVal)
 ```
 
 #### func (*PVal) String
@@ -928,7 +921,7 @@ func (me *PValErr) String() string
 
 ```go
 type PValFactBase struct {
-	From IrRef
+	Loc IrRef
 }
 ```
 
@@ -966,6 +959,22 @@ type PValFn struct {
 
 ```go
 func (me *PValFn) String() string
+```
+
+#### type PValLink
+
+```go
+type PValLink struct {
+	PValFactBase
+	To *PVal
+}
+```
+
+
+#### func (*PValLink) String
+
+```go
+func (me *PValLink) String() string
 ```
 
 #### type PValNever

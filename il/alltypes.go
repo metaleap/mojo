@@ -94,7 +94,9 @@ type IrAbs struct {
 
 type IrArg struct {
 	IrIdentDecl
-	ownerAbs *IrAbs
+	Ann struct {
+		Parent *IrAbs
+	}
 }
 
 type IrExprBase struct {
@@ -180,7 +182,7 @@ type IPreduced interface {
 }
 
 type PValFactBase struct {
-	From IrRef
+	Loc IrRef
 }
 
 type PValUsed struct {
@@ -222,12 +224,12 @@ type PValErr struct {
 	*Error
 }
 
+type PValLink struct {
+	PValFactBase
+	To *PVal
+}
+
 type PVal struct {
 	PValFactBase
 	Facts []IPreduced
-}
-
-type PEnv struct {
-	Link *PEnv
-	PVal
 }

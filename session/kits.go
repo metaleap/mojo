@@ -235,14 +235,15 @@ func (me Kits) SrcFilePaths() (srcFilePaths []string) {
 func (me *Ctx) reprocessAffectedDefsIfAnyKitsReloaded() (freshErrs Errors) {
 	if me.Kits.reprocessingNeeded {
 		me.Kits.reprocessingNeeded = false
-		timestarted := time.Now().UnixNano()
 
+		timestarted := time.Now().UnixNano()
 		namesofchange, _, _, ferrs := me.kitsRepopulateNamesInScope()
 		freshErrs = ferrs
 		defidsofacquaintancesofnamesofchange := make(map[*IrDef]*Kit)
 		me.Kits.All.collectAcquaintances(namesofchange, defidsofacquaintancesofnamesofchange, make(StringKeys, len(namesofchange)))
 		freshErrs.Add(me.rePreduceTopLevelDefs(defidsofacquaintancesofnamesofchange)...)
-		me.bgMsg(false, time.Duration(time.Now().UnixNano()-timestarted).String()+" for "+ustr.Join(namesofchange.Sorted(nil), " + "))
+		timedone := time.Now().UnixNano()
+		me.bgMsg(false, time.Duration(timedone-timestarted).String()+" for "+ustr.Join(namesofchange.Sorted(nil), " + "))
 	}
 	return
 }
@@ -349,7 +350,7 @@ func (me Kits) collectAcquaintances(defNames StringKeys, acquaintancesDefs map[*
 	indirects := (doneAlready != nil)
 	var morenames StringKeys
 	if indirects {
-		morenames = make(StringKeys, 4)
+		morenames = make(StringKeys, 2)
 	}
 
 	for defname := range defNames {

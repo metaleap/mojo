@@ -69,15 +69,15 @@ func (me *IrDef) AncestorsAndChildrenOf(node IIrNode) (nodeAncestors []IIrNode, 
 	return
 }
 func (me *IrDef) ArgOwnerAbs(arg *IrArg) *IrAbs {
-	if arg.ownerAbs == nil && me != nil {
+	if arg.Ann.Parent == nil && me != nil {
 		me.Walk(func(_ []IIrNode, node IIrNode, _ ...IIrNode) bool {
 			if abs, is := node.(*IrAbs); is {
-				abs.Arg.ownerAbs = abs
+				abs.Arg.Ann.Parent = abs
 			}
 			return true
 		})
 	}
-	return arg.ownerAbs
+	return arg.Ann.Parent
 }
 func (me *IrDef) AstOrigToks(node IIrNode) (toks udevlex.Tokens) {
 	if node == nil {
@@ -107,23 +107,25 @@ func (me *IrDef) AstOrigToks(node IIrNode) (toks udevlex.Tokens) {
 func (me *IrDef) RefersToOrDefines(name string) (relatesTo bool) {
 	relatesTo = me.Ident.Name == name || me.RefersTo(name)
 	if !relatesTo {
-		me.Walk(func(_ []IIrNode, node IIrNode, _ ...IIrNode) bool {
-			abs, _ := node.(*IrAbs)
-			relatesTo = relatesTo || (abs != nil && abs.Arg.Name == name)
+		me.Walk(func(_ []IIrNode, node IIrNode, _ ...IIrNode) (keepgoing bool) {
+			abs, is := node.(*IrAbs)
+			relatesTo = relatesTo || (is && abs.Arg.Name == name)
 			return !relatesTo
 		})
 	}
 	return
 }
 func (me *IrDef) RefersTo(name string) (refersTo bool) {
+	return me.refersTo[name] // we now store this on idents in ast-to-ir stage
+
 	// as long as an IrDef exists, it represents the same original code snippet: so any given
 	// RefersTo(foo) truth will hold throughout: so we cache instead of continuously re-searching
-	var known bool
-	if refersTo, known = me.refersTo[name]; !known {
-		refersTo = me.Body.RefersTo(name)
-		me.refersTo[name] = refersTo
-	}
-	return
+	// var known bool
+	// if refersTo, known = me.refersTo[name]; !known {
+	// 	refersTo = me.Body.RefersTo(name)
+	// 	me.refersTo[name] = refersTo
+	// }
+	// return
 }
 func (me *IrDef) RefsTo(name string) (refs []IIrExpr) {
 	for len(name) != 0 && name[0] == '_' {

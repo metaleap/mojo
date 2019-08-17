@@ -27,7 +27,6 @@ import (
 )
 
 type ctxPreducing struct {
-	curEnv     *PEnv
 	curSessCtx *Ctx
 	curAbs     map[*IrAbs]*PVal
 	curNode    struct {

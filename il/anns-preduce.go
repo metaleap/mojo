@@ -9,7 +9,7 @@ import (
 func (me *PValFactBase) Errs() Errors        { return nil }
 func (me *PValFactBase) Self() *PValFactBase { return me }
 func (me *PValFactBase) String() string {
-	return me.From.Def.IsDef().AstOrigToks(me.From.Node).String()
+	return me.Loc.Def.IsDef().AstOrigToks(me.Loc.Node).String()
 }
 
 func (me *PValUsed) String() string { return "used(" + me.PValFactBase.String() + ")" }
@@ -29,21 +29,29 @@ func (me *PValErr) String() string { return "err(" + me.Error.Error() + ")" }
 
 func (me *PValAbyss) String() string { return "abyss(" + me.PValFactBase.String() + ")" }
 
-func (me *PVal) AddAbyss(from IrRef) *PVal {
+func (me *PValLink) String() string { return "link(" + me.To.Self().String() + ")" }
+
+func (me *PVal) AddAbyss(loc IrRef) *PVal {
 	fact := PValAbyss{}
-	fact.From, me.Facts = from, append(me.Facts, &fact)
+	fact.Loc, me.Facts = loc, append(me.Facts, &fact)
 	return me
 }
 
-func (me *PVal) AddUsed(from IrRef) *PVal {
+func (me *PVal) AddLink(loc IrRef, to *PVal) *PVal {
+	fact := PValLink{To: to}
+	fact.Loc, me.Facts = loc, append(me.Facts, &fact)
+	return me
+}
+
+func (me *PVal) AddUsed(loc IrRef) *PVal {
 	fact := PValUsed{}
-	fact.From, me.Facts = from, append(me.Facts, &fact)
+	fact.Loc, me.Facts = loc, append(me.Facts, &fact)
 	return me
 }
 
-func (me *PVal) AddErr(from IrRef, err *Error) *PVal {
+func (me *PVal) AddErr(loc IrRef, err *Error) *PVal {
 	fact := PValErr{Error: err}
-	fact.From, me.Facts = from, append(me.Facts, &fact)
+	fact.Loc, me.Facts = loc, append(me.Facts, &fact)
 	return me
 }
 
@@ -56,35 +64,33 @@ func (me *PVal) Fn() *PValFn {
 	return nil
 }
 
-func (me *PVal) FnAdd(from IrRef) *PValFn {
-	fact, abs := PValFn{}, from.Node.(*IrAbs)
-	fact.Arg.From.Def, fact.Arg.From.Node = from.Def, &abs.Arg
-	fact.Ret.From.Def, fact.Ret.From.Node = from.Def, abs.Body
-	fact.From, me.Facts = from, append(me.Facts, &fact)
+func (me *PVal) FnAdd(loc IrRef) *PValFn {
+	fact, abs := PValFn{}, loc.Node.(*IrAbs)
+	fact.Arg.Loc.Def, fact.Arg.Loc.Node = loc.Def, &abs.Arg
+	fact.Ret.Loc.Def, fact.Ret.Loc.Node = loc.Def, abs.Body
+	fact.Loc, me.Facts = loc, append(me.Facts, &fact)
 	return &fact
 }
 
-func (me *PVal) FnEnsure(from IrRef) (ret *PValFn) {
+func (me *PVal) FnEnsure(loc IrRef) (ret *PValFn) {
 	if ret = me.Fn(); ret == nil {
-		fact, appl := &PValFn{}, from.Node.(*IrAppl)
-		fact.Arg.From.Def, fact.Arg.From.Node = from.Def, appl.CallArg
-		fact.Ret.From.Def, fact.Ret.From.Node = from.Def, appl.Callee
-		fact.From, me.Facts, ret = from, append(me.Facts, fact), fact
+		fact, appl := &PValFn{}, loc.Node.(*IrAppl)
+		fact.Arg.Loc.Def, fact.Arg.Loc.Node = loc.Def, appl.CallArg
+		fact.Ret.Loc.Def, fact.Ret.Loc.Node = loc.Def, appl.Callee
+		fact.Loc, me.Facts, ret = loc, append(me.Facts, fact), fact
 	}
 	return
 }
 
-func (me *PVal) AddPrimConst(from IrRef, constVal interface{}) *PVal {
+func (me *PVal) AddPrimConst(loc IrRef, constVal interface{}) *PVal {
 	fact := PValPrimConst{ConstVal: constVal}
-	fact.From, me.Facts = from, append(me.Facts, &fact)
+	fact.Loc, me.Facts = loc, append(me.Facts, &fact)
 	return me
 }
 
 func (me *PVal) Add(oneOrMultipleFacts IPreduced) *PVal {
 	switch f := oneOrMultipleFacts.(type) {
 	case *PVal:
-		me.Facts = append(me.Facts, f.Facts...)
-	case *PEnv:
 		me.Facts = append(me.Facts, f.Facts...)
 	default:
 		me.Facts = append(me.Facts, f)
@@ -99,6 +105,9 @@ func (me *PVal) Errs() (errs Errors) {
 	return
 }
 
+func (me *PVal) FromAppl(fn *PValFn, curApplArg *PVal) {
+}
+
 func (me *PVal) String() string {
 	buf := ustd.BytesWriter{Data: make([]byte, 0, len(me.Facts)*16)}
 	buf.WriteString("[ ")
@@ -110,19 +119,4 @@ func (me *PVal) String() string {
 	}
 	buf.WriteString(" ]")
 	return buf.String()
-}
-
-func (me *PEnv) Errs() (errs Errors) {
-	if errs = me.PVal.Errs(); me.Link != nil {
-		errs.Add(me.Link.Errs()...)
-	}
-	return
-}
-
-func (me *PEnv) Flatten() {
-	if me.Link != nil {
-		me.Link.Flatten()
-		me.Facts = append(me.Facts, me.Link.Facts...)
-		me.Link = nil
-	}
 }

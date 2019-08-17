@@ -25,7 +25,9 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*IrDef]*Kit) (freshErrs Errors) 
 	ctxpred := ctxPreducing{curSessCtx: me}
 	for def, kit := range defIds {
 		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef, ctxpred.curAbs = kit, def, make(map[*IrAbs]*PVal, 32)
-		_ = ctxpred.preduce(def) // does set def.Ann.Preduced, and it must happen there not here
+		pred := ctxpred.preduce(def) // does set def.Ann.Preduced, and it must happen there not here
+		def.Errs.Stage3Preduce = pred.Errs()
+		freshErrs.Add(def.Errs.Stage3Preduce...)
 	}
 	return
 }
@@ -38,6 +40,7 @@ func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node II
 
 func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 	var newval PVal
+	ref := me.ref(node)
 
 	switch this := node.(type) {
 
@@ -51,44 +54,42 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 		if this.Ann.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
 			this.Errs.Stage3Preduce = make(Errors, 0, 0) // not nil anymore now
 			if this.HasErrors() {
-				this.Ann.Preduced = newval.AddAbyss(me.ref(this))
+				this.Ann.Preduced = newval.AddAbyss(ref)
 			} else {
-				prevtopdef, prevenv := me.curNode.owningTopDef, me.curEnv
-				me.curNode.owningTopDef, me.curEnv = this, nil
-				{
-					this.Ann.Preduced = me.preduce(this.Body)
-				}
-				me.curNode.owningTopDef, me.curEnv = prevtopdef, prevenv
+				prevtopdef := me.curNode.owningTopDef
+				me.curNode.owningTopDef = this
+				this.Ann.Preduced = me.preduce(this.Body)
+				me.curNode.owningTopDef = prevtopdef
 			}
 		}
 		ret = this.Ann.Preduced
 
 	case *IrLitFloat:
-		ret = newval.AddPrimConst(me.ref(this), this.Val)
+		ret = newval.AddPrimConst(ref, this.Val)
 
 	case *IrLitUint:
-		ret = newval.AddPrimConst(me.ref(this), this.Val)
+		ret = newval.AddPrimConst(ref, this.Val)
 
 	case *IrLitTag:
-		ret = newval.AddPrimConst(me.ref(this), this.Val)
+		ret = newval.AddPrimConst(ref, this.Val)
 
 	case *IrNonValue:
-		ret = newval.AddAbyss(me.ref(this))
+		ret = newval.AddAbyss(ref)
 
 	case *IrIdentName:
 		switch len(this.Ann.Candidates) {
 		case 0:
-			ret = newval.AddErr(me.ref(this), ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
+			ret = newval.AddErr(ref, ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
 		case 1:
 			ret = me.preduce(this.Ann.Candidates[0])
-			ret.AddUsed(me.ref(this))
+			ret.AddUsed(ref)
 		default:
-			ret = newval.AddErr(me.ref(this), ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
+			ret = newval.AddErr(ref, ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
 		}
 
 	case *IrArg:
-		rfn := me.preduce(me.curNode.owningTopDef.ArgOwnerAbs(this))
-		ret = &(rfn.Fn().Arg)
+		pafn := me.preduce(me.curNode.owningTopDef.ArgOwnerAbs(this))
+		ret = &(pafn.Fn().Arg)
 
 	case *IrAbs:
 		ret = me.curAbs[this]
@@ -96,18 +97,24 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 			ret = &newval
 			me.curAbs[this] = ret
 
-			rfn := newval.FnAdd(me.ref(this))
+			rfn := newval.FnAdd(ref)
 			rfn.Ret.Add(me.preduce(this.Body))
 		}
 
 	case *IrAppl:
-		subj := me.preduce(this.Callee)
-		fn := subj.FnEnsure(me.ref(this))
-		arg := me.preduce(this.CallArg)
-		arg.Facts = append(arg.Facts, &fn.Arg)
-		newval.Facts = append(newval.Facts, &fn.Ret)
-		ret = &newval
+		pcallee := me.preduce(this.Callee)
+		parg := me.preduce(this.CallArg)
 
+		islocal := pcallee.Loc.Def == me.curNode.owningTopDef
+		if islocal {
+		}
+		pcfn := pcallee.FnEnsure(ref)
+
+		parg.AddLink(ref, &pcfn.Arg)
+
+		println("CALLEE", pcallee.String, "ARG", parg.String())
+		newval.FromAppl(pcfn, parg)
+		ret = &newval
 	default:
 		panic(this)
 	}
