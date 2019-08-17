@@ -91,23 +91,21 @@ func (me *PVal) Add(oneOrMultipleFacts IPreduced) *PVal {
 
 func (me *PVal) Errs() (errs Errors) {
 	for _, f := range me.Facts {
-		if e, _ := f.(*PValErr); e != nil {
-			errs.Add(e.Error)
-		}
+		errs.Add(f.Errs()...)
 	}
 	return
 }
 
 func (me *PVal) String() string {
 	buf := ustd.BytesWriter{Data: make([]byte, 0, len(me.Facts)*16)}
-	buf.WriteByte('{')
+	buf.WriteByte('[')
 	for i, f := range me.Facts {
 		buf.WriteString(f.String())
 		if i != (len(me.Facts) - 1) {
 			buf.WriteString(" AND ")
 		}
 	}
-	buf.WriteByte('}')
+	buf.WriteByte(']')
 	return buf.String()
 }
 

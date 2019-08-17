@@ -304,7 +304,7 @@ type IrDef struct {
 	Id string
 	*AstFileChunk
 	Ann struct {
-		Preduced IPreduced
+		Preduced *PVal
 	}
 	Errs struct {
 		Stage1AstToIr  Errors

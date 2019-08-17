@@ -190,13 +190,13 @@ events in `Ctx.On` must never use `Locked`.
 #### func (*Ctx) Preduce
 
 ```go
-func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) IPreduced
+func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) *PVal
 ```
 
 #### func (*Ctx) ScratchpadEntry
 
 ```go
-func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs Errors)
+func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret *PVal, errs Errors)
 ```
 
 #### func (*Ctx) WithInMemFileMod

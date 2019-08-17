@@ -24,19 +24,19 @@ func (me *Ctx) rePreduceTopLevelDefs(defIds map[*IrDef]*Kit) (freshErrs Errors) 
 	}
 	ctxpred := ctxPreducing{curSessCtx: me}
 	for def, kit := range defIds {
-		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef, ctxpred.curAbs = kit, def, make(map[*IrAbs]IPreduced, 32)
+		ctxpred.curNode.owningKit, ctxpred.curNode.owningTopDef, ctxpred.curAbs = kit, def, make(map[*IrAbs]*PVal, 32)
 		_ = ctxpred.preduce(def) // does set def.Ann.Preduced, and it must happen there not here
 	}
 	return
 }
 
-func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) IPreduced {
-	ctxpreduce := &ctxPreducing{curSessCtx: me, curAbs: make(map[*IrAbs]IPreduced, 8)}
+func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node IIrNode) *PVal {
+	ctxpreduce := &ctxPreducing{curSessCtx: me, curAbs: make(map[*IrAbs]*PVal, 8)}
 	ctxpreduce.curNode.owningKit, ctxpreduce.curNode.owningTopDef = nodeOwningKit, maybeNodeOwningTopDef
 	return ctxpreduce.preduce(node)
 }
 
-func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
+func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 	var newval PVal
 
 	switch this := node.(type) {
@@ -80,20 +80,15 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret IPreduced) {
 		case 0:
 			ret = newval.AddErr(me.ref(this), ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
 		case 1:
-			if arg, isarg := this.Ann.Candidates[0].(*IrArg); isarg {
-				ret = me.preduce(arg)
-			} else {
-				ret = me.preduce(this.Ann.Candidates[0])
-			}
+			ret = me.preduce(this.Ann.Candidates[0])
+			ret.AddUsed(me.ref(this))
 		default:
 			ret = newval.AddErr(me.ref(this), ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
 		}
 
 	case *IrArg:
 		rfn := me.preduce(me.curNode.owningTopDef.ArgOwnerAbs(this))
-		arg := &(rfn.(*PVal).Fn().Arg)
-		arg.AddUsed(me.ref(this))
-		ret = arg
+		ret = &(rfn.Fn().Arg)
 
 	case *IrAbs:
 		ret = me.curAbs[this]

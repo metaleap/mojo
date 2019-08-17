@@ -26,7 +26,7 @@ func (me *Kit) ScratchpadClear() {
 	me.ensureScratchpadFile().Options.TmpAltSrc = make([]byte, 0, 128) // what matters is that it mustn't be `nil` for scratchpad purposes
 }
 
-func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret IPreduced, errs Errors) {
+func (me *Ctx) ScratchpadEntry(kit *Kit, maybeTopDefId string, src string) (ret *PVal, errs Errors) {
 	if src = ustr.Trim(src); len(src) == 0 {
 		return
 	}
