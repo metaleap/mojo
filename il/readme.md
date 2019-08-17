@@ -846,7 +846,7 @@ func (me *PVal) FnAdd(from IrRef) *PValFn
 #### func (*PVal) FnEnsure
 
 ```go
-func (me *PVal) FnEnsure(from IrRef) (fn *PValFn)
+func (me *PVal) FnEnsure(from IrRef) (ret *PValFn)
 ```
 
 #### func (*PVal) String

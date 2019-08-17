@@ -101,7 +101,12 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 		}
 
 	case *IrAppl:
-		ret = newval.AddAbyss(me.ref(this))
+		subj := me.preduce(this.Callee)
+		fn := subj.FnEnsure(me.ref(this))
+		arg := me.preduce(this.CallArg)
+		arg.Facts = append(arg.Facts, &fn.Arg)
+		newval.Facts = append(newval.Facts, &fn.Ret)
+		ret = &newval
 
 	default:
 		panic(this)

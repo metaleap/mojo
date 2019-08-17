@@ -9,7 +9,7 @@ import (
 func (me *PValFactBase) Errs() Errors        { return nil }
 func (me *PValFactBase) Self() *PValFactBase { return me }
 func (me *PValFactBase) String() string {
-	return me.From.Def.IsDef().AstOrigToks(me.From.Node).Pos().String()
+	return me.From.Def.IsDef().AstOrigToks(me.From.Node).String()
 }
 
 func (me *PValUsed) String() string { return "used(" + me.PValFactBase.String() + ")" }
@@ -64,9 +64,12 @@ func (me *PVal) FnAdd(from IrRef) *PValFn {
 	return &fact
 }
 
-func (me *PVal) FnEnsure(from IrRef) (fn *PValFn) {
-	if fn = me.Fn(); fn == nil {
-		fn = me.FnAdd(from)
+func (me *PVal) FnEnsure(from IrRef) (ret *PValFn) {
+	if ret = me.Fn(); ret == nil {
+		fact, appl := &PValFn{}, from.Node.(*IrAppl)
+		fact.Arg.From.Def, fact.Arg.From.Node = from.Def, appl.CallArg
+		fact.Ret.From.Def, fact.Ret.From.Node = from.Def, appl.Callee
+		fact.From, me.Facts, ret = from, append(me.Facts, fact), fact
 	}
 	return
 }
@@ -98,14 +101,14 @@ func (me *PVal) Errs() (errs Errors) {
 
 func (me *PVal) String() string {
 	buf := ustd.BytesWriter{Data: make([]byte, 0, len(me.Facts)*16)}
-	buf.WriteByte('[')
+	buf.WriteString("[ ")
 	for i, f := range me.Facts {
 		buf.WriteString(f.String())
 		if i != (len(me.Facts) - 1) {
 			buf.WriteString(" AND ")
 		}
 	}
-	buf.WriteByte(']')
+	buf.WriteString(" ]")
 	return buf.String()
 }
 
