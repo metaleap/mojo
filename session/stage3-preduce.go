@@ -40,7 +40,7 @@ func (me *Ctx) Preduce(nodeOwningKit *Kit, maybeNodeOwningTopDef *IrDef, node II
 
 func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 	var newval PVal
-	ref := me.ref(node)
+	newval.Loc = me.ref(node)
 
 	switch this := node.(type) {
 
@@ -54,7 +54,7 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 		if this.Ann.Preduced == nil && this.Errs.Stage3Preduce == nil { // only actively preduce if not already there --- both set to nil preparatorily in rePreduceTopLevelDefs
 			this.Errs.Stage3Preduce = make(Errors, 0, 0) // not nil anymore now
 			if this.HasErrors() {
-				this.Ann.Preduced = newval.AddAbyss(ref)
+				this.Ann.Preduced = newval.AddAbyss(newval.Loc)
 			} else {
 				prevtopdef := me.curNode.owningTopDef
 				me.curNode.owningTopDef = this
@@ -65,26 +65,26 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 		ret = this.Ann.Preduced
 
 	case *IrLitFloat:
-		ret = newval.AddPrimConst(ref, this.Val)
+		ret = newval.AddPrimConst(newval.Loc, this.Val)
 
 	case *IrLitUint:
-		ret = newval.AddPrimConst(ref, this.Val)
+		ret = newval.AddPrimConst(newval.Loc, this.Val)
 
 	case *IrLitTag:
-		ret = newval.AddPrimConst(ref, this.Val)
+		ret = newval.AddPrimConst(newval.Loc, this.Val)
 
 	case *IrNonValue:
-		ret = newval.AddAbyss(ref)
+		ret = newval.AddAbyss(newval.Loc)
 
 	case *IrIdentName:
 		switch len(this.Ann.Candidates) {
 		case 0:
-			ret = newval.AddErr(ref, ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
+			ret = newval.AddErr(newval.Loc, ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
 		case 1:
 			ret = me.preduce(this.Ann.Candidates[0])
-			ret.AddUsed(ref)
+			ret.AddUsed(newval.Loc)
 		default:
-			ret = newval.AddErr(ref, ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
+			ret = newval.AddErr(newval.Loc, ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
 		}
 
 	case *IrArg:
@@ -97,7 +97,7 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 			ret = &newval
 			me.curAbs[this] = ret
 
-			rfn := newval.FnAdd(ref)
+			rfn := newval.FnAdd(newval.Loc)
 			rfn.Ret.Add(me.preduce(this.Body))
 		}
 
@@ -105,16 +105,16 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 		pcallee := me.preduce(this.Callee)
 		parg := me.preduce(this.CallArg)
 
-		islocal := pcallee.Loc.Def == me.curNode.owningTopDef
-		if islocal {
+		pcfn, notknownabs := pcallee.FnEnsure(newval.Loc)
+		if notknownabs {
+			pcfn.Arg.AddLink(newval.Loc, parg)
 		}
-		pcfn := pcallee.FnEnsure(ref)
+		parg.AddLink(newval.Loc, &pcfn.Arg)
 
-		parg.AddLink(ref, &pcfn.Arg)
-
-		println("CALLEE", pcallee.String, "ARG", parg.String())
+		println("\tCALLEE", pcallee.String(), "\n\tARG", parg.String())
 		newval.FromAppl(pcfn, parg)
 		ret = &newval
+
 	default:
 		panic(this)
 	}

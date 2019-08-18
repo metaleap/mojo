@@ -120,6 +120,7 @@ type IIrNode interface {
 ```go
 type IPreduced interface {
 	Errs() Errors
+	Rewritten(func(IPreduced) IPreduced) IPreduced
 	Self() *PValFactBase
 	String() string
 }
@@ -833,13 +834,19 @@ func (me *PVal) FnAdd(loc IrRef) *PValFn
 #### func (*PVal) FnEnsure
 
 ```go
-func (me *PVal) FnEnsure(loc IrRef) (ret *PValFn)
+func (me *PVal) FnEnsure(loc IrRef) (ret *PValFn, fromLoc bool)
 ```
 
 #### func (*PVal) FromAppl
 
 ```go
 func (me *PVal) FromAppl(fn *PValFn, curApplArg *PVal)
+```
+
+#### func (*PVal) Rewritten
+
+```go
+func (me *PVal) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
 ```
 
 #### func (*PVal) String
@@ -857,6 +864,12 @@ type PValAbyss struct {
 ```
 
 
+#### func (*PValAbyss) Rewritten
+
+```go
+func (me *PValAbyss) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
+```
+
 #### func (*PValAbyss) String
 
 ```go
@@ -873,6 +886,12 @@ type PValEqType struct {
 ```
 
 
+#### func (*PValEqType) Rewritten
+
+```go
+func (me *PValEqType) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
+```
+
 #### func (*PValEqType) String
 
 ```go
@@ -888,6 +907,12 @@ type PValEqVal struct {
 }
 ```
 
+
+#### func (*PValEqVal) Rewritten
+
+```go
+func (me *PValEqVal) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
+```
 
 #### func (*PValEqVal) String
 
@@ -909,6 +934,12 @@ type PValErr struct {
 
 ```go
 func (me *PValErr) Errs() Errors
+```
+
+#### func (*PValErr) Rewritten
+
+```go
+func (me *PValErr) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
 ```
 
 #### func (*PValErr) String
@@ -955,6 +986,12 @@ type PValFn struct {
 ```
 
 
+#### func (*PValFn) Rewritten
+
+```go
+func (me *PValFn) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
+```
+
 #### func (*PValFn) String
 
 ```go
@@ -971,26 +1008,16 @@ type PValLink struct {
 ```
 
 
+#### func (*PValLink) Rewritten
+
+```go
+func (me *PValLink) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
+```
+
 #### func (*PValLink) String
 
 ```go
 func (me *PValLink) String() string
-```
-
-#### type PValNever
-
-```go
-type PValNever struct {
-	PValFactBase
-	Never IPreduced
-}
-```
-
-
-#### func (*PValNever) String
-
-```go
-func (me *PValNever) String() string
 ```
 
 #### type PValPrimConst
@@ -1002,6 +1029,12 @@ type PValPrimConst struct {
 }
 ```
 
+
+#### func (*PValPrimConst) Rewritten
+
+```go
+func (me *PValPrimConst) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
+```
 
 #### func (*PValPrimConst) String
 
@@ -1017,6 +1050,12 @@ type PValUsed struct {
 }
 ```
 
+
+#### func (*PValUsed) Rewritten
+
+```go
+func (me *PValUsed) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
+```
 
 #### func (*PValUsed) String
 

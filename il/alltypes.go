@@ -177,6 +177,7 @@ type AnnNamesInScope map[string][]IIrNode
 
 type IPreduced interface {
 	Errs() Errors
+	Rewritten(func(IPreduced) IPreduced) IPreduced
 	Self() *PValFactBase
 	String() string
 }
@@ -202,11 +203,6 @@ type PValEqVal struct {
 type PValEqType struct {
 	PValFactBase
 	Of *PVal
-}
-
-type PValNever struct {
-	PValFactBase
-	Never IPreduced
 }
 
 type PValFn struct {
