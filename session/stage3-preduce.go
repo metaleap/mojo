@@ -82,7 +82,6 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 			ret = newval.AddErr(newval.Loc, ErrNaming(ErrNames_NotFound, me.toks(this).First1(), "not in scope or not defined: `"+this.Name+"`"))
 		case 1:
 			ret = me.preduce(this.Ann.Candidates[0])
-			ret.AddUsed(newval.Loc)
 		default:
 			ret = newval.AddErr(newval.Loc, ErrNaming(ErrNames_Ambiguous, me.toks(this).First1(), "ambiguous: `"+this.Name+"`"))
 		}
@@ -105,13 +104,7 @@ func (me *ctxPreducing) preduce(node IIrNode) (ret *PVal) {
 		pcallee := me.preduce(this.Callee)
 		parg := me.preduce(this.CallArg)
 
-		pcfn, notknownabs := pcallee.FnEnsure(newval.Loc)
-		if notknownabs {
-			pcfn.Arg.AddLink(newval.Loc, parg)
-		}
-		parg.AddLink(newval.Loc, &pcfn.Arg)
-
-		println("\tCALLEE", pcallee.String(), "\n\tARG", parg.String())
+		pcfn, _ := pcallee.FnEnsure(newval.Loc)
 		newval.FromAppl(pcfn, parg)
 		ret = &newval
 

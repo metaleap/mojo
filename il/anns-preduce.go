@@ -12,16 +12,14 @@ func (me *PValFactBase) String() string {
 	return me.Loc.Def.IsDef().AstOrigToks(me.Loc.Node).String()
 }
 
-func (me *PValUsed) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
-	return rewrite(me)
-}
-func (me *PValUsed) String() string { return "used(" + me.PValFactBase.String() + ")" }
-
 func (me *PValPrimConst) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	return rewrite(me)
 }
-func (me *PValPrimConst) String() string { return "eqPrim(" + fmt.Sprintf("%v", me.ConstVal) + ")" }
+func (me *PValPrimConst) String() string {
+	return "eqPrim(" + fmt.Sprintf("%v", me.ConstVal) + ")"
+}
 
+func (me *PValEqType) Errs() Errors { return me.Of.Errs() }
 func (me *PValEqType) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	if of := rewrite(me.Of).(*PVal); of != me.Of {
 		this := *me
@@ -30,8 +28,11 @@ func (me *PValEqType) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	}
 	return rewrite(me)
 }
-func (me *PValEqType) String() string { return "eqType(" + me.Of.PValFactBase.String() + ")" }
+func (me *PValEqType) String() string {
+	return "eqType(" + me.Of.PValFactBase.String() + ")"
+}
 
+func (me *PValEqVal) Errs() Errors { return me.To.Errs() }
 func (me *PValEqVal) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	if to := rewrite(me.To).(*PVal); to != me.To {
 		this := *me
@@ -40,8 +41,11 @@ func (me *PValEqVal) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	}
 	return rewrite(me)
 }
-func (me *PValEqVal) String() string { return "eqTo(" + me.To.PValFactBase.String() + ")" }
+func (me *PValEqVal) String() string {
+	return "eqTo(" + me.To.PValFactBase.String() + ")"
+}
 
+func (me *PValFn) Errs() Errors { return append(me.Arg.Errs(), me.Ret.Errs()...) }
 func (me *PValFn) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	parg, pret := rewrite(&me.Arg).(*PVal), rewrite(&me.Ret).(*PVal)
 	if parg != &me.Arg || pret != &me.Ret {
@@ -51,19 +55,26 @@ func (me *PValFn) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	}
 	return rewrite(me)
 }
-func (me *PValFn) String() string { return "fn(" + me.Arg.String() + "->" + me.Ret.String() + ")" }
+func (me *PValFn) String() string {
+	return "fn(" + me.Arg.String() + "->" + me.Ret.String() + ")"
+}
 
 func (me *PValErr) Errs() Errors { return Errors{me.Error} }
 func (me *PValErr) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	return rewrite(me)
 }
-func (me *PValErr) String() string { return "err(" + me.Error.Error() + ")" }
+func (me *PValErr) String() string {
+	return "err(" + me.Error.Error() + ")"
+}
 
 func (me *PValAbyss) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	return rewrite(me)
 }
-func (me *PValAbyss) String() string { return "abyss(" + me.PValFactBase.String() + ")" }
+func (me *PValAbyss) String() string {
+	return "abyss(" + me.PValFactBase.String() + ")"
+}
 
+func (me *PValLink) Errs() Errors { return me.To.Errs() }
 func (me *PValLink) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	if to := rewrite(me.To).(*PVal); to != me.To {
 		this := *me
@@ -72,7 +83,9 @@ func (me *PValLink) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 	}
 	return rewrite(me)
 }
-func (me *PValLink) String() string { return "link(" + me.To.Self().String() + ")" }
+func (me *PValLink) String() string {
+	return "link(" + me.To.Self().String() + ")"
+}
 
 func (me *PVal) AddAbyss(loc IrRef) *PVal {
 	fact := PValAbyss{}
@@ -82,12 +95,6 @@ func (me *PVal) AddAbyss(loc IrRef) *PVal {
 
 func (me *PVal) AddLink(loc IrRef, to *PVal) *PVal {
 	fact := PValLink{To: to}
-	fact.Loc, me.Facts = loc, append(me.Facts, &fact)
-	return me
-}
-
-func (me *PVal) AddUsed(loc IrRef) *PVal {
-	fact := PValUsed{}
 	fact.Loc, me.Facts = loc, append(me.Facts, &fact)
 	return me
 }
@@ -144,18 +151,19 @@ func (me *PVal) Add(oneOrMultipleFacts IPreduced) *PVal {
 
 func (me *PVal) Errs() (errs Errors) {
 	for _, f := range me.Facts {
-		errs.Add(f.Errs()...)
+		errs = append(errs, f.Errs()...)
 	}
 	return
 }
 
 func (me *PVal) FromAppl(fn *PValFn, curApplArg *PVal) {
-	*me = *fn.Ret.Rewritten(func(pred IPreduced) IPreduced {
+	this := fn.Ret.Rewritten(func(pred IPreduced) IPreduced {
 		if pred == &fn.Arg {
 			return curApplArg
 		}
 		return pred
 	}).(*PVal)
+	*me = *this
 }
 
 func (me *PVal) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
@@ -176,7 +184,9 @@ func (me *PVal) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced {
 
 func (me *PVal) String() string {
 	buf := ustd.BytesWriter{Data: make([]byte, 0, len(me.Facts)*16)}
-	buf.WriteString("[ ")
+	buf.WriteString("[|")
+	buf.WriteString(me.PValFactBase.String())
+	buf.WriteString("| ")
 	for i, f := range me.Facts {
 		buf.WriteString(f.String())
 		if i != (len(me.Facts) - 1) {

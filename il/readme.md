@@ -807,12 +807,6 @@ func (me *PVal) AddLink(loc IrRef, to *PVal) *PVal
 func (me *PVal) AddPrimConst(loc IrRef, constVal interface{}) *PVal
 ```
 
-#### func (*PVal) AddUsed
-
-```go
-func (me *PVal) AddUsed(loc IrRef) *PVal
-```
-
 #### func (*PVal) Errs
 
 ```go
@@ -886,6 +880,12 @@ type PValEqType struct {
 ```
 
 
+#### func (*PValEqType) Errs
+
+```go
+func (me *PValEqType) Errs() Errors
+```
+
 #### func (*PValEqType) Rewritten
 
 ```go
@@ -907,6 +907,12 @@ type PValEqVal struct {
 }
 ```
 
+
+#### func (*PValEqVal) Errs
+
+```go
+func (me *PValEqVal) Errs() Errors
+```
 
 #### func (*PValEqVal) Rewritten
 
@@ -986,6 +992,12 @@ type PValFn struct {
 ```
 
 
+#### func (*PValFn) Errs
+
+```go
+func (me *PValFn) Errs() Errors
+```
+
 #### func (*PValFn) Rewritten
 
 ```go
@@ -1007,6 +1019,12 @@ type PValLink struct {
 }
 ```
 
+
+#### func (*PValLink) Errs
+
+```go
+func (me *PValLink) Errs() Errors
+```
 
 #### func (*PValLink) Rewritten
 
@@ -1040,25 +1058,4 @@ func (me *PValPrimConst) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
 
 ```go
 func (me *PValPrimConst) String() string
-```
-
-#### type PValUsed
-
-```go
-type PValUsed struct {
-	PValFactBase
-}
-```
-
-
-#### func (*PValUsed) Rewritten
-
-```go
-func (me *PValUsed) Rewritten(rewrite func(IPreduced) IPreduced) IPreduced
-```
-
-#### func (*PValUsed) String
-
-```go
-func (me *PValUsed) String() string
 ```

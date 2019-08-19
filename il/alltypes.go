@@ -186,10 +186,6 @@ type PValFactBase struct {
 	Loc IrRef
 }
 
-type PValUsed struct {
-	PValFactBase
-}
-
 type PValPrimConst struct {
 	PValFactBase
 	ConstVal interface{}

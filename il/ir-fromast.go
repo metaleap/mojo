@@ -80,7 +80,7 @@ func (me *IrDef) initBody(ctx *ctxIrFromAst, origDefUnary *AstDef, maybeArg *IrA
 		abs.Orig, abs.Ann.AbsIdx, abs.Arg.Ann.Parent, me.Body = me.Orig, ctx.absIdx, &abs, &abs
 		if ctx.absIdx == 0 {
 			abs.Ann.AbsIdx = -ctx.absMax
-			ctx.absMax = 0
+			ctx.absMax = -1
 		}
 		ctx.absIdx--
 	}
