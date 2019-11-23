@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"io/ioutil"
 	"os"
+
+	. "github.com/metaleap/atmo/atem"
 )
 
 func main() {
@@ -14,33 +16,32 @@ func main() {
 
 	prog := LoadFromJson(src)
 
-	outexpr := prog.eval(ExprAppl{
-		Callee: ExprAppl{
-			Callee: ExprFnRef(len(prog) - 1), // `main` is always last by convention
-			Arg:    ListsFrom(os.Args[2:]),   // first `main` param: list of all process args following `atem inputfile`
+	outexpr := prog.Eval(ExprCall{
+		Callee: ExprCall{
+			Callee: ExprFuncRef(len(prog) - 1), // `main` is always last by convention
+			Arg:    ListsFrom(os.Args[2:]),     // first `main` param: list of all process args following `atem inputfile`
 		},
 		Arg: ListsFrom(os.Environ()), // second `main` param: list of all env-vars (list of "FOO=Bar" strings)
 	}, make([]Expr, 0, 128))
-	outlist := prog.List(outexpr) // forces lazy thunks
+	outlist := List(prog, outexpr) // forces lazy thunks
 
 	if outbytes := ToBytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
 		os.Stdout.Write(append(outbytes, 10))
-	} else if outlist == nil || !prog.probeIfStdinReaderAndIfSoHandleOnceOrForever(outlist) {
+	} else if outlist == nil || !probeIfStdinReaderAndIfSoHandleOnceOrForever(prog, outlist) {
 		println("?!EXPR:\t" + outexpr.String() + "\n")
 	}
 }
 
-func (me Prog) probeIfStdinReaderAndIfSoHandleOnceOrForever(retList []Expr) bool {
+func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) bool {
 	if len(retList) == 4 {
-		if fnhandler, okf := retList[0].(ExprFnRef); okf {
-			if sepchar, oks := retList[1].(ExprNum); oks {
-				if initialoutputlist, oka := retList[3].(ExprAppl); oka {
-					if initialoutput := ToBytes(me.List(initialoutputlist)); initialoutput != nil {
-
+		if fnhandler, okf := retList[0].(ExprFuncRef); okf {
+			if sepchar, oks := retList[1].(ExprNumInt); oks {
+				if initialoutputlist, oka := retList[3].(ExprCall); oka {
+					if initialoutput := ToBytes(List(prog, initialoutputlist)); initialoutput != nil {
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
-							retexpr := me.eval(ExprAppl{Callee: ExprAppl{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)}, make([]Expr, 0, 128))
-							if retlist := me.List(retexpr); len(retlist) == 2 {
-								if outlist := me.List(retlist[1]); outlist != nil {
+							retexpr := prog.Eval(ExprCall{Callee: ExprCall{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)}, make([]Expr, 0, 128))
+							if retlist := List(prog, retexpr); len(retlist) == 2 {
+								if outlist := List(prog, retlist[1]); outlist != nil {
 									nextstate = retlist[0]
 									os.Stdout.Write(ToBytes(outlist))
 								}
@@ -64,7 +65,7 @@ func (me Prog) probeIfStdinReaderAndIfSoHandleOnceOrForever(retList []Expr) bool
 							}
 							for state := initialstate; stdin.Scan(); {
 								state = handlenextinput(state, stdin.Bytes())
-								if fn, ok := state.(ExprFnRef); ok && fn == StdFuncId {
+								if fn, ok := state.(ExprFuncRef); ok && fn == StdFuncId {
 									break // `ok` above required because `StdFuncId` is 0
 								}
 							}
