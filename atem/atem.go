@@ -5,24 +5,11 @@ import (
 	"strconv"
 )
 
-type OpCode int
-
-const (
-	OpAdd OpCode = -1
-	OpSub OpCode = -2
-	OpMul OpCode = -3
-	OpDiv OpCode = -4
-	OpMod OpCode = -5
-	OpEq  OpCode = -6
-	OpLt  OpCode = -7
-	OpGt  OpCode = -8
-)
-
 type Prog []FuncDef
 
 type FuncDef struct {
-	NumArgs int
-	Body    Expr
+	Args []bool
+	Body Expr
 }
 
 type Expr interface{ String() string }
@@ -52,7 +39,11 @@ func LoadFromJson(src []byte) Prog {
 	}
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
-		me = append(me, FuncDef{int(it[0].(float64)), exprFromJson(it[1])})
+		arrargs, args := it[0].([]any), make([]bool, 0, 8)
+		for _, v := range arrargs {
+			args = append(args, int(v.(float64)) > 0)
+		}
+		me = append(me, FuncDef{args, exprFromJson(it[1])})
 	}
 	return me
 }
