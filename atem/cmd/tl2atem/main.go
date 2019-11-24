@@ -6,23 +6,23 @@ import (
 	"path/filepath"
 	"strings"
 
-	at "github.com/metaleap/atmo/atem"
+	. "github.com/metaleap/atmo/atem"
 	tl "github.com/metaleap/go-machines/toylam"
 )
 
 var (
 	mainTopDefQName string
 	inProg          tl.Prog
-	outProg         at.Prog
-	instr2op        = map[tl.Instr]at.OpCode{
-		tl.InstrADD: at.OpAdd,
-		tl.InstrDIV: at.OpDiv,
-		tl.InstrEQ:  at.OpEq,
-		tl.InstrGT:  at.OpGt,
-		tl.InstrLT:  at.OpLt,
-		tl.InstrMOD: at.OpMod,
-		tl.InstrMUL: at.OpMul,
-		tl.InstrSUB: at.OpSub,
+	outProg         = make(Prog, 0, 1024)
+	instr2op        = map[tl.Instr]OpCode{
+		tl.InstrADD: OpAdd,
+		tl.InstrDIV: OpDiv,
+		tl.InstrEQ:  OpEq,
+		tl.InstrGT:  OpGt,
+		tl.InstrLT:  OpLt,
+		tl.InstrMOD: OpMod,
+		tl.InstrMUL: OpMul,
+		tl.InstrSUB: OpSub,
 	}
 )
 
