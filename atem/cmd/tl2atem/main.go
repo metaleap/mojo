@@ -11,8 +11,10 @@ import (
 )
 
 var (
-	outProg  at.Prog
-	instr2op = map[tl.Instr]at.OpCode{
+	mainTopDefQName string
+	inProg          tl.Prog
+	outProg         at.Prog
+	instr2op        = map[tl.Instr]at.OpCode{
 		tl.InstrADD: at.OpAdd,
 		tl.InstrDIV: at.OpDiv,
 		tl.InstrEQ:  at.OpEq,
@@ -47,8 +49,9 @@ func main() {
 		}
 	}
 	srcfilename, srcfileext := filepath.Base(srcfilepath), filepath.Ext(srcfilepath)
-	inprog, maintopdefqname := tl.Prog{}, srcfilename[:len(srcfilename)-len(srcfileext)]+".main"
-	dstfilepath := filepath.Join(dstdirpath, maintopdefqname[:len(maintopdefqname)-len(".main")]+".json")
-	inprog.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true})
+	mainTopDefQName = srcfilename[:len(srcfilename)-len(srcfileext)] + ".main"
+	dstfilepath := filepath.Join(dstdirpath, mainTopDefQName[:len(mainTopDefQName)-len(".main")]+".json")
+	inProg.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true})
+	compile()
 	ioutil.WriteFile(dstfilepath, []byte(outProg.String()), os.ModePerm)
 }
