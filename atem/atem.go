@@ -48,9 +48,7 @@ func (me Prog) String() string {
 		if i > 0 {
 			outjson += ", "
 		}
-		if outjson += def.String() + "\n"; i == 4 {
-			outjson += "\n"
-		}
+		outjson += def.String() + "\n"
 	}
 	return outjson + "]\n"
 }
