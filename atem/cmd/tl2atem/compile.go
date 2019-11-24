@@ -7,16 +7,16 @@ import (
 
 var defsDone = map[string]int{}
 
-func compile() {
+func compile(mainTopDefQName string) {
 	compileTopDef(tl.StdRequiredDefs_id)
 	compileTopDef(tl.StdRequiredDefs_true)
 	compileTopDef(tl.StdRequiredDefs_false)
 	compileTopDef(tl.StdRequiredDefs_listNil)
 	compileTopDef(tl.StdRequiredDefs_listCons)
 
-	idxold := compileTopDef(mainTopDefQName)
-	outProg = append(outProg, outProg[idxold])
-	outProg[idxold] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1)}
+	idx := compileTopDef(mainTopDefQName)
+	outProg = append(outProg, outProg[idx])
+	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1)}
 }
 
 func compileTopDef(name string) int {
