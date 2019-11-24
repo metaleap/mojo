@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 
 	. "github.com/metaleap/atmo/atem"
@@ -42,7 +43,7 @@ func compileExpr(expr tl.Expr) Expr {
 			return ExprFuncRef(idx)
 		}
 	}
-	panic(expr)
+	panic(fmt.Sprintf("%T\t%v", expr, expr))
 }
 
 func compileTopDef(name string) int {
@@ -57,6 +58,9 @@ func compileTopDef(name string) int {
 		}
 		if topdef == nil {
 			panic(name)
+		} else if optIsNameIdentity(topdef) {
+			defsDone[name], defsDone[tl.StdModuleName+"."+name] = 0, 0
+			return 0
 		}
 		idx = len(outProg)
 		if outProg, defsDone[name] = append(outProg, FuncDef{}), idx; prefstd {
@@ -83,7 +87,8 @@ func compileTopDef(name string) int {
 			locals = append(locals, tl.LocalDef{Name: name, Expr: expr})
 		}
 		for _, local := range locals {
-			panic(local) // TODO
+			println(name + local.Name)
+			inProg.TopDefs[name+local.Name] = local.Expr
 		}
 
 		result.Body = compileExpr(body)
@@ -105,15 +110,16 @@ func extractFuncs(expr tl.Expr, localNames map[string]int, gatherInto map[string
 	case *tl.ExprCall:
 		it.Callee, it.CallArg = extractFuncs(it.Callee, localNames, gatherInto), extractFuncs(it.CallArg, localNames, gatherInto)
 	case *tl.ExprFunc:
-		newlocalname := "//" + it.Loc.ModuleName + "//" + it.Loc.TopDefName + "//" + strconv.Itoa(len(gatherInto))
-		gatherInto[newlocalname] = it
+		newlocalname := "//" + strconv.Itoa(len(gatherInto)) + "//" + it.ArgName
 		it.Body = extractFuncs(it.Body, localNames, gatherInto)
 		freevars := map[string]int{}
-		if freeVars(it, localNames, freevars); len(freevars) == 0 {
-			expr = &tl.ExprName{Loc: it.Loc, NameVal: newlocalname}
-		} else {
-			panic("TODO")
+		expr = &tl.ExprName{Loc: it.Loc, NameVal: newlocalname}
+		freeVars(it, localNames, freevars)
+		for fvname, dbidx := range freevars {
+			expr = &tl.ExprCall{Loc: it.Loc, Callee: expr, CallArg: &tl.ExprName{Loc: it.Loc, NameVal: fvname, IdxOrInstr: dbidx + 1}}
+			it = &tl.ExprFunc{Loc: it.Loc, ArgName: fvname, Body: it}
 		}
+		gatherInto[newlocalname] = it
 	}
 	return expr
 }
@@ -135,7 +141,10 @@ func freeVars(expr tl.Expr, localNames map[string]int, results map[string]int) {
 			if _, exists := localNames[it.NameVal]; !exists {
 				if _, exists = inProg.TopDefs[it.NameVal]; !exists {
 					if _, exists = inProg.TopDefs[tl.StdModuleName+"."+it.NameVal]; !exists {
-						results[it.NameVal] = 1 + results[it.NameVal]
+						if _, exists = results[it.NameVal]; exists {
+							panic(it.NameVal)
+						}
+						results[it.NameVal] = it.IdxOrInstr
 					}
 				}
 			}
