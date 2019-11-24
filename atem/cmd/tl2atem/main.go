@@ -52,7 +52,7 @@ func main() {
 	dstfilepath := filepath.Join(dstdirpath,
 		maintopdefqname[:len(maintopdefqname)-len(".main")]+".json")
 
-	inProg.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true})
+	inProg.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true, KeepSepLocals: true})
 	compile(maintopdefqname)
 	ioutil.WriteFile(dstfilepath, []byte(outProg.String()), os.ModePerm)
 }

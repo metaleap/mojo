@@ -22,15 +22,15 @@ func compile(mainTopDefQName string) {
 	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1)}
 }
 
-func compileExpr(expr tl.Expr) Expr {
+func compileExpr(expr tl.Expr, funcsArgs []*tl.ExprFunc) Expr {
 	switch it := expr.(type) {
 	case *tl.ExprLitNum:
 		return ExprNumInt(it.NumVal)
 	case *tl.ExprCall:
 		if optIsCallIdentity(it) {
-			return compileExpr(it.CallArg)
+			return compileExpr(it.CallArg, funcsArgs)
 		}
-		return ExprCall{Callee: compileExpr(it.Callee), Arg: compileExpr(it.CallArg)}
+		return ExprCall{Callee: compileExpr(it.Callee, funcsArgs), Arg: compileExpr(it.CallArg, funcsArgs)}
 	case *tl.ExprName:
 		if it.IdxOrInstr < 0 {
 			return ExprArgRef(it.IdxOrInstr)
@@ -39,6 +39,11 @@ func compileExpr(expr tl.Expr) Expr {
 				return ExprFuncRef(opcode)
 			}
 		} else {
+			for i, farg := range funcsArgs {
+				if farg.ArgName == it.NameVal {
+					return ExprArgRef(i)
+				}
+			}
 			idx := compileTopDef(it.NameVal)
 			return ExprFuncRef(idx)
 		}
@@ -75,23 +80,33 @@ func compileTopDef(name string) int {
 			result.Args[i] = body.ReplaceName(f.ArgName, f.ArgName) // just counts occurrences
 		}
 
-		localnames, newlocals := map[string]int{}, map[string]*tl.ExprFunc{}
+		localnames := map[string]string{}
 		for i, local := range locals {
-			localnames[local.Name] = i
+			globalname := name + "//" + local.Name + "//" + strconv.Itoa(i)
+			localnames[local.Name] = globalname
 		}
 		for i, local := range locals {
-			locals[i].Expr = extractFuncs(local.Expr, localnames, newlocals)
-		}
-		body = extractFuncs(body, localnames, newlocals)
-		for name, expr := range newlocals {
-			locals = append(locals, tl.LocalDef{Name: name, Expr: expr})
-		}
-		for _, local := range locals {
-			println(name + local.Name)
-			inProg.TopDefs[name+local.Name] = local.Expr
+			globalname := localnames[local.Name]
+			inProg.TopDefs[globalname] = local.Expr
+			freevars := map[string]int{}
+			if freeVars(local.Expr, localnames, freevars); len(freevars) > 0 {
+				println(name + "\t\t" + local.Name)
+				for k := range freevars {
+					println("\t\t" + k)
+				}
+				panic(len(freevars))
+			}
+			for j := 0; j <= i; j++ {
+				if gname := localnames[locals[j].Name]; 0 < locals[j].Expr.ReplaceName(local.Name, local.Name) {
+					inProg.TopDefs[gname] = inProg.TopDefs[gname].RewriteName(local.Name, &tl.ExprName{NameVal: globalname})
+				}
+			}
+			if 0 < body.ReplaceName(local.Name, local.Name) {
+				body = body.RewriteName(local.Name, &tl.ExprName{NameVal: globalname})
+			}
 		}
 
-		result.Body = compileExpr(body)
+		result.Body = compileExpr(body, funcsargs)
 		outProg[idx] = *result // crucial as the slice could have been resized by now (even tho we give it an initial cap that makes this unlikely, this safeguard will work for any outrageous program size)
 	}
 	return idx
@@ -105,26 +120,7 @@ func flattenFunc(expr tl.Expr) (outerFuncs []*tl.ExprFunc, innerMostBody tl.Expr
 	return
 }
 
-func extractFuncs(expr tl.Expr, localNames map[string]int, gatherInto map[string]*tl.ExprFunc) tl.Expr {
-	switch it := expr.(type) {
-	case *tl.ExprCall:
-		it.Callee, it.CallArg = extractFuncs(it.Callee, localNames, gatherInto), extractFuncs(it.CallArg, localNames, gatherInto)
-	case *tl.ExprFunc:
-		newlocalname := "//" + strconv.Itoa(len(gatherInto)) + "//" + it.ArgName
-		it.Body = extractFuncs(it.Body, localNames, gatherInto)
-		freevars := map[string]int{}
-		expr = &tl.ExprName{Loc: it.Loc, NameVal: newlocalname}
-		freeVars(it, localNames, freevars)
-		for fvname, dbidx := range freevars {
-			expr = &tl.ExprCall{Loc: it.Loc, Callee: expr, CallArg: &tl.ExprName{Loc: it.Loc, NameVal: fvname, IdxOrInstr: dbidx + 1}}
-			it = &tl.ExprFunc{Loc: it.Loc, ArgName: fvname, Body: it}
-		}
-		gatherInto[newlocalname] = it
-	}
-	return expr
-}
-
-func freeVars(expr tl.Expr, localNames map[string]int, results map[string]int) {
+func freeVars(expr tl.Expr, localNames map[string]string, results map[string]int) {
 	switch it := expr.(type) {
 	case *tl.ExprCall:
 		freeVars(it.Callee, localNames, results)
@@ -133,7 +129,7 @@ func freeVars(expr tl.Expr, localNames map[string]int, results map[string]int) {
 		if _, exists := localNames[it.ArgName]; exists {
 			panic(it.ArgName)
 		}
-		localNames[it.ArgName] = -1
+		localNames[it.ArgName] = ""
 		freeVars(it.Body, localNames, results)
 		delete(localNames, it.ArgName)
 	case *tl.ExprName:
@@ -141,7 +137,7 @@ func freeVars(expr tl.Expr, localNames map[string]int, results map[string]int) {
 			if _, exists := localNames[it.NameVal]; !exists {
 				if _, exists = inProg.TopDefs[it.NameVal]; !exists {
 					if _, exists = inProg.TopDefs[tl.StdModuleName+"."+it.NameVal]; !exists {
-						if _, exists = results[it.NameVal]; exists {
+						if have, exists := results[it.NameVal]; exists && have != it.IdxOrInstr {
 							panic(it.NameVal)
 						}
 						results[it.NameVal] = it.IdxOrInstr
