@@ -40,7 +40,7 @@ func (me *FuncDef) String() string {
 		}
 		outjson += strconv.Itoa(a)
 	}
-	return outjson + "], " + me.Body.String() + " ]"
+	return outjson + "],\t\t" + me.Body.String() + " ]"
 }
 func (me Prog) String() string {
 	outjson := "[ "
@@ -48,7 +48,9 @@ func (me Prog) String() string {
 		if i > 0 {
 			outjson += ", "
 		}
-		outjson += def.String() + "\n"
+		if outjson += def.String() + "\n"; i == 4 {
+			outjson += "\n"
+		}
 	}
 	return outjson + "]\n"
 }
