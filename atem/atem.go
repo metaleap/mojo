@@ -71,6 +71,10 @@ func exprFromJson(from any) Expr {
 	panic(from)
 }
 
+func (me ExprNumInt) String() string  { return strconv.Itoa(int(me)) }
+func (me ExprArgRef) String() string  { return "\"" + strconv.Itoa(int(me)) + "\"" }
+func (me ExprFuncRef) String() string { return "[" + strconv.Itoa(int(me)) + "]" }
+func (me ExprCall) String() string    { return "[" + me.Callee.String() + ", " + me.Arg.String() + "]" }
 func (me *FuncDef) String() string {
 	outjson := "[ ["
 	for i, a := range me.Args {
@@ -81,10 +85,6 @@ func (me *FuncDef) String() string {
 	}
 	return outjson + "], " + me.Body.String() + " ]"
 }
-func (me ExprNumInt) String() string  { return strconv.Itoa(int(me)) }
-func (me ExprArgRef) String() string  { return "\"" + strconv.Itoa(int(me)) + "\"" }
-func (me ExprFuncRef) String() string { return "[" + strconv.Itoa(int(me)) + "]" }
-func (me ExprCall) String() string    { return "[" + me.Callee.String() + ", " + me.Arg.String() + "]" }
 func (me Prog) String() string {
 	outjson := "[ "
 	for i, def := range me {

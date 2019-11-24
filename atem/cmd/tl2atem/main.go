@@ -10,16 +10,19 @@ import (
 	tl "github.com/metaleap/go-machines/toylam"
 )
 
-var instr2op = map[tl.Instr]at.OpCode{
-	tl.InstrADD: at.OpAdd,
-	tl.InstrDIV: at.OpDiv,
-	tl.InstrEQ:  at.OpEq,
-	tl.InstrGT:  at.OpGt,
-	tl.InstrLT:  at.OpLt,
-	tl.InstrMOD: at.OpMod,
-	tl.InstrMUL: at.OpMul,
-	tl.InstrSUB: at.OpSub,
-}
+var (
+	outProg  at.Prog
+	instr2op = map[tl.Instr]at.OpCode{
+		tl.InstrADD: at.OpAdd,
+		tl.InstrDIV: at.OpDiv,
+		tl.InstrEQ:  at.OpEq,
+		tl.InstrGT:  at.OpGt,
+		tl.InstrLT:  at.OpLt,
+		tl.InstrMOD: at.OpMod,
+		tl.InstrMUL: at.OpMul,
+		tl.InstrSUB: at.OpSub,
+	}
+)
 
 func main() {
 	srcfilepath, dstdirpath := os.Args[1], os.Args[2]
@@ -46,7 +49,6 @@ func main() {
 	srcfilename, srcfileext := filepath.Base(srcfilepath), filepath.Ext(srcfilepath)
 	inprog, maintopdefqname := tl.Prog{}, srcfilename[:len(srcfilename)-len(srcfileext)]+".main"
 	dstfilepath := filepath.Join(dstdirpath, maintopdefqname[:len(maintopdefqname)-len(".main")]+".json")
-	println(dstfilepath)
 	inprog.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true})
-
+	ioutil.WriteFile(dstfilepath, []byte(outProg.String()), os.ModePerm)
 }
