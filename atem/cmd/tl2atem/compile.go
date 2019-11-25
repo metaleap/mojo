@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	. "github.com/metaleap/atmo/atem"
 	tl "github.com/metaleap/go-machines/toylam"
@@ -47,6 +48,19 @@ func compileExpr(expr tl.Expr, funcsArgs []*tl.ExprFunc) Expr {
 			idx := compileTopDef(it.NameVal)
 			return ExprFuncRef(idx)
 		}
+	case *tl.ExprFunc:
+		globalname, globalbody := "//"+strconv.Itoa(len(inProg.TopDefs))+"//"+it.ArgName, it
+		freevars, expr := map[string]int{}, tl.Expr(&tl.ExprName{NameVal: globalname})
+		freeVars(globalbody, map[string]string{}, freevars)
+		for fvname := range freevars {
+			globalbody = &tl.ExprFunc{ArgName: fvname, Body: globalbody}
+		}
+		fargs, _ := flattenFunc(globalbody)
+		for _, farg := range fargs[:len(freevars)] {
+			expr = &tl.ExprCall{Callee: expr, CallArg: &tl.ExprName{NameVal: farg.ArgName}}
+		}
+		inProg.TopDefs[globalname] = globalbody
+		return compileExpr(expr, funcsArgs)
 	}
 	panic(fmt.Sprintf("%T\t%v", expr, expr))
 }
@@ -54,24 +68,29 @@ func compileExpr(expr tl.Expr, funcsArgs []*tl.ExprFunc) Expr {
 func compileTopDef(name string) int {
 	idx, done := defsDone[name]
 	if !done {
-		prefstd, topdef, locals := false, inProg.TopDefs[name], inProg.TopDefSepLocals[name]
-		if topdef == nil { // degraded case usually occurs (or should) only for recursive self-refs
-			prefstd, topdef, locals = true, inProg.TopDefs[tl.StdModuleName+"."+name], inProg.TopDefSepLocals[tl.StdModuleName+"."+name]
-			if idx, done = defsDone[tl.StdModuleName+"."+name]; done {
+		prefstd, topdef, locals := "", inProg.TopDefs[name], inProg.TopDefSepLocals[name]
+		if topdef == nil {
+			if prefstd, topdef = tl.StdModuleName+".", inProg.TopDefs[tl.StdModuleName+"."+name]; topdef == nil {
+				for k, v := range inProg.TopDefs {
+					if strings.HasSuffix(k, "."+name) && strings.HasPrefix(k, tl.StdModuleName+".") {
+						prefstd, topdef = k[:len(k)-len(name)], v
+						break
+					}
+				}
+			}
+			if idx, done = defsDone[prefstd+name]; done {
 				return idx
 			}
+			locals = inProg.TopDefSepLocals[prefstd+name]
 		}
 		if topdef == nil {
 			panic(name)
 		} else if optIsNameIdentity(topdef) {
-			defsDone[name], defsDone[tl.StdModuleName+"."+name] = 0, 0
+			defsDone[prefstd+name] = 0
 			return 0
 		}
-		idx = len(outProg)
-		if outProg, defsDone[name] = append(outProg, FuncDef{}), idx; prefstd {
-			name = tl.StdModuleName + "." + name
-			defsDone[name] = idx
-		}
+		idx, name = len(outProg), prefstd+name
+		outProg, defsDone[name] = append(outProg, FuncDef{}), idx
 
 		result := &outProg[idx]
 		funcsargs, body := flattenFunc(topdef)
