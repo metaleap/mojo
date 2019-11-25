@@ -1,5 +1,10 @@
 package atem
 
+import (
+	"io"
+	"os"
+)
+
 type OpCode int
 
 const (
@@ -11,7 +16,10 @@ const (
 	OpEq  OpCode = -6
 	OpLt  OpCode = -7
 	OpGt  OpCode = -8
+	OpPrt OpCode = -42
 )
+
+var OpPrtDst io.Writer = os.Stderr
 
 func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
@@ -28,27 +36,30 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 			}
 			return expr
 		} else if isopcode {
-			lhs, rhs := me.Eval(stack[len(stack)-1], stack).(ExprNumInt), me.Eval(stack[len(stack)-2], stack).(ExprNumInt)
+			lhs, rhs := me.Eval(stack[len(stack)-1], stack), me.Eval(stack[len(stack)-2], stack)
 			stack = stack[:len(stack)-2]
 			switch opcode := OpCode(it); opcode {
 			case OpAdd:
-				return lhs + rhs
+				return lhs.(ExprNumInt) + rhs.(ExprNumInt)
 			case OpSub:
-				return lhs - rhs
+				return lhs.(ExprNumInt) - rhs.(ExprNumInt)
 			case OpMul:
-				return lhs * rhs
+				return lhs.(ExprNumInt) * rhs.(ExprNumInt)
 			case OpDiv:
-				return lhs / rhs
+				return lhs.(ExprNumInt) / rhs.(ExprNumInt)
 			case OpMod:
-				return lhs % rhs
+				return lhs.(ExprNumInt) % rhs.(ExprNumInt)
 			case OpEq, OpGt, OpLt:
-				if (opcode == OpEq && lhs == rhs) || (opcode == OpLt && lhs < rhs) || (opcode == OpGt && lhs > rhs) {
+				if l, r := lhs.(ExprNumInt), rhs.(ExprNumInt); (opcode == OpEq && l == r) || (opcode == OpLt && l < r) || (opcode == OpGt && l > r) {
 					it, numargs = 1, 2
 				} else {
 					it, numargs = 2, 2
 				}
+			case OpPrt:
+				OpPrtDst.Write(Bytes(me.List(lhs)))
+				return rhs
 			default:
-				panic(opcode)
+				panic([2]Expr{lhs, rhs})
 			}
 		}
 		return me.Eval(argRefsResolvedToCurrentStackEntries(me[it].Body, stack), stack[:len(stack)-numargs])

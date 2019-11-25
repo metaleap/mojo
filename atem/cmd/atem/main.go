@@ -23,9 +23,9 @@ func main() {
 		},
 		Arg: ListsFrom(os.Environ()), // second `main` param: list of all env-vars (list of "FOO=Bar" strings)
 	}, make([]Expr, 0, 128))
-	outlist := List(prog, outexpr) // forces lazy thunks
+	outlist := prog.List(outexpr) // forces lazy thunks
 
-	if outbytes := ToBytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
+	if outbytes := Bytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
 		os.Stdout.Write(append(outbytes, 10))
 	} else if outlist == nil || !probeIfStdinReaderAndIfSoHandleOnceOrForever(prog, outlist) {
 		println("?!EXPR:\t" + outexpr.String() + "\n")
@@ -37,13 +37,13 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 		if fnhandler, okf := retList[0].(ExprFuncRef); okf {
 			if sepchar, oks := retList[1].(ExprNumInt); oks {
 				if initialoutputlist, oka := retList[3].(ExprCall); oka {
-					if initialoutput := ToBytes(List(prog, initialoutputlist)); initialoutput != nil {
+					if initialoutput := Bytes(prog.List(initialoutputlist)); initialoutput != nil {
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
 							retexpr := prog.Eval(ExprCall{Callee: ExprCall{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)}, make([]Expr, 0, 128))
-							if retlist := List(prog, retexpr); len(retlist) == 2 {
-								if outlist := List(prog, retlist[1]); outlist != nil {
+							if retlist := prog.List(retexpr); len(retlist) == 2 {
+								if outlist := prog.List(retlist[1]); outlist != nil {
 									nextstate = retlist[0]
-									os.Stdout.Write(ToBytes(outlist))
+									os.Stdout.Write(Bytes(outlist))
 								}
 							}
 							if nextstate == nil {
