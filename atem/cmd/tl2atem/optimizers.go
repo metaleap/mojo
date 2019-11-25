@@ -4,7 +4,7 @@ import (
 	. "github.com/metaleap/atmo/atem"
 )
 
-const never OpCode = -1 << 31
+const never ExprNumInt = -1 << 31
 
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	expr = visitor(expr)
@@ -146,7 +146,7 @@ func optimize_argDropperCalls(prog Prog) (ret Prog, didModify bool) {
 							}
 						}
 						return rewriteCallArgs(expr.(ExprCall), numargs, func(argidx int, argval Expr) Expr {
-							return ExprFuncRef(never)
+							return never
 						}, argdrops)
 					}
 				}
