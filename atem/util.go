@@ -1,6 +1,6 @@
 package atem
 
-func (me Prog) List(expr Expr) (ret []Expr) {
+func (me Prog) ExprList(expr Expr) (ret []Expr) {
 	ret = make([]Expr, 0, 1024)
 	for again, next := true, expr; again; {
 		again = false
@@ -34,4 +34,13 @@ func Bytes(maybeNumList []Expr) (retNumListAsBytes []byte) {
 		}
 	}
 	return
+}
+
+func (me Prog) ExprString(expr Expr) string {
+	if maybenumlist := me.ExprList(expr); maybenumlist != nil {
+		if bytes := Bytes(maybenumlist); bytes != nil {
+			return string(bytes)
+		}
+	}
+	return expr.String()
 }

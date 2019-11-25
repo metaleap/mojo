@@ -22,6 +22,8 @@ var (
 		tl.InstrMOD: OpMod,
 		tl.InstrMUL: OpMul,
 		tl.InstrSUB: OpSub,
+		tl.InstrMSG: OpPrt,
+		tl.InstrERR: -424242424242424242,
 	}
 )
 

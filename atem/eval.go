@@ -56,7 +56,7 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 					it, numargs = 2, 2
 				}
 			case OpPrt:
-				OpPrtDst.Write(Bytes(me.List(lhs)))
+				OpPrtDst.Write(append(append(Bytes(me.ExprList(lhs)), '\t'), me.ExprString(rhs)...))
 				return rhs
 			default:
 				panic([2]Expr{lhs, rhs})
