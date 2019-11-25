@@ -31,13 +31,7 @@ type (
 func (me ExprNumInt) String() string  { return strconv.Itoa(int(me)) }
 func (me ExprArgRef) String() string  { return "\"" + strconv.Itoa(int(me)) + "\"" }
 func (me ExprFuncRef) String() string { return "[" + strconv.Itoa(int(me)) + "]" }
-func (me ExprCall) String() string {
-	if _, ok := me.Callee.(ExprCall); ok {
-		str := me.Callee.String()
-		return str[:len(str)-1] + ", " + me.Arg.String() + "]"
-	}
-	return "[" + me.Callee.String() + ", " + me.Arg.String() + "]"
-}
+func (me ExprCall) String() string    { return "[" + me.Callee.String() + ", " + me.Arg.String() + "]" }
 func (me *FuncDef) String() string {
 	outjson := "[ ["
 	for i, a := range me.Args {

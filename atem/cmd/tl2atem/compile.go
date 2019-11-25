@@ -21,6 +21,10 @@ func compile(mainTopDefQName string) {
 	idx := compileTopDef(mainTopDefQName)
 	outProg = append(outProg, outProg[idx])
 	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1)}
+
+	for again := true; again; {
+		outProg, again = optimize(outProg)
+	}
 }
 
 func compileExpr(expr tl.Expr, funcsArgs []*tl.ExprFunc) Expr {
@@ -28,9 +32,6 @@ func compileExpr(expr tl.Expr, funcsArgs []*tl.ExprFunc) Expr {
 	case *tl.ExprLitNum:
 		return ExprNumInt(it.NumVal)
 	case *tl.ExprCall:
-		if optIsCallIdentity(it) {
-			return compileExpr(it.CallArg, funcsArgs)
-		}
 		return ExprCall{Callee: compileExpr(it.Callee, funcsArgs), Arg: compileExpr(it.CallArg, funcsArgs)}
 	case *tl.ExprName:
 		if it.IdxOrInstr < 0 {
@@ -85,9 +86,6 @@ func compileTopDef(name string) int {
 		}
 		if topdef == nil {
 			panic(name)
-		} else if optIsNameIdentity(topdef) {
-			defsDone[prefstd+name] = 0
-			return 0
 		}
 		idx, name = len(outProg), prefstd+name
 		outProg, defsDone[name] = append(outProg, FuncDef{}), idx
