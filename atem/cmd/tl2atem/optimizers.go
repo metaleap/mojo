@@ -22,6 +22,8 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 			optimize_inlineNullaries,
 			optimize_rewriteIdCalls,
 			optimize_saturateArgsIfPartialCall,
+			optimize_argDropperCalls,
+			optimize_inlineArgsRearrangers,
 		} {
 			if ret, again = opt(ret); again {
 				didModify = true
@@ -82,6 +84,22 @@ func optimize_inlineNullaries(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
+func optimize_rewriteIdCalls(prog Prog) (ret Prog, didModify bool) {
+	ret = prog
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			if call, ok := expr.(ExprCall); ok {
+				if fnref, ok := call.Callee.(ExprFuncRef); ok && fnref == 0 {
+					didModify = true
+					return call.Arg
+				}
+			}
+			return expr
+		})
+	}
+	return
+}
+
 func optimize_saturateArgsIfPartialCall(prog Prog) (ret Prog, didModify bool) {
 	ret = prog
 	var doidx, dodiff int
@@ -116,24 +134,46 @@ func optimize_saturateArgsIfPartialCall(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_rewriteIdCalls(prog Prog) (ret Prog, didModify bool) {
+func optimize_argDropperCalls(prog Prog) (ret Prog, didModify bool) {
 	ret = prog
-	for i := int(StdFuncCons + 1); i < len(ret); i++ {
-		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if call, ok := expr.(ExprCall); ok {
-				if fnref, ok := call.Callee.(ExprFuncRef); ok && fnref == 0 {
-					didModify = true
-					return call.Arg
-				}
+	argdroppers := make(map[int][]int, 4)
+	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
+		var drops []int
+		for argidx, argusage := range ret[i].Args {
+			if argusage == 0 {
+				drops = append(drops, argidx)
 			}
-			return expr
-		})
+		}
+		if len(drops) > 0 {
+			println(i, "DROPS", len(drops))
+			argdroppers[i] = drops
+		}
+	}
+	if len(argdroppers) > 0 {
+		for i := int(StdFuncCons + 1); i < len(ret); i++ {
+
+		}
+	}
+	return
+}
+
+func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
+	ret = prog
+	rearrangers := make(map[int]int, 4)
+	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
+		if _, _, numargcalls, numargrefs := dissectCall(ret[i].Body); numargcalls == 0 && numargrefs > 0 {
+			rearrangers[i] = numargrefs
+		}
+	}
+	if len(rearrangers) > 0 {
+		for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		}
 	}
 	return
 }
 
 func dissectCall(expr Expr) (fnRef *ExprFuncRef, numCallArgs int, numCallArgsThatAreCalls int, numArgRefs int) {
-	for call, ok := expr.(ExprCall); ok; call, ok = call.Callee.(ExprCall) {
+	for call, okc := expr.(ExprCall); okc; call, okc = call.Callee.(ExprCall) {
 		numCallArgs++
 		if _, isargcall := call.Arg.(ExprCall); isargcall {
 			numCallArgsThatAreCalls++
