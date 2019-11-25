@@ -20,11 +20,11 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 	for again := true; again; {
 		again = false
 		for _, opt := range []func(Prog) (Prog, bool){
+			optimize_inlineSelectorCalls,
 			optimize_dropUnused,
 			optimize_inlineNullaries,
 			optimize_saturateArgsIfPartialCall,
 			optimize_argDropperCalls,
-			optimize_inlineSelectorCalls,
 			optimize_inlineArgCallers,
 			optimize_inlineArgsRearrangers,
 		} {
@@ -108,7 +108,7 @@ func optimize_saturateArgsIfPartialCall(prog Prog) (ret Prog, didModify bool) {
 			for i := 0; i < len(ret); i++ {
 				ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 					if _, fnref, _, _, _, _ := dissectCall(expr); fnref != nil && int(*fnref) == doidx {
-						return rewriteInnerMostCallee(expr.(ExprCall), ret[doidx].Body)
+						return rewriteInnerMostCallee(expr.(ExprCall), func(Expr) Expr { return ret[doidx].Body })
 					}
 					return expr
 				})
@@ -178,8 +178,8 @@ func optimize_inlineArgCallers(prog Prog) (ret Prog, didModify bool) {
 						if argref != 0 {
 							panic("TODO")
 						} else {
-							call2inline := rewriteInnerMostCallee(ret[*fnref].Body.(ExprCall), allargs[0])
-							expr = rewriteInnerMostCallee(expr.(ExprCall), ExprFuncRef(0))
+							call2inline := rewriteInnerMostCallee(ret[*fnref].Body.(ExprCall), func(Expr) Expr { return allargs[0] })
+							expr = rewriteInnerMostCallee(expr.(ExprCall), func(Expr) Expr { return ExprFuncRef(0) })
 							expr = rewriteCallArgs(expr.(ExprCall), numargs, func(argidx int, argval Expr) Expr {
 								if argidx == 0 {
 									return call2inline
@@ -226,16 +226,61 @@ func optimize_inlineSelectorCalls(prog Prog) (ret Prog, didModify bool) {
 
 func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 	ret = prog
-	rearrangers := make(map[int]int, 8)
+	rearrangers := make(map[int]bool, 8)
 	for i := 0; i < len(ret)-1; i++ {
-		if _, _, _, numargcalls, numargrefs, _ := dissectCall(ret[i].Body); numargcalls == 0 && numargrefs > 0 {
-			println("RARR", i)
-			rearrangers[i] = numargrefs
+		if callee, _, _, numargcalls, numargrefs, allargs := dissectCall(ret[i].Body); numargcalls == 0 && numargrefs > 0 {
+			maxarg, callexprs := ExprArgRef(-1), append([]Expr{callee}, allargs...)
+			for _, expr := range callexprs {
+				if argref, ok := expr.(ExprArgRef); ok {
+					if argref < 0 {
+						argref = ExprArgRef(len(ret[i].Args) + int(argref))
+					}
+					if argref > maxarg {
+						maxarg = argref
+					}
+				}
+			}
+			if maxarg > -1 {
+				rearrangers[i] = true
+			}
 		}
 	}
 	if len(rearrangers) > 0 {
 		for i := int(StdFuncCons + 1); i < len(ret); i++ {
-
+			ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+				if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil {
+					if rearrangers[int(*fnref)] && numargs == len(ret[*fnref].Args) {
+						counts := map[ExprArgRef]int{}
+						nuexpr := rewriteCallArgs(ret[*fnref].Body.(ExprCall), -1, func(argidx int, argval Expr) Expr {
+							if argref, ok := argval.(ExprArgRef); ok {
+								if argref < 0 {
+									argref = ExprArgRef(len(ret[*fnref].Args) + int(argref))
+								}
+								counts[argref] = counts[argref] + 1
+								return allargs[argref]
+							}
+							return argval
+						}, nil)
+						nuexpr = rewriteInnerMostCallee(nuexpr, func(callee Expr) Expr {
+							if argref, ok := callee.(ExprArgRef); ok {
+								if argref < 0 {
+									argref = ExprArgRef(len(ret[*fnref].Args) + int(argref))
+								}
+								counts[argref] = counts[argref] + 1
+								return allargs[argref]
+							}
+							return callee
+						})
+						for argref, count := range counts {
+							if _, iscall := allargs[argref].(ExprCall); iscall && count > 1 {
+								return expr
+							}
+						}
+						expr, didModify = nuexpr, true
+					}
+				}
+				return expr
+			})
 		}
 	}
 	return
@@ -259,6 +304,9 @@ func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFun
 }
 
 func rewriteCallArgs(callExpr ExprCall, numArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprCall {
+	if numArgs <= 0 {
+		_, _, numArgs, _, _, _ = dissectCall(callExpr)
+	}
 	idx, rewrite := numArgs-1, len(argIdxs) == 0
 	if !rewrite {
 		for _, argidx := range argIdxs {
@@ -276,11 +324,11 @@ func rewriteCallArgs(callExpr ExprCall, numArgs int, rewriter func(int, Expr) Ex
 	return callExpr
 }
 
-func rewriteInnerMostCallee(expr ExprCall, rewriteWith Expr) Expr {
+func rewriteInnerMostCallee(expr ExprCall, rewriter func(Expr) Expr) ExprCall {
 	if calleecall, ok := expr.Callee.(ExprCall); ok {
-		expr.Callee = rewriteInnerMostCallee(calleecall, rewriteWith)
+		expr.Callee = rewriteInnerMostCallee(calleecall, rewriter)
 	} else {
-		expr.Callee = rewriteWith
+		expr.Callee = rewriter(expr.Callee)
 	}
 	return expr
 }
