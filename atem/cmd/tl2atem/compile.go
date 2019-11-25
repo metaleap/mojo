@@ -86,23 +86,25 @@ func compileTopDef(name string) int {
 			localnames[local.Name] = globalname
 		}
 		for i, local := range locals {
-			globalname := localnames[local.Name]
-			inProg.TopDefs[globalname] = local.Expr
-			freevars := map[string]int{}
-			if freeVars(local.Expr, localnames, freevars); len(freevars) > 0 {
-				println(name + "\t\t" + local.Name)
-				for k := range freevars {
-					println("\t\t" + k)
-				}
-				panic(len(freevars))
+			globalname, globalbody := localnames[local.Name], local.Expr
+			freevars, expr := map[string]int{}, tl.Expr(&tl.ExprName{NameVal: globalname})
+			freeVars(local.Expr, localnames, freevars)
+			for fvname := range freevars {
+				globalbody = &tl.ExprFunc{ArgName: fvname, Body: globalbody}
 			}
-			for j := 0; j <= i; j++ {
+			fargs, _ := flattenFunc(globalbody)
+			for _, farg := range fargs[:len(freevars)] {
+				expr = &tl.ExprCall{Callee: expr, CallArg: &tl.ExprName{NameVal: farg.ArgName}}
+			}
+
+			inProg.TopDefs[globalname] = globalbody
+			for j, exprcopy := 0, fullCopy(expr); j <= i; j++ {
 				if gname := localnames[locals[j].Name]; 0 < locals[j].Expr.ReplaceName(local.Name, local.Name) {
-					inProg.TopDefs[gname] = inProg.TopDefs[gname].RewriteName(local.Name, &tl.ExprName{NameVal: globalname})
+					exprcopy, inProg.TopDefs[gname] = fullCopy(expr), inProg.TopDefs[gname].RewriteName(local.Name, exprcopy)
 				}
 			}
 			if 0 < body.ReplaceName(local.Name, local.Name) {
-				body = body.RewriteName(local.Name, &tl.ExprName{NameVal: globalname})
+				body = body.RewriteName(local.Name, expr)
 			}
 		}
 
@@ -118,6 +120,24 @@ func flattenFunc(expr tl.Expr) (outerFuncs []*tl.ExprFunc, innerMostBody tl.Expr
 		innerMostBody, outerFuncs = fn.Body, append(outerFuncs, fn)
 	}
 	return
+}
+
+func fullCopy(expr tl.Expr) tl.Expr {
+	switch it := expr.(type) {
+	case *tl.ExprLitNum:
+		return &*it
+	case *tl.ExprName:
+		return &*it
+	case *tl.ExprFunc:
+		ret := *it
+		ret.Body = fullCopy(ret.Body)
+		return &ret
+	case *tl.ExprCall:
+		ret := *it
+		ret.Callee, ret.CallArg = fullCopy(ret.Callee), fullCopy(ret.CallArg)
+		return &ret
+	}
+	panic(expr)
 }
 
 func freeVars(expr tl.Expr, localNames map[string]string, results map[string]int) {
