@@ -22,8 +22,8 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 	for again := true; again; {
 		again, optNumRounds = false, optNumRounds+1
 		for _, opt := range []func(Prog) (Prog, bool){
-			optimize_inlineSelectorCalls,
 			optimize_dropUnused,
+			optimize_inlineSelectorCalls,
 			optimize_inlineNullaries,
 			optimize_saturateArgsIfPartialCall,
 			optimize_argDropperCalls,
@@ -31,7 +31,7 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 			optimize_inlineArgsRearrangers,
 			optimize_primOpPreCalcs,
 			optimize_callsToGeqOrLeq,
-			optimize_eliminateNotCalls,
+			optimize_minifyNeedlesslyElaborateBoolOpCalls,
 			optimize_tryPreReduceCalls,
 		} {
 			if ret, again = opt(ret); again {
@@ -121,19 +121,20 @@ func optimize_saturateArgsIfPartialCall(prog Prog) (ret Prog, didModify bool) {
 			}
 		}
 	}
-	if dodiff > 0 {
+	if dodiff > 0 && doidx == 14 /*env: 17 ok 14 not*/ {
 		if didModify = true; !iscomplex { // inline the partial (if simple) into calls before finally modifying the def
-			for i := 0; i < len(ret); i++ {
-				ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-					if _, fnref, _, _, _, _ := dissectCall(expr); fnref != nil && int(*fnref) == doidx {
-						return rewriteInnerMostCallee(expr.(ExprCall), func(Expr) Expr { return ret[doidx].Body })
-					}
-					return expr
-				})
-			}
+			// for i := 0; i < len(ret); i++ {
+			// 	ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			// 		if _, fnref, _, _, _, _ := dissectCall(expr); fnref != nil && int(*fnref) == doidx {
+			// 			return rewriteInnerMostCallee(expr.(ExprCall), func(Expr) Expr { return ret[doidx].Body })
+			// 		}
+			// 		return expr
+			// 	})
+			// }
 		}
-		for j := 0; j < dodiff; j++ {
-			ret[doidx].Args, ret[doidx].Body = append(ret[doidx].Args, 1), ExprCall{Callee: ret[doidx].Body, Arg: ExprArgRef(j)}
+		for num, j := len(ret[doidx].Args), 0; j < dodiff; j++ {
+			println(iscomplex, doidx, "FROM\t"+ret[doidx].Body.String()+"\n\tTO\t\t"+(ExprCall{Callee: ret[doidx].Body, Arg: ExprArgRef(j + num)}).String())
+			ret[doidx].Args, ret[doidx].Body = append(ret[doidx].Args, 1), ExprCall{Callee: ret[doidx].Body, Arg: ExprArgRef(j + num)}
 		}
 	}
 	return
@@ -163,6 +164,7 @@ func optimize_argDropperCalls(prog Prog) (ret Prog, didModify bool) {
 								return expr
 							}
 						}
+						didModify = true
 						return rewriteCallArgs(expr.(ExprCall), numargs, func(argidx int, argval Expr) Expr {
 							return never
 						}, argdrops)
@@ -289,7 +291,7 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_eliminateNotCalls(prog Prog) (ret Prog, didModify bool) {
+func optimize_minifyNeedlesslyElaborateBoolOpCalls(prog Prog) (ret Prog, didModify bool) {
 	ret = prog
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {

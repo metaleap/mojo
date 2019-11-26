@@ -96,6 +96,9 @@ func compileTopDef(name string) int {
 		result.Args = make([]int, len(funcsargs))
 		for i, f := range funcsargs {
 			result.Args[i] = body.ReplaceName(f.ArgName, f.ArgName) // just counts occurrences
+			for _, local := range locals {
+				result.Args[i] += local.Expr.ReplaceName(f.ArgName, f.ArgName) // dito
+			}
 		}
 
 		localnames := map[string]string{}
