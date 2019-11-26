@@ -25,7 +25,7 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 			optimize_dropUnused,
 			optimize_inlineSelectorCalls,
 			optimize_inlineNullaries,
-			optimize_saturateArgsIfPartialCall,
+			// optimize_saturateArgsIfPartialCall,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
 			optimize_inlineArgsRearrangers,
@@ -121,7 +121,7 @@ func optimize_saturateArgsIfPartialCall(prog Prog) (ret Prog, didModify bool) {
 			}
 		}
 	}
-	if dodiff > 0 && doidx == 14 /*env: 17 ok 14 not*/ {
+	if dodiff > 0 /*env: 17 ok 14 not*/ {
 		if didModify = true; !iscomplex { // inline the partial (if simple) into calls before finally modifying the def
 			// for i := 0; i < len(ret); i++ {
 			// 	ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
