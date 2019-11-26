@@ -30,6 +30,7 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 			optimize_inlineArgCallers,
 			optimize_inlineArgsRearrangers,
 			optimize_primOpPreCalcs,
+			optimize_callsToGeqOrLeq,
 		} {
 			if ret, again = opt(ret); again {
 				didModify = true
@@ -277,6 +278,63 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 							}
 						}
 						expr, didModify = nuexpr, true
+					}
+				}
+				return expr
+			})
+		}
+	}
+	return
+}
+
+func optimize_callsToGeqOrLeq(prog Prog) (ret Prog, didModify bool) {
+	ret = prog
+	geqsleqs := map[int]bool{}
+	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
+		if _, fnr1, _, _, _, allargs1 := dissectCall(ret[i].Body); fnr1 != nil && len(allargs1) == 4 {
+			if opcode1 := OpCode(*fnr1); opcode1 == OpEq || opcode1 == OpLt || opcode1 == OpGt {
+				if fntrue, _ := allargs1[2].(ExprFuncRef); fntrue == StdFuncTrue {
+					if _, fnr2, _, _, _, allargs2 := dissectCall(allargs1[3]); fnr2 != nil && len(allargs2) == 2 {
+						if opcode2 := OpCode(*fnr2); opcode2 != opcode1 && (opcode2 == OpEq || opcode2 == OpLt || opcode2 == OpGt) && eq(allargs1[0], allargs2[0]) && eq(allargs1[1], allargs2[1]) && (opcode1 == OpEq || opcode2 == OpEq) {
+							if isl, isg := (opcode1 == OpLt || opcode2 == OpLt), (opcode1 == OpGt || opcode2 == OpGt); isg || isl {
+								geqsleqs[i] = isg
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if len(geqsleqs) > 0 {
+		for i := int(StdFuncCons + 1); i < len(ret); i++ {
+			ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+				if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && (len(allargs) == 1 || len(allargs) == 2) {
+					numl, isnuml := allargs[0].(ExprNumInt)
+					numr, isnumr := allargs[len(allargs)-1].(ExprNumInt)
+					if isnuml || isnumr {
+						if isgeq, orleq := geqsleqs[int(*fnref)]; orleq {
+							if len(allargs) == 1 && isnuml {
+								if isgeq {
+									return ExprCall{Callee: ExprFuncRef(OpGt), Arg: numl + 1}
+								} else {
+									return ExprCall{Callee: ExprFuncRef(OpLt), Arg: numl - 1}
+								}
+							} else if len(allargs) == 2 {
+								if isnuml {
+									if isgeq {
+										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpGt), Arg: numl + 1}, Arg: allargs[1]}
+									} else {
+										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpLt), Arg: numl - 1}, Arg: allargs[1]}
+									}
+								} else if isnumr {
+									if isgeq {
+										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpGt), Arg: allargs[0]}, Arg: numr - 1}
+									} else {
+										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpLt), Arg: allargs[0]}, Arg: numr + 1}
+									}
+								}
+							}
+						}
 					}
 				}
 				return expr
