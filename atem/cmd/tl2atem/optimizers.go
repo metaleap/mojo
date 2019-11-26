@@ -31,6 +31,8 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 			optimize_inlineArgsRearrangers,
 			optimize_primOpPreCalcs,
 			optimize_callsToGeqOrLeq,
+			optimize_eliminateNotCalls,
+			optimize_tryPreReduceCalls,
 		} {
 			if ret, again = opt(ret); again {
 				didModify = true
@@ -119,8 +121,8 @@ func optimize_saturateArgsIfPartialCall(prog Prog) (ret Prog, didModify bool) {
 			}
 		}
 	}
-	if didModify = (dodiff > 0); didModify {
-		if !iscomplex { // inline the partial (if simple) into calls before finally modifying the def
+	if dodiff > 0 {
+		if didModify = true; !iscomplex { // inline the partial (if simple) into calls before finally modifying the def
 			for i := 0; i < len(ret); i++ {
 				ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 					if _, fnref, _, _, _, _ := dissectCall(expr); fnref != nil && int(*fnref) == doidx {
@@ -287,6 +289,68 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
+func optimize_eliminateNotCalls(prog Prog) (ret Prog, didModify bool) {
+	ret = prog
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil && (numargs == 4 || numargs == 6) {
+				if opcode := OpCode(*fnref); opcode == OpEq || opcode == OpLt || opcode == OpGt {
+					if fnl, _ := allargs[2].(ExprFuncRef); fnl == StdFuncTrue || fnl == StdFuncFalse {
+						if fnr, _ := allargs[3].(ExprFuncRef); fnr == StdFuncTrue || fnr == StdFuncFalse {
+							if numargs == 4 && fnl == StdFuncTrue && fnr == StdFuncFalse {
+								didModify = true
+								return ExprCall{Callee: ExprCall{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}
+							} else if numargs == 6 && fnl == StdFuncFalse && fnr == StdFuncTrue {
+								didModify = true
+								return ExprCall{Callee: ExprCall{Callee: ExprCall{Callee: ExprCall{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}, Arg: allargs[5]}, Arg: allargs[4]}
+							}
+						}
+					}
+				}
+			}
+			return expr
+		})
+	}
+	return
+}
+
+func optimize_tryPreReduceCalls(prog Prog) (ret Prog, didModify bool) {
+	ret = prog
+	var progwithproperargsformat Prog
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			if _, fnref, _, _, numargrefs, allargs := dissectCall(expr); fnref != nil && numargrefs == 0 {
+				_ = walk(expr, func(it Expr) Expr {
+					if _, isargref := it.(ExprArgRef); isargref {
+						numargrefs++
+					}
+					return it
+				})
+				if argsneeded := 2; numargrefs == 0 {
+					if *fnref >= 0 {
+						argsneeded = len(ret[*fnref].Args)
+					}
+					if len(allargs) == argsneeded {
+						retval := func() Expr {
+							defer func() { _ = recover() }()
+							if progwithproperargsformat == nil { // kinda Ouch approach, but we'll hit it only ever so rarely really.. this whole thing more for completeness' sake and the occasional "write-time readability gain"
+								progwithproperargsformat = LoadFromJson([]byte(ret.String()))
+							}
+							return progwithproperargsformat.Eval(expr, nil)
+						}()
+						if _, isnonatomic := retval.(ExprCall); retval != nil && !isnonatomic {
+							didModify = true
+							return retval
+						}
+					}
+				}
+			}
+			return expr
+		})
+	}
+	return
+}
+
 func optimize_callsToGeqOrLeq(prog Prog) (ret Prog, didModify bool) {
 	ret = prog
 	geqsleqs := map[int]bool{}
@@ -314,20 +378,20 @@ func optimize_callsToGeqOrLeq(prog Prog) (ret Prog, didModify bool) {
 					if isnuml || isnumr {
 						if isgeq, orleq := geqsleqs[int(*fnref)]; orleq {
 							if len(allargs) == 1 && isnuml {
-								if isgeq {
+								if didModify = true; isgeq {
 									return ExprCall{Callee: ExprFuncRef(OpGt), Arg: numl + 1}
 								} else {
 									return ExprCall{Callee: ExprFuncRef(OpLt), Arg: numl - 1}
 								}
 							} else if len(allargs) == 2 {
 								if isnuml {
-									if isgeq {
+									if didModify = true; isgeq {
 										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpGt), Arg: numl + 1}, Arg: allargs[1]}
 									} else {
 										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpLt), Arg: numl - 1}, Arg: allargs[1]}
 									}
 								} else if isnumr {
-									if isgeq {
+									if didModify = true; isgeq {
 										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpGt), Arg: allargs[0]}, Arg: numr - 1}
 									} else {
 										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpLt), Arg: allargs[0]}, Arg: numr + 1}
@@ -350,27 +414,37 @@ func optimize_primOpPreCalcs(prog Prog) (ret Prog, didModify bool) {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil && *fnref < 0 {
 				if opcode := OpCode(*fnref); numargs == 1 {
-					if didModify = (opcode == OpAdd && eq(allargs[0], ExprNumInt(0))); didModify {
+					if opcode == OpAdd && eq(allargs[0], ExprNumInt(0)) {
+						didModify = true
 						return StdFuncId
-					} else if didModify = (opcode == OpMul && eq(allargs[0], ExprNumInt(1))); didModify {
+					} else if opcode == OpMul && eq(allargs[0], ExprNumInt(1)) {
+						didModify = true
 						return StdFuncId
 					}
 				} else if numargs == 2 {
-					if didModify = (opcode == OpAdd && eq(allargs[0], ExprNumInt(0))); didModify {
+					if opcode == OpAdd && eq(allargs[0], ExprNumInt(0)) {
+						didModify = true
 						return allargs[1]
-					} else if didModify = (opcode == OpAdd && eq(allargs[1], ExprNumInt(0))); didModify {
+					} else if opcode == OpAdd && eq(allargs[1], ExprNumInt(0)) {
+						didModify = true
 						return allargs[0]
-					} else if didModify = (opcode == OpMul && eq(allargs[0], ExprNumInt(1))); didModify {
+					} else if opcode == OpMul && eq(allargs[0], ExprNumInt(1)) {
+						didModify = true
 						return allargs[1]
-					} else if didModify = (opcode == OpMul && eq(allargs[1], ExprNumInt(1))); didModify {
+					} else if opcode == OpMul && eq(allargs[1], ExprNumInt(1)) {
+						didModify = true
 						return allargs[0]
-					} else if didModify = (opcode == OpSub && eq(allargs[1], ExprNumInt(0))); didModify {
+					} else if opcode == OpSub && eq(allargs[1], ExprNumInt(0)) {
+						didModify = true
 						return allargs[0]
-					} else if didModify = (opcode == OpDiv && eq(allargs[1], ExprNumInt(1))); didModify {
+					} else if opcode == OpDiv && eq(allargs[1], ExprNumInt(1)) {
+						didModify = true
 						return allargs[0]
-					} else if didModify = (opcode == OpMod && eq(allargs[1], ExprNumInt(1))); didModify {
+					} else if opcode == OpMod && eq(allargs[1], ExprNumInt(1)) {
+						didModify = true
 						return ExprNumInt(0)
-					} else if didModify = (opcode == OpEq && eq(allargs[0], allargs[1])); didModify {
+					} else if opcode == OpEq && eq(allargs[0], allargs[1]) {
+						didModify = true
 						return StdFuncTrue
 					}
 				}
