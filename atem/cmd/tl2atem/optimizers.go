@@ -29,6 +29,7 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
 			optimize_inlineArgsRearrangers,
+			optimize_primOpPreCalcs,
 		} {
 			if ret, again = opt(ret); again {
 				didModify = true
@@ -177,7 +178,7 @@ func optimize_inlineArgCallers(prog Prog) (ret Prog, didModify bool) {
 	for i := 0; i < len(ret)-1; i++ {
 		if caller, _, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body); numargs > 0 && numargrefs == 1 && numargscalls == 0 {
 			if argref, ok := caller.(ExprArgRef); ok {
-				argcallers[i] = normalizeArgRef(argref, len(ret[i].Args))
+				argcallers[i] = argref
 			}
 		}
 	}
@@ -190,7 +191,7 @@ func optimize_inlineArgCallers(prog Prog) (ret Prog, didModify bool) {
 							panic("TODO")
 						} else {
 							call2inline := rewriteInnerMostCallee(ret[*fnref].Body.(ExprCall), func(Expr) Expr { return allargs[0] })
-							expr = rewriteInnerMostCallee(expr.(ExprCall), func(Expr) Expr { return ExprFuncRef(0) })
+							expr = rewriteInnerMostCallee(expr.(ExprCall), func(Expr) Expr { return StdFuncId })
 							expr = rewriteCallArgs(expr.(ExprCall), numargs, func(argidx int, argval Expr) Expr {
 								if argidx == 0 {
 									return call2inline
@@ -213,7 +214,7 @@ func optimize_inlineSelectorCalls(prog Prog) (ret Prog, didModify bool) {
 	selectors := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		if argref, ok := ret[i].Body.(ExprArgRef); ok {
-			selectors[i] = normalizeArgRef(argref, len(ret[i].Args))
+			selectors[i] = argref
 		}
 	}
 	if len(selectors) > 0 {
@@ -240,7 +241,7 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 			maxarg, callexprs := ExprArgRef(-1), append([]Expr{callee}, allargs...)
 			for _, expr := range callexprs {
 				if argref, ok := expr.(ExprArgRef); ok {
-					if argref = normalizeArgRef(argref, len(ret[i].Args)); argref > maxarg {
+					if argref > maxarg {
 						maxarg = argref
 					}
 				}
@@ -258,7 +259,6 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 						counts := map[ExprArgRef]int{}
 						nuexpr := rewriteCallArgs(ret[*fnref].Body.(ExprCall), -1, func(argidx int, argval Expr) Expr {
 							if argref, ok := argval.(ExprArgRef); ok {
-								argref = normalizeArgRef(argref, len(ret[*fnref].Args))
 								counts[argref] = counts[argref] + 1
 								return allargs[argref]
 							}
@@ -266,7 +266,6 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 						}, nil)
 						nuexpr = rewriteInnerMostCallee(nuexpr, func(callee Expr) Expr {
 							if argref, ok := callee.(ExprArgRef); ok {
-								argref = normalizeArgRef(argref, len(ret[*fnref].Args))
 								counts[argref] = counts[argref] + 1
 								return allargs[argref]
 							}
@@ -283,6 +282,43 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 				return expr
 			})
 		}
+	}
+	return
+}
+
+func optimize_primOpPreCalcs(prog Prog) (ret Prog, didModify bool) {
+	ret = prog
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil && *fnref < 0 {
+				if opcode := OpCode(*fnref); numargs == 1 {
+					if didModify = (opcode == OpAdd && eq(allargs[0], ExprNumInt(0))); didModify {
+						return StdFuncId
+					} else if didModify = (opcode == OpMul && eq(allargs[0], ExprNumInt(1))); didModify {
+						return StdFuncId
+					}
+				} else if numargs == 2 {
+					if didModify = (opcode == OpAdd && eq(allargs[0], ExprNumInt(0))); didModify {
+						return allargs[1]
+					} else if didModify = (opcode == OpAdd && eq(allargs[1], ExprNumInt(0))); didModify {
+						return allargs[0]
+					} else if didModify = (opcode == OpMul && eq(allargs[0], ExprNumInt(1))); didModify {
+						return allargs[1]
+					} else if didModify = (opcode == OpMul && eq(allargs[1], ExprNumInt(1))); didModify {
+						return allargs[0]
+					} else if didModify = (opcode == OpSub && eq(allargs[1], ExprNumInt(0))); didModify {
+						return allargs[0]
+					} else if didModify = (opcode == OpDiv && eq(allargs[1], ExprNumInt(1))); didModify {
+						return allargs[0]
+					} else if didModify = (opcode == OpMod && eq(allargs[1], ExprNumInt(1))); didModify {
+						return ExprNumInt(0)
+					} else if didModify = (opcode == OpEq && eq(allargs[0], allargs[1])); didModify {
+						return StdFuncTrue
+					}
+				}
+			}
+			return expr
+		})
 	}
 	return
 }
@@ -304,11 +340,22 @@ func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFun
 	return
 }
 
-func normalizeArgRef(argRef ExprArgRef, numArgs int) ExprArgRef {
-	if argRef < 0 {
-		argRef = ExprArgRef(numArgs + int(argRef))
+func eq(expr Expr, cmp Expr) bool {
+	switch it := expr.(type) {
+	case ExprNumInt:
+		that, ok := cmp.(ExprNumInt)
+		return ok && it == that
+	case ExprArgRef:
+		that, ok := cmp.(ExprArgRef)
+		return ok && it == that
+	case ExprFuncRef:
+		that, ok := cmp.(ExprFuncRef)
+		return ok && it == that
+	case ExprCall:
+		that, ok := cmp.(ExprCall)
+		return ok && eq(it.Callee, that.Callee) && eq(it.Arg, that.Arg)
 	}
-	return argRef
+	return false
 }
 
 func rewriteCallArgs(callExpr ExprCall, numArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprCall {

@@ -36,7 +36,7 @@ func compileExpr(expr tl.Expr, funcsArgs []*tl.ExprFunc) Expr {
 		return ExprCall{Callee: compileExpr(it.Callee, funcsArgs), Arg: compileExpr(it.CallArg, funcsArgs)}
 	case *tl.ExprName:
 		if it.IdxOrInstr < 0 {
-			return ExprArgRef(it.IdxOrInstr)
+			return ExprArgRef(len(funcsArgs) + it.IdxOrInstr)
 		} else if it.IdxOrInstr > 0 {
 			if opcode, ok := instr2op[tl.Instr(it.IdxOrInstr)]; ok {
 				return ExprFuncRef(opcode)
