@@ -6,6 +6,8 @@ import (
 
 const never ExprNumInt = -1 << 31
 
+var optNumRounds int
+
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	expr = visitor(expr)
 	if call, ok := expr.(ExprCall); ok {
@@ -18,7 +20,7 @@ func walk(expr Expr, visitor func(Expr) Expr) Expr {
 func optimize(prog Prog) (ret Prog, didModify bool) {
 	ret = prog
 	for again := true; again; {
-		again = false
+		again, optNumRounds = false, optNumRounds+1
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_inlineSelectorCalls,
 			optimize_dropUnused,
@@ -67,18 +69,30 @@ func optimize_dropUnused(prog Prog) (ret Prog, didModify bool) {
 
 func optimize_inlineNullaries(prog Prog) (ret Prog, didModify bool) {
 	ret = prog
-	nullaries := make(map[int]bool)
+	nullaries := make(map[int]int)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if 0 == len(ret[i].Args) {
-			nullaries[i] = true
+			nullaries[i] = 0
 		}
+	}
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		_ = walk(ret[i].Body, func(expr Expr) Expr {
+			if fnref, ok := expr.(ExprFuncRef); ok && fnref > StdFuncCons {
+				if numrefs, is := nullaries[int(fnref)]; is {
+					nullaries[int(fnref)] = numrefs + 1
+				}
+			}
+			return expr
+		})
 	}
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if fnref, ok := expr.(ExprFuncRef); ok && fnref > StdFuncCons {
-				if _, is := nullaries[int(fnref)]; is {
-					didModify = true
-					return ret[int(fnref)].Body
+				if numrefs, is := nullaries[int(fnref)]; is {
+					if _, iscall := ret[fnref].Body.(ExprCall); (!iscall) || numrefs <= 1 {
+						didModify = true
+						return ret[int(fnref)].Body
+					}
 				}
 			}
 			return expr
@@ -163,10 +177,7 @@ func optimize_inlineArgCallers(prog Prog) (ret Prog, didModify bool) {
 	for i := 0; i < len(ret)-1; i++ {
 		if caller, _, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body); numargs > 0 && numargrefs == 1 && numargscalls == 0 {
 			if argref, ok := caller.(ExprArgRef); ok {
-				if argref < 0 {
-					argref = ExprArgRef(len(ret[i].Args) + int(argref))
-				}
-				argcallers[i] = argref
+				argcallers[i] = normalizeArgRef(argref, len(ret[i].Args))
 			}
 		}
 	}
@@ -202,10 +213,7 @@ func optimize_inlineSelectorCalls(prog Prog) (ret Prog, didModify bool) {
 	selectors := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		if argref, ok := ret[i].Body.(ExprArgRef); ok {
-			if argref < 0 {
-				argref = ExprArgRef(len(ret[i].Args) + int(argref))
-			}
-			selectors[i] = argref
+			selectors[i] = normalizeArgRef(argref, len(ret[i].Args))
 		}
 	}
 	if len(selectors) > 0 {
@@ -232,10 +240,7 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 			maxarg, callexprs := ExprArgRef(-1), append([]Expr{callee}, allargs...)
 			for _, expr := range callexprs {
 				if argref, ok := expr.(ExprArgRef); ok {
-					if argref < 0 {
-						argref = ExprArgRef(len(ret[i].Args) + int(argref))
-					}
-					if argref > maxarg {
+					if argref = normalizeArgRef(argref, len(ret[i].Args)); argref > maxarg {
 						maxarg = argref
 					}
 				}
@@ -253,9 +258,7 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 						counts := map[ExprArgRef]int{}
 						nuexpr := rewriteCallArgs(ret[*fnref].Body.(ExprCall), -1, func(argidx int, argval Expr) Expr {
 							if argref, ok := argval.(ExprArgRef); ok {
-								if argref < 0 {
-									argref = ExprArgRef(len(ret[*fnref].Args) + int(argref))
-								}
+								argref = normalizeArgRef(argref, len(ret[*fnref].Args))
 								counts[argref] = counts[argref] + 1
 								return allargs[argref]
 							}
@@ -263,9 +266,7 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 						}, nil)
 						nuexpr = rewriteInnerMostCallee(nuexpr, func(callee Expr) Expr {
 							if argref, ok := callee.(ExprArgRef); ok {
-								if argref < 0 {
-									argref = ExprArgRef(len(ret[*fnref].Args) + int(argref))
-								}
+								argref = normalizeArgRef(argref, len(ret[*fnref].Args))
 								counts[argref] = counts[argref] + 1
 								return allargs[argref]
 							}
@@ -301,6 +302,13 @@ func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFun
 		}
 	}
 	return
+}
+
+func normalizeArgRef(argRef ExprArgRef, numArgs int) ExprArgRef {
+	if argRef < 0 {
+		argRef = ExprArgRef(numArgs + int(argRef))
+	}
+	return argRef
 }
 
 func rewriteCallArgs(callExpr ExprCall, numArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprCall {

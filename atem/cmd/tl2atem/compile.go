@@ -22,8 +22,9 @@ func compile(mainTopDefQName string) {
 	outProg = append(outProg, outProg[idx])
 	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1)}
 
-	for again := true; again; {
+	for again := true; again; optNumRounds = 0 {
 		outProg, again = optimize(outProg)
+		println("OPT:", optNumRounds, "round(s)")
 	}
 }
 
