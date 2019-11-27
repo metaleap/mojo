@@ -91,8 +91,9 @@ func (me ExprNumInt) String() string
 
 ```go
 type FuncDef struct {
-	Args []int
-	Body Expr
+	Args          []int
+	Body          Expr
+	OrigNameMaybe string
 }
 ```
 

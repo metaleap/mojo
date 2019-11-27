@@ -15,8 +15,9 @@ const (
 type (
 	Prog    []FuncDef
 	FuncDef struct {
-		Args []int
-		Body Expr
+		Args          []int
+		Body          Expr
+		OrigNameMaybe string
 	}
 	Expr        interface{ String() string }
 	ExprNumInt  int
@@ -33,14 +34,14 @@ func (me ExprArgRef) String() string  { return "\"" + strconv.Itoa(int(me)) + "\
 func (me ExprFuncRef) String() string { return "[" + strconv.Itoa(int(me)) + "]" }
 func (me ExprCall) String() string    { return "[" + me.Callee.String() + ", " + me.Arg.String() + "]" }
 func (me *FuncDef) String() string {
-	outjson := "[ ["
+	outjson := "[ " + strconv.Quote(me.OrigNameMaybe) + ", ["
 	for i, a := range me.Args {
 		if i > 0 {
 			outjson += ","
 		}
 		outjson += strconv.Itoa(a)
 	}
-	return outjson + "],\t\t" + me.Body.String() + " ]"
+	return outjson + "],\n\t\t" + me.Body.String() + " ]"
 }
 func (me Prog) String() string {
 	outjson := "[ "

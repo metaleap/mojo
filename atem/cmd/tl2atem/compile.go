@@ -20,7 +20,7 @@ func compile(mainTopDefQName string) {
 
 	idx := compileTopDef(mainTopDefQName)
 	outProg = append(outProg, outProg[idx])
-	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1)}
+	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1), OrigNameMaybe: mainTopDefQName}
 
 	for again := false; again; optNumRounds = 0 {
 		outProg, again = optimize(outProg)
@@ -28,21 +28,21 @@ func compile(mainTopDefQName string) {
 	}
 }
 
-func compileExpr(expr tl.Expr, funcsArgs []*tl.ExprFunc) Expr {
+func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Expr {
 	switch it := expr.(type) {
 	case *tl.ExprLitNum:
 		return ExprNumInt(it.NumVal)
 	case *tl.ExprCall:
-		return ExprCall{Callee: compileExpr(it.Callee, funcsArgs), Arg: compileExpr(it.CallArg, funcsArgs)}
+		return ExprCall{Callee: compileExpr(it.Callee, curFunc, curFuncsArgs), Arg: compileExpr(it.CallArg, curFunc, curFuncsArgs)}
 	case *tl.ExprName:
 		if it.IdxOrInstr < 0 {
-			return ExprArgRef(len(funcsArgs) + it.IdxOrInstr)
+			return ExprArgRef(len(curFuncsArgs) + it.IdxOrInstr)
 		} else if it.IdxOrInstr > 0 {
 			if opcode, ok := instr2op[tl.Instr(it.IdxOrInstr)]; ok {
 				return ExprFuncRef(opcode)
 			}
 		} else {
-			for i, farg := range funcsArgs {
+			for i, farg := range curFuncsArgs {
 				if farg.ArgName == it.NameVal {
 					return ExprArgRef(i)
 				}
@@ -51,18 +51,18 @@ func compileExpr(expr tl.Expr, funcsArgs []*tl.ExprFunc) Expr {
 			return ExprFuncRef(idx)
 		}
 	case *tl.ExprFunc:
-		globalname, globalbody := "//"+strconv.Itoa(len(inProg.TopDefs))+"//"+it.ArgName, it
+		globalname, globalbody := "//"+curFunc.OrigNameMaybe+"/lam/"+it.ArgName+strconv.Itoa(len(inProg.TopDefs)), it
 		freevars, expr := map[string]int{}, tl.Expr(&tl.ExprName{NameVal: globalname})
 		freeVars(globalbody, map[string]string{}, freevars)
 		for fvname := range freevars {
 			globalbody = &tl.ExprFunc{ArgName: fvname, Body: globalbody}
 		}
-		fargs, _ := flattenFunc(globalbody)
+		fargs, _ := dissectFunc(globalbody)
 		for _, farg := range fargs[:len(freevars)] {
 			expr = &tl.ExprCall{Callee: expr, CallArg: &tl.ExprName{NameVal: farg.ArgName}}
 		}
 		inProg.TopDefs[globalname] = globalbody
-		return compileExpr(expr, funcsArgs)
+		return compileExpr(expr, curFunc, curFuncsArgs)
 	}
 	panic(fmt.Sprintf("%T\t%v", expr, expr))
 }
@@ -89,35 +89,23 @@ func compileTopDef(name string) int {
 			panic(name)
 		}
 		idx, name = len(outProg), prefstd+name
-		outProg, defsDone[name] = append(outProg, FuncDef{}), idx
+		outProg, defsDone[name] = append(outProg, FuncDef{OrigNameMaybe: "[" + strconv.Itoa(idx) + "]" + name}), idx
 
 		result := &outProg[idx]
-		funcsargs, body := flattenFunc(topdef)
-		var addargtolocal func(int, string)
-		addargtolocal = func(i int, argName string) {
-			locals[i].Expr = &tl.ExprFunc{Loc: locals[i].Expr.LocInfo(), ArgName: argName, Body: locals[i].Expr}
-			body = body.RewriteName(locals[i].Name, &tl.ExprCall{Loc: body.LocInfo(), Callee: &tl.ExprName{Loc: body.LocInfo(), NameVal: locals[i].Name}, CallArg: &tl.ExprName{Loc: body.LocInfo(), NameVal: argName}})
-			for j := 0; j <= i; j++ {
-				if 0 == locals[j].ReplaceName(argName, argName) && 0 < locals[j].ReplaceName(locals[i].Name, locals[i].Name) {
-					locals[j].Expr = locals[j].RewriteName(locals[i].Name, &tl.ExprCall{Loc: locals[j].Expr.LocInfo(), Callee: &tl.ExprName{Loc: locals[j].Expr.LocInfo(), NameVal: locals[i].Name}, CallArg: &tl.ExprName{Loc: locals[j].Expr.LocInfo(), NameVal: argName}})
-					addargtolocal(j, argName)
-				}
-			}
-		}
-		result.Args = make([]int, len(funcsargs))
-		for i, f := range funcsargs {
+		curFuncsargs, body := dissectFunc(topdef)
+		result.Args = make([]int, len(curFuncsargs))
+		for i, f := range curFuncsargs {
 			result.Args[i] = body.ReplaceName(f.ArgName, f.ArgName) // just counts occurrences
-			for l, local := range locals {
+			for _, local := range locals {
 				if numrefs := local.Expr.ReplaceName(f.ArgName, f.ArgName); numrefs > 0 {
 					result.Args[i] += numrefs
-					addargtolocal(l, f.ArgName)
 				}
 			}
 		}
 
 		localnames := map[string]string{}
 		for i, local := range locals {
-			globalname := name + "//" + local.Name + "//" + strconv.Itoa(i)
+			globalname := "//" + name + "/local/" + local.Name + strconv.Itoa(i)
 			localnames[local.Name] = globalname
 		}
 		for i, local := range locals {
@@ -127,7 +115,7 @@ func compileTopDef(name string) int {
 			for fvname := range freevars {
 				globalbody = &tl.ExprFunc{ArgName: fvname, Body: globalbody}
 			}
-			fargs, _ := flattenFunc(globalbody)
+			fargs, _ := dissectFunc(globalbody)
 			for _, farg := range fargs[:len(freevars)] {
 				expr = &tl.ExprCall{Callee: expr, CallArg: &tl.ExprName{NameVal: farg.ArgName}}
 			}
@@ -138,18 +126,16 @@ func compileTopDef(name string) int {
 					exprcopy, inProg.TopDefs[gname] = fullCopy(expr), inProg.TopDefs[gname].RewriteName(local.Name, exprcopy)
 				}
 			}
-			if 0 < body.ReplaceName(local.Name, local.Name) {
-				body = body.RewriteName(local.Name, expr)
-			}
+			body = body.RewriteName(local.Name, expr)
 		}
 
-		result.Body = compileExpr(body, funcsargs)
+		result.Body = compileExpr(body, result, curFuncsargs)
 		outProg[idx] = *result // crucial as the slice could have been resized by now (even tho we give it an initial cap that makes this unlikely, this safeguard will work for any outrageous program size)
 	}
 	return idx
 }
 
-func flattenFunc(expr tl.Expr) (outerFuncs []*tl.ExprFunc, innerMostBody tl.Expr) {
+func dissectFunc(expr tl.Expr) (outerFuncs []*tl.ExprFunc, innerMostBody tl.Expr) {
 	innerMostBody = expr
 	for fn, _ := expr.(*tl.ExprFunc); fn != nil; fn, _ = fn.Body.(*tl.ExprFunc) {
 		innerMostBody, outerFuncs = fn.Body, append(outerFuncs, fn)
@@ -192,10 +178,17 @@ func freeVars(expr tl.Expr, localNames map[string]string, results map[string]int
 			if _, exists := localNames[it.NameVal]; !exists {
 				if _, exists = inProg.TopDefs[it.NameVal]; !exists {
 					if _, exists = inProg.TopDefs[tl.StdModuleName+"."+it.NameVal]; !exists {
-						if have, exists := results[it.NameVal]; exists && have != it.IdxOrInstr {
-							panic(it.NameVal)
+						for tdname := range inProg.TopDefs {
+							if exists = strings.HasSuffix(tdname, "."+it.NameVal) && strings.HasPrefix(tdname, tl.StdModuleName+"."); exists {
+								break
+							}
 						}
-						results[it.NameVal] = it.IdxOrInstr
+						if !exists {
+							if have, oops := results[it.NameVal]; oops && have != it.IdxOrInstr {
+								panic(it.NameVal)
+							}
+							results[it.NameVal] = it.IdxOrInstr
+						}
 					}
 				}
 			}

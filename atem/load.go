@@ -14,11 +14,11 @@ func LoadFromJson(src []byte) Prog {
 	}
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
-		arrargs, args := it[0].([]any), make([]int, 0, 8)
+		arrargs, args := it[1].([]any), make([]int, 0, 8)
 		for _, v := range arrargs {
 			args = append(args, int(v.(float64)))
 		}
-		me = append(me, FuncDef{args, exprFromJson(it[1], int64(len(args)))})
+		me = append(me, FuncDef{args, exprFromJson(it[2], int64(len(args))), it[0].(string)})
 	}
 	return me
 }

@@ -59,6 +59,9 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 				OpPrtDst.Write(append(append(Bytes(me.ExprList(lhs)), '\t'), me.ExprString(rhs)...))
 				return rhs
 			default:
+				println(opcode)
+				println(lhs.String())
+				println(rhs.String())
 				panic([2]Expr{lhs, rhs})
 			}
 		}
