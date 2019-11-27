@@ -25,7 +25,6 @@ func optimize(prog Prog) (ret Prog, didModify bool) {
 			optimize_dropUnused,
 			optimize_inlineSelectorCalls,
 			optimize_inlineNullaries,
-			// optimize_saturateArgsIfPartialCall,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
 			optimize_inlineArgsRearrangers,
@@ -101,41 +100,6 @@ func optimize_inlineNullaries(prog Prog) (ret Prog, didModify bool) {
 			}
 			return expr
 		})
-	}
-	return
-}
-
-func optimize_saturateArgsIfPartialCall(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
-	var doidx, dodiff int
-	var iscomplex bool
-	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
-		if _, fnref, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body); fnref != nil {
-			goalnum := 2
-			if fr := *fnref; fr >= 0 {
-				goalnum = len(ret[fr].Args)
-			}
-			if diff := goalnum - numargs; diff > 0 {
-				doidx, dodiff, iscomplex = i, diff, numargscalls > 0 || numargrefs > 0
-				break
-			}
-		}
-	}
-	if dodiff > 0 /*env: 17 ok 14 not*/ {
-		if didModify = true; !iscomplex { // inline the partial (if simple) into calls before finally modifying the def
-			// for i := 0; i < len(ret); i++ {
-			// 	ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			// 		if _, fnref, _, _, _, _ := dissectCall(expr); fnref != nil && int(*fnref) == doidx {
-			// 			return rewriteInnerMostCallee(expr.(ExprCall), func(Expr) Expr { return ret[doidx].Body })
-			// 		}
-			// 		return expr
-			// 	})
-			// }
-		}
-		for num, j := len(ret[doidx].Args), 0; j < dodiff; j++ {
-			println(iscomplex, doidx, "FROM\t"+ret[doidx].Body.String()+"\n\tTO\t\t"+(ExprCall{Callee: ret[doidx].Body, Arg: ExprArgRef(j + num)}).String())
-			ret[doidx].Args, ret[doidx].Body = append(ret[doidx].Args, 1), ExprCall{Callee: ret[doidx].Body, Arg: ExprArgRef(j + num)}
-		}
 	}
 	return
 }

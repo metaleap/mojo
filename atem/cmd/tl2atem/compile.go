@@ -22,7 +22,7 @@ func compile(mainTopDefQName string) {
 	outProg = append(outProg, outProg[idx])
 	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1)}
 
-	for again := true; again; optNumRounds = 0 {
+	for again := false; again; optNumRounds = 0 {
 		outProg, again = optimize(outProg)
 		println("OPT:", optNumRounds, "round(s)")
 	}
@@ -93,11 +93,25 @@ func compileTopDef(name string) int {
 
 		result := &outProg[idx]
 		funcsargs, body := flattenFunc(topdef)
+		var addargtolocal func(int, string)
+		addargtolocal = func(i int, argName string) {
+			locals[i].Expr = &tl.ExprFunc{Loc: locals[i].Expr.LocInfo(), ArgName: argName, Body: locals[i].Expr}
+			body = body.RewriteName(locals[i].Name, &tl.ExprCall{Loc: body.LocInfo(), Callee: &tl.ExprName{Loc: body.LocInfo(), NameVal: locals[i].Name}, CallArg: &tl.ExprName{Loc: body.LocInfo(), NameVal: argName}})
+			for j := 0; j <= i; j++ {
+				if 0 == locals[j].ReplaceName(argName, argName) && 0 < locals[j].ReplaceName(locals[i].Name, locals[i].Name) {
+					locals[j].Expr = locals[j].RewriteName(locals[i].Name, &tl.ExprCall{Loc: locals[j].Expr.LocInfo(), Callee: &tl.ExprName{Loc: locals[j].Expr.LocInfo(), NameVal: locals[i].Name}, CallArg: &tl.ExprName{Loc: locals[j].Expr.LocInfo(), NameVal: argName}})
+					addargtolocal(j, argName)
+				}
+			}
+		}
 		result.Args = make([]int, len(funcsargs))
 		for i, f := range funcsargs {
 			result.Args[i] = body.ReplaceName(f.ArgName, f.ArgName) // just counts occurrences
-			for _, local := range locals {
-				result.Args[i] += local.Expr.ReplaceName(f.ArgName, f.ArgName) // dito
+			for l, local := range locals {
+				if numrefs := local.Expr.ReplaceName(f.ArgName, f.ArgName); numrefs > 0 {
+					result.Args[i] += numrefs
+					addargtolocal(l, f.ArgName)
+				}
 			}
 		}
 
