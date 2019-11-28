@@ -10,7 +10,7 @@ import (
 func ListFrom(str []byte) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(str) - 1; i > -1; i-- {
-		ret = ExprCall{Callee: ExprCall{Callee: StdFuncCons, Arg: ExprNumInt(str[i])}, Arg: ret}
+		ret = ExprAppl{Callee: ExprAppl{Callee: StdFuncCons, Arg: ExprNumInt(str[i])}, Arg: ret}
 	}
 	return
 }
@@ -18,7 +18,7 @@ func ListFrom(str []byte) (ret Expr) {
 func ListsFrom(strs []string) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(strs) - 1; i > -1; i-- {
-		ret = ExprCall{Callee: ExprCall{Callee: StdFuncCons, Arg: ListFrom([]byte(strs[i]))}, Arg: ret}
+		ret = ExprAppl{Callee: ExprAppl{Callee: StdFuncCons, Arg: ListFrom([]byte(strs[i]))}, Arg: ret}
 	}
 	return
 }

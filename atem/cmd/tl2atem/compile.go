@@ -33,7 +33,7 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 	case *tl.ExprLitNum:
 		return ExprNumInt(it.NumVal)
 	case *tl.ExprCall:
-		return ExprCall{Callee: compileExpr(it.Callee, curFunc, curFuncsArgs), Arg: compileExpr(it.CallArg, curFunc, curFuncsArgs)}
+		return ExprAppl{Callee: compileExpr(it.Callee, curFunc, curFuncsArgs), Arg: compileExpr(it.CallArg, curFunc, curFuncsArgs)}
 	case *tl.ExprName:
 		if it.IdxOrInstr < 0 {
 			return ExprArgRef(len(curFuncsArgs) + it.IdxOrInstr)

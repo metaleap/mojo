@@ -10,7 +10,7 @@ var optNumRounds int
 
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	expr = visitor(expr)
-	if call, ok := expr.(ExprCall); ok {
+	if call, ok := expr.(ExprAppl); ok {
 		call.Callee, call.Arg = walk(call.Callee, visitor), walk(call.Arg, visitor)
 		expr = call
 	}
@@ -92,7 +92,7 @@ func optimize_inlineNullaries(prog Prog) (ret Prog, didModify bool) {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if fnref, ok := expr.(ExprFuncRef); ok && fnref > StdFuncCons {
 				if numrefs, is := nullaries[int(fnref)]; is {
-					if _, iscall := ret[fnref].Body.(ExprCall); (!iscall) || numrefs <= 1 {
+					if _, iscall := ret[fnref].Body.(ExprAppl); (!iscall) || numrefs <= 1 {
 						didModify = true
 						return ret[int(fnref)].Body
 					}
@@ -129,7 +129,7 @@ func optimize_argDropperCalls(prog Prog) (ret Prog, didModify bool) {
 							}
 						}
 						didModify = true
-						return rewriteCallArgs(expr.(ExprCall), numargs, func(argidx int, argval Expr) Expr {
+						return rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
 							return never
 						}, argdrops)
 					}
@@ -159,9 +159,9 @@ func optimize_inlineArgCallers(prog Prog) (ret Prog, didModify bool) {
 						if argref != 0 {
 							panic("TODO")
 						} else {
-							call2inline := rewriteInnerMostCallee(ret[*fnref].Body.(ExprCall), func(Expr) Expr { return allargs[0] })
-							expr = rewriteInnerMostCallee(expr.(ExprCall), func(Expr) Expr { return StdFuncId })
-							expr = rewriteCallArgs(expr.(ExprCall), numargs, func(argidx int, argval Expr) Expr {
+							call2inline := rewriteInnerMostCallee(ret[*fnref].Body.(ExprAppl), func(Expr) Expr { return allargs[0] })
+							expr = rewriteInnerMostCallee(expr.(ExprAppl), func(Expr) Expr { return StdFuncId })
+							expr = rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
 								if argidx == 0 {
 									return call2inline
 								}
@@ -226,7 +226,7 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 				if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil {
 					if rearrangers[int(*fnref)] && numargs == len(ret[*fnref].Args) {
 						counts := map[ExprArgRef]int{}
-						nuexpr := rewriteCallArgs(ret[*fnref].Body.(ExprCall), -1, func(argidx int, argval Expr) Expr {
+						nuexpr := rewriteCallArgs(ret[*fnref].Body.(ExprAppl), -1, func(argidx int, argval Expr) Expr {
 							if argref, ok := argval.(ExprArgRef); ok {
 								counts[argref] = counts[argref] + 1
 								return allargs[argref]
@@ -241,7 +241,7 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 							return callee
 						})
 						for argref, count := range counts {
-							if _, iscall := allargs[argref].(ExprCall); iscall && count > 1 {
+							if _, iscall := allargs[argref].(ExprAppl); iscall && count > 1 {
 								return expr
 							}
 						}
@@ -265,10 +265,10 @@ func optimize_minifyNeedlesslyElaborateBoolOpCalls(prog Prog) (ret Prog, didModi
 						if fnr, _ := allargs[3].(ExprFuncRef); fnr == StdFuncTrue || fnr == StdFuncFalse {
 							if numargs == 4 && fnl == StdFuncTrue && fnr == StdFuncFalse {
 								didModify = true
-								return ExprCall{Callee: ExprCall{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}
+								return ExprAppl{Callee: ExprAppl{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}
 							} else if numargs == 6 && fnl == StdFuncFalse && fnr == StdFuncTrue {
 								didModify = true
-								return ExprCall{Callee: ExprCall{Callee: ExprCall{Callee: ExprCall{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}, Arg: allargs[5]}, Arg: allargs[4]}
+								return ExprAppl{Callee: ExprAppl{Callee: ExprAppl{Callee: ExprAppl{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}, Arg: allargs[5]}, Arg: allargs[4]}
 							}
 						}
 					}
@@ -304,7 +304,7 @@ func optimize_tryPreReduceCalls(prog Prog) (ret Prog, didModify bool) {
 							}
 							return progwithproperargsformat.Eval(expr, nil)
 						}()
-						if _, isnonatomic := retval.(ExprCall); retval != nil && !isnonatomic {
+						if _, isnonatomic := retval.(ExprAppl); retval != nil && !isnonatomic {
 							didModify = true
 							return retval
 						}
@@ -345,22 +345,22 @@ func optimize_callsToGeqOrLeq(prog Prog) (ret Prog, didModify bool) {
 						if isgeq, orleq := geqsleqs[int(*fnref)]; orleq {
 							if len(allargs) == 1 && isnuml {
 								if didModify = true; isgeq {
-									return ExprCall{Callee: ExprFuncRef(OpGt), Arg: numl + 1}
+									return ExprAppl{Callee: ExprFuncRef(OpGt), Arg: numl + 1}
 								} else {
-									return ExprCall{Callee: ExprFuncRef(OpLt), Arg: numl - 1}
+									return ExprAppl{Callee: ExprFuncRef(OpLt), Arg: numl - 1}
 								}
 							} else if len(allargs) == 2 {
 								if isnuml {
 									if didModify = true; isgeq {
-										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpGt), Arg: numl + 1}, Arg: allargs[1]}
+										return ExprAppl{Callee: ExprAppl{Callee: ExprFuncRef(OpGt), Arg: numl + 1}, Arg: allargs[1]}
 									} else {
-										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpLt), Arg: numl - 1}, Arg: allargs[1]}
+										return ExprAppl{Callee: ExprAppl{Callee: ExprFuncRef(OpLt), Arg: numl - 1}, Arg: allargs[1]}
 									}
 								} else if isnumr {
 									if didModify = true; isgeq {
-										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpGt), Arg: allargs[0]}, Arg: numr - 1}
+										return ExprAppl{Callee: ExprAppl{Callee: ExprFuncRef(OpGt), Arg: allargs[0]}, Arg: numr - 1}
 									} else {
-										return ExprCall{Callee: ExprCall{Callee: ExprFuncRef(OpLt), Arg: allargs[0]}, Arg: numr + 1}
+										return ExprAppl{Callee: ExprAppl{Callee: ExprFuncRef(OpLt), Arg: allargs[0]}, Arg: numr + 1}
 									}
 								}
 							}
@@ -422,9 +422,9 @@ func optimize_primOpPreCalcs(prog Prog) (ret Prog, didModify bool) {
 }
 
 func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFuncRef, numCallArgs int, numCallArgsThatAreCalls int, numArgRefs int, allArgs []Expr) {
-	for call, okc := expr.(ExprCall); okc; call, okc = call.Callee.(ExprCall) {
+	for call, okc := expr.(ExprAppl); okc; call, okc = call.Callee.(ExprAppl) {
 		innerMostCallee, numCallArgs, allArgs = call.Callee, numCallArgs+1, append([]Expr{call.Arg}, allArgs...)
-		if _, isargcall := call.Arg.(ExprCall); isargcall {
+		if _, isargcall := call.Arg.(ExprAppl); isargcall {
 			numCallArgsThatAreCalls++
 		} else if _, isargref := call.Arg.(ExprArgRef); isargref {
 			numArgRefs++
@@ -449,14 +449,14 @@ func eq(expr Expr, cmp Expr) bool {
 	case ExprFuncRef:
 		that, ok := cmp.(ExprFuncRef)
 		return ok && it == that
-	case ExprCall:
-		that, ok := cmp.(ExprCall)
+	case ExprAppl:
+		that, ok := cmp.(ExprAppl)
 		return ok && eq(it.Callee, that.Callee) && eq(it.Arg, that.Arg)
 	}
 	return false
 }
 
-func rewriteCallArgs(callExpr ExprCall, numArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprCall {
+func rewriteCallArgs(callExpr ExprAppl, numArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprAppl {
 	if numArgs <= 0 {
 		_, _, numArgs, _, _, _ = dissectCall(callExpr)
 	}
@@ -471,14 +471,14 @@ func rewriteCallArgs(callExpr ExprCall, numArgs int, rewriter func(int, Expr) Ex
 	if rewrite {
 		callExpr.Arg = rewriter(idx, callExpr.Arg)
 	}
-	if subcall, ok := callExpr.Callee.(ExprCall); ok && idx > 0 {
+	if subcall, ok := callExpr.Callee.(ExprAppl); ok && idx > 0 {
 		callExpr.Callee = rewriteCallArgs(subcall, numArgs-1, rewriter, argIdxs)
 	}
 	return callExpr
 }
 
-func rewriteInnerMostCallee(expr ExprCall, rewriter func(Expr) Expr) ExprCall {
-	if calleecall, ok := expr.Callee.(ExprCall); ok {
+func rewriteInnerMostCallee(expr ExprAppl, rewriter func(Expr) Expr) ExprAppl {
+	if calleecall, ok := expr.Callee.(ExprAppl); ok {
 		expr.Callee = rewriteInnerMostCallee(calleecall, rewriter)
 	} else {
 		expr.Callee = rewriter(expr.Callee)
