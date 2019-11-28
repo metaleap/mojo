@@ -229,7 +229,7 @@ func LoadFromJson(src []byte) Prog
 LoadFromJson parses and decodes a JSON `src` into an atem `Prog`. The format is
 expected to be: `[ func, func, ... , func ]` where `func` means: ` [ args, body
 ]` where `args` is a numbers array and `body` is the reverse of each concrete
-`Expr` implementer's `String` method implementation, meaning: `ExprNumInt` is a
+`Expr` implementer's `JsonSrc` method implementation, meaning: `ExprNumInt` is a
 JSON number, `ExprFuncRef` is a length-1 numbers array, `ExprArgRef` is a JSON
 string parseable into an integer, and `ExprAppl` is a variable length (greater
 than 1) array of any of those possibilities. A `panic` occurs on any sort of
