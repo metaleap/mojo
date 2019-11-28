@@ -5,20 +5,35 @@ import (
 	"os"
 )
 
+// OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
+// interpreter and invoked when encountering a call to a negative `ExprFuncRef`
+// with at least 2 operands on the current `Eval` stack. All `OpCode`-denoted
+// primitive instructions consume always exactly 2 operands from said stack.
 type OpCode int
 
 const (
+	// Addition of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpAdd OpCode = -1
+	// Subtraction of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpSub OpCode = -2
+	// Multiplication of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpMul OpCode = -3
+	// Division of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpDiv OpCode = -4
+	// Modulo of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpMod OpCode = -5
-	OpEq  OpCode = -6
-	OpLt  OpCode = -7
-	OpGt  OpCode = -8
+	// Equality test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpEq OpCode = -6
+	// Less-than test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpLt OpCode = -7
+	// Greater-than test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpGt OpCode = -8
+	// Writes both `Expr`s (the first one a string-ish `StdFuncCons`tructed linked-list of `ExprNumInt`s) to `OpPrtDst`, result is the right-hand-side `Expr` of the 2 input `Expr` operands
 	OpPrt OpCode = -42
 )
 
+// OpPrtDst is the output destination for all `OpPrt` primitive instructions.
+// Must never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
 var OpPrtDst io.Writer = os.Stderr
 
 // Eval operates thusly:
@@ -39,14 +54,9 @@ var OpPrtDst io.Writer = os.Stderr
 // a `len`, an `ExprAppl` representing the partial application is returned;
 // if the `ExprFuncRef` is negative and thus referring to a primitive-instruction
 // `OpCode`, the expected minimum required `len` for the `stack` is 2 and if
-// this is met, the primitive instruction is carried out. For "boolish" prim ops,
-// namely `OpEq`, `OpGt`, `OpLt` the resulting `StdFuncFalse` or `StdFuncTrue`
-// is directly applied (as described above) with the remainder of the `stack`.
-// For "integer" prim ops (`OpAdd`, `OpSub` etc.) the 2 operands are forced into
-// `ExprNumInt`s and an `ExprNumInt` result will be returned. For `OpPrt`,
-// the side-effect write of both operands to `OpPrtDst` is performed and the
-// second operand is then returned. Other / unknown op-codes `panic` with a
-// `[3]Expr` of first the `ExprFuncRef` followed by both its operands.
+// this is met, the primitive instruction is carried out, its `Expr` result
+// then being `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic`
+// with a `[3]Expr` of first the `ExprFuncRef` followed by both its operands.
 func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
 	case ExprAppl:

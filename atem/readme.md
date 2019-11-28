@@ -2,42 +2,42 @@
 --
     import "github.com/metaleap/atmo/atem"
 
-atem is a minimal and low-level interpretable functional intermediate language
-and interpreter. It prioritizes staying low-LoC enough to be able to rewrite it
-on any other tech stack any time, over other concerns. At the time of writing,
-the core "parsing" / loading in this Go-based implementation is ~40 LoCs (the
-choice of a JSON code format is similarly motivated by the goal to allow for
+_atem_ is both a minimal and low-level interpreted functional intermediate
+language and its reference interpreter. It prioritizes staying low-LoC enough to
+be able to port it to any other tech stack swiftly, over other concerns. At the
+time of writing, the "parsing" / loading in this Go-based implementation is ~40
+LoCs (the choice of a JSON code format too is motivated by the goal to allow for
 swift re-implementations in any contemporary or future lang / tech stack), the
-core interpretation / eval'ing parts around ~55 LoCs, basic AST node types and
-their `String()` implementations around ~40 LoCs, and helpers for injecting or
-extracting "lists of ints" (strings at the end of the day) into / from run time
-another ~40 LoCs. All counts approximate and net, excluding comments.
+interpreting / eval'ing parts around ~55 LoCs, AST node type formulations and
+their `JsonSrc()` implementations around ~40 LoCs, and helpers for forcing
+result "lists of ints" into actual `string`s, another ~40 LoCs. All counts
+approximate and net (excluding comments, blank lines etc).
 
 This focus doesn't make for the most efficient interpreter in the world, but
-that isn't the objective for atem. The goal is to provide the bootstrapping
-layer for **atmo**. An initial compiler from atmo to atem is being coded in my
-[toy Lambda Calculus
+that isn't the objective for _atem_. The goal is to provide the bootstrapping
+basis for **atmo**. An initial compiler from _atmo_ to _atem_ is being coded in
+my [toy Lambda Calculus
 dialect](https://github.com/metaleap/go-machines/tree/master/toylam) and then
-again in (the initial iteration of) atmo itself. The atem interpreter will also
-suffice / go a long way for REPL purposes and later on abstract / symbolic
+again in (the initial iteration of) _atmo_ itself. The _atem_ interpreter will
+also suffice / go a long way for REPL purposes and later on abstract / symbolic
 interpretation / partial evaluation for the experimental type-checking
 approaches envisioned to be explored within the impending ongoing evolution of
-atmo once its initial incarnation is birthed.
+_atmo_ once its initial incarnation is birthed.
 
-For "ultimate real-world runtime artifact" purposes, atem isn't intended;
+For "ultimate real-world runtime artifact" purposes, _atem_ isn't intended;
 rather, transpilers and / or compilers to 3rd-party mature and widely enjoyed
-interpreters / bytecode VMs or intermediate ASM targets such as LLVM would be
+interpreters / bytecode VMs or intermediate ASM targets like LLVM-IR would be
 the envisioned generally-preferable direction anyway, except such trans-/
-compilers want to naturally be done in atmo as well, so atem is way to get from
+compilers must naturally be done in _atmo_ as well, so _atem_ is way to get from
 nowhere to _there_, and to be _able_ (not forced) to replicate this original
 bootstrapping on any sort of tech base at any time whenever necessary.
 
-The initial inspiration (and iteration) for atem was the elegant and minimalist
+The initial inspiration / iteration for _atem_ was the elegantly minimalist
 [SAPL](https://github.com/metaleap/go-machines/tree/master/sapl) approach
 presented by Jansen / Koopman / Plasmeijer, but unlike the above-linked
-by-the-paper implementation, atem diverges even in its initial form in various
-aspects and will continue to evolve various details in tandem with the birthing
-of atmo.
+"by-the-paper" implementation, _atem_ diverges even in its initial form in
+various aspects and will continue to evolve various details in tandem with the
+birthing of _atmo_.
 
 SAPL's basics still apply for now: all funcs are top-level (no lambdas or other
 locals), as such support 0 - n args (rather than all-unary). There are no names:
@@ -45,18 +45,20 @@ global funcs and, inside them, their args are referred to by integer indices.
 Thus most expressions are atomic: arg-refs, func-refs, and plain integers. The
 only non-atomic expression is call / application: it is composed of two
 sub-expressions, the callee and the arg. Divergences: our func-refs, if
-negative, denote a binary primitive-instruction op-code such as `ADD` etc. that
-is handled natively by the interpreter. Unlike SAPL, our func-refs don't carry
-around their number-of-args, instead they're looked up in the `Prog`. For calls
-/ applications, likely will move from the current unary style to n-ary for
-efficiency reasons, without breaking partial-application of course, or degrading
-our overall LoCs aims unduly.
+negative, denote a binary primitive-instruction op-code such as addition,
+multiply, equality-testing etc. that is handled natively by the interpreter.
+Unlike SAPL, our func-refs don't carry around their number-of-args, instead
+they're looked up in the `Prog`. For applications / calls, likely will move from
+the current unary style to n-ary, if feasible without breaking
+partial-application or degrading our overall LoCs aims.
 
 ## Usage
 
 ```go
 var OpPrtDst io.Writer = os.Stderr
 ```
+OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
+never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
 
 #### func  ListToBytes
 
@@ -74,8 +76,8 @@ then too will `retNumListAsBytes` be `nil`.
 
 ```go
 type Expr interface {
-	// String emits the re-`LoadFromJson`able representation of this `Expr`.
-	String() string
+	// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.
+	JsonSrc() string
 }
 ```
 
@@ -90,10 +92,10 @@ type ExprAppl struct {
 ```
 
 
-#### func (ExprAppl) String
+#### func (ExprAppl) JsonSrc
 
 ```go
-func (me ExprAppl) String() string
+func (me ExprAppl) JsonSrc() string
 ```
 String emits the re-`LoadFromJson`able representation of this `ExprAppl`.
 
@@ -104,10 +106,10 @@ type ExprArgRef int
 ```
 
 
-#### func (ExprArgRef) String
+#### func (ExprArgRef) JsonSrc
 
 ```go
-func (me ExprArgRef) String() string
+func (me ExprArgRef) JsonSrc() string
 ```
 String emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
 
@@ -124,7 +126,7 @@ const (
 	StdFuncId ExprFuncRef = 0
 	// K combinator aka konst aka boolish of true
 	StdFuncTrue ExprFuncRef = 1
-	// boolish of false
+	// K I aka. boolish of false
 	StdFuncFalse ExprFuncRef = 2
 	// end of linked-list
 	StdFuncNil ExprFuncRef = 3
@@ -133,13 +135,13 @@ const (
 )
 ```
 The few standard func defs the interpreter needs to know of as a minimum, and
-their inviolably hereby-prescribed standard indexes within a `Prog`. Every atem
+their inviolably hereby-decreed standard indices within a `Prog`. Every atem
 code generator must emit implementations for them all, and placed correctly.
 
-#### func (ExprFuncRef) String
+#### func (ExprFuncRef) JsonSrc
 
 ```go
-func (me ExprFuncRef) String() string
+func (me ExprFuncRef) JsonSrc() string
 ```
 String emits the re-`LoadFromJson`able representation of this `ExprFuncRef`.
 
@@ -150,10 +152,10 @@ type ExprNumInt int
 ```
 
 
-#### func (ExprNumInt) String
+#### func (ExprNumInt) JsonSrc
 
 ```go
-func (me ExprNumInt) String() string
+func (me ExprNumInt) JsonSrc() string
 ```
 String emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
 
@@ -162,8 +164,8 @@ String emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
 ```go
 type FuncDef struct {
 	// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
-	// `Body` references this arg (although the interpreter only cares about
-	// 0 or greater), the arg's "identity" however is just its index in `Args`
+	// `Body` references this arg (note that the interpreter does not currently
+	// use this info), the arg's "identity" however is just its index in `Args`
 	Args          []int
 	Body          Expr
 	OrigNameMaybe string
@@ -171,10 +173,10 @@ type FuncDef struct {
 ```
 
 
-#### func (*FuncDef) String
+#### func (*FuncDef) JsonSrc
 
 ```go
-func (me *FuncDef) String() string
+func (me *FuncDef) JsonSrc() string
 ```
 String emits the re-`LoadFromJson`able representation of this `FuncDef`.
 
@@ -184,17 +186,30 @@ String emits the re-`LoadFromJson`able representation of this `FuncDef`.
 type OpCode int
 ```
 
+OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
+interpreter and invoked when encountering a call to a negative `ExprFuncRef`
+with at least 2 operands on the current `Eval` stack. All `OpCode`-denoted
+primitive instructions consume always exactly 2 operands from said stack.
 
 ```go
 const (
+	// Addition of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpAdd OpCode = -1
+	// Subtraction of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpSub OpCode = -2
+	// Multiplication of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpMul OpCode = -3
+	// Division of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpDiv OpCode = -4
+	// Modulo of 2 `ExprNumInt`s, result 1 `ExprNumInt`
 	OpMod OpCode = -5
-	OpEq  OpCode = -6
-	OpLt  OpCode = -7
-	OpGt  OpCode = -8
+	// Equality test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpEq OpCode = -6
+	// Less-than test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpLt OpCode = -7
+	// Greater-than test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpGt OpCode = -8
+	// Writes both `Expr`s (the first one a string-ish `StdFuncCons`tructed linked-list of `ExprNumInt`s) to `OpPrtDst`, result is the right-hand-side `Expr` of the 2 input `Expr` operands
 	OpPrt OpCode = -42
 )
 ```
@@ -243,14 +258,16 @@ Corner cases for the `ExprFuncRef` situation: if the `stack` has too small a
 `len`, an `ExprAppl` representing the partial application is returned; if the
 `ExprFuncRef` is negative and thus referring to a primitive-instruction
 `OpCode`, the expected minimum required `len` for the `stack` is 2 and if this
-is met, the primitive instruction is carried out. For "boolish" prim ops, namely
-`OpEq`, `OpGt`, `OpLt` the resulting `StdFuncFalse` or `StdFuncTrue` is directly
-applied (as described above) with the remainder of the `stack`. For "integer"
-prim ops (`OpAdd`, `OpSub` etc.) the 2 operands are forced into `ExprNumInt`s
-and an `ExprNumInt` result will be returned. For `OpPrt`, the side-effect write
-of both operands to `OpPrtDst` is performed and the second operand is then
-returned. Other / unknown op-codes `panic` with a `[3]Expr` of first the
-`ExprFuncRef` followed by both its operands.
+is met, the primitive instruction is carried out, its `Expr` result then being
+`Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic` with a
+`[3]Expr` of first the `ExprFuncRef` followed by both its operands.
+
+#### func (Prog) JsonSrc
+
+```go
+func (me Prog) JsonSrc() string
+```
+String emits the re-`LoadFromJson`able representation of this `Prog`.
 
 #### func (Prog) ListOfExprs
 
@@ -271,11 +288,4 @@ func (me Prog) ListOfExprsToString(expr Expr) string
 ```
 ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
 and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`
-result.
-
-#### func (Prog) String
-
-```go
-func (me Prog) String() string
-```
-String emits the re-`LoadFromJson`able representation of this `Prog`.
+result, if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.

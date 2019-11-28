@@ -1,38 +1,38 @@
-// atem is a minimal and low-level interpretable functional intermediate language
-// and interpreter. It prioritizes staying low-LoC enough to be able to rewrite it
-// on any other tech stack any time, over other concerns. At the time of writing,
-// the core "parsing" / loading in this Go-based implementation is ~40 LoCs (the
-// choice of a JSON code format is similarly motivated by the goal to allow for
-// swift re-implementations in any contemporary or future lang / tech stack), the
-// core interpretation / eval'ing parts around ~55 LoCs, basic AST node types and
-// their `String()` implementations around ~40 LoCs, and helpers for injecting or
-// extracting "lists of ints" (strings at the end of the day) into / from run
-// time another ~40 LoCs. All counts approximate and net, excluding comments.
+// _atem_ is both a minimal and low-level interpreted functional intermediate
+// language and its reference interpreter. It prioritizes staying low-LoC enough
+// to be able to port it to any other tech stack swiftly, over other concerns. At
+// the time of writing, the "parsing" / loading in this Go-based implementation
+// is ~40 LoCs (the choice of a JSON code format too is motivated by the goal
+// to allow for swift re-implementations in any contemporary or future lang /
+// tech stack), the interpreting / eval'ing parts around ~55 LoCs, AST node type
+// formulations and their `JsonSrc()` implementations around ~40 LoCs, and
+// helpers for forcing result "lists of ints" into actual `string`s, another ~40
+// LoCs. All counts approximate and net (excluding comments, blank lines etc).
 //
-// This focus doesn't make for the most efficient interpreter in the world, but
-// that isn't the objective for atem. The goal is to provide the bootstrapping
-// layer for **atmo**. An initial compiler from atmo to atem is being coded in my
+// This focus doesn't make for the most efficient interpreter in the world, but that
+// isn't the objective for _atem_. The goal is to provide the bootstrapping basis
+// for **atmo**. An initial compiler from _atmo_ to _atem_ is being coded in my
 // [toy Lambda Calculus dialect](https://github.com/metaleap/go-machines/tree/master/toylam)
-// and then again in (the initial iteration of) atmo itself. The atem interpreter
-// will also suffice / go a long way for REPL purposes and later on abstract /
-// symbolic interpretation / partial evaluation for the experimental
-// type-checking approaches envisioned to be explored within the impending
-// ongoing evolution of atmo once its initial incarnation is birthed.
+// and then again in (the initial iteration of) _atmo_ itself. The _atem_
+// interpreter will also suffice / go a long way for REPL purposes and later
+// on abstract / symbolic interpretation / partial evaluation for the
+// experimental type-checking approaches envisioned to be explored within the
+// impending ongoing evolution of _atmo_ once its initial incarnation is birthed.
 //
-// For "ultimate real-world runtime artifact" purposes, atem isn't intended;
+// For "ultimate real-world runtime artifact" purposes, _atem_ isn't intended;
 // rather, transpilers and / or compilers to 3rd-party mature and widely enjoyed
-// interpreters / bytecode VMs or intermediate ASM targets such as LLVM would
+// interpreters / bytecode VMs or intermediate ASM targets like LLVM-IR would
 // be the envisioned generally-preferable direction anyway, except such trans-/
-// compilers want to naturally be done in atmo as well, so atem is way to get from
-// nowhere to _there_, and to be _able_ (not forced) to replicate this original
-// bootstrapping on any sort of tech base at any time whenever necessary.
+// compilers must naturally be done in _atmo_ as well, so _atem_ is way to get
+// from nowhere to _there_, and to be _able_ (not forced) to replicate this
+// original bootstrapping on any sort of tech base at any time whenever necessary.
 //
-// The initial inspiration (and iteration) for atem was the elegant and minimalist
+// The initial inspiration / iteration for _atem_ was the elegantly minimalist
 // [SAPL](https://github.com/metaleap/go-machines/tree/master/sapl) approach
 // presented by Jansen / Koopman / Plasmeijer, but unlike the above-linked
-// by-the-paper implementation, atem diverges even in its initial form in
+// "by-the-paper" implementation, _atem_ diverges even in its initial form in
 // various aspects and will continue to evolve various details in tandem with
-// the birthing of atmo.
+// the birthing of _atmo_.
 //
 // SAPL's basics still apply for now: all funcs are top-level (no lambdas or
 // other locals), as such support 0 - n args (rather than all-unary). There
@@ -41,11 +41,11 @@
 // and plain integers. The only non-atomic expression is call / application:
 // it is composed of two sub-expressions, the callee and the arg. Divergences:
 // our func-refs, if negative, denote a binary primitive-instruction op-code
-// such as `ADD` etc. that is handled natively by the interpreter. Unlike SAPL,
-// our func-refs don't carry around their number-of-args, instead they're looked
-// up in the `Prog`. For calls / applications, likely will move from the current
-// unary style to n-ary for efficiency reasons, without breaking partial-application
-// of course, or degrading our overall LoCs aims unduly.
+// such as addition, multiply, equality-testing etc. that is handled natively
+// by the interpreter. Unlike SAPL, our func-refs don't carry around their
+// number-of-args, instead they're looked up in the `Prog`. For applications
+// / calls, likely will move from the current unary style to n-ary, if feasible
+// without breaking partial-application or degrading our overall LoCs aims.
 package atem
 
 import (
@@ -53,14 +53,14 @@ import (
 )
 
 // The few standard func defs the interpreter needs to know of as a minimum, and
-// their inviolably hereby-prescribed standard indexes within a `Prog`. Every atem
+// their inviolably hereby-decreed standard indices within a `Prog`. Every atem
 // code generator must emit implementations for them all, and placed correctly.
 const (
 	// I combinator aka identity function
 	StdFuncId ExprFuncRef = 0
 	// K combinator aka konst aka boolish of true
 	StdFuncTrue ExprFuncRef = 1
-	// boolish of false
+	// K I aka. boolish of false
 	StdFuncFalse ExprFuncRef = 2
 	// end of linked-list
 	StdFuncNil ExprFuncRef = 3
@@ -72,15 +72,15 @@ type (
 	Prog    []FuncDef
 	FuncDef struct {
 		// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
-		// `Body` references this arg (although the interpreter only cares about
-		// 0 or greater), the arg's "identity" however is just its index in `Args`
+		// `Body` references this arg (note that the interpreter does not currently
+		// use this info), the arg's "identity" however is just its index in `Args`
 		Args          []int
 		Body          Expr
 		OrigNameMaybe string
 	}
 	Expr interface {
-		// String emits the re-`LoadFromJson`able representation of this `Expr`.
-		String() string
+		// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.
+		JsonSrc() string
 	}
 	ExprNumInt  int
 	ExprArgRef  int
@@ -92,19 +92,19 @@ type (
 )
 
 // String emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
-func (me ExprNumInt) String() string { return strconv.Itoa(int(me)) }
+func (me ExprNumInt) JsonSrc() string { return strconv.Itoa(int(me)) }
 
 // String emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
-func (me ExprArgRef) String() string { return "\"" + strconv.Itoa(int(me)) + "\"" }
+func (me ExprArgRef) JsonSrc() string { return "\"" + strconv.Itoa(int(me)) + "\"" }
 
 // String emits the re-`LoadFromJson`able representation of this `ExprFuncRef`.
-func (me ExprFuncRef) String() string { return "[" + strconv.Itoa(int(me)) + "]" }
+func (me ExprFuncRef) JsonSrc() string { return "[" + strconv.Itoa(int(me)) + "]" }
 
 // String emits the re-`LoadFromJson`able representation of this `ExprAppl`.
-func (me ExprAppl) String() string { return "[" + me.Callee.String() + ", " + me.Arg.String() + "]" }
+func (me ExprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + me.Arg.JsonSrc() + "]" }
 
 // String emits the re-`LoadFromJson`able representation of this `FuncDef`.
-func (me *FuncDef) String() string {
+func (me *FuncDef) JsonSrc() string {
 	outjson := "[ ["
 	for i, a := range me.Args {
 		if i > 0 {
@@ -112,17 +112,17 @@ func (me *FuncDef) String() string {
 		}
 		outjson += strconv.Itoa(a)
 	}
-	return outjson + "],\n\t\t" + me.Body.String() + " ]"
+	return outjson + "],\n\t\t" + me.Body.JsonSrc() + " ]"
 }
 
 // String emits the re-`LoadFromJson`able representation of this `Prog`.
-func (me Prog) String() string {
+func (me Prog) JsonSrc() string {
 	outjson := "[ "
 	for i, def := range me {
 		if i > 0 {
 			outjson += ", "
 		}
-		outjson += def.String() + "\n"
+		outjson += def.JsonSrc() + "\n"
 	}
 	return outjson + "]\n"
 }

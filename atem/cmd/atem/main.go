@@ -28,7 +28,7 @@ func main() {
 	if outbytes := ListToBytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
 		os.Stdout.Write(append(outbytes, 10))
 	} else if outlist == nil || !probeIfStdinReaderAndIfSoHandleOnceOrForever(prog, outlist) {
-		println("?!EXPR:\t" + outexpr.String() + "\n")
+		println("?!EXPR:\t" + outexpr.JsonSrc() + "\n")
 	}
 }
 
@@ -47,7 +47,7 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 								}
 							}
 							if nextstate == nil {
-								panic(retexpr.String())
+								panic(retexpr.JsonSrc())
 							}
 							return
 						}

@@ -49,12 +49,13 @@ func ListToBytes(maybeNumList []Expr) (retNumListAsBytes []byte) {
 }
 
 // ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
-// and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval` result.
+// and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`
+// result, if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.
 func (me Prog) ListOfExprsToString(expr Expr) string {
 	if maybenumlist := me.ListOfExprs(expr); maybenumlist != nil {
 		if bytes := ListToBytes(maybenumlist); bytes != nil {
 			return string(bytes)
 		}
 	}
-	return expr.String()
+	return expr.JsonSrc()
 }
