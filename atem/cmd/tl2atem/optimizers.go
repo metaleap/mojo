@@ -300,7 +300,7 @@ func optimize_tryPreReduceCalls(prog Prog) (ret Prog, didModify bool) {
 						retval := func() Expr {
 							defer func() { _ = recover() }()
 							if progwithproperargsformat == nil { // kinda Ouch approach, but we'll hit it only ever so rarely really.. this whole thing more for completeness' sake and the occasional "write-time readability gain"
-								progwithproperargsformat = LoadFromJson([]byte(ret.JsonSrc()))
+								progwithproperargsformat = LoadFromJson([]byte(ret.ToJson()))
 							}
 							return progwithproperargsformat.Eval(expr, nil)
 						}()

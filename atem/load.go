@@ -22,7 +22,7 @@ func LoadFromJson(src []byte) Prog {
 	}
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
-		arrargs, args := it[0].([]any), make([]int, 0, 8)
+		arrargs, args := it[0].([]any), make([]int, 0, 0)
 		for _, v := range arrargs {
 			args = append(args, int(v.(float64)))
 		}
@@ -42,7 +42,10 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 			if n < 0 { // support for de-brujin indices if negative
 				n = curFnNumArgs + n // now positive starting from zero (if it was correct to begin with)
 			}
-			return ExprArgRef(int(-(n + 1))) // rewrite arg-refs for later stack-access-from-tail-end: 0 -> -1, 1 -> -2, 2 -> -3, etc..
+			if n < 0 || n >= curFnNumArgs {
+				panic("LoadFromJson: encountered bad ExprArgRef of " + strconv.FormatInt(n, 10) + " inside a FuncDef with " + strconv.FormatInt(curFnNumArgs, 10) + " arg(s)")
+			}
+			return ExprArgRef(int(-(n + 1))) // rewrite arg-refs for later stack-access-from-tail-end: 0 -> -1, 1 -> -2, 2 -> -3, etc.. note: reverted again in ExprArgRef.JsonSrc()
 		}
 	case []any:
 		if len(it) == 1 { // either func-ref literal..

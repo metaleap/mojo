@@ -56,5 +56,5 @@ func main() {
 
 	inProg.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true, KeepSepLocals: true})
 	compile(maintopdefqname)
-	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc()), os.ModePerm)
+	ioutil.WriteFile(dstfilepath, []byte(outProg.ToJson()), os.ModePerm)
 }

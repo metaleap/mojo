@@ -5,13 +5,14 @@
 _atem_ is both a minimal and low-level interpreted functional intermediate
 language and its reference interpreter. It prioritizes staying low-LoC enough to
 be able to port it to any other tech stack swiftly, over other concerns. At the
-time of writing, the "parsing" / loading in this Go-based implementation is ~40
+time of writing, the "parsing" / loading in this Go-based implementation is ~42
 LoCs (the choice of a JSON code format too is motivated by the goal to allow for
 swift re-implementations in any contemporary or future lang / tech stack), the
 interpreting / eval'ing parts around ~55 LoCs, AST node type formulations and
-their `JsonSrc()` implementations around ~40 LoCs, and helpers for forcing
-result "lists of ints" into actual `string`s, another ~40 LoCs. All counts
-approximate and net (excluding comments, blank lines etc).
+their `JsonSrc()` / `ToJson()` implementations around ~45 LoCs, and helpers for
+forcing "`Eval` result list-closures" into actual `[]int` or `[]byte` slices or
+`string`s, another ~40 LoCs. All counts approximate and net (excluding comments,
+blank lines etc).
 
 This focus doesn't make for the most efficient interpreter in the world, but
 that isn't the objective for _atem_. The goal is to provide the bootstrapping
@@ -97,7 +98,7 @@ type ExprAppl struct {
 ```go
 func (me ExprAppl) JsonSrc() string
 ```
-String emits the re-`LoadFromJson`able representation of this `ExprAppl`.
+JsonSrc emits the re-`LoadFromJson`able representation of this `ExprAppl`.
 
 #### type ExprArgRef
 
@@ -111,7 +112,7 @@ type ExprArgRef int
 ```go
 func (me ExprArgRef) JsonSrc() string
 ```
-String emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
+JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
 
 #### type ExprFuncRef
 
@@ -143,7 +144,7 @@ code generator must emit implementations for them all, and placed correctly.
 ```go
 func (me ExprFuncRef) JsonSrc() string
 ```
-String emits the re-`LoadFromJson`able representation of this `ExprFuncRef`.
+JsonSrc emits the re-`LoadFromJson`able representation of this `ExprFuncRef`.
 
 #### type ExprNumInt
 
@@ -157,7 +158,7 @@ type ExprNumInt int
 ```go
 func (me ExprNumInt) JsonSrc() string
 ```
-String emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
+JsonSrc emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
 
 #### type FuncDef
 
@@ -173,12 +174,14 @@ type FuncDef struct {
 ```
 
 
-#### func (*FuncDef) JsonSrc
+#### func (*FuncDef) ToJson
 
 ```go
-func (me *FuncDef) JsonSrc() string
+func (me *FuncDef) ToJson() string
 ```
-String emits the re-`LoadFromJson`able representation of this `FuncDef`.
+ToJson emits the re-`LoadFromJson`able representation of this `FuncDef`. (It's
+not called `JsonSrc` in order to make clear that `FuncDef` is not an `Expr`
+implementer.)
 
 #### type OpCode
 
@@ -262,13 +265,6 @@ is met, the primitive instruction is carried out, its `Expr` result then being
 `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic` with a
 `[3]Expr` of first the `ExprFuncRef` followed by both its operands.
 
-#### func (Prog) JsonSrc
-
-```go
-func (me Prog) JsonSrc() string
-```
-String emits the re-`LoadFromJson`able representation of this `Prog`.
-
 #### func (Prog) ListOfExprs
 
 ```go
@@ -289,3 +285,12 @@ func (me Prog) ListOfExprsToString(expr Expr) string
 ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
 and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`
 result, if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.
+
+#### func (Prog) ToJson
+
+```go
+func (me Prog) ToJson() string
+```
+ToJson emits the re-`LoadFromJson`able representation of this `Prog`. (It's not
+called `JsonSrc` in order to make clear that `Prog` is not an `Expr`
+implementer.)
