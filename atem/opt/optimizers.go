@@ -1,4 +1,4 @@
-package main
+package atemopt
 
 import (
 	. "github.com/metaleap/atmo/atem"
@@ -17,7 +17,7 @@ func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	return expr
 }
 
-func optimize(prog Prog) (ret Prog, didModify bool) {
+func Optimize(prog Prog) (ret Prog, didModify bool) {
 	ret = prog
 	for again := true; again; {
 		again, optNumRounds = false, optNumRounds+1

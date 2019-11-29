@@ -59,3 +59,21 @@ func (me Prog) ListOfExprsToString(expr Expr) string {
 	}
 	return expr.JsonSrc()
 }
+
+// ListFrom converts the specified byte string to a linked-list representing a text string during `Eval` (via `ExprAppl`s of `StdFuncCons` and `StdFuncNil`).
+func ListFrom(str []byte) (ret Expr) {
+	ret = StdFuncNil
+	for i := len(str) - 1; i > -1; i-- {
+		ret = ExprAppl{Callee: ExprAppl{Callee: StdFuncCons, Arg: ExprNumInt(str[i])}, Arg: ret}
+	}
+	return
+}
+
+// ListsFrom creates from `strs` linked-lists via `ListFrom`, and returns a linked-list of those.
+func ListsFrom(strs []string) (ret Expr) {
+	ret = StdFuncNil
+	for i := len(strs) - 1; i > -1; i-- {
+		ret = ExprAppl{Callee: ExprAppl{Callee: StdFuncCons, Arg: ListFrom([]byte(strs[i]))}, Arg: ret}
+	}
+	return
+}

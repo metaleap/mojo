@@ -83,6 +83,22 @@ type Expr interface {
 ```
 
 
+#### func  ListFrom
+
+```go
+func ListFrom(str []byte) (ret Expr)
+```
+ListFrom converts the specified byte string to a linked-list representing a text
+string during `Eval` (via `ExprAppl`s of `StdFuncCons` and `StdFuncNil`).
+
+#### func  ListsFrom
+
+```go
+func ListsFrom(strs []string) (ret Expr)
+```
+ListsFrom creates from `strs` linked-lists via `ListFrom`, and returns a
+linked-list of those.
+
 #### type ExprAppl
 
 ```go

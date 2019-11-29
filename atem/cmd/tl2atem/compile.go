@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	. "github.com/metaleap/atmo/atem"
+	"github.com/metaleap/atmo/atem/opt"
 	tl "github.com/metaleap/go-machines/toylam"
 )
 
@@ -22,9 +23,8 @@ func compile(mainTopDefQName string) {
 	outProg = append(outProg, outProg[idx])
 	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1), OrigNameMaybe: mainTopDefQName}
 
-	for again := false; again; optNumRounds = 0 {
-		outProg, again = optimize(outProg)
-		println("OPT:", optNumRounds, "round(s)")
+	for again := false; again; {
+		outProg, again = atemopt.Optimize(outProg)
 	}
 }
 

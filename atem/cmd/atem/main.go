@@ -1,7 +1,21 @@
+// A simple executable form of the [atem reference interpreter](../../readme.md).
+// The first (and required) command arg is the `.json` source file for the
+// `atem.Prog` to `atem.LoadFromJson()`. All further command args are passed
+// on to the loaded program's `main`.
+//
+// Since there are no identifiers in `atem` programs, by (hereby decreed)
+// convention the very last `FuncDef` in the `Prog` is assumed to be the `main`
+// to run (atem code emitters must ensure this if their outputs are to be run
+// in here), and is expected to have a `FuncDef.Args` of `len` 2. The first
+// one will be populated by this interpreter executable with the current process
+// args (sans the current process executable name and the input `.json` source
+// file path) as a linked-list of text strings, the second will be the current
+// process environment variables as a linked-list of `NAME=Value` text strings.
 package main
 
 import (
 	"bufio"
+	"bytes"
 	"io/ioutil"
 	"os"
 
@@ -26,9 +40,9 @@ func main() {
 	outlist := prog.ListOfExprs(outexpr) // forces lazy thunks
 
 	if outbytes := ListToBytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
-		os.Stdout.Write(append(outbytes, 10))
+		os.Stdout.Write(append(outbytes, '\n'))
 	} else if outlist == nil || !probeIfStdinReaderAndIfSoHandleOnceOrForever(prog, outlist) {
-		println("?!EXPR:\t" + outexpr.JsonSrc() + "\n")
+		println("RET-EXPR:\t" + outexpr.JsonSrc() + "\n")
 	}
 }
 
@@ -80,4 +94,15 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 		}
 	}
 	return false
+}
+
+func stdinReadSplitterBy(sep byte) bufio.SplitFunc {
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if i := bytes.IndexByte(data, sep); i >= 0 {
+			advance, token = i+1, data[0:i]
+		} else if atEOF {
+			advance, token = len(data), data
+		}
+		return
+	}
 }
