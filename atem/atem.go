@@ -53,7 +53,6 @@ package atem
 
 import (
 	"strconv"
-	"strings"
 )
 
 // The few standard func defs the interpreter needs to know of as a minimum, and
@@ -109,11 +108,16 @@ func (me ExprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + 
 
 // JsonSrc emits the re-`LoadFromJson`able representation of this `FuncDef`.
 func (me *FuncDef) JsonSrc(dropMeta bool) string {
-	meta := "\"" + strings.Join(me.Meta, "\", \"") + "\""
-	if dropMeta {
-		meta = ""
+	outjson := "[ ["
+	if !dropMeta {
+		for i, mstr := range me.Meta {
+			if i > 0 {
+				outjson += ","
+			}
+			outjson += strconv.Quote(mstr)
+		}
 	}
-	outjson := "[ [" + meta + "], ["
+	outjson += "], ["
 	for i, a := range me.Args {
 		if i > 0 {
 			outjson += ","
