@@ -1,16 +1,16 @@
 // _atem_ is both a minimal and low-level interpreted functional programming
-// language IR (_intermediate representation_, ie. not to be hand-written)
-// and its reference interpreter implementation (in lib form). It prioritizes
+// language IR (_intermediate representation_, ie. not to be hand-written) and
+// its reference interpreter implementation (in lib form). It prioritizes
 // staying low-LoC enough to be able to port it over to any other current and
 // future lang / tech stack swiftly and with ease, over other concerns, by
 // design. At the time of writing, the "parsing" / loading in this Go-based
 // implementation is ~42 LoCs (the choice of a JSON code format is likewise
 // motivated by the stated "no-brainer portability" objective), the interpreting
 // / eval'ing parts around ~55 LoCs, AST node type formulations and their
-// `JsonSrc()` / `ToJson()` implementations around ~45 LoCs, and helpers for
-// forcing "`Eval` result list-closures" into actual `[]int` or `[]byte` slices
-// or `string`s, another ~40 LoCs.
-// All counts approximate and net (excluding comments, blank lines etc).
+// `JsonSrc()` / `ToJson()` implementations around ~45 LoCs, and utilities for
+// forcing "`Eval` result linked-list-closures" into actual `[]int` or `[]byte`
+// slices or `string`s, or the other way around for passing into `Eval`, another
+// ~55 LoCs. All counts approximate and net (excluding comments, blank lines etc).
 //
 // This focus doesn't make for the most efficient interpreter in the world, but that
 // isn't the objective for _atem_. The goal is to provide the bootstrapping basis
