@@ -1,7 +1,8 @@
-// _atem_ is both a minimal and low-level interpreted functional intermediate
-// language and its reference interpreter. It prioritizes staying low-LoC enough
-// to be able to port it to any other tech stack swiftly, over other concerns. At
-// the time of writing, the "parsing" / loading in this Go-based implementation
+// _atem_ is both a minimal and low-level interpreted functional language IR
+// (intermediate representation, ie. not hand-written) and its reference interpreter
+// implementation (in lib form). It prioritizes staying low-LoC enough to be
+// able to port it to any other tech stack swiftly, over other concerns. At the
+// time of writing, the "parsing" / loading in this Go-based implementation
 // is ~42 LoCs (the choice of a JSON code format too is motivated by the goal
 // to allow for swift re-implementations in any contemporary or future lang /
 // tech stack), the interpreting / eval'ing parts around ~55 LoCs, AST node type
