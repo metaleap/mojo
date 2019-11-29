@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	. "github.com/metaleap/atmo/atem"
-	"github.com/metaleap/atmo/atem/opt"
 	tl "github.com/metaleap/go-machines/toylam"
 )
 
@@ -19,12 +18,12 @@ func compile(mainTopDefQName string) {
 	compileTopDef(tl.StdRequiredDefs_listNil)
 	compileTopDef(tl.StdRequiredDefs_listCons)
 
-	idx := compileTopDef(mainTopDefQName)
+	idx, meta := compileTopDef(mainTopDefQName), []string{mainTopDefQName}
 	outProg = append(outProg, outProg[idx])
-	outProg[idx] = FuncDef{Args: nil, Body: ExprFuncRef(len(outProg) - 1), OrigNameMaybe: mainTopDefQName}
+	outProg[idx] = FuncDef{Meta: meta, Body: ExprFuncRef(len(outProg) - 1)}
 
 	for again := false; again; {
-		outProg, again = atemopt.Optimize(outProg)
+		outProg, again = optimize(outProg)
 	}
 }
 
@@ -36,7 +35,8 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 		return ExprAppl{Callee: compileExpr(it.Callee, curFunc, curFuncsArgs), Arg: compileExpr(it.CallArg, curFunc, curFuncsArgs)}
 	case *tl.ExprName:
 		if it.IdxOrInstr < 0 {
-			return ExprArgRef(len(curFuncsArgs) + it.IdxOrInstr)
+			argidx := len(curFuncsArgs) + it.IdxOrInstr
+			return -ExprArgRef(1 + argidx)
 		} else if it.IdxOrInstr > 0 {
 			if opcode, ok := instr2op[tl.Instr(it.IdxOrInstr)]; ok {
 				return ExprFuncRef(opcode)
@@ -44,14 +44,14 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 		} else {
 			for i, farg := range curFuncsArgs {
 				if farg.ArgName == it.NameVal {
-					return ExprArgRef(i)
+					return -ExprArgRef(1 + i)
 				}
 			}
 			idx := compileTopDef(it.NameVal)
 			return ExprFuncRef(idx)
 		}
 	case *tl.ExprFunc:
-		globalname, globalbody := "//"+curFunc.OrigNameMaybe+"/lam/"+it.ArgName+strconv.Itoa(len(inProg.TopDefs)), it
+		globalname, globalbody := "//"+curFunc.Meta[0]+"/lam/"+it.ArgName+strconv.Itoa(len(inProg.TopDefs)), it
 		freevars, expr := map[string]int{}, tl.Expr(&tl.ExprName{NameVal: globalname})
 		freeVars(globalbody, map[string]string{}, freevars)
 		for fvname := range freevars {
@@ -89,12 +89,13 @@ func compileTopDef(name string) int {
 			panic(name)
 		}
 		idx, name = len(outProg), prefstd+name
-		outProg, defsDone[name] = append(outProg, FuncDef{OrigNameMaybe: "[" + strconv.Itoa(idx) + "]" + name}), idx
+		outProg, defsDone[name] = append(outProg, FuncDef{Meta: []string{"[" + strconv.Itoa(idx) + "]" + name}}), idx
 
 		result := &outProg[idx]
-		curFuncsargs, body := dissectFunc(topdef)
-		result.Args = make([]int, len(curFuncsargs))
-		for i, f := range curFuncsargs {
+		curfuncsargs, body := dissectFunc(topdef)
+		result.Args = make([]int, len(curfuncsargs))
+		for i, f := range curfuncsargs {
+			result.Meta = append(result.Meta, f.ArgName)
 			result.Args[i] = body.ReplaceName(f.ArgName, f.ArgName) // just counts occurrences
 			for _, local := range locals {
 				if numrefs := local.Expr.ReplaceName(f.ArgName, f.ArgName); numrefs > 0 {
@@ -129,69 +130,8 @@ func compileTopDef(name string) int {
 			body = body.RewriteName(local.Name, expr)
 		}
 
-		result.Body = compileExpr(body, result, curFuncsargs)
+		result.Body = compileExpr(body, result, curfuncsargs)
 		outProg[idx] = *result // crucial as the slice could have been resized by now (even tho we give it an initial cap that makes this unlikely, this safeguard will work for any outrageous program size)
 	}
 	return idx
-}
-
-func dissectFunc(expr tl.Expr) (outerFuncs []*tl.ExprFunc, innerMostBody tl.Expr) {
-	innerMostBody = expr
-	for fn, _ := expr.(*tl.ExprFunc); fn != nil; fn, _ = fn.Body.(*tl.ExprFunc) {
-		innerMostBody, outerFuncs = fn.Body, append(outerFuncs, fn)
-	}
-	return
-}
-
-func fullCopy(expr tl.Expr) tl.Expr {
-	switch it := expr.(type) {
-	case *tl.ExprLitNum:
-		return &*it
-	case *tl.ExprName:
-		return &*it
-	case *tl.ExprFunc:
-		ret := *it
-		ret.Body = fullCopy(ret.Body)
-		return &ret
-	case *tl.ExprCall:
-		ret := *it
-		ret.Callee, ret.CallArg = fullCopy(ret.Callee), fullCopy(ret.CallArg)
-		return &ret
-	}
-	panic(expr)
-}
-
-func freeVars(expr tl.Expr, localNames map[string]string, results map[string]int) {
-	switch it := expr.(type) {
-	case *tl.ExprCall:
-		freeVars(it.Callee, localNames, results)
-		freeVars(it.CallArg, localNames, results)
-	case *tl.ExprFunc:
-		if _, exists := localNames[it.ArgName]; exists {
-			panic(it.ArgName)
-		}
-		localNames[it.ArgName] = ""
-		freeVars(it.Body, localNames, results)
-		delete(localNames, it.ArgName)
-	case *tl.ExprName:
-		if it.IdxOrInstr <= 0 {
-			if _, exists := localNames[it.NameVal]; !exists {
-				if _, exists = inProg.TopDefs[it.NameVal]; !exists {
-					if _, exists = inProg.TopDefs[tl.StdModuleName+"."+it.NameVal]; !exists {
-						for tdname := range inProg.TopDefs {
-							if exists = strings.HasSuffix(tdname, "."+it.NameVal) && strings.HasPrefix(tdname, tl.StdModuleName+"."); exists {
-								break
-							}
-						}
-						if !exists {
-							if have, oops := results[it.NameVal]; oops && have != it.IdxOrInstr {
-								panic(it.NameVal)
-							}
-							results[it.NameVal] = it.IdxOrInstr
-						}
-					}
-				}
-			}
-		}
-	}
 }

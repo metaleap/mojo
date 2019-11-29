@@ -7,10 +7,10 @@
 // implementation is ~42 LoCs (the choice of a JSON code format is likewise
 // motivated by the stated "no-brainer portability" objective), the interpreting
 // / eval'ing parts around ~55 LoCs, AST node type formulations and their
-// `JsonSrc()` / `ToJson()` implementations around ~45 LoCs, and utilities for
-// forcing "`Eval` result linked-list-closures" into actual `[]int` or `[]byte`
-// slices or `string`s, or the other way around for passing into `Eval`, another
-// ~55 LoCs. All counts approximate and net (excluding comments, blank lines etc).
+// `JsonSrc()` implementations around ~50 LoCs, and utilities for forcing
+// "`Eval` result linked-list-closures" into actual `[]int` or `[]byte` slices
+// or `string`s, or the other way around for passing into `Eval`, another ~55
+// LoCs. All counts approximate and net (excluding comments, blank lines etc).
 //
 // This focus doesn't make for the most efficient interpreter in the world, but that
 // isn't the objective for _atem_. The goal is to provide the bootstrapping basis
@@ -53,6 +53,7 @@ package atem
 
 import (
 	"strconv"
+	"strings"
 )
 
 // The few standard func defs the interpreter needs to know of as a minimum, and
@@ -77,9 +78,9 @@ type (
 		// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
 		// `Body` references this arg (note that the interpreter does not currently
 		// use this info), the arg's "identity" however is just its index in `Args`
-		Args          []int
-		Body          Expr
-		OrigNameMaybe string
+		Args []int
+		Body Expr
+		Meta []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
 	}
 	Expr interface {
 		// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.
@@ -106,9 +107,13 @@ func (me ExprFuncRef) JsonSrc() string { return "[" + strconv.Itoa(int(me)) + "]
 // JsonSrc emits the re-`LoadFromJson`able representation of this `ExprAppl`.
 func (me ExprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + me.Arg.JsonSrc() + "]" }
 
-// ToJson emits the re-`LoadFromJson`able representation of this `FuncDef`. (It's not called `JsonSrc` in order to make clear that `FuncDef` is not an `Expr` implementer.)
-func (me *FuncDef) ToJson() string {
-	outjson := "[ ["
+// JsonSrc emits the re-`LoadFromJson`able representation of this `FuncDef`.
+func (me *FuncDef) JsonSrc(dropMeta bool) string {
+	meta := "\"" + strings.Join(me.Meta, "\", \"") + "\""
+	if dropMeta {
+		meta = ""
+	}
+	outjson := "[ [" + meta + "], ["
 	for i, a := range me.Args {
 		if i > 0 {
 			outjson += ","
@@ -118,14 +123,14 @@ func (me *FuncDef) ToJson() string {
 	return outjson + "],\n\t\t" + me.Body.JsonSrc() + " ]"
 }
 
-// ToJson emits the re-`LoadFromJson`able representation of this `Prog`. (It's not called `JsonSrc` in order to make clear that `Prog` is not an `Expr` implementer.)
-func (me Prog) ToJson() string {
+// JsonSrc emits the re-`LoadFromJson`able representation of this `Prog`.
+func (me Prog) JsonSrc(dropFuncDefMetas bool) string {
 	outjson := "[ "
 	for i, def := range me {
 		if i > 0 {
 			outjson += ", "
 		}
-		outjson += def.ToJson() + "\n"
+		outjson += def.JsonSrc(dropFuncDefMetas) + "\n"
 	}
 	return outjson + "]\n"
 }

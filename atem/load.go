@@ -15,6 +15,17 @@ type any = interface{} // just for less-noisily-reading JSON-unmarshalings below
 // is a JSON string parseable into an integer, and `ExprAppl` is a variable
 // length (greater than 1) array of any of those possibilities.
 // A `panic` occurs on any sort of error encountered from the input `src`.
+//
+// A note on `ExprArgRef`s: these take different forms in the JSON format and
+// at runtime. In the former, two intuitive-to-emit styles are supported: if
+// positive they denote 0-based indexing such that 0 refers to the `FuncDef`'s
+// first arg, 1 to the second, 2 to the third etc; if negative, they're translated
+// into this just-mentioned positive format by treating them as De Brujin indices,
+// with -1 referring to the `FuncDef`'s last arg, -2 to the one-before-last, -3 to
+// the one-before-one-before-last etc. However at parse time, they're turned
+// into a form expected at run time, where 0 turns into -1, 1 into -2, 2 into
+// -3 etc, allowing for faster stack accesses in the interpreter.
+// `ExprArgRef.JsonSrc()` will restore the 0-based indexing form, however.
 func LoadFromJson(src []byte) Prog {
 	arr := make([][]any, 0, 128)
 	if e := json.Unmarshal(src, &arr); e != nil {
@@ -22,11 +33,16 @@ func LoadFromJson(src []byte) Prog {
 	}
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
-		arrargs, args := it[0].([]any), make([]int, 0, 0)
+		meta, arrargs, args := []string{}, it[1].([]any), make([]int, 0, 0)
+		if metarr, _ := it[0].([]any); len(metarr) > 0 {
+			for _, mstr := range metarr {
+				meta = append(meta, mstr.(string))
+			}
+		}
 		for _, v := range arrargs {
 			args = append(args, int(v.(float64)))
 		}
-		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[1], int64(len(args)))})
+		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[2], int64(len(args))), Meta: meta})
 	}
 	return me
 }

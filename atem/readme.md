@@ -10,11 +10,11 @@ tech stack swiftly and with ease, over other concerns, by design. At the time of
 writing, the "parsing" / loading in this Go-based implementation is ~42 LoCs
 (the choice of a JSON code format is likewise motivated by the stated
 "no-brainer portability" objective), the interpreting / eval'ing parts around
-~55 LoCs, AST node type formulations and their `JsonSrc()` / `ToJson()`
-implementations around ~45 LoCs, and utilities for forcing "`Eval` result
-linked-list-closures" into actual `[]int` or `[]byte` slices or `string`s, or
-the other way around for passing into `Eval`, another ~55 LoCs. All counts
-approximate and net (excluding comments, blank lines etc).
+~55 LoCs, AST node type formulations and their `JsonSrc()` implementations
+around ~50 LoCs, and utilities for forcing "`Eval` result linked-list-closures"
+into actual `[]int` or `[]byte` slices or `string`s, or the other way around for
+passing into `Eval`, another ~55 LoCs. All counts approximate and net (excluding
+comments, blank lines etc).
 
 This focus doesn't make for the most efficient interpreter in the world, but
 that isn't the objective for _atem_. The goal is to provide the bootstrapping
@@ -185,21 +185,19 @@ type FuncDef struct {
 	// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
 	// `Body` references this arg (note that the interpreter does not currently
 	// use this info), the arg's "identity" however is just its index in `Args`
-	Args          []int
-	Body          Expr
-	OrigNameMaybe string
+	Args []int
+	Body Expr
+	Meta []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
 }
 ```
 
 
-#### func (*FuncDef) ToJson
+#### func (*FuncDef) JsonSrc
 
 ```go
-func (me *FuncDef) ToJson() string
+func (me *FuncDef) JsonSrc(dropMeta bool) string
 ```
-ToJson emits the re-`LoadFromJson`able representation of this `FuncDef`. (It's
-not called `JsonSrc` in order to make clear that `FuncDef` is not an `Expr`
-implementer.)
+JsonSrc emits the re-`LoadFromJson`able representation of this `FuncDef`.
 
 #### type OpCode
 
@@ -256,6 +254,17 @@ string parseable into an integer, and `ExprAppl` is a variable length (greater
 than 1) array of any of those possibilities. A `panic` occurs on any sort of
 error encountered from the input `src`.
 
+A note on `ExprArgRef`s: these take different forms in the JSON format and at
+runtime. In the former, two intuitive-to-emit styles are supported: if positive
+they denote 0-based indexing such that 0 refers to the `FuncDef`'s first arg, 1
+to the second, 2 to the third etc; if negative, they're translated into this
+just-mentioned positive format by treating them as De Brujin indices, with -1
+referring to the `FuncDef`'s last arg, -2 to the one-before-last, -3 to the
+one-before-one-before-last etc. However at parse time, they're turned into a
+form expected at run time, where 0 turns into -1, 1 into -2, 2 into -3 etc,
+allowing for faster stack accesses in the interpreter. `ExprArgRef.JsonSrc()`
+will restore the 0-based indexing form, however.
+
 #### func (Prog) Eval
 
 ```go
@@ -283,6 +292,13 @@ is met, the primitive instruction is carried out, its `Expr` result then being
 `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic` with a
 `[3]Expr` of first the `ExprFuncRef` followed by both its operands.
 
+#### func (Prog) JsonSrc
+
+```go
+func (me Prog) JsonSrc(dropFuncDefMetas bool) string
+```
+JsonSrc emits the re-`LoadFromJson`able representation of this `Prog`.
+
 #### func (Prog) ListOfExprs
 
 ```go
@@ -303,12 +319,3 @@ func (me Prog) ListOfExprsToString(expr Expr) string
 ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
 and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`
 result, if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.
-
-#### func (Prog) ToJson
-
-```go
-func (me Prog) ToJson() string
-```
-ToJson emits the re-`LoadFromJson`able representation of this `Prog`. (It's not
-called `JsonSrc` in order to make clear that `Prog` is not an `Expr`
-implementer.)

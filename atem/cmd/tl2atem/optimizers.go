@@ -1,4 +1,4 @@
-package atemopt
+package main
 
 import (
 	. "github.com/metaleap/atmo/atem"
@@ -17,8 +17,8 @@ func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	return expr
 }
 
-func Optimize(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	for again := true; again; {
 		again, optNumRounds = false, optNumRounds+1
 		for _, opt := range []func(Prog) (Prog, bool){
@@ -31,7 +31,6 @@ func Optimize(prog Prog) (ret Prog, didModify bool) {
 			optimize_primOpPreCalcs,
 			optimize_callsToGeqOrLeq,
 			optimize_minifyNeedlesslyElaborateBoolOpCalls,
-			optimize_tryPreReduceCalls,
 		} {
 			if ret, again = opt(ret); again {
 				didModify = true
@@ -42,8 +41,8 @@ func Optimize(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_dropUnused(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_dropUnused(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	defrefs := make(map[int]bool, len(ret))
 	for i := range ret {
 		walk(ret[i].Body, func(expr Expr) Expr {
@@ -70,8 +69,8 @@ func optimize_dropUnused(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_inlineNullaries(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	nullaries := make(map[int]int)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if 0 == len(ret[i].Args) {
@@ -104,8 +103,8 @@ func optimize_inlineNullaries(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_argDropperCalls(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	argdroppers := make(map[int][]int, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		var argdrops []int
@@ -141,8 +140,8 @@ func optimize_argDropperCalls(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_inlineArgCallers(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	argcallers := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		if caller, _, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body); numargs > 0 && numargrefs == 1 && numargscalls == 0 {
@@ -178,8 +177,8 @@ func optimize_inlineArgCallers(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_inlineSelectorCalls(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_inlineSelectorCalls(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	selectors := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		if argref, ok := ret[i].Body.(ExprArgRef); ok {
@@ -202,8 +201,8 @@ func optimize_inlineSelectorCalls(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	rearrangers := make(map[int]bool, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		if callee, _, _, numargcalls, numargrefs, allargs := dissectCall(ret[i].Body); numargcalls == 0 && numargrefs > 0 {
@@ -255,8 +254,8 @@ func optimize_inlineArgsRearrangers(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_minifyNeedlesslyElaborateBoolOpCalls(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil && (numargs == 4 || numargs == 6) {
@@ -280,45 +279,8 @@ func optimize_minifyNeedlesslyElaborateBoolOpCalls(prog Prog) (ret Prog, didModi
 	return
 }
 
-func optimize_tryPreReduceCalls(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
-	var progwithproperargsformat Prog
-	for i := int(StdFuncCons + 1); i < len(ret); i++ {
-		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if _, fnref, _, _, numargrefs, allargs := dissectCall(expr); fnref != nil && numargrefs == 0 {
-				_ = walk(expr, func(it Expr) Expr {
-					if _, isargref := it.(ExprArgRef); isargref {
-						numargrefs++
-					}
-					return it
-				})
-				if argsneeded := 2; numargrefs == 0 {
-					if *fnref >= 0 {
-						argsneeded = len(ret[*fnref].Args)
-					}
-					if len(allargs) == argsneeded {
-						retval := func() Expr {
-							defer func() { _ = recover() }()
-							if progwithproperargsformat == nil { // kinda Ouch approach, but we'll hit it only ever so rarely really.. this whole thing more for completeness' sake and the occasional "write-time readability gain"
-								progwithproperargsformat = LoadFromJson([]byte(ret.ToJson()))
-							}
-							return progwithproperargsformat.Eval(expr, nil)
-						}()
-						if _, isnonatomic := retval.(ExprAppl); retval != nil && !isnonatomic {
-							didModify = true
-							return retval
-						}
-					}
-				}
-			}
-			return expr
-		})
-	}
-	return
-}
-
-func optimize_callsToGeqOrLeq(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_callsToGeqOrLeq(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	geqsleqs := map[int]bool{}
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if _, fnr1, _, _, _, allargs1 := dissectCall(ret[i].Body); fnr1 != nil && len(allargs1) == 4 {
@@ -374,8 +336,8 @@ func optimize_callsToGeqOrLeq(prog Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_primOpPreCalcs(prog Prog) (ret Prog, didModify bool) {
-	ret = prog
+func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
+	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil && *fnref < 0 {
