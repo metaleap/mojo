@@ -104,30 +104,58 @@ func compileTopDef(name string) int {
 			}
 		}
 
-		localnames := map[string]string{}
+		localgnames := map[string]string{}
+		var lifted func(int, []*tl.ExprFunc)
+		lifted = func(idx int, argsadded []*tl.ExprFunc) {
+			gname := localgnames[locals[idx].Name]
+			var expr tl.Expr = &tl.ExprName{NameVal: gname}
+			for _, farg := range argsadded {
+				expr = &tl.ExprCall{Callee: expr, CallArg: &tl.ExprName{NameVal: farg.ArgName}}
+			}
+			body = body.RewriteName(gname, expr)
+			for j, exprcopy := 0, fullCopy(expr); j <= idx; j++ {
+				if jname := localgnames[locals[j].Name]; 0 < inProg.TopDefs[jname].ReplaceName(gname, gname) {
+					nuargs := make([]*tl.ExprFunc, 0, len(argsadded))
+					ownargs, _ := dissectFunc(inProg.TopDefs[jname])
+					for _, farg := range argsadded {
+						found := false
+						for _, ownarg := range ownargs {
+							if found = (ownarg.ArgName == farg.ArgName); found {
+								break
+							}
+						}
+						if !found {
+							nuargs = append(nuargs, farg)
+						}
+					}
+					exprcopy, inProg.TopDefs[jname] = fullCopy(expr), inProg.TopDefs[jname].RewriteName(gname, exprcopy)
+					if len(nuargs) > 0 {
+						for i := len(nuargs) - 1; i >= 0; i-- {
+							inProg.TopDefs[jname] = &tl.ExprFunc{ArgName: nuargs[i].ArgName, Body: inProg.TopDefs[jname]}
+						}
+						lifted(j, nuargs)
+					}
+				}
+			}
+		}
+
 		for i, local := range locals {
-			globalname := "//" + name + "/local/" + local.Name + strconv.Itoa(i)
-			localnames[local.Name] = globalname
+			gname := "//" + name + "/local/" + local.Name + strconv.Itoa(i)
+			localgnames[local.Name], body = gname, body.RewriteName(local.Name, &tl.ExprName{NameVal: gname})
+			for j := 0; j <= i; j++ {
+				locals[j].Expr = locals[j].Expr.RewriteName(local.Name, &tl.ExprName{NameVal: gname})
+			}
 		}
 		for i, local := range locals {
-			globalname, globalbody := localnames[local.Name], local.Expr
-			freevars, expr := map[string]int{}, tl.Expr(&tl.ExprName{NameVal: globalname})
-			freeVars(local.Expr, localnames, freevars)
+			globalname, globalbody := localgnames[local.Name], local.Expr
+			freevars := map[string]int{}
+			freeVars(local.Expr, localgnames, freevars)
 			for fvname := range freevars {
 				globalbody = &tl.ExprFunc{ArgName: fvname, Body: globalbody}
 			}
-			fargs, _ := dissectFunc(globalbody)
-			for _, farg := range fargs[:len(freevars)] {
-				expr = &tl.ExprCall{Callee: expr, CallArg: &tl.ExprName{NameVal: farg.ArgName}}
-			}
-
 			inProg.TopDefs[globalname] = globalbody
-			for j, exprcopy := 0, fullCopy(expr); j <= i; j++ {
-				if gname := localnames[locals[j].Name]; 0 < locals[j].Expr.ReplaceName(local.Name, local.Name) {
-					exprcopy, inProg.TopDefs[gname] = fullCopy(expr), inProg.TopDefs[gname].RewriteName(local.Name, exprcopy)
-				}
-			}
-			body = body.RewriteName(local.Name, expr)
+			fargs, _ := dissectFunc(globalbody)
+			lifted(i, fargs[:len(freevars)])
 		}
 
 		result.Body = compileExpr(body, result, curfuncsargs)
