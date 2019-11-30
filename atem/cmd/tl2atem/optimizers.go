@@ -23,7 +23,7 @@ func optimize(src Prog) (ret Prog, didModify bool) {
 		ret = fixFuncDefArgsUsageNumbers(ret)
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_inlineNullaries,
-			optimize_ditchUnusedFuncDefs,
+			// optimize_ditchUnusedFuncDefs,
 			optimize_inlineSelectorCalls,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
@@ -174,6 +174,51 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 // removes args from FuncDefs if all callers supply the exact same (non-argref-containing) expression
 func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 	ret = src
+	allappls, numrefs := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}
+	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
+		for j := StdFuncCons + 1; int(j) < len(ret); j++ {
+			_ = walk(ret[j].Body, func(expr Expr) Expr {
+				if fnr, _ := expr.(ExprFuncRef); fnr == i {
+					numrefs[i] = 1 + numrefs[i]
+				} else if _, fnref, _, _, _, _ := dissectCall(expr); fnref != nil && *fnref == i {
+					allappls[i] = append(allappls[i], expr)
+				}
+				return expr
+			})
+		}
+	}
+	for i, appls := range allappls {
+		if numrefs[i] > len(appls) {
+			delete(numrefs, i)
+			delete(allappls, i)
+		}
+	}
+	for i := range numrefs {
+		var drop bool
+		for j := StdFuncCons + 1; (!drop) && int(j) < len(ret); j++ {
+			_ = walk(ret[j].Body, func(expr Expr) Expr {
+				if drop {
+					return nil
+				}
+				if _, fnref, numargs, _, _, _ := dissectCall(expr); fnref != nil && *fnref == i && numargs <= len(ret[i].Args) {
+					drop = numargs < len(ret[i].Args)
+					return nil
+				}
+				return expr
+			})
+		}
+		if drop {
+			println("DROP", ret[i].Meta[0])
+			delete(numrefs, i)
+			delete(allappls, i)
+		}
+	}
+	for i, appls := range allappls {
+		println(numrefs[i], "x", ret[i].Meta[0])
+		for _, appl := range appls {
+			println("\t", appl.JsonSrc())
+		}
+	}
 	return
 }
 
