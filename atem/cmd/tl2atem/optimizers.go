@@ -2,8 +2,9 @@ package main
 
 import (
 	. "github.com/metaleap/atmo/atem"
-	"strconv"
 )
+
+var exprNever = exprTmp(123456789)
 
 func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `tryEval`") } }
 
@@ -158,8 +159,8 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 			if _, fnref, numargs, _, _, _ := dissectCall(expr); fnref != nil {
 				if argdrops := argdroppers[int(*fnref)]; len(argdrops) > 0 {
 					return rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
-						if !eq(argval, exprTmp(-123456789)) {
-							argval, didModify = exprTmp(-123456789), true
+						if !eq(argval, exprNever) {
+							argval, didModify = exprNever, true
 						}
 						return argval
 					}, argdrops)
@@ -211,7 +212,7 @@ func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 								}
 								return it
 							}), func(it Expr) Expr {
-								if tmp, is := it.(exprTmp); is && tmp != -123456789 && tmp != -987654321 {
+								if tmp, is := it.(exprTmp); is && tmp < 0 {
 									return allargs[(-tmp)-1]
 								}
 								return it
@@ -474,7 +475,7 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// rewrites all occurrences of calls with no arg-refs and no side-effects (eg. OpPrt) with their `Eval` result
+// rewrites all calls with no arg-refs and no `OpPrt`s with their `Eval` result
 func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
@@ -584,4 +585,4 @@ func rewriteInnerMostCallee(expr ExprAppl, rewriter func(Expr) Expr) ExprAppl {
 
 type exprTmp int
 
-func (me exprTmp) JsonSrc() string { return strconv.Itoa(int(me)) }
+func (me exprTmp) JsonSrc() string { return "-0" }
