@@ -8,8 +8,6 @@ type exprNever struct{}
 
 func (exprNever) JsonSrc() string { return "-0" }
 
-var optNumRounds int
-
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	expr = visitor(expr)
 	if call, ok := expr.(ExprAppl); ok {
@@ -22,8 +20,9 @@ func walk(expr Expr, visitor func(Expr) Expr) Expr {
 func optimize(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for again := true; again; {
-		again, optNumRounds = false, optNumRounds+1
+		again = false
 		for _, opt := range []func(Prog) (Prog, bool){
+			optimize_fixFuncDefArgsUsageNumbers,
 			optimize_inlineNullaries,
 			optimize_ditchUnusedFuncDefs,
 			optimize_inlineSelectorCalls,
@@ -43,7 +42,26 @@ func optimize(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// inliners or other optimizers may result in now-unused func-defs, here's a single routine that'll remove them
+// some optimizers may drop certain arg uses while others may expect correct values in `FuncDef.Args`,
+// so as a first step in a round, we ensure they're all correct for that round. we do all at once and so the `bool` is never `return`ed as `true`, else would loop infinitely
+func optimize_fixFuncDefArgsUsageNumbers(src Prog) (Prog, bool) {
+	for i := int(StdFuncCons + 1); i < len(src); i++ {
+		for j := range src[i].Args {
+			src[i].Args[j] = 0
+		}
+		_ = walk(src[i].Body, func(expr Expr) Expr {
+			if argref, ok := expr.(ExprArgRef); ok {
+				argref = (-argref) - 1
+				src[i].Args[argref] = 1 + src[i].Args[argref]
+			}
+			return expr
+		})
+	}
+	return src, false
+}
+
+// inliners or other optimizers may result in now-unused func-defs, here's a single routine that'll remove them.
+// it removes at most one at a time, fixing up all references, then returning with `didModify` of `true`, ensuring another call to find the next one
 func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	defrefs := make(map[int]bool, len(ret))
@@ -166,6 +184,8 @@ func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// "selectors" have arg-ref bodies, well-known examples are id / true / false / nil.
+// calls to those (that do provide the selected arg) get replaced by the respective call-arg.
 func optimize_inlineSelectorCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	selectors := make(map[int]ExprArgRef, 8)
