@@ -29,6 +29,8 @@ func optimize(src Prog) (ret Prog, didModify bool) {
 			optimize_primOpPreCalcs,
 			optimize_callsToGeqOrLeq,
 			optimize_minifyNeedlesslyElaborateBoolOpCalls,
+			optimize_inlineOnceCalleds,
+			optimize_inlineEverSameArgs,
 			optimize_preEvals,
 		} {
 			if ret, again = opt(ret); again {
@@ -118,9 +120,9 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
 				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {
-					if numrefs == 1 || caninlinealways[int(fnref)] {
-						didModify = true
-						return ret[int(fnref)].Body
+					if retexpr := ret[int(fnref)].Body; numrefs == 1 || caninlinealways[int(fnref)] {
+						didModify = didModify || !eq(expr, retexpr)
+						return retexpr
 					}
 				}
 			}
@@ -130,7 +132,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// in calls that provide known-to-be-discarded args, those are replaced with zero (rendered as -0 in JSON output)
+// in calls that provide known-to-be-discarded args, the latter are replaced with zero (rendered as -0 in JSON output)
 func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	argdroppers := make(map[int][]int, 8)
@@ -153,8 +155,8 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 			if _, fnref, numargs, _, _, _ := dissectCall(expr); fnref != nil {
 				if argdrops := argdroppers[int(*fnref)]; len(argdrops) > 0 {
 					return rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
-						if !eq(argval, exprNever{}) {
-							argval, didModify = exprNever{}, true
+						if !eq(argval, exprTmp(0)) {
+							argval, didModify = exprTmp(0), true
 						}
 						return argval
 					}, argdrops)
@@ -162,6 +164,67 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 			}
 			return expr
 		})
+	}
+	return
+}
+
+// removes args from FuncDefs if all callers supply the exact same (non-argref-containing) expression
+func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	return
+}
+
+// inlines a FuncDef into a call site if the latter is the only reference to the former, and provides enough args, and no arg is used more than once in the orig def's body
+func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	refs := make(map[ExprFuncRef]map[ExprFuncRef]int, 32)
+	for i, l := StdFuncCons+1, ExprFuncRef(len(ret)); i < l; i++ {
+		if refs[i] == nil {
+			refs[i] = map[ExprFuncRef]int{}
+		}
+		_ = walk(ret[i].Body, func(expr Expr) Expr {
+			if fnref, is := expr.(ExprFuncRef); is && fnref > StdFuncCons {
+				m := refs[fnref]
+				if m == nil {
+					m = map[ExprFuncRef]int{}
+				}
+				m[i] = m[i] + 1
+				refs[fnref] = m
+			}
+			return expr
+		})
+	}
+	for fn, referencers := range refs {
+		could := (1 == len(referencers))
+		if could {
+			for _, argused := range ret[fn].Args {
+				if could = (argused <= 1); !could {
+					break
+				}
+			}
+		}
+		if could {
+			for referencer, numrefs := range referencers {
+				if numrefs == 1 {
+					ret[referencer].Body = walk(ret[referencer].Body, func(expr Expr) Expr {
+						if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == fn && len(allargs) == len(ret[fn].Args) {
+							didModify, expr = true, walk(walk(ret[fn].Body, func(it Expr) Expr {
+								if argref, is := it.(ExprArgRef); is {
+									return exprTmp((-argref) - 1)
+								}
+								return it
+							}), func(it Expr) Expr {
+								if tmp, is := it.(exprTmp); is {
+									return allargs[tmp]
+								}
+								return it
+							})
+						}
+						return expr
+					})
+				}
+			}
+		}
 	}
 	return
 }
@@ -450,8 +513,8 @@ func eq(expr Expr, cmp Expr) bool {
 		return true
 	}
 	switch it := expr.(type) {
-	case exprNever:
-		_, ok := cmp.(exprNever)
+	case exprTmp:
+		_, ok := cmp.(exprTmp)
 		return ok
 	case ExprNumInt:
 		that, ok := cmp.(ExprNumInt)
@@ -522,6 +585,6 @@ func rewriteInnerMostCallee(expr ExprAppl, rewriter func(Expr) Expr) ExprAppl {
 	return expr
 }
 
-type exprNever struct{}
+type exprTmp int
 
-func (exprNever) JsonSrc() string { return "-0" }
+func (exprTmp) JsonSrc() string { return "-0" }
