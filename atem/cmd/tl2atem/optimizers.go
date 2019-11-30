@@ -456,6 +456,7 @@ func eq(expr Expr, cmp Expr) bool {
 }
 
 func evalMaybe(prog Prog, expr Expr) (ret Expr, didEval bool) {
+	ret = expr
 	if call, ok := expr.(ExprAppl); ok {
 		didEval = true
 		_ = walk(call, func(it Expr) Expr {
