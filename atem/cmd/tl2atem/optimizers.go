@@ -2,6 +2,7 @@ package main
 
 import (
 	. "github.com/metaleap/atmo/atem"
+	"strconv"
 )
 
 func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `tryEval`") } }
@@ -158,8 +159,8 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 			if _, fnref, numargs, _, _, _ := dissectCall(expr); fnref != nil {
 				if argdrops := argdroppers[int(*fnref)]; len(argdrops) > 0 {
 					return rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
-						if !eq(argval, exprTmp(0)) {
-							argval, didModify = exprTmp(0), true
+						if !eq(argval, exprTmp(-123456789)) {
+							argval, didModify = exprTmp(-123456789), true
 						}
 						return argval
 					}, argdrops)
@@ -174,12 +175,12 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 // removes args from FuncDefs if all callers supply the exact same (non-argref-containing) expression
 func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	allappls, numrefs := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}
+	allappls, num := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}
 	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
 		for j := StdFuncCons + 1; int(j) < len(ret); j++ {
 			_ = walk(ret[j].Body, func(expr Expr) Expr {
 				if fnr, _ := expr.(ExprFuncRef); fnr == i {
-					numrefs[i] = 1 + numrefs[i]
+					num[i] = 1 + num[i]
 				} else if _, fnref, _, _, _, _ := dissectCall(expr); fnref != nil && *fnref == i {
 					allappls[i] = append(allappls[i], expr)
 				}
@@ -188,35 +189,56 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 		}
 	}
 	for i, appls := range allappls {
-		if numrefs[i] > len(appls) {
-			delete(numrefs, i)
+		if num[i] > len(appls) {
+			delete(num, i)
 			delete(allappls, i)
 		}
 	}
-	for i := range numrefs {
-		var drop bool
-		for j := StdFuncCons + 1; (!drop) && int(j) < len(ret); j++ {
-			_ = walk(ret[j].Body, func(expr Expr) Expr {
-				if drop {
-					return nil
+	for i := range num {
+		allappls[i], num[i] = nil, len(ret[i].Args)
+		var chk func(Expr) Expr
+		chk = func(expr Expr) Expr {
+			if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == i {
+				if len(allargs) < num[i] {
+					num[i] = len(allargs)
 				}
-				if _, fnref, numargs, _, _, _ := dissectCall(expr); fnref != nil && *fnref == i && numargs <= len(ret[i].Args) {
-					drop = numargs < len(ret[i].Args)
-					return nil
+				if len(allargs) <= len(ret[i].Args) {
+					allappls[i] = append(allappls[i], expr)
 				}
-				return expr
-			})
+				for _, arg := range allargs {
+					_ = chk(arg)
+				}
+				return nil
+			}
+			return expr
 		}
-		if drop {
-			println("DROP", ret[i].Meta[0])
-			delete(numrefs, i)
-			delete(allappls, i)
+		for j := StdFuncCons + 1; int(j) < len(ret); j++ {
+			_ = walk(ret[j].Body, chk)
 		}
 	}
 	for i, appls := range allappls {
-		println(numrefs[i], "x", ret[i].Meta[0])
-		for _, appl := range appls {
-			println("\t", appl.JsonSrc())
+		for aidx := 0; aidx < num[i]; aidx++ {
+			var argval Expr
+			for _, appl := range appls {
+				if _, _, _, _, _, allargs := dissectCall(appl); len(allargs) > aidx {
+					_, hasargref := allargs[aidx].(ExprArgRef)
+					_ = walk(allargs[aidx], func(expr Expr) Expr {
+						if hasargref {
+							return nil
+						}
+						_, hasargref = expr.(ExprArgRef)
+						return expr
+					})
+					if argval == nil && !hasargref {
+						argval = allargs[aidx]
+					} else if hasargref || !eq(argval, allargs[aidx]) {
+						argval = exprTmp(-987654321)
+					}
+				}
+			}
+			if tmp, _ := argval.(exprTmp); argval != nil && tmp != -987654321 {
+				println("all calls to", ret[i].Meta[0], "have arg", aidx, "as", argval.JsonSrc())
+			}
 		}
 	}
 	return
@@ -258,12 +280,12 @@ func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 						if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == fn && len(allargs) == len(ret[fn].Args) {
 							didModify, expr = true, walk(walk(ret[fn].Body, func(it Expr) Expr {
 								if argref, is := it.(ExprArgRef); is {
-									return exprTmp((-argref) - 1)
+									return exprTmp(argref)
 								}
 								return it
 							}), func(it Expr) Expr {
-								if tmp, is := it.(exprTmp); is {
-									return allargs[tmp]
+								if tmp, is := it.(exprTmp); is && tmp != -123456789 && tmp != -987654321 {
+									return allargs[(-tmp)-1]
 								}
 								return it
 							})
@@ -562,8 +584,8 @@ func eq(expr Expr, cmp Expr) bool {
 	}
 	switch it := expr.(type) {
 	case exprTmp:
-		_, ok := cmp.(exprTmp)
-		return ok
+		that, ok := cmp.(exprTmp)
+		return ok && it == that
 	case ExprNumInt:
 		that, ok := cmp.(ExprNumInt)
 		return ok && it == that
@@ -635,4 +657,4 @@ func rewriteInnerMostCallee(expr ExprAppl, rewriter func(Expr) Expr) ExprAppl {
 
 type exprTmp int
 
-func (exprTmp) JsonSrc() string { return "-0" }
+func (me exprTmp) JsonSrc() string { return strconv.Itoa(int(me)) }
