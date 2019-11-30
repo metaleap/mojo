@@ -93,6 +93,12 @@ func ListFrom(str []byte) (ret Expr)
 ListFrom converts the specified byte string to a linked-list representing a text
 string during `Eval` (via `ExprAppl`s of `StdFuncCons` and `StdFuncNil`).
 
+#### func  ListToExpr
+
+```go
+func ListToExpr(exprs []Expr) (ret Expr)
+```
+
 #### func  ListsFrom
 
 ```go

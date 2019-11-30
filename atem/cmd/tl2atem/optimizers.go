@@ -31,6 +31,7 @@ func optimize(src Prog) (ret Prog, didModify bool) {
 			optimize_primOpPreCalcs,
 			optimize_callsToGeqOrLeq,
 			optimize_minifyNeedlesslyElaborateBoolOpCalls,
+			optimize_preEvals,
 		} {
 			if ret, again = opt(ret); again {
 				didModify = true
@@ -65,7 +66,7 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	defrefs := make(map[int]bool, len(ret))
 	for i := range ret {
 		walk(ret[i].Body, func(expr Expr) Expr {
-			if fnref, ok := expr.(ExprFuncRef); ok && fnref >= 0 {
+			if fnref, ok := expr.(ExprFuncRef); ok && fnref >= 0 && int(fnref) != i {
 				defrefs[int(fnref)] = true
 			}
 			return expr
@@ -393,6 +394,39 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 			}
 			return expr
 		})
+	}
+	return
+}
+
+func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	var evalmaybe func(Expr) Expr
+	evalmaybe = func(expr Expr) Expr {
+		if call, ok := expr.(ExprAppl); ok {
+			caneval := true
+			_ = walk(call, func(it Expr) Expr {
+				_, isargref := it.(ExprArgRef)
+				fnref, _ := it.(ExprFuncRef)
+				caneval = caneval && (!isargref) && int(fnref) > int(OpPrt)
+				return it
+			})
+			if caneval {
+				evald := ret.Eval(expr, nil)
+				if list := ret.ListOfExprs(evald); len(list) > 0 {
+					for i := range list {
+						list[i] = evalmaybe(list[i])
+					}
+					evald = ListToExpr(list)
+				}
+				if !eq(expr, evald) {
+					expr, didModify = evald, true
+				}
+			}
+		}
+		return expr
+	}
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		ret[i].Body = walk(ret[i].Body, evalmaybe)
 	}
 	return
 }

@@ -59,13 +59,13 @@ func main() {
 	compile(maintopdefqname)
 
 	prefixNameMetasWithIdxs()
-	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(false)), os.ModePerm)
+	ioutil.WriteFile(dstfilepath+".non-opt", []byte(outProg.JsonSrc(false)), os.ModePerm)
 
 	for again := true; again; {
 		outProg, again = optimize(outProg)
 	}
 	prefixNameMetasWithIdxs()
-	ioutil.WriteFile(dstfilepath+".opt", []byte(outProg.JsonSrc(false)), os.ModePerm)
+	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(false)), os.ModePerm)
 }
 
 func prefixNameMetasWithIdxs() {
