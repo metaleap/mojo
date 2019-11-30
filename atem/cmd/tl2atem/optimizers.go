@@ -105,6 +105,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 
 func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
+	return
 	argdroppers := make(map[int][]int, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		var argdrops []int
@@ -146,7 +147,7 @@ func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
 	for i := 0; i < len(ret)-1; i++ {
 		if caller, _, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body); numargs > 0 && numargrefs == 1 && numargscalls == 0 {
 			if argref, ok := caller.(ExprArgRef); ok {
-				argcallers[i] = argref
+				argcallers[i] = (-argref) - 1
 			}
 		}
 	}
@@ -182,7 +183,7 @@ func optimize_inlineSelectorCalls(src Prog) (ret Prog, didModify bool) {
 	selectors := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		if argref, ok := ret[i].Body.(ExprArgRef); ok {
-			selectors[i] = argref
+			selectors[i] = (-argref) - 1
 		}
 	}
 	if len(selectors) > 0 {
@@ -205,51 +206,50 @@ func optimize_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	rearrangers := make(map[int]bool, 8)
 	for i := 0; i < len(ret)-1; i++ {
-		if callee, _, _, numargcalls, numargrefs, allargs := dissectCall(ret[i].Body); numargcalls == 0 && numargrefs > 0 {
-			maxarg, callexprs := ExprArgRef(-1), append([]Expr{callee}, allargs...)
-			for _, expr := range callexprs {
-				if argref, ok := expr.(ExprArgRef); ok {
-					if argref > maxarg {
-						maxarg = argref
-					}
+		if callee, _, _, numargcalls, numargrefs, allargs := dissectCall(ret[i].Body); len(allargs) > 0 && numargcalls == 0 && numargrefs > 0 {
+			callparts := append([]Expr{callee}, allargs...)
+			for _, expr := range callparts {
+				if _, ok := expr.(ExprArgRef); ok {
+					rearrangers[i] = true
+					break
 				}
-			}
-			if maxarg > -1 {
-				rearrangers[i] = true
 			}
 		}
 	}
-	if len(rearrangers) > 0 {
-		for i := int(StdFuncCons + 1); i < len(ret); i++ {
-			ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-				if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil {
-					if rearrangers[int(*fnref)] && numargs == len(ret[*fnref].Args) {
-						counts := map[ExprArgRef]int{}
-						nuexpr := rewriteCallArgs(ret[*fnref].Body.(ExprAppl), -1, func(argidx int, argval Expr) Expr {
-							if argref, ok := argval.(ExprArgRef); ok {
-								counts[argref] = counts[argref] + 1
-								return allargs[argref]
-							}
-							return argval
-						}, nil)
-						nuexpr = rewriteInnerMostCallee(nuexpr, func(callee Expr) Expr {
-							if argref, ok := callee.(ExprArgRef); ok {
-								counts[argref] = counts[argref] + 1
-								return allargs[argref]
-							}
-							return callee
-						})
-						for argref, count := range counts {
-							if _, iscall := allargs[argref].(ExprAppl); iscall && count > 1 {
-								return expr
-							}
+	if len(rearrangers) == 0 {
+		return
+	}
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil { // we have a call...
+				if rearrangers[int(*fnref)] && numargs == len(ret[*fnref].Args) { // to a rearranger and with proper number of args
+					counts := map[ExprArgRef]int{}
+					nuexpr := rewriteCallArgs(ret[*fnref].Body.(ExprAppl), -1, func(argidx int, argval Expr) Expr {
+						if argref, ok := argval.(ExprArgRef); ok {
+							argref = (-argref) - 1
+							counts[argref] = counts[argref] + 1
+							return allargs[argref]
 						}
-						expr, didModify = nuexpr, true
+						return argval
+					}, nil)
+					nuexpr = rewriteInnerMostCallee(nuexpr, func(callee Expr) Expr {
+						if argref, ok := callee.(ExprArgRef); ok {
+							argref = (-argref) - 1
+							counts[argref] = counts[argref] + 1
+							return allargs[argref]
+						}
+						return callee
+					})
+					for argref, count := range counts {
+						if _, iscall := allargs[argref].(ExprAppl); iscall && count > 1 {
+							return expr
+						}
 					}
+					expr, didModify = nuexpr, true
 				}
-				return expr
-			})
-		}
+			}
+			return expr
+		})
 	}
 	return
 }
@@ -407,7 +407,7 @@ func eq(expr Expr, cmp Expr) bool {
 		return ok && it == that
 	case ExprArgRef:
 		that, ok := cmp.(ExprArgRef)
-		return ok && it == that
+		return ok && (it == that || (it < 0 && that >= 0 && that == (-it)-1) || (it >= 0 && that < 0 && it == (-that)-1))
 	case ExprFuncRef:
 		that, ok := cmp.(ExprFuncRef)
 		return ok && it == that

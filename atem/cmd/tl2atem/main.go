@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	. "github.com/metaleap/atmo/atem"
@@ -56,5 +57,20 @@ func main() {
 
 	inProg.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true, KeepSepLocals: true})
 	compile(maintopdefqname)
+
+	prefixNameMetasWithIdxs()
 	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(false)), os.ModePerm)
+
+	for again := true; again; {
+		outProg, again = optimize(outProg)
+	}
+	prefixNameMetasWithIdxs()
+	ioutil.WriteFile(dstfilepath+".opt", []byte(outProg.JsonSrc(false)), os.ModePerm)
+}
+
+func prefixNameMetasWithIdxs() {
+	for i := 0; i < len(outProg)-1; i++ {
+		pos := strings.IndexByte(outProg[i].Meta[0], ']')
+		outProg[i].Meta[0] = "[" + strconv.Itoa(i) + "]" + outProg[i].Meta[0][pos+1:]
+	}
 }

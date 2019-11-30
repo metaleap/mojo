@@ -21,10 +21,6 @@ func compile(mainTopDefQName string) {
 	idx, meta := compileTopDef(mainTopDefQName), []string{mainTopDefQName}
 	outProg = append(outProg, outProg[idx])
 	outProg[idx] = FuncDef{Meta: meta, Body: ExprFuncRef(len(outProg) - 1)}
-
-	for again := false; again; {
-		outProg, again = optimize(outProg)
-	}
 }
 
 func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Expr {
@@ -51,7 +47,7 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 			return ExprFuncRef(idx)
 		}
 	case *tl.ExprFunc:
-		globalname, globalbody := "//"+curFunc.Meta[0]+"/lam/"+it.ArgName+strconv.Itoa(len(inProg.TopDefs)), it
+		globalname, globalbody := curFunc.Meta[0]+"//lam:"+it.ArgName+strconv.Itoa(len(inProg.TopDefs)), it
 		freevars, expr := map[string]int{}, tl.Expr(&tl.ExprName{NameVal: globalname})
 		freeVars(globalbody, map[string]string{}, freevars)
 		for fvname := range freevars {
@@ -89,7 +85,7 @@ func compileTopDef(name string) int {
 			panic(name)
 		}
 		idx, name = len(outProg), prefstd+name
-		outProg, defsDone[name] = append(outProg, FuncDef{Meta: []string{"[" + strconv.Itoa(idx) + "]" + name}}), idx
+		outProg, defsDone[name] = append(outProg, FuncDef{Meta: []string{name}}), idx
 
 		result := &outProg[idx]
 		curfuncsargs, body := dissectFunc(topdef)
@@ -140,7 +136,7 @@ func compileTopDef(name string) int {
 		}
 
 		for i, local := range locals {
-			gname := "//" + name + "/local/" + local.Name + strconv.Itoa(i)
+			gname := name + "//loc:" + local.Name + strconv.Itoa(i)
 			localgnames[local.Name], body = gname, body.RewriteName(local.Name, &tl.ExprName{NameVal: gname})
 			for j := 0; j <= i; j++ {
 				locals[j].Expr = locals[j].Expr.RewriteName(local.Name, &tl.ExprName{NameVal: gname})
