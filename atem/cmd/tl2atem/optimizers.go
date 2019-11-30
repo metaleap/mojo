@@ -146,8 +146,8 @@ func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	argcallers := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
-		if caller, _, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body); numargs > 0 && numargrefs == 1 && numargscalls == 0 {
-			if argref, ok := caller.(ExprArgRef); ok {
+		if callee, _, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body); numargs > 0 && numargrefs == 1 && numargscalls == 0 {
+			if argref, ok := callee.(ExprArgRef); ok { // only 1 arg-ref in body and its the inner-most callee?
 				argcallers[i] = (-argref) - 1
 			}
 		}
@@ -255,6 +255,7 @@ func optimize_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// from `bexpr True False` to `bexpr`, from `(bexpr False True) foo bar` (aka `not`) to `bexpr bar foo`
 func optimize_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
@@ -280,6 +281,7 @@ func optimize_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModif
 	return
 }
 
+// ie. from foo>=1 to foo>0 etc.
 func optimize_callsToGeqOrLeq(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	geqsleqs := map[int]bool{}
@@ -337,6 +339,7 @@ func optimize_callsToGeqOrLeq(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// 0+foo, 1*foo, foo-0, foo/1 etc..
 func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
