@@ -48,9 +48,9 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 		}
 	case *tl.ExprFunc:
 		globalname, globalbody := curFunc.Meta[0]+"//lam:"+it.ArgName+strconv.Itoa(len(inProg.TopDefs)), it
-		freevars, expr := map[string]int{}, tl.Expr(&tl.ExprName{NameVal: globalname})
-		freeVars(globalbody, map[string]string{}, freevars)
-		for fvname := range freevars {
+		expr := tl.Expr(&tl.ExprName{NameVal: globalname})
+		freevars := freeVars(globalbody, map[string]string{}, nil)
+		for _, fvname := range freevars {
 			globalbody = &tl.ExprFunc{ArgName: fvname, Body: globalbody}
 		}
 		fargs, _ := dissectFunc(globalbody)
@@ -144,9 +144,8 @@ func compileTopDef(name string) int {
 		}
 		for i, local := range locals {
 			globalname, globalbody := localgnames[local.Name], local.Expr
-			freevars := map[string]int{}
-			freeVars(local.Expr, localgnames, freevars)
-			for fvname := range freevars {
+			freevars := freeVars(local.Expr, localgnames, nil)
+			for _, fvname := range freevars {
 				globalbody = &tl.ExprFunc{ArgName: fvname, Body: globalbody}
 			}
 			inProg.TopDefs[globalname] = globalbody

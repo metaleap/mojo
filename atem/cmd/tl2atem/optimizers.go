@@ -7,10 +7,12 @@ import (
 func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `tryEval`") } }
 
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
-	expr = visitor(expr)
-	if call, ok := expr.(ExprAppl); ok {
-		call.Callee, call.Arg = walk(call.Callee, visitor), walk(call.Arg, visitor)
-		expr = call
+	if ret := visitor(expr); ret != nil {
+		expr = ret
+		if call, ok := expr.(ExprAppl); ok {
+			call.Callee, call.Arg = walk(call.Callee, visitor), walk(call.Arg, visitor)
+			expr = call
+		}
 	}
 	return expr
 }
@@ -18,7 +20,7 @@ func walk(expr Expr, visitor func(Expr) Expr) Expr {
 func optimize(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for again := true; again; {
-		fixFuncDefArgsUsageNumbers()
+		ret = fixFuncDefArgsUsageNumbers(ret)
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_inlineNullaries,
 			optimize_ditchUnusedFuncDefs,
@@ -44,19 +46,20 @@ func optimize(src Prog) (ret Prog, didModify bool) {
 
 // some optimizers may drop certain arg uses while others may expect correct values in `FuncDef.Args`,
 // so as a first step before a new round, we ensure they're all correct for that round.
-func fixFuncDefArgsUsageNumbers() {
-	for i := range outProg {
-		for j := range outProg[i].Args {
-			outProg[i].Args[j] = 0
+func fixFuncDefArgsUsageNumbers(prog Prog) Prog {
+	for i := range prog {
+		for j := range prog[i].Args {
+			prog[i].Args[j] = 0
 		}
-		_ = walk(outProg[i].Body, func(expr Expr) Expr {
+		_ = walk(prog[i].Body, func(expr Expr) Expr {
 			if argref, ok := expr.(ExprArgRef); ok {
 				argref = (-argref) - 1
-				outProg[i].Args[argref] = 1 + outProg[i].Args[argref]
+				prog[i].Args[argref] = 1 + prog[i].Args[argref]
 			}
 			return expr
 		})
 	}
+	return prog
 }
 
 // inliners or other optimizers may result in now-unused func-defs, here's a single routine that'll remove them.

@@ -32,17 +32,16 @@ func fullCopy(expr tl.Expr) tl.Expr {
 	panic(expr)
 }
 
-func freeVars(expr tl.Expr, localNames map[string]string, results map[string]int) {
+func freeVars(expr tl.Expr, localNames map[string]string, stash []string) []string {
 	switch it := expr.(type) {
 	case *tl.ExprCall:
-		freeVars(it.Callee, localNames, results)
-		freeVars(it.CallArg, localNames, results)
+		stash = freeVars(it.CallArg, localNames, freeVars(it.Callee, localNames, stash))
 	case *tl.ExprFunc:
 		if _, exists := localNames[it.ArgName]; exists {
 			panic(it.ArgName)
 		}
 		localNames[it.ArgName] = ""
-		freeVars(it.Body, localNames, results)
+		stash = freeVars(it.Body, localNames, stash)
 		delete(localNames, it.ArgName)
 	case *tl.ExprName:
 		if it.IdxOrInstr <= 0 {
@@ -55,14 +54,20 @@ func freeVars(expr tl.Expr, localNames map[string]string, results map[string]int
 							}
 						}
 						if !exists {
-							if have, oops := results[it.NameVal]; oops && have != it.IdxOrInstr {
-								panic(it.NameVal)
+							var found bool
+							for _, fv := range stash {
+								if found = (fv == it.NameVal); found {
+									break
+								}
 							}
-							results[it.NameVal] = it.IdxOrInstr
+							if !found {
+								stash = append(stash, it.NameVal)
+							}
 						}
 					}
 				}
 			}
 		}
 	}
+	return stash
 }
