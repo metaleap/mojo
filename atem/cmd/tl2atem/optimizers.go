@@ -4,11 +4,7 @@ import (
 	. "github.com/metaleap/atmo/atem"
 )
 
-type exprNever struct{}
-
-func (exprNever) JsonSrc() string { return "-0" }
-
-func init() { OpPrtDst = func([]byte) (int, error) { panic("this is for evalMaybe") } }
+func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `evalMaybe`") } }
 
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	expr = visitor(expr)
@@ -91,7 +87,7 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// nullary func-defs get first `Eval`'d right here, then the result inlined at use sites
+// nullary func-defs get first `evalMaybe`'d right here, then the result inlined at use sites
 func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	nullaries := make(map[int]bool)
@@ -400,12 +396,12 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// rewrites all occurrences of calls without arg-refs with their `Eval` result
+// rewrites all occurrences of calls with no arg-refs and no side-effects (eg. OpPrt) with their `Eval` result
 func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if evald, dideval := evalMaybe(ret, expr); dideval && !eq(evald, expr) {
+			if evald := evalMaybe(ret, expr); !eq(evald, expr) {
 				expr, didModify = evald, true
 			}
 			return expr
@@ -455,26 +451,26 @@ func eq(expr Expr, cmp Expr) bool {
 	return false
 }
 
-func evalMaybe(prog Prog, expr Expr) (ret Expr, didEval bool) {
+func evalMaybe(prog Prog, expr Expr) (ret Expr) {
 	ret = expr
 	if call, ok := expr.(ExprAppl); ok {
-		didEval = true
+		caneval := true
 		_ = walk(call, func(it Expr) Expr {
 			_, isargref := it.(ExprArgRef)
 			fnref, _ := it.(ExprFuncRef)
-			didEval = didEval && (!isargref) && int(fnref) > int(OpPrt)
+			caneval = caneval && (!isargref) && int(fnref) > int(OpPrt)
 			return it
 		})
-		if didEval {
+		if caneval {
 			defer func() {
 				if catch := recover(); catch != nil {
-					ret, didEval = expr, false
+					ret = expr
 				}
 			}()
 			ret = prog.Eval(expr, nil)
 			if list := prog.ListOfExprs(ret); len(list) > 0 {
 				for i := range list {
-					list[i], _ = evalMaybe(prog, list[i])
+					list[i] = evalMaybe(prog, list[i])
 				}
 				ret = ListToExpr(list)
 			}
@@ -512,3 +508,7 @@ func rewriteInnerMostCallee(expr ExprAppl, rewriter func(Expr) Expr) ExprAppl {
 	}
 	return expr
 }
+
+type exprNever struct{}
+
+func (exprNever) JsonSrc() string { return "-0" }
