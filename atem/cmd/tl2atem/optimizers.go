@@ -4,7 +4,7 @@ import (
 	. "github.com/metaleap/atmo/atem"
 )
 
-func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `evalMaybe`") } }
+func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `tryEval`") } }
 
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	expr = visitor(expr)
@@ -87,24 +87,42 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// nullary func-defs get first `evalMaybe`'d right here, then the result inlined at use sites
+// nullary func-defs get first `tryEval`'d right here, then the result inlined at use sites if:
+// that site is the only reference to the def, or the def's eval'd body is atomic or a call with only atomic args
 func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	nullaries := make(map[int]bool)
+	nullaries, caninlinealways := make(map[int]int), make(map[int]bool)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if 0 == len(ret[i].Args) {
-			ret[i].Body = ret.Eval(ret[i].Body, nil)
-			nullaries[i] = true
+			if body := tryEval(ret, ret[i].Body, false); !eq(body, ret[i].Body) {
+				didModify, ret[i].Body = true, body
+			}
+			_, _, numargs, numargcalls, _, _ := dissectCall(ret[i].Body)
+			nullaries[i], caninlinealways[i] = 0, numargs == 0 || numargcalls == 0
 		}
 	}
 	if len(nullaries) == 0 {
 		return
 	}
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+		_ = walk(ret[i].Body, func(expr Expr) Expr {
+			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
+				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {
+					nullaries[int(fnref)] = 1 + numrefs
+				}
+			}
+			return expr
+		})
+	}
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if fnref, ok := expr.(ExprFuncRef); ok && fnref > StdFuncCons && nullaries[int(fnref)] {
-				didModify = true
-				return ret[int(fnref)].Body
+			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
+				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {
+					if numrefs == 1 || caninlinealways[int(fnref)] {
+						didModify = true
+						return ret[int(fnref)].Body
+					}
+				}
 			}
 			return expr
 		})
@@ -401,7 +419,7 @@ func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if evald := evalMaybe(ret, expr); !eq(evald, expr) {
+			if evald := tryEval(ret, expr, true); !eq(evald, expr) {
 				expr, didModify = evald, true
 			}
 			return expr
@@ -451,29 +469,24 @@ func eq(expr Expr, cmp Expr) bool {
 	return false
 }
 
-func evalMaybe(prog Prog, expr Expr) (ret Expr) {
+func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 	ret = expr
 	if call, ok := expr.(ExprAppl); ok {
 		caneval := true
-		_ = walk(call, func(it Expr) Expr {
-			_, isargref := it.(ExprArgRef)
-			fnref, _ := it.(ExprFuncRef)
-			caneval = caneval && (!isargref) && int(fnref) > int(OpPrt)
-			return it
-		})
+		if checkForArgRefs {
+			_ = walk(call, func(it Expr) Expr {
+				_, isargref := it.(ExprArgRef)
+				caneval = caneval && (!isargref)
+				return it
+			})
+		}
 		if caneval {
 			defer func() {
-				if catch := recover(); catch != nil {
+				if recover() != nil {
 					ret = expr
 				}
 			}()
-			ret = prog.Eval(expr, nil)
-			if list := prog.ListOfExprs(ret); len(list) > 0 {
-				for i := range list {
-					list[i] = evalMaybe(prog, list[i])
-				}
-				ret = ListToExpr(list)
-			}
+			ret = walk(ret, func(it Expr) Expr { return prog.Eval(it, nil) })
 		}
 	}
 	return
