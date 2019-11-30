@@ -136,7 +136,7 @@ func compileTopDef(name string) int {
 		}
 
 		for i, local := range locals {
-			gname := name + "//loc:" + local.Name + strconv.Itoa(i)
+			gname := name + "//lcl:" + local.Name + strconv.Itoa(i)
 			localgnames[local.Name], body = gname, body.RewriteName(local.Name, &tl.ExprName{NameVal: gname})
 			for j := 0; j <= i; j++ {
 				locals[j].Expr = locals[j].Expr.RewriteName(local.Name, &tl.ExprName{NameVal: gname})

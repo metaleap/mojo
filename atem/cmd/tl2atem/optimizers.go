@@ -4,7 +4,9 @@ import (
 	. "github.com/metaleap/atmo/atem"
 )
 
-const never ExprNumInt = -1 << 31
+type exprNever struct{}
+
+func (exprNever) JsonSrc() string { return "-0" }
 
 var optNumRounds int
 
@@ -22,9 +24,9 @@ func optimize(src Prog) (ret Prog, didModify bool) {
 	for again := true; again; {
 		again, optNumRounds = false, optNumRounds+1
 		for _, opt := range []func(Prog) (Prog, bool){
-			optimize_dropUnused,
-			optimize_inlineSelectorCalls,
 			optimize_inlineNullaries,
+			optimize_ditchUnusedFuncDefs,
+			optimize_inlineSelectorCalls,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
 			optimize_inlineArgsRearrangers,
@@ -41,7 +43,8 @@ func optimize(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-func optimize_dropUnused(src Prog) (ret Prog, didModify bool) {
+// inliners or other optimizers may result in now-unused func-defs, here's a single routine that'll remove them
+func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	defrefs := make(map[int]bool, len(ret))
 	for i := range ret {
@@ -69,33 +72,21 @@ func optimize_dropUnused(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// nullary func-defs get first `Eval`'d right here, then the result inlined at use sites
 func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	nullaries := make(map[int]int)
+	nullaries := make(map[int]bool)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if 0 == len(ret[i].Args) {
-			nullaries[i] = 0
+			ret[i].Body = ret.Eval(ret[i].Body, nil)
+			nullaries[i] = true
 		}
 	}
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
-		_ = walk(ret[i].Body, func(expr Expr) Expr {
-			if fnref, ok := expr.(ExprFuncRef); ok && fnref > StdFuncCons {
-				if numrefs, is := nullaries[int(fnref)]; is {
-					nullaries[int(fnref)] = numrefs + 1
-				}
-			}
-			return expr
-		})
-	}
-	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if fnref, ok := expr.(ExprFuncRef); ok && fnref > StdFuncCons {
-				if numrefs, is := nullaries[int(fnref)]; is {
-					if _, iscall := ret[fnref].Body.(ExprAppl); (!iscall) || numrefs <= 1 {
-						didModify = true
-						return ret[int(fnref)].Body
-					}
-				}
+			if fnref, ok := expr.(ExprFuncRef); ok && fnref > StdFuncCons && nullaries[int(fnref)] {
+				didModify = true
+				return ret[int(fnref)].Body
 			}
 			return expr
 		})
@@ -103,6 +94,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// in calls that provide known-to-be-discarded args, those are replaced with zero (neatly rendered as -0 in JSON output)
 func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	argdroppers := make(map[int][]int, 8)
@@ -122,14 +114,9 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 			ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 				if _, fnref, numargs, _, _, _ := dissectCall(expr); fnref != nil {
 					if argdrops := argdroppers[int(*fnref)]; len(argdrops) > 0 {
-						for _, argidx := range argdrops {
-							if argidx >= numargs {
-								return expr
-							}
-						}
 						return rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
-							if !eq(argval, never) {
-								argval, didModify = never, true
+							if !eq(argval, exprNever{}) {
+								argval, didModify = exprNever{}, true
 							}
 							return argval
 						}, argdrops)
@@ -406,6 +393,9 @@ func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFun
 
 func eq(expr Expr, cmp Expr) bool {
 	switch it := expr.(type) {
+	case exprNever:
+		_, ok := cmp.(exprNever)
+		return ok
 	case ExprNumInt:
 		that, ok := cmp.(ExprNumInt)
 		return ok && it == that
@@ -427,7 +417,7 @@ func rewriteCallArgs(callExpr ExprAppl, numCallArgs int, rewriter func(int, Expr
 		_, _, numCallArgs, _, _, _ = dissectCall(callExpr)
 	}
 	idx, rewrite := numCallArgs-1, len(argIdxs) == 0
-	if !rewrite {
+	if !rewrite { // then rewrite = argIdxs.contains(idx) ... in Go:
 		for _, argidx := range argIdxs {
 			if rewrite = (argidx == idx); rewrite {
 				break
