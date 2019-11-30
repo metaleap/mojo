@@ -105,7 +105,6 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 
 func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	return
 	argdroppers := make(map[int][]int, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		var argdrops []int
@@ -128,9 +127,11 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 								return expr
 							}
 						}
-						didModify = true
 						return rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
-							return never
+							if !eq(argval, never) {
+								argval, didModify = never, true
+							}
+							return argval
 						}, argdrops)
 					}
 				}
@@ -418,11 +419,11 @@ func eq(expr Expr, cmp Expr) bool {
 	return false
 }
 
-func rewriteCallArgs(callExpr ExprAppl, numArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprAppl {
-	if numArgs <= 0 {
-		_, _, numArgs, _, _, _ = dissectCall(callExpr)
+func rewriteCallArgs(callExpr ExprAppl, numCallArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprAppl {
+	if numCallArgs <= 0 {
+		_, _, numCallArgs, _, _, _ = dissectCall(callExpr)
 	}
-	idx, rewrite := numArgs-1, len(argIdxs) == 0
+	idx, rewrite := numCallArgs-1, len(argIdxs) == 0
 	if !rewrite {
 		for _, argidx := range argIdxs {
 			if rewrite = (argidx == idx); rewrite {
@@ -434,7 +435,7 @@ func rewriteCallArgs(callExpr ExprAppl, numArgs int, rewriter func(int, Expr) Ex
 		callExpr.Arg = rewriter(idx, callExpr.Arg)
 	}
 	if subcall, ok := callExpr.Callee.(ExprAppl); ok && idx > 0 {
-		callExpr.Callee = rewriteCallArgs(subcall, numArgs-1, rewriter, argIdxs)
+		callExpr.Callee = rewriteCallArgs(subcall, numCallArgs-1, rewriter, argIdxs)
 	}
 	return callExpr
 }
