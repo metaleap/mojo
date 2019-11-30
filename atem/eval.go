@@ -1,7 +1,6 @@
 package atem
 
 import (
-	"io"
 	"os"
 )
 
@@ -34,7 +33,7 @@ const (
 
 // OpPrtDst is the output destination for all `OpPrt` primitive instructions.
 // Must never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
-var OpPrtDst io.Writer = os.Stderr
+var OpPrtDst = os.Stderr.Write
 
 // Eval operates thusly:
 //
@@ -91,7 +90,7 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 					expr = StdFuncFalse
 				}
 			case OpPrt:
-				OpPrtDst.Write(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...))
+				_, _ = OpPrtDst(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...))
 				expr = rhs
 			default:
 				panic([3]Expr{it, lhs, rhs})

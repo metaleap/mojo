@@ -58,7 +58,7 @@ partial-application or degrading our overall LoCs aims.
 ## Usage
 
 ```go
-var OpPrtDst io.Writer = os.Stderr
+var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
 never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.

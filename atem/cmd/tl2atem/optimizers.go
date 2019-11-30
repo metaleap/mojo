@@ -8,6 +8,8 @@ type exprNever struct{}
 
 func (exprNever) JsonSrc() string { return "-0" }
 
+func init() { OpPrtDst = func([]byte) (int, error) { panic("this is for evalMaybe") } }
+
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	expr = visitor(expr)
 	if call, ok := expr.(ExprAppl); ok {
@@ -398,35 +400,16 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// rewrites all occurrences of calls without arg-refs with their `Eval` result
 func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	var evalmaybe func(Expr) Expr
-	evalmaybe = func(expr Expr) Expr {
-		if call, ok := expr.(ExprAppl); ok {
-			caneval := true
-			_ = walk(call, func(it Expr) Expr {
-				_, isargref := it.(ExprArgRef)
-				fnref, _ := it.(ExprFuncRef)
-				caneval = caneval && (!isargref) && int(fnref) > int(OpPrt)
-				return it
-			})
-			if caneval {
-				evald := ret.Eval(expr, nil)
-				if list := ret.ListOfExprs(evald); len(list) > 0 {
-					for i := range list {
-						list[i] = evalmaybe(list[i])
-					}
-					evald = ListToExpr(list)
-				}
-				if !eq(expr, evald) {
-					expr, didModify = evald, true
-				}
-			}
-		}
-		return expr
-	}
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
-		ret[i].Body = walk(ret[i].Body, evalmaybe)
+		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			if evald, dideval := evalMaybe(ret, expr); dideval && !eq(evald, expr) {
+				expr, didModify = evald, true
+			}
+			return expr
+		})
 	}
 	return
 }
@@ -449,6 +432,9 @@ func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFun
 }
 
 func eq(expr Expr, cmp Expr) bool {
+	if expr == cmp {
+		return true
+	}
 	switch it := expr.(type) {
 	case exprNever:
 		_, ok := cmp.(exprNever)
@@ -467,6 +453,33 @@ func eq(expr Expr, cmp Expr) bool {
 		return ok && eq(it.Callee, that.Callee) && eq(it.Arg, that.Arg)
 	}
 	return false
+}
+
+func evalMaybe(prog Prog, expr Expr) (ret Expr, didEval bool) {
+	if call, ok := expr.(ExprAppl); ok {
+		didEval = true
+		_ = walk(call, func(it Expr) Expr {
+			_, isargref := it.(ExprArgRef)
+			fnref, _ := it.(ExprFuncRef)
+			didEval = didEval && (!isargref) && int(fnref) > int(OpPrt)
+			return it
+		})
+		if didEval {
+			defer func() {
+				if catch := recover(); catch != nil {
+					ret, didEval = expr, false
+				}
+			}()
+			ret = prog.Eval(expr, nil)
+			if list := prog.ListOfExprs(ret); len(list) > 0 {
+				for i := range list {
+					list[i], _ = evalMaybe(prog, list[i])
+				}
+				ret = ListToExpr(list)
+			}
+		}
+	}
+	return
 }
 
 func rewriteCallArgs(callExpr ExprAppl, numCallArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprAppl {
