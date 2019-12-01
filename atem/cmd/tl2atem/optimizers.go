@@ -13,36 +13,34 @@ func walk(expr Expr, visitor func(Expr) Expr) Expr {
 		expr = ret
 		if call, ok := expr.(ExprAppl); ok {
 			call.Callee, call.Arg = walk(call.Callee, visitor), walk(call.Arg, visitor)
-			expr = call
 		}
 	}
 	return expr
 }
 
-func optimize(src Prog) (ret Prog, didModify bool) {
-	ret = src
+func optimize(src Prog) Prog {
 	for again := true; again; {
-		ret = fixFuncDefArgsUsageNumbers(ret)
+		again, src = false, fixFuncDefArgsUsageNumbers(src)
 		for _, opt := range []func(Prog) (Prog, bool){
-			optimize_inlineNullaries,
+			// optimize_inlineNullaries,
 			optimize_ditchUnusedFuncDefs,
-			optimize_inlineSelectorCalls,
-			optimize_argDropperCalls,
-			optimize_inlineArgCallers,
-			optimize_inlineArgsRearrangers,
-			optimize_primOpPreCalcs,
-			optimize_callsToGeqOrLeq,
-			optimize_minifyNeedlesslyElaborateBoolOpCalls,
-			optimize_inlineOnceCalleds,
-			optimize_preEvals,
+			// optimize_inlineSelectorCalls,
+			// optimize_argDropperCalls,
+			// optimize_inlineArgCallers,
+			// optimize_inlineArgsRearrangers,
+			// optimize_primOpPreCalcs,
+			// optimize_callsToGeqOrLeq,
+			// optimize_minifyNeedlesslyElaborateBoolOpCalls,
+			// optimize_inlineOnceCalleds,
+			// optimize_inlineEverSameArgs,
+			// optimize_preEvals,
 		} {
-			if ret, again = opt(ret); again {
-				didModify = true
+			if src, again = opt(src); again {
 				break
 			}
 		}
 	}
-	return
+	return src
 }
 
 // some optimizers may drop certain arg uses while others may expect correct values in `FuncDef.Args`,
@@ -69,7 +67,7 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	defrefs := make(map[int]bool, len(ret))
 	for i := range ret {
-		walk(ret[i].Body, func(expr Expr) Expr {
+		_ = walk(ret[i].Body, func(expr Expr) Expr {
 			if fnref, ok := expr.(ExprFuncRef); ok && fnref >= 0 && int(fnref) != i {
 				defrefs[int(fnref)] = true
 			}
@@ -120,7 +118,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 			return expr
 		})
 	}
-	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+	for i := int(StdFuncCons + 1); i < len(ret) && !didModify; i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
 				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {
@@ -475,6 +473,67 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// removes args from FuncDefs if all callers supply the exact same (non-argref-containing) expression and no non-call uses exist
+func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	allappls, num := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}
+	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
+		if !doesHaveNonCalleeUses(ret, i) {
+			println("only call refs to:", ret[i].Meta[0])
+			allappls[i] = nil
+		}
+	}
+	return
+	for i := range allappls {
+		allappls[i], num[i] = nil, len(ret[i].Args)
+		var chk func(Expr) Expr
+		chk = func(expr Expr) Expr {
+			if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == i {
+				if len(allargs) < num[i] {
+					num[i] = len(allargs)
+				}
+				if len(allargs) <= len(ret[i].Args) {
+					allappls[i] = append(allappls[i], expr)
+				}
+				for _, arg := range allargs {
+					_ = chk(arg)
+				}
+				return nil
+			}
+			return expr
+		}
+		for j := StdFuncCons + 1; int(j) < len(ret); j++ {
+			_ = walk(ret[j].Body, chk)
+		}
+	}
+	for i, appls := range allappls {
+		for aidx := 0; aidx < num[i]; aidx++ {
+			var argval Expr
+			for _, appl := range appls {
+				if _, _, _, _, _, allargs := dissectCall(appl); len(allargs) > aidx {
+					_, hasargref := allargs[aidx].(ExprArgRef)
+					_ = walk(allargs[aidx], func(expr Expr) Expr {
+						if hasargref {
+							return nil
+						}
+						_, hasargref = expr.(ExprArgRef)
+						return expr
+					})
+					if argval == nil && !hasargref {
+						argval = allargs[aidx]
+					} else if hasargref || !eq(argval, allargs[aidx]) {
+						argval = exprTmp(-987654321)
+					}
+				}
+			}
+			if tmp, _ := argval.(exprTmp); argval != nil && tmp != -987654321 {
+				println("all calls to", ret[i].Meta[0], "have arg", aidx, "as", argval.JsonSrc())
+			}
+		}
+	}
+	return
+}
+
 // rewrites all calls with no arg-refs and no `OpPrt`s with their `Eval` result
 func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
 	ret = src
@@ -530,25 +589,25 @@ func eq(expr Expr, cmp Expr) bool {
 	return false
 }
 
-func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
-	ret = expr
-	if call, ok := expr.(ExprAppl); ok {
-		caneval := true
-		if checkForArgRefs {
-			_ = walk(call, func(it Expr) Expr {
-				_, isargref := it.(ExprArgRef)
-				caneval = caneval && (!isargref)
-				return it
-			})
-		}
-		if caneval {
-			defer func() {
-				if recover() != nil {
-					ret = expr
+func doesHaveNonCalleeUses(prog Prog, fn ExprFuncRef) (doesHaveNonCalleeOccurrences bool) {
+	var scrut func(Expr) Expr
+	scrut = func(expr Expr) Expr {
+		if doesHaveNonCalleeOccurrences {
+			return nil
+		} else if call, isc := expr.(ExprAppl); isc {
+			if scrut(call.Arg); !doesHaveNonCalleeOccurrences {
+				if _, isf := call.Callee.(ExprFuncRef); !isf {
+					scrut(call.Callee)
 				}
-			}()
-			ret = walk(ret, func(it Expr) Expr { return prog.Eval(it, nil) })
+			}
+			return nil
+		} else if fnref, isf := expr.(ExprFuncRef); isf && fnref == fn {
+			doesHaveNonCalleeOccurrences = true
 		}
+		return expr
+	}
+	for i := StdFuncCons + 1; int(i) < len(prog) && !doesHaveNonCalleeOccurrences; i++ {
+		_ = walk(prog[i].Body, scrut)
 	}
 	return
 }
@@ -581,6 +640,29 @@ func rewriteInnerMostCallee(expr ExprAppl, rewriter func(Expr) Expr) ExprAppl {
 		expr.Callee = rewriter(expr.Callee)
 	}
 	return expr
+}
+
+func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
+	ret = expr
+	if call, ok := expr.(ExprAppl); ok {
+		caneval := true
+		if checkForArgRefs {
+			_ = walk(call, func(it Expr) Expr {
+				_, isargref := it.(ExprArgRef)
+				caneval = caneval && (!isargref)
+				return it
+			})
+		}
+		if caneval {
+			defer func() {
+				if recover() != nil {
+					ret = expr
+				}
+			}()
+			ret = walk(ret, func(it Expr) Expr { return prog.Eval(it, nil) })
+		}
+	}
+	return
 }
 
 type exprTmp int
