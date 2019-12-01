@@ -23,8 +23,8 @@ func optimize(src Prog) Prog {
 	for again := true; again; {
 		again, src = false, fixFuncDefArgsUsageNumbers(src)
 		for _, opt := range []func(Prog) (Prog, bool){
-			optimize_inlineNullaries,
 			optimize_ditchUnusedFuncDefs,
+			optimize_inlineNullaries,
 			optimize_inlineSelectorCalls,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
@@ -474,17 +474,15 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// removes args from FuncDefs if all callers supply the exact same (non-argref-containing) expression and no non-call uses exist
+// removes an arg from a FuncDef if no non-call uses of the FuncDef exist and all its callers supply said arg, and with the exact same (non-argref-containing) expression
 func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	allappls, num := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}
 	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
 		if !doesHaveNonCalleeUses(ret, i) {
-			println("only call refs to:", ret[i].Meta[0])
 			allappls[i] = nil
 		}
 	}
-	return
 	for i := range allappls {
 		allappls[i], num[i] = nil, len(ret[i].Args)
 		var chk func(Expr) Expr
@@ -528,7 +526,34 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 				}
 			}
 			if tmp, _ := argval.(exprTmp); argval != nil && tmp != -987654321 {
-				println("all calls to", ret[i].Meta[0], "have arg", aidx, "as", argval.JsonSrc())
+				for j := StdFuncCons + 1; int(j) < len(ret); j++ {
+					ret[j].Body = walk(ret[j].Body, func(expr Expr) Expr {
+						if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == i && len(allargs) == 1+aidx {
+							return expr.(ExprAppl).Callee
+						}
+						return expr
+					})
+				}
+				ret[i].Args = append(ret[i].Args[:aidx], ret[i].Args[1+aidx:]...)
+				ret[i].Meta = append(ret[i].Meta[:1+aidx], ret[i].Meta[2+aidx:]...)
+				ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+					if argref, is := expr.(ExprArgRef); is {
+						if idx := int(-argref) - 1; idx == aidx {
+							return argval
+						}
+					}
+					return expr
+				})
+				ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+					if argref, is := expr.(ExprArgRef); is {
+						if idx := int(-argref) - 1; idx > aidx {
+							return 1 + argref
+						}
+					}
+					return expr
+				})
+				didModify = true
+				return
 			}
 		}
 	}

@@ -24,7 +24,7 @@ var (
 		tl.InstrMUL: OpMul,
 		tl.InstrSUB: OpSub,
 		tl.InstrMSG: OpPrt,
-		tl.InstrERR: -123456789,
+		tl.InstrERR: -1010101,
 	}
 )
 
