@@ -76,7 +76,7 @@ func main() {
 			Arg:    ListsFrom(os.Args[2:]),     // first `main` param: list of all process args following `atem inputfile`
 		},
 		Arg: ListsFrom(os.Environ()), // second `main` param: list of all env-vars (list of "FOO=Bar" strings)
-	}, make([]Expr, 0, 128))
+	})
 	outlist := prog.ListOfExprs(outexpr) // forces lazy thunks
 
 	if outbytes := ListToBytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
@@ -94,7 +94,7 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 				if okf, _ := retList[3].(ExprFuncRef); oka || okf == StdFuncNil {
 					if initialoutput := ListToBytes(prog.ListOfExprs(retList[3])); initialoutput != nil {
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
-							retexpr := prog.Eval(ExprAppl{Callee: ExprAppl{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)}, make([]Expr, 0, 128))
+							retexpr := prog.Eval(ExprAppl{Callee: ExprAppl{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
 							if retlist := prog.ListOfExprs(retexpr); len(retlist) == 2 {
 								if outlist := prog.ListOfExprs(retlist[1]); outlist != nil {
 									nextstate = retlist[0]

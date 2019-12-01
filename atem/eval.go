@@ -57,10 +57,12 @@ var OpPrtDst = os.Stderr.Write
 // then being `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic`
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
-func (me Prog) Eval(expr Expr, stack []Expr) Expr {
+func (me Prog) Eval(expr Expr) Expr { return me.eval(expr, make([]Expr, 0, 128)) }
+
+func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
 	case ExprAppl:
-		return me.Eval(it.Callee, append(stack, it.Arg))
+		return me.eval(it.Callee, append(stack, it.Arg))
 	case ExprFuncRef:
 		numargs, isopcode := 2, (it < 0)
 		if !isopcode {
@@ -72,7 +74,7 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 			}
 			return expr
 		} else if isopcode {
-			lhs, rhs := me.Eval(stack[len(stack)-1], nil), me.Eval(stack[len(stack)-2], nil)
+			lhs, rhs := me.eval(stack[len(stack)-1], nil), me.eval(stack[len(stack)-2], nil)
 			switch opcode := OpCode(it); opcode {
 			case OpAdd:
 				expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
@@ -99,9 +101,9 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 			default:
 				panic([3]Expr{it, lhs, rhs})
 			}
-			return me.Eval(expr, stack[:len(stack)-2])
+			return me.eval(expr, stack[:len(stack)-2])
 		} else {
-			return me.Eval(exprRewrittenWithArgRefsResolvedToStackEntries(me[it].Body, stack), stack[:len(stack)-numargs])
+			return me.eval(exprRewrittenWithArgRefsResolvedToStackEntries(me[it].Body, stack), stack[:len(stack)-numargs])
 		}
 	}
 	return expr

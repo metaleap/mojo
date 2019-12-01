@@ -129,7 +129,7 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 				}
 			}()
 			ret = walk(ret, func(it Expr) Expr {
-				return prog.Eval(it, nil)
+				return prog.Eval(it)
 			})
 		}
 	}

@@ -9,7 +9,7 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalAppls bool) bool {
 	case ExprAppl:
 		if that, ok := cmp.(ExprAppl); ok {
 			if evalAppls {
-				return me.Eq(me.Eval(it.Callee, nil), me.Eval(that.Callee, nil), true) && me.Eq(me.Eval(it.Arg, nil), me.Eval(that.Arg, nil), true)
+				return me.Eq(me.eval(it.Callee, nil), me.eval(that.Callee, nil), true) && me.Eq(me.eval(it.Arg, nil), me.eval(that.Arg, nil), true)
 			} else {
 				return me.Eq(it.Callee, that.Callee, false) && me.Eq(it.Arg, that.Arg, false)
 			}
@@ -39,8 +39,8 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 		} else if aouter, ok1 := next.(ExprAppl); ok1 {
 			if ainner, ok2 := aouter.Callee.(ExprAppl); ok2 {
 				if finner, ok3 := ainner.Callee.(ExprFuncRef); ok3 && finner == StdFuncCons {
-					elem := me.Eval(ainner.Arg, nil)
-					again, next, ret = true, me.Eval(aouter.Arg, nil), append(ret, elem)
+					elem := me.eval(ainner.Arg, nil)
+					again, next, ret = true, me.eval(aouter.Arg, nil), append(ret, elem)
 				}
 			}
 		}
@@ -82,14 +82,6 @@ func (me Prog) ListOfExprsToString(expr Expr) string {
 		}
 	}
 	return expr.JsonSrc()
-}
-
-func ListToExpr(exprs []Expr) (ret Expr) {
-	ret = ExprFuncRef(StdFuncNil)
-	for i := len(exprs) - 1; i >= 0; i-- {
-		ret = ExprAppl{Callee: ExprAppl{Callee: StdFuncCons, Arg: exprs[i]}, Arg: ret}
-	}
-	return
 }
 
 // ListFrom converts the specified byte string to a linked-list representing a text string during `Eval` (via `ExprAppl`s of `StdFuncCons` and `StdFuncNil`).
