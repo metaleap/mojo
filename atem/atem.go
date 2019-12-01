@@ -92,6 +92,10 @@ type (
 		Callee Expr
 		Arg    Expr
 	}
+	exprCall struct {
+		Callee Expr
+		Args   []Expr
+	}
 )
 
 // JsonSrc emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
@@ -104,7 +108,7 @@ func (me ExprArgRef) JsonSrc() string { return "\"" + strconv.Itoa(int(-me)-1) +
 func (me ExprFuncRef) JsonSrc() string { return "[" + strconv.Itoa(int(me)) + "]" }
 
 // JsonSrc emits the re-`LoadFromJson`able representation of this `ExprAppl`.
-func (me ExprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + me.Arg.JsonSrc() + "]" }
+func (me *ExprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + me.Arg.JsonSrc() + "]" }
 
 // JsonSrc emits the re-`LoadFromJson`able representation of this `FuncDef`.
 func (me *FuncDef) JsonSrc(dropFuncDefMetas bool) string {

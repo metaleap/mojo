@@ -61,7 +61,7 @@ func (me Prog) Eval(expr Expr) Expr { return me.eval(expr, make([]Expr, 0, 128))
 
 func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
-	case ExprAppl:
+	case *ExprAppl:
 		return me.eval(it.Callee, append(stack, it.Arg))
 	case ExprFuncRef:
 		numargs, isopcode := 2, (it < 0)
@@ -70,7 +70,7 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 		}
 		if len(stack) < numargs { // not enough args on stack: a partial-application aka closure
 			for i := len(stack) - 1; i >= 0; i-- {
-				expr = ExprAppl{expr, stack[i]} // OPT: can keep ref to top-app instead of recreating it from stack
+				expr = &ExprAppl{expr, stack[i]} // OPT: can keep ref to top-app instead of recreating it from stack
 			}
 			return expr
 		} else if isopcode {
@@ -111,8 +111,8 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 
 func exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
-	case ExprAppl: // OPT: selector funcs!
-		return ExprAppl{exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack), exprRewrittenWithArgRefsResolvedToStackEntries(it.Arg, stack)}
+	case *ExprAppl: // OPT: selector funcs!
+		return &ExprAppl{exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack), exprRewrittenWithArgRefsResolvedToStackEntries(it.Arg, stack)}
 	case ExprArgRef:
 		return stack[len(stack)+int(it)]
 	}

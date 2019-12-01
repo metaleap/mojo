@@ -69,7 +69,7 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 		}
 		expr := exprFromJson(it[0], curFnNumArgs) // ..or else, func call aka. application
 		for i := 1; i < len(it); i++ {
-			expr = ExprAppl{expr, exprFromJson(it[i], curFnNumArgs)}
+			expr = &ExprAppl{expr, exprFromJson(it[i], curFnNumArgs)}
 		}
 		return expr
 	}

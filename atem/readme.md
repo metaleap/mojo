@@ -111,10 +111,10 @@ type ExprAppl struct {
 ```
 
 
-#### func (ExprAppl) JsonSrc
+#### func (*ExprAppl) JsonSrc
 
 ```go
-func (me ExprAppl) JsonSrc() string
+func (me *ExprAppl) JsonSrc() string
 ```
 JsonSrc emits the re-`LoadFromJson`able representation of this `ExprAppl`.
 

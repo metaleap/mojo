@@ -6,8 +6,8 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalAppls bool) bool {
 	case ExprNumInt:
 		that, ok := cmp.(ExprNumInt)
 		return ok && it == that
-	case ExprAppl:
-		if that, ok := cmp.(ExprAppl); ok {
+	case *ExprAppl:
+		if that, ok := cmp.(*ExprAppl); ok {
 			if evalAppls {
 				return me.Eq(me.eval(it.Callee, nil), me.eval(that.Callee, nil), true) && me.Eq(me.eval(it.Arg, nil), me.eval(that.Arg, nil), true)
 			} else {
@@ -36,8 +36,8 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 		again = false
 		if fouter, ok0 := next.(ExprFuncRef); ok0 && fouter == StdFuncNil { // clean end-of-list
 			break
-		} else if aouter, ok1 := next.(ExprAppl); ok1 {
-			if ainner, ok2 := aouter.Callee.(ExprAppl); ok2 {
+		} else if aouter, ok1 := next.(*ExprAppl); ok1 {
+			if ainner, ok2 := aouter.Callee.(*ExprAppl); ok2 {
 				if finner, ok3 := ainner.Callee.(ExprFuncRef); ok3 && finner == StdFuncCons {
 					elem := me.eval(ainner.Arg, nil)
 					again, next, ret = true, me.eval(aouter.Arg, nil), append(ret, elem)
@@ -88,7 +88,7 @@ func (me Prog) ListOfExprsToString(expr Expr) string {
 func ListFrom(str []byte) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(str) - 1; i > -1; i-- {
-		ret = ExprAppl{Callee: ExprAppl{Callee: StdFuncCons, Arg: ExprNumInt(str[i])}, Arg: ret}
+		ret = &ExprAppl{Callee: &ExprAppl{Callee: StdFuncCons, Arg: ExprNumInt(str[i])}, Arg: ret}
 	}
 	return
 }
@@ -97,7 +97,7 @@ func ListFrom(str []byte) (ret Expr) {
 func ListsFrom(strs []string) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(strs) - 1; i > -1; i-- {
-		ret = ExprAppl{Callee: ExprAppl{Callee: StdFuncCons, Arg: ListFrom([]byte(strs[i]))}, Arg: ret}
+		ret = &ExprAppl{Callee: &ExprAppl{Callee: StdFuncCons, Arg: ListFrom([]byte(strs[i]))}, Arg: ret}
 	}
 	return
 }

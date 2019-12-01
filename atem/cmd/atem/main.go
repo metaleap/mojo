@@ -52,7 +52,6 @@ import (
 func main() {
 	debug.SetMaxStack(48 * 1024 * 1024 * 1024) // as long as this runs only on my machine... temporary, for a while, until all optimizations have settled and stabilized
 	debug.SetGCPercent(-1)                     // dito
-
 	src, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)
@@ -70,8 +69,8 @@ func main() {
 			}
 		}
 	}()
-	outexpr := prog.Eval(ExprAppl{ // we start!
-		Callee: ExprAppl{
+	outexpr := prog.Eval(&ExprAppl{ // we start!
+		Callee: &ExprAppl{
 			Callee: ExprFuncRef(len(prog) - 1), // `main` is always last by convention
 			Arg:    ListsFrom(os.Args[2:]),     // first `main` param: list of all process args following `atem inputfile`
 		},
@@ -90,11 +89,11 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 	if len(retList) == 4 {
 		if fnhandler, okf := retList[0].(ExprFuncRef); okf && fnhandler > StdFuncCons && int(fnhandler) < len(prog)-1 && len(prog[fnhandler].Args) == 2 {
 			if sepchar, oks := retList[1].(ExprNumInt); oks && sepchar > -1 && sepchar < 256 {
-				_, oka := retList[3].(ExprAppl)
+				_, oka := retList[3].(*ExprAppl)
 				if okf, _ := retList[3].(ExprFuncRef); oka || okf == StdFuncNil {
 					if initialoutput := ListToBytes(prog.ListOfExprs(retList[3])); initialoutput != nil {
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
-							retexpr := prog.Eval(ExprAppl{Callee: ExprAppl{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
+							retexpr := prog.Eval(&ExprAppl{Callee: &ExprAppl{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
 							if retlist := prog.ListOfExprs(retexpr); len(retlist) == 2 {
 								if outlist := prog.ListOfExprs(retlist[1]); outlist != nil {
 									nextstate = retlist[0]
