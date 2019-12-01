@@ -131,7 +131,7 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 		if checkForArgRefs {
 			_ = walk(call, func(it Expr) Expr {
 				_, isargref := it.(ExprArgRef)
-				caneval = caneval && (!isargref)
+				caneval = caneval && !isargref
 				return it
 			})
 		}
@@ -141,7 +141,9 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 					ret = expr
 				}
 			}()
-			ret = walk(ret, func(it Expr) Expr { return prog.Eval(it, nil) })
+			ret = walk(ret, func(it Expr) Expr {
+				return prog.Eval(it, nil)
+			})
 		}
 	}
 	return

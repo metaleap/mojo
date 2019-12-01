@@ -41,7 +41,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -63,8 +62,7 @@ func main() {
 			if err, ok := thrown.([3]Expr); !ok {
 				panic(thrown)
 			} else {
-				println(err[0].JsonSrc())
-				println(fmt.Sprintf("%T", err[1]))
+				os.Stderr.WriteString(prog.ListOfExprsToString(err[1]) + "\t" + prog.ListOfExprsToString(err[2]) + "\n")
 			}
 		}
 	}()
@@ -80,7 +78,7 @@ func main() {
 	if outbytes := ListToBytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
 		os.Stdout.Write(append(outbytes, '\n'))
 	} else if outlist == nil || !probeIfStdinReaderAndIfSoHandleOnceOrForever(prog, outlist) {
-		println("RET-EXPR:\t" + outexpr.JsonSrc() + "\n")
+		os.Stderr.WriteString("RET-EXPR:\t" + outexpr.JsonSrc() + "\n")
 	}
 }
 

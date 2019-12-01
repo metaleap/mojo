@@ -532,12 +532,7 @@ func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			println("TRY:\t", expr.JsonSrc())
 			if evald := tryEval(ret, expr, true); !eq(evald, expr) {
-				println("OLD:")
-				println(expr.JsonSrc())
-				println("NOW:")
-				println(evald.JsonSrc())
 				expr, didModify = evald, true
 			}
 			return expr
