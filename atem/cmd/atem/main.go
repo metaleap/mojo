@@ -41,6 +41,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -57,6 +58,16 @@ func main() {
 	if numargs := len(prog[len(prog)-1].Args); 2 != numargs {
 		panic("Your main FuncDef needs exactly 2 Args but has " + strconv.Itoa(numargs) + ": " + prog[len(prog)-1].JsonSrc(false))
 	}
+	defer func() {
+		if thrown := recover(); thrown != nil {
+			if err, ok := thrown.([3]Expr); !ok {
+				panic(thrown)
+			} else {
+				println(err[0].JsonSrc())
+				println(fmt.Sprintf("%T", err[1]))
+			}
+		}
+	}()
 	outexpr := prog.Eval(ExprAppl{ // we start!
 		Callee: ExprAppl{
 			Callee: ExprFuncRef(len(prog) - 1), // `main` is always last by convention

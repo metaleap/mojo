@@ -31,8 +31,13 @@ func freeVars(expr tl.Expr, localNames map[string]string, stash []string) []stri
 				if _, exists = inProg.TopDefs[it.NameVal]; !exists {
 					if _, exists = inProg.TopDefs[tl.StdModuleName+"."+it.NameVal]; !exists {
 						for tdname := range inProg.TopDefs {
-							if exists = strings.HasSuffix(tdname, "."+it.NameVal) && strings.HasPrefix(tdname, tl.StdModuleName+"."); exists {
-								break
+							if strings.HasSuffix(tdname, "."+it.NameVal) && strings.HasPrefix(tdname, tl.StdModuleName+".") {
+								if exists { // name points to colliding std globals eg. std.num.toString vs std.json.toString: error will force qualification
+									exists = false
+									break
+								} else {
+									exists = true
+								}
 							}
 						}
 						if !exists {

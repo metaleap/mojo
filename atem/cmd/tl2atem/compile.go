@@ -137,7 +137,7 @@ func compileTopDef(name string) int {
 
 		for i, local := range locals {
 			gname := name + "//lcl:" + local.Name + strconv.Itoa(i)
-			localgnames[local.Name], body = gname, body.RewriteName(local.Name, &tl.ExprName{NameVal: gname})
+			localgnames[gname], localgnames[local.Name], body = gname, gname, body.RewriteName(local.Name, &tl.ExprName{NameVal: gname})
 			for j := 0; j <= i; j++ {
 				locals[j].Expr = locals[j].Expr.RewriteName(local.Name, &tl.ExprName{NameVal: gname})
 			}
@@ -146,6 +146,9 @@ func compileTopDef(name string) int {
 			globalname, globalbody := localgnames[local.Name], local.Expr
 			freevars := freeVars(local.Expr, localgnames, nil)
 			for _, fvname := range freevars {
+				if local.Name == "nX" {
+					println(i, fvname)
+				}
 				globalbody = &tl.ExprFunc{ArgName: fvname, Body: globalbody}
 			}
 			inProg.TopDefs[globalname] = globalbody

@@ -71,7 +71,7 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 			}
 			return expr
 		} else if isopcode {
-			lhs, rhs := me.Eval(stack[len(stack)-1], stack), me.Eval(stack[len(stack)-2], stack)
+			lhs, rhs := me.Eval(stack[len(stack)-1], nil), me.Eval(stack[len(stack)-2], nil)
 			switch opcode := OpCode(it); opcode {
 			case OpAdd:
 				expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
@@ -90,8 +90,8 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 					expr = StdFuncFalse
 				}
 			case OpPrt:
-				_, _ = OpPrtDst(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...))
 				expr = rhs
+				_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
 			default:
 				panic([3]Expr{it, lhs, rhs})
 			}
