@@ -4,18 +4,25 @@ import (
 	. "github.com/metaleap/atmo/atem"
 )
 
-type exprTmp int
-
-func (me exprTmp) JsonSrc() string { return "-0" }
-
 var exprNever = exprTmp(123456789)
 
 func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `tryEval`") } }
 
+type exprTmp int
+
+func (me exprTmp) JsonSrc() string { return "-0" }
+
+type exprAppl struct {
+	Callee Expr
+	Arg    Expr
+}
+
+func (me exprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + me.Arg.JsonSrc() + "]" }
+
 func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFuncRef, numCallArgs int, numCallArgsThatAreCalls int, numArgRefs int, allArgs []Expr) {
-	for call, okc := expr.(ExprAppl); okc; call, okc = call.Callee.(ExprAppl) {
+	for call, okc := expr.(exprAppl); okc; call, okc = call.Callee.(exprAppl) {
 		innerMostCallee, numCallArgs, allArgs = call.Callee, numCallArgs+1, append([]Expr{call.Arg}, allArgs...)
-		if _, isargcall := call.Arg.(ExprAppl); isargcall {
+		if _, isargcall := call.Arg.(exprAppl); isargcall {
 			numCallArgsThatAreCalls++
 		} else if _, isargref := call.Arg.(ExprArgRef); isargref {
 			numArgRefs++
@@ -34,7 +41,7 @@ func doesHaveNonCalleeUses(prog Prog, fn ExprFuncRef) (doesHaveNonCalleeOccurren
 	scrut = func(expr Expr) Expr {
 		if doesHaveNonCalleeOccurrences {
 			return nil
-		} else if call, isc := expr.(ExprAppl); isc {
+		} else if call, isc := expr.(exprAppl); isc {
 			if scrut(call.Arg); !doesHaveNonCalleeOccurrences {
 				if _, isf := call.Callee.(ExprFuncRef); !isf {
 					scrut(call.Callee)
@@ -53,9 +60,12 @@ func doesHaveNonCalleeUses(prog Prog, fn ExprFuncRef) (doesHaveNonCalleeOccurren
 }
 
 func eq(prog Prog, expr Expr, cmp Expr) bool {
-	if t1, ok1 := expr.(exprTmp); ok1 {
-		t2, ok2 := expr.(exprTmp)
-		return ok2 && t1 == t2
+	if t1, okt1 := expr.(exprTmp); okt1 {
+		t2, okt2 := cmp.(exprTmp)
+		return okt2 && t1 == t2
+	} else if a1, oka1 := expr.(exprAppl); oka1 {
+		a2, oka2 := cmp.(exprAppl)
+		return oka2 && eq(prog, a1.Callee, a2.Callee) && eq(prog, a1.Arg, a2.Arg)
 	}
 	return prog.Eq(expr, cmp, false)
 }
@@ -81,7 +91,7 @@ func fixFuncDefArgsUsageNumbers(prog Prog) Prog {
 	return prog
 }
 
-func rewriteCallArgs(callExpr ExprAppl, numCallArgs int, rewriter func(int, Expr) Expr, argIdxs []int) ExprAppl {
+func rewriteCallArgs(callExpr exprAppl, numCallArgs int, rewriter func(int, Expr) Expr, argIdxs []int) exprAppl {
 	if numCallArgs <= 0 {
 		_, _, numCallArgs, _, _, _ = dissectCall(callExpr)
 	}
@@ -96,14 +106,14 @@ func rewriteCallArgs(callExpr ExprAppl, numCallArgs int, rewriter func(int, Expr
 	if rewrite {
 		callExpr.Arg = rewriter(idx, callExpr.Arg)
 	}
-	if subcall, ok := callExpr.Callee.(ExprAppl); ok && idx > 0 {
+	if subcall, ok := callExpr.Callee.(exprAppl); ok && idx > 0 {
 		callExpr.Callee = rewriteCallArgs(subcall, numCallArgs-1, rewriter, argIdxs)
 	}
 	return callExpr
 }
 
-func rewriteInnerMostCallee(expr ExprAppl, rewriter func(Expr) Expr) ExprAppl {
-	if calleecall, ok := expr.Callee.(ExprAppl); ok {
+func rewriteInnerMostCallee(expr exprAppl, rewriter func(Expr) Expr) exprAppl {
+	if calleecall, ok := expr.Callee.(exprAppl); ok {
 		expr.Callee = rewriteInnerMostCallee(calleecall, rewriter)
 	} else {
 		expr.Callee = rewriter(expr.Callee)
@@ -113,7 +123,7 @@ func rewriteInnerMostCallee(expr ExprAppl, rewriter func(Expr) Expr) ExprAppl {
 
 func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 	ret = expr
-	if call, ok := expr.(ExprAppl); ok {
+	if call, ok := expr.(exprAppl); ok {
 		caneval := true
 		if checkForArgRefs {
 			_ = walk(call, func(it Expr) Expr {
@@ -128,9 +138,22 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 					ret = expr
 				}
 			}()
-			ret = walk(ret, func(it Expr) Expr {
+			var convto, convfrom func(Expr) Expr
+			convto = func(expr Expr) Expr {
+				if call, ok := expr.(exprAppl); ok {
+					return &ExprAppl{Callee: convto(call.Callee), Arg: convto(call.Arg)}
+				}
+				return expr
+			}
+			convfrom = func(expr Expr) Expr {
+				if call, _ := expr.(*ExprAppl); call != nil {
+					return exprAppl{Callee: convfrom(call.Callee), Arg: convfrom(call.Arg)}
+				}
+				return expr
+			}
+			ret = convfrom(walk(convto(ret), func(it Expr) Expr {
 				return prog.Eval(it)
-			})
+			}))
 		}
 	}
 	return
@@ -139,7 +162,7 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 func walk(expr Expr, visitor func(Expr) Expr) Expr {
 	if ret := visitor(expr); ret != nil {
 		expr = ret
-		if call, ok := expr.(ExprAppl); ok {
+		if call, ok := expr.(exprAppl); ok {
 			call.Callee, call.Arg = walk(call.Callee, visitor), walk(call.Arg, visitor)
 			expr = call
 		}
