@@ -82,7 +82,7 @@ func compileTopDef(name string) int {
 			locals = inProg.TopDefSepLocals[prefstd+name]
 		}
 		if topdef == nil {
-			panic(name)
+			panic("name unresolvable: " + name)
 		}
 		idx, name = len(outProg), prefstd+name
 		outProg, defsDone[name] = append(outProg, FuncDef{Meta: []string{name}}), idx
