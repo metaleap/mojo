@@ -50,7 +50,9 @@ import (
 )
 
 func main() {
-	debug.SetMaxStack(48 * 1024 * 1024 * 1024) // as long as this runs only on my machine...
+	debug.SetMaxStack(48 * 1024 * 1024 * 1024) // as long as this runs only on my machine... temporary, for a while, until all optimizations have settled and stabilized
+	debug.SetGCPercent(-1)                     // dito
+
 	src, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)
