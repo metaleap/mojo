@@ -65,7 +65,7 @@ func main() {
 
 	outProg = optimize(outProg)
 	prefixNameMetasWithIdxs()
-	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(false)), os.ModePerm)
+	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(true)), os.ModePerm)
 }
 
 func prefixNameMetasWithIdxs() {

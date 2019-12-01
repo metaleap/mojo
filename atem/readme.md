@@ -201,7 +201,7 @@ type FuncDef struct {
 #### func (*FuncDef) JsonSrc
 
 ```go
-func (me *FuncDef) JsonSrc(dropMeta bool) string
+func (me *FuncDef) JsonSrc(dropFuncDefMetas bool) string
 ```
 JsonSrc emits the re-`LoadFromJson`able representation of this `FuncDef`.
 

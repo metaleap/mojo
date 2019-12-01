@@ -107,9 +107,9 @@ func (me ExprFuncRef) JsonSrc() string { return "[" + strconv.Itoa(int(me)) + "]
 func (me ExprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + me.Arg.JsonSrc() + "]" }
 
 // JsonSrc emits the re-`LoadFromJson`able representation of this `FuncDef`.
-func (me *FuncDef) JsonSrc(dropMeta bool) string {
+func (me *FuncDef) JsonSrc(dropFuncDefMetas bool) string {
 	outjson := "[ ["
-	if !dropMeta {
+	if !dropFuncDefMetas {
 		for i, mstr := range me.Meta {
 			if i > 0 {
 				outjson += ","
