@@ -42,7 +42,7 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 			return expr
 		})
 	}
-	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
+	for i := int(StdFuncCons + 1); i < len(ret)-1 && !didModify; i++ {
 		if hasrefs := defrefs[i]; !hasrefs {
 			didModify, ret = true, append(ret[:i], ret[i+1:]...)
 			for j := range ret {
@@ -53,7 +53,6 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 					return expr
 				})
 			}
-			break
 		}
 	}
 	return
@@ -200,7 +199,7 @@ func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
 	argcallers := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		if callee, _, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body); numargs > 0 && numargrefs == 1 && numargscalls == 0 {
-			if argref, ok := callee.(ExprArgRef); ok { // only 1 arg-ref in body and its the inner-most callee?
+			if argref, ok := callee.(ExprArgRef); ok { // only 1 arg-ref in body and its the inner-most callee
 				argcallers[i] = (-argref) - 1
 			}
 		}
@@ -211,13 +210,13 @@ func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil {
-				if argref, ok := argcallers[int(*fnref)]; ok {
+				if argref, ok := argcallers[int(*fnref)]; ok && len(allargs) == len(ret[*fnref].Args) {
 					if didModify = true; argref != 0 {
 						panic("TODO")
 					} else {
 						call2inline := rewriteInnerMostCallee(ret[*fnref].Body.(ExprAppl), func(Expr) Expr { return allargs[0] })
 						expr = rewriteInnerMostCallee(expr.(ExprAppl), func(Expr) Expr { return StdFuncId })
-						expr = rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
+						expr = rewriteCallArgs(expr.(ExprAppl), numargs, func(int, Expr) Expr {
 							return call2inline
 						}, []int{0})
 					}
@@ -244,8 +243,8 @@ func optimize_inlineSelectorCalls(src Prog) (ret Prog, didModify bool) {
 	}
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil {
-				if argref, ok := selectors[int(*fnref)]; ok && int(argref) < numargs && numargs == len(ret[*fnref].Args) {
+			if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil {
+				if argref, ok := selectors[int(*fnref)]; ok && len(allargs) == len(ret[*fnref].Args) {
 					didModify = true
 					return allargs[argref]
 				}
