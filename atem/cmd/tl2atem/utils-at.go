@@ -53,27 +53,11 @@ func doesHaveNonCalleeUses(prog Prog, fn ExprFuncRef) (doesHaveNonCalleeOccurren
 }
 
 func eq(expr Expr, cmp Expr) bool {
-	if expr == cmp {
-		return true
+	if t1, ok1 := expr.(exprTmp); ok1 {
+		t2, ok2 := expr.(exprTmp)
+		return ok2 && t1 == t2
 	}
-	switch it := expr.(type) {
-	case exprTmp:
-		that, ok := cmp.(exprTmp)
-		return ok && it == that
-	case ExprNumInt:
-		that, ok := cmp.(ExprNumInt)
-		return ok && it == that
-	case ExprArgRef:
-		that, ok := cmp.(ExprArgRef)
-		return ok && (it == that || (it < 0 && that >= 0 && that == (-it)-1) || (it >= 0 && that < 0 && it == (-that)-1))
-	case ExprFuncRef:
-		that, ok := cmp.(ExprFuncRef)
-		return ok && it == that
-	case ExprAppl:
-		that, ok := cmp.(ExprAppl)
-		return ok && eq(it.Callee, that.Callee) && eq(it.Arg, that.Arg)
-	}
-	return false
+	return Eq(expr, cmp)
 }
 
 // some optimizers may drop certain arg uses while others may expect correct values in `FuncDef.Args`,
@@ -85,6 +69,9 @@ func fixFuncDefArgsUsageNumbers(prog Prog) Prog {
 		}
 		_ = walk(prog[i].Body, func(expr Expr) Expr {
 			if argref, ok := expr.(ExprArgRef); ok {
+				if argref == 0 {
+					println(prog[i].JsonSrc(false), len(prog[i].Args), "\t\t\t", argref, "\t>>>\t", (-argref)-1)
+				}
 				argref = (-argref) - 1
 				prog[i].Args[argref] = 1 + prog[i].Args[argref]
 			}

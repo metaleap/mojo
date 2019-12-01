@@ -86,8 +86,9 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 	if len(retList) == 4 {
 		if fnhandler, okf := retList[0].(ExprFuncRef); okf && fnhandler > StdFuncCons && int(fnhandler) < len(prog)-1 && len(prog[fnhandler].Args) == 2 {
 			if sepchar, oks := retList[1].(ExprNumInt); oks && sepchar > -1 && sepchar < 256 {
-				if initialoutputlist, oka := retList[3].(ExprAppl); oka {
-					if initialoutput := ListToBytes(prog.ListOfExprs(initialoutputlist)); initialoutput != nil {
+				_, oka := retList[3].(ExprAppl)
+				if okf, _ := retList[3].(ExprFuncRef); oka || okf == StdFuncNil {
+					if initialoutput := ListToBytes(prog.ListOfExprs(retList[3])); initialoutput != nil {
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
 							retexpr := prog.Eval(ExprAppl{Callee: ExprAppl{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)}, make([]Expr, 0, 128))
 							if retlist := prog.ListOfExprs(retexpr); len(retlist) == 2 {

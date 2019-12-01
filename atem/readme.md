@@ -10,7 +10,7 @@ tech stack swiftly and with ease, over other concerns, by design. At the time of
 writing, the "parsing" / loading in this Go-based implementation is ~42 LoCs
 (the choice of a JSON code format is likewise motivated by the stated
 "no-brainer portability" objective), the interpreting / eval'ing parts around
-~55 LoCs, AST node type formulations and their `JsonSrc()` implementations
+~75 LoCs, AST node type formulations and their `JsonSrc()` implementations
 around ~50 LoCs, and utilities for forcing "`Eval` result linked-list-closures"
 into actual `[]int` or `[]byte` slices or `string`s, or the other way around for
 passing into `Eval`, another ~55 LoCs. All counts approximate and net (excluding
@@ -62,6 +62,14 @@ var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
 never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
+
+#### func  Eq
+
+```go
+func Eq(expr Expr, cmp Expr) bool
+```
+Eq is the fallback comparator for `OpEq` calls with 2 operands that aren't both
+`ExprNumInt`s.
 
 #### func  ListToBytes
 

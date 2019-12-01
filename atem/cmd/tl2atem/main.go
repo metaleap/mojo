@@ -62,10 +62,12 @@ func main() {
 	outProg = fixFuncDefArgsUsageNumbers(outProg)
 	prefixNameMetasWithIdxs()
 	ioutil.WriteFile(dstfilepath+".non-opt", []byte(outProg.JsonSrc(false)), os.ModePerm)
+	println("Compilation done, optimizing...")
 
 	outProg = optimize(outProg)
 	prefixNameMetasWithIdxs()
 	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(true)), os.ModePerm)
+	println("...done.")
 }
 
 func prefixNameMetasWithIdxs() {

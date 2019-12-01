@@ -6,7 +6,7 @@
 // design. At the time of writing, the "parsing" / loading in this Go-based
 // implementation is ~42 LoCs (the choice of a JSON code format is likewise
 // motivated by the stated "no-brainer portability" objective), the interpreting
-// / eval'ing parts around ~55 LoCs, AST node type formulations and their
+// / eval'ing parts around ~75 LoCs, AST node type formulations and their
 // `JsonSrc()` implementations around ~50 LoCs, and utilities for forcing
 // "`Eval` result linked-list-closures" into actual `[]int` or `[]byte` slices
 // or `string`s, or the other way around for passing into `Eval`, another ~55

@@ -1,5 +1,27 @@
 package atem
 
+// Eq is the fallback comparator for `OpEq` calls with 2 operands that aren't both `ExprNumInt`s.
+func Eq(expr Expr, cmp Expr) bool {
+	if expr == cmp {
+		return true
+	}
+	switch it := expr.(type) {
+	case ExprNumInt:
+		that, ok := cmp.(ExprNumInt)
+		return ok && it == that
+	case ExprArgRef:
+		that, ok := cmp.(ExprArgRef)
+		return ok && (it == that || (it < 0 && that >= 0 && that == (-it)-1) || (it >= 0 && that < 0 && it == (-that)-1))
+	case ExprFuncRef:
+		that, ok := cmp.(ExprFuncRef)
+		return ok && it == that
+	case ExprAppl:
+		that, ok := cmp.(ExprAppl)
+		return ok && Eq(it.Callee, that.Callee) && Eq(it.Arg, that.Arg)
+	}
+	return false
+}
+
 // ListOfExprs dissects the given `expr` into an `[]Expr` slice only if it is
 // a closure resulting from `StdFuncCons` / `StdFuncNil` usage during `Eval`.
 // The individual element `Expr`s are not themselves scrutinized however.

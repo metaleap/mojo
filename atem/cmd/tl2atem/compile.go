@@ -30,10 +30,7 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 	case *tl.ExprCall:
 		return ExprAppl{Callee: compileExpr(it.Callee, curFunc, curFuncsArgs), Arg: compileExpr(it.CallArg, curFunc, curFuncsArgs)}
 	case *tl.ExprName:
-		if it.IdxOrInstr < 0 {
-			argidx := len(curFuncsArgs) + it.IdxOrInstr
-			return -ExprArgRef(1 + argidx)
-		} else if it.IdxOrInstr > 0 {
+		if it.IdxOrInstr > 0 {
 			if opcode, ok := instr2op[tl.Instr(it.IdxOrInstr)]; ok {
 				return ExprFuncRef(opcode)
 			}
@@ -43,8 +40,10 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 					return -ExprArgRef(1 + i)
 				}
 			}
-			idx := compileTopDef(it.NameVal)
-			return ExprFuncRef(idx)
+			if it.IdxOrInstr == 0 {
+				idx := compileTopDef(it.NameVal)
+				return ExprFuncRef(idx)
+			}
 		}
 	case *tl.ExprFunc:
 		globalname, globalbody := curFunc.Meta[0]+"//lam:"+it.ArgName+strconv.Itoa(len(inProg.TopDefs)), it

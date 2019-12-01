@@ -84,10 +84,14 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 			case OpMod:
 				expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
 			case OpEq, OpGt, OpLt:
-				if l, r := lhs.(ExprNumInt), rhs.(ExprNumInt); (opcode == OpEq && l == r) || (opcode == OpLt && l < r) || (opcode == OpGt && l > r) {
+				l, okl := lhs.(ExprNumInt)
+				r, okr := rhs.(ExprNumInt)
+				if expr = StdFuncFalse; opcode == OpEq && !(okl && okr) {
+					if Eq(lhs, rhs) {
+						expr = StdFuncTrue
+					}
+				} else if (opcode == OpEq && l == r) || (opcode == OpLt && l < r) || (opcode == OpGt && l > r) {
 					expr = StdFuncTrue
-				} else {
-					expr = StdFuncFalse
 				}
 			case OpPrt:
 				expr = rhs
