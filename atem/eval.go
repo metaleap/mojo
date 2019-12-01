@@ -55,7 +55,8 @@ var OpPrtDst = os.Stderr.Write
 // `OpCode`, the expected minimum required `len` for the `stack` is 2 and if
 // this is met, the primitive instruction is carried out, its `Expr` result
 // then being `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic`
-// with a `[3]Expr` of first the `ExprFuncRef` followed by both its operands.
+// with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
+// by both its operands.
 func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
 	case ExprAppl:
@@ -83,14 +84,13 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 				expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
 			case OpMod:
 				expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-			case OpEq, OpGt, OpLt:
-				l, okl := lhs.(ExprNumInt)
-				r, okr := rhs.(ExprNumInt)
-				if expr = StdFuncFalse; opcode == OpEq && !(okl && okr) {
-					if Eq(lhs, rhs) {
-						expr = StdFuncTrue
-					}
-				} else if (opcode == OpEq && l == r) || (opcode == OpLt && l < r) || (opcode == OpGt && l > r) {
+			case OpEq:
+				if expr = StdFuncFalse; Eq(lhs, rhs) {
+					expr = StdFuncTrue
+				}
+			case OpGt, OpLt:
+				lt, l, r := (opcode == OpLt), lhs.(ExprNumInt), rhs.(ExprNumInt)
+				if expr = StdFuncFalse; (lt && l < r) || ((!lt) && l > r) {
 					expr = StdFuncTrue
 				}
 			case OpPrt:

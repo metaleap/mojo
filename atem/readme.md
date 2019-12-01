@@ -68,7 +68,7 @@ never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
 ```go
 func Eq(expr Expr, cmp Expr) bool
 ```
-Eq is the fallback comparator for `OpEq` calls with 2 operands that aren't both
+Eq is the fallback for `OpEq` calls with 2 operands that aren't both
 `ExprNumInt`s.
 
 #### func  ListToBytes
@@ -304,7 +304,8 @@ Corner cases for the `ExprFuncRef` situation: if the `stack` has too small a
 `OpCode`, the expected minimum required `len` for the `stack` is 2 and if this
 is met, the primitive instruction is carried out, its `Expr` result then being
 `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic` with a
-`[3]Expr` of first the `ExprFuncRef` followed by both its operands.
+`[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed by both its
+operands.
 
 #### func (Prog) JsonSrc
 
