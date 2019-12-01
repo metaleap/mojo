@@ -58,6 +58,7 @@ func main() {
 	inProg.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true, KeepSepLocals: true})
 	compile(maintopdefqname)
 
+	outProg = fixFuncDefArgsUsageNumbers(outProg)
 	prefixNameMetasWithIdxs()
 	ioutil.WriteFile(dstfilepath+".non-opt", []byte(outProg.JsonSrc(false)), os.ModePerm)
 
