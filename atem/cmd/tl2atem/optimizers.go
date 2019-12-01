@@ -13,6 +13,7 @@ func walk(expr Expr, visitor func(Expr) Expr) Expr {
 		expr = ret
 		if call, ok := expr.(ExprAppl); ok {
 			call.Callee, call.Arg = walk(call.Callee, visitor), walk(call.Arg, visitor)
+			expr = call
 		}
 	}
 	return expr
@@ -22,18 +23,18 @@ func optimize(src Prog) Prog {
 	for again := true; again; {
 		again, src = false, fixFuncDefArgsUsageNumbers(src)
 		for _, opt := range []func(Prog) (Prog, bool){
-			// optimize_inlineNullaries,
+			optimize_inlineNullaries,
 			optimize_ditchUnusedFuncDefs,
-			// optimize_inlineSelectorCalls,
-			// optimize_argDropperCalls,
-			// optimize_inlineArgCallers,
-			// optimize_inlineArgsRearrangers,
-			// optimize_primOpPreCalcs,
-			// optimize_callsToGeqOrLeq,
-			// optimize_minifyNeedlesslyElaborateBoolOpCalls,
-			// optimize_inlineOnceCalleds,
-			// optimize_inlineEverSameArgs,
-			// optimize_preEvals,
+			optimize_inlineSelectorCalls,
+			optimize_argDropperCalls,
+			optimize_inlineArgCallers,
+			optimize_inlineArgsRearrangers,
+			optimize_primOpPreCalcs,
+			optimize_callsToGeqOrLeq,
+			optimize_minifyNeedlesslyElaborateBoolOpCalls,
+			optimize_inlineOnceCalleds,
+			optimize_inlineEverSameArgs,
+			optimize_preEvals,
 		} {
 			if src, again = opt(src); again {
 				break
@@ -118,7 +119,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 			return expr
 		})
 	}
-	for i := int(StdFuncCons + 1); i < len(ret) && !didModify; i++ {
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
 				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {
