@@ -43,12 +43,14 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"runtime/debug"
 	"strconv"
 
 	. "github.com/metaleap/atmo/atem"
 )
 
 func main() {
+	debug.SetMaxStack(48 * 1024 * 1024 * 1024) // as long as this runs only on my machine...
 	src, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)

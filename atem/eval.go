@@ -85,7 +85,7 @@ func (me Prog) Eval(expr Expr, stack []Expr) Expr {
 			case OpMod:
 				expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
 			case OpEq:
-				if expr = StdFuncFalse; Eq(lhs, rhs) {
+				if expr = StdFuncFalse; me.Eq(lhs, rhs, true) {
 					expr = StdFuncTrue
 				}
 			case OpGt, OpLt:

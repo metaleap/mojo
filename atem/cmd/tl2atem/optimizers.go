@@ -66,7 +66,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	nullaries, caninlinealways := make(map[int]int), make(map[int]bool)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if 0 == len(ret[i].Args) {
-			if body := tryEval(ret, ret[i].Body, false); !eq(body, ret[i].Body) {
+			if body := tryEval(ret, ret[i].Body, false); !eq(ret, body, ret[i].Body) {
 				didModify, ret[i].Body = true, body
 			}
 			_, _, numargs, numargcalls, _, _ := dissectCall(ret[i].Body)
@@ -91,7 +91,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
 				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {
 					if retexpr := ret[int(fnref)].Body; numrefs == 1 || caninlinealways[int(fnref)] {
-						didModify = didModify || !eq(expr, retexpr)
+						didModify = didModify || !eq(ret, expr, retexpr)
 						return retexpr
 					}
 				}
@@ -125,7 +125,7 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 			if _, fnref, numargs, _, _, _ := dissectCall(expr); fnref != nil {
 				if argdrops := argdroppers[int(*fnref)]; len(argdrops) > 0 {
 					return rewriteCallArgs(expr.(ExprAppl), numargs, func(argidx int, argval Expr) Expr {
-						if !eq(argval, exprNever) {
+						if !eq(ret, argval, exprNever) {
 							argval, didModify = exprNever, true
 						}
 						return argval
@@ -343,7 +343,7 @@ func optimize_callsToGeqOrLeq(src Prog) (ret Prog, didModify bool) {
 			if opcode1 := OpCode(*fnr1); opcode1 == OpEq || opcode1 == OpLt || opcode1 == OpGt {
 				if fntrue, _ := allargs1[2].(ExprFuncRef); fntrue == StdFuncTrue {
 					if _, fnr2, _, _, _, allargs2 := dissectCall(allargs1[3]); fnr2 != nil && len(allargs2) == 2 {
-						if opcode2 := OpCode(*fnr2); opcode2 != opcode1 && (opcode2 == OpEq || opcode2 == OpLt || opcode2 == OpGt) && eq(allargs1[0], allargs2[0]) && eq(allargs1[1], allargs2[1]) && (opcode1 == OpEq || opcode2 == OpEq) {
+						if opcode2 := OpCode(*fnr2); opcode2 != opcode1 && (opcode2 == OpEq || opcode2 == OpLt || opcode2 == OpGt) && eq(ret, allargs1[0], allargs2[0]) && eq(ret, allargs1[1], allargs2[1]) && (opcode1 == OpEq || opcode2 == OpEq) {
 							if isl, isg := (opcode1 == OpLt || opcode2 == OpLt), (opcode1 == OpGt || opcode2 == OpGt); isg || isl {
 								geqsleqs[i] = isg
 							}
@@ -400,36 +400,36 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil && *fnref < 0 {
 				if opcode := OpCode(*fnref); numargs == 1 {
-					if opcode == OpAdd && eq(allargs[0], ExprNumInt(0)) {
+					if opcode == OpAdd && eq(ret, allargs[0], ExprNumInt(0)) {
 						didModify = true
 						return StdFuncId
-					} else if opcode == OpMul && eq(allargs[0], ExprNumInt(1)) {
+					} else if opcode == OpMul && eq(ret, allargs[0], ExprNumInt(1)) {
 						didModify = true
 						return StdFuncId
 					}
 				} else if numargs == 2 {
-					if opcode == OpAdd && eq(allargs[0], ExprNumInt(0)) {
+					if opcode == OpAdd && eq(ret, allargs[0], ExprNumInt(0)) {
 						didModify = true
 						return allargs[1]
-					} else if opcode == OpAdd && eq(allargs[1], ExprNumInt(0)) {
+					} else if opcode == OpAdd && eq(ret, allargs[1], ExprNumInt(0)) {
 						didModify = true
 						return allargs[0]
-					} else if opcode == OpMul && eq(allargs[0], ExprNumInt(1)) {
+					} else if opcode == OpMul && eq(ret, allargs[0], ExprNumInt(1)) {
 						didModify = true
 						return allargs[1]
-					} else if opcode == OpMul && eq(allargs[1], ExprNumInt(1)) {
+					} else if opcode == OpMul && eq(ret, allargs[1], ExprNumInt(1)) {
 						didModify = true
 						return allargs[0]
-					} else if opcode == OpSub && eq(allargs[1], ExprNumInt(0)) {
+					} else if opcode == OpSub && eq(ret, allargs[1], ExprNumInt(0)) {
 						didModify = true
 						return allargs[0]
-					} else if opcode == OpDiv && eq(allargs[1], ExprNumInt(1)) {
+					} else if opcode == OpDiv && eq(ret, allargs[1], ExprNumInt(1)) {
 						didModify = true
 						return allargs[0]
-					} else if opcode == OpMod && eq(allargs[1], ExprNumInt(1)) {
+					} else if opcode == OpMod && eq(ret, allargs[1], ExprNumInt(1)) {
 						didModify = true
 						return ExprNumInt(0)
-					} else if opcode == OpEq && eq(allargs[0], allargs[1]) {
+					} else if opcode == OpEq && eq(ret, allargs[0], allargs[1]) {
 						didModify = true
 						return StdFuncTrue
 					}
@@ -487,7 +487,7 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 					})
 					if argval == nil && !hasargref {
 						argval = allargs[aidx]
-					} else if hasargref || !eq(argval, allargs[aidx]) {
+					} else if hasargref || !eq(ret, argval, allargs[aidx]) {
 						argval = exprTmp(-987654321)
 					}
 				}
@@ -532,7 +532,7 @@ func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if evald := tryEval(ret, expr, true); !eq(evald, expr) {
+			if evald := tryEval(ret, expr, true); !eq(ret, evald, expr) {
 				expr, didModify = evald, true
 			}
 			return expr

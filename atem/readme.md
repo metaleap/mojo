@@ -63,14 +63,6 @@ var OpPrtDst = os.Stderr.Write
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
 never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
 
-#### func  Eq
-
-```go
-func Eq(expr Expr, cmp Expr) bool
-```
-Eq is the fallback for `OpEq` calls with 2 operands that aren't both
-`ExprNumInt`s.
-
 #### func  ListToBytes
 
 ```go
@@ -278,6 +270,14 @@ one-before-one-before-last etc. However at parse time, they're turned into a
 form expected at run time, where 0 turns into -1, 1 into -2, 2 into -3 etc,
 allowing for faster stack accesses in the interpreter. `ExprArgRef.JsonSrc()`
 will restore the 0-based indexing form, however.
+
+#### func (Prog) Eq
+
+```go
+func (me Prog) Eq(expr Expr, cmp Expr, evalAppls bool) bool
+```
+Eq is the fallback for `OpEq` calls with 2 operands that aren't both
+`ExprNumInt`s.
 
 #### func (Prog) Eval
 

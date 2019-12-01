@@ -52,12 +52,12 @@ func doesHaveNonCalleeUses(prog Prog, fn ExprFuncRef) (doesHaveNonCalleeOccurren
 	return
 }
 
-func eq(expr Expr, cmp Expr) bool {
+func eq(prog Prog, expr Expr, cmp Expr) bool {
 	if t1, ok1 := expr.(exprTmp); ok1 {
 		t2, ok2 := expr.(exprTmp)
 		return ok2 && t1 == t2
 	}
-	return Eq(expr, cmp)
+	return prog.Eq(expr, cmp, false)
 }
 
 // some optimizers may drop certain arg uses while others may expect correct values in `FuncDef.Args`,

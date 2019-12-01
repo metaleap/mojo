@@ -1,14 +1,19 @@
 package atem
 
 // Eq is the fallback for `OpEq` calls with 2 operands that aren't both `ExprNumInt`s.
-func Eq(expr Expr, cmp Expr) bool {
+func (me Prog) Eq(expr Expr, cmp Expr, evalAppls bool) bool {
 	switch it := expr.(type) {
 	case ExprNumInt:
 		that, ok := cmp.(ExprNumInt)
 		return ok && it == that
 	case ExprAppl:
-		that, ok := cmp.(ExprAppl)
-		return ok && Eq(it.Callee, that.Callee) && Eq(it.Arg, that.Arg)
+		if that, ok := cmp.(ExprAppl); ok {
+			if evalAppls {
+				return me.Eq(me.Eval(it.Callee, nil), me.Eval(that.Callee, nil), true) && me.Eq(me.Eval(it.Arg, nil), me.Eval(that.Arg, nil), true)
+			} else {
+				return me.Eq(it.Callee, that.Callee, false) && me.Eq(it.Arg, that.Arg, false)
+			}
+		}
 	case ExprArgRef:
 		that, ok := cmp.(ExprArgRef)
 		return ok && (it == that || (it < 0 && that >= 0 && that == (-it)-1) || (it >= 0 && that < 0 && it == (-that)-1))
