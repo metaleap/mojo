@@ -79,9 +79,6 @@ func fixFuncDefArgsUsageNumbers(prog Prog) Prog {
 		}
 		_ = walk(prog[i].Body, func(expr Expr) Expr {
 			if argref, ok := expr.(ExprArgRef); ok {
-				if argref == 0 {
-					println(prog[i].JsonSrc(false), len(prog[i].Args), "\t\t\t", argref, "\t>>>\t", (-argref)-1)
-				}
 				argref = (-argref) - 1
 				prog[i].Args[argref] = 1 + prog[i].Args[argref]
 			}
@@ -124,15 +121,15 @@ func rewriteInnerMostCallee(expr exprAppl, rewriter func(Expr) Expr) exprAppl {
 func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 	ret = expr
 	if call, ok := expr.(exprAppl); ok {
-		caneval := true
+		ok2try := true
 		if checkForArgRefs {
 			_ = walk(call, func(it Expr) Expr {
 				_, isargref := it.(ExprArgRef)
-				caneval = caneval && !isargref
+				ok2try = ok2try && !isargref
 				return it
 			})
 		}
-		if caneval {
+		if ok2try {
 			defer func() {
 				if recover() != nil {
 					ret = expr
@@ -151,9 +148,16 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 				}
 				return expr
 			}
-			ret = convfrom(walk(convto(ret), func(it Expr) Expr {
-				return prog.Eval(it)
-			}))
+			var hasargref bool // since interpreter is graph-rewriting, instantiating func bodies without a fully filled stack: reject such bodies as a sensible pre-eval result. otherwise, for example list creations would turn into the full, tiny, useless body of Cons etc.
+			ret = convfrom(prog.Eval(convto(ret)))
+			_ = walk(ret, func(it Expr) Expr {
+				_, isargref := it.(ExprArgRef)
+				hasargref = hasargref || isargref
+				return it
+			})
+			if hasargref {
+				ret = expr
+			}
 		}
 	}
 	return

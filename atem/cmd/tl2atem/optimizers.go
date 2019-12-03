@@ -9,7 +9,7 @@ func optimize(src Prog) Prog {
 		again, src = false, fixFuncDefArgsUsageNumbers(src)
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_ditchUnusedFuncDefs,
-			// optimize_inlineNullaries, // TODO: fails with appdemo.readln
+			optimize_inlineNullaries,
 			optimize_inlineSelectorCalls,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
@@ -19,7 +19,7 @@ func optimize(src Prog) Prog {
 			optimize_minifyNeedlesslyElaborateBoolOpCalls,
 			optimize_inlineOnceCalleds,
 			optimize_inlineEverSameArgs,
-			// optimize_preEvals,
+			optimize_preEvals,
 		} {
 			if src, again = opt(src); again {
 				break
