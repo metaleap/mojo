@@ -159,13 +159,21 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 				}
 			}()
 			var hasargref bool // since interpreter is graph-rewriting, instantiating func bodies without a fully filled stack: reject such bodies as a sensible pre-eval result. otherwise, for example list creations would turn into the full, tiny, useless body of Cons etc.
-			ret = convFrom(prog.Eval(convTo(ret)))
+			ret = prog.Eval(convTo(ret))
+			dbg := -1
+			if call, _ := ret.(*ExprCall); call != nil {
+				dbg = call.Curried
+			}
+			ret = convFrom(ret)
 			_ = walk(ret, func(it Expr) Expr {
 				_, isargref := it.(ExprArgRef)
 				hasargref = hasargref || isargref
 				return it
 			})
 			if hasargref {
+				ret = expr
+			} else if dbg >= 0 && !eq(prog, expr, ret) {
+				println(dbg, "FROM", expr.JsonSrc(), "TO", ret.JsonSrc())
 				ret = expr
 			}
 		}

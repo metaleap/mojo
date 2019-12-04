@@ -140,7 +140,7 @@ JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
 type ExprCall struct {
 	Callee  Expr
 	Args    []Expr
-	Curried bool
+	Curried int
 }
 ```
 

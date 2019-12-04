@@ -90,7 +90,7 @@ type (
 	ExprCall    struct {
 		Callee  Expr
 		Args    []Expr
-		Curried bool
+		Curried int
 	}
 )
 
@@ -108,7 +108,11 @@ func (me *ExprCall) JsonSrc() string {
 	for i := len(me.Args) - 1; i > -1; i-- {
 		ret += ", " + me.Args[i].JsonSrc()
 	}
-	return ret + "]"
+	ret += "]"
+	if me.Curried > 0 {
+		return "{\"c\":" + strconv.Itoa(me.Curried) + ",\"\":" + ret + "}"
+	}
+	return ret
 }
 
 // JsonSrc emits the re-`LoadFromJson`able representation of this `FuncDef`.

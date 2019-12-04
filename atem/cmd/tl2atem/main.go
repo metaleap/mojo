@@ -67,7 +67,23 @@ func main() {
 	outProg = optimize(outProg)
 	prefixNameMetasWithIdxs()
 	for i := range outProg {
-		outProg[i].Body = convTo(outProg[i].Body)
+		var walker func(expr Expr) Expr
+		walker = func(expr Expr) Expr {
+			if call, _ := expr.(*ExprCall); call != nil {
+				if subcall, _ := call.Callee.(*ExprCall); subcall != nil {
+					panic("convTo got buggy")
+				}
+				call.Callee = walker(call.Callee)
+				for i := range call.Args {
+					call.Args[i] = walker(call.Args[i])
+				}
+				if fnref, ok := call.Callee.(ExprFuncRef); ok && fnref > 0 && len(outProg[fnref].Args) > len(call.Args) {
+					call.Curried = len(outProg[fnref].Args) - len(call.Args)
+				}
+			}
+			return expr
+		}
+		outProg[i].Body = walk(convTo(outProg[i].Body), walker)
 	}
 	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(true)), os.ModePerm)
 	println("...done.")

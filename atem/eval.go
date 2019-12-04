@@ -63,7 +63,11 @@ func (me Prog) Eval(expr Expr) Expr { return me.eval(expr, make([]Expr, 0, 128))
 func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
 	case *ExprCall:
-		return me.eval(it.Callee, append(stack, it.Args...))
+		if len(stack) >= it.Curried {
+			return me.eval(it.Callee, append(stack, it.Args...))
+		} else {
+			NumCurryPrev++
+		}
 	case ExprFuncRef:
 		numargs, isopcode := 2, (it < 0)
 		if !isopcode {
@@ -71,7 +75,7 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 		}
 		if len(stack) < numargs { // not enough args on stack:
 			if len(stack) > 0 {
-				NumCurryUncurry, expr = 1+NumCurryUncurry, &ExprCall{Callee: it, Args: stack[:]} // a closure value results
+				NumCurryUncurry, expr = 1+NumCurryUncurry, &ExprCall{Curried: numargs - len(stack), Callee: it, Args: stack[:]} // a closure value results
 			}
 			return expr
 		} else if isopcode {
@@ -134,7 +138,12 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Ex
 				fn = &me[fnref]
 			}
 		}
-		skips, call := false, &ExprCall{Callee: callee, Args: make([]Expr, len(it.Args))}
+		skips, call := false, &ExprCall{Curried: it.Curried, Callee: callee, Args: make([]Expr, len(it.Args))}
+		if fn != nil {
+			if diff := len(fn.Args) - len(call.Args); diff > 0 && it.Curried > 0 && diff != it.Curried {
+				println(it.Curried, "VS", diff)
+			}
+		}
 		for j, i := 0, len(it.Args)-1; i > -1; j, i = j+1, i-1 {
 			if fn == nil || j >= len(fn.Args) || fn.Args[j] > 0 {
 				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Args[i], fnArgs, stack)
