@@ -9,6 +9,7 @@ func optimize(src Prog) Prog {
 		again, src = false, fixFuncDefArgsUsageNumbers(src)
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_ditchUnusedFuncDefs,
+			optimize_ditchDuplicateDefs,
 			optimize_inlineNaryFuncAliases,
 			optimize_inlineNullaries,
 			optimize_inlineSelectorCalls,
@@ -59,22 +60,43 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+func optimize_ditchDuplicateDefs(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	return
+}
+
 // lambda-lifting in complex programs may result in lots of func-defs that
 // swallow-discard n args to return merely another func-def. refs to those are
 // rewritten into calls of `StdFuncTrue` (nested if `n>1`) with said func-def
 func optimize_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	var aliasdefs []ExprFuncRef
+	aliasdefs := map[ExprFuncRef]int{}
 	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
 		_, okn := ret[i].Body.(ExprNumInt)
 		if _, okf := ret[i].Body.(ExprFuncRef); okf || okn {
-			aliasdefs = append(aliasdefs, i)
+			aliasdefs[i] = 0
 		}
 	}
 	if len(aliasdefs) == 0 {
 		return
 	}
-	for _, aliasdef := range aliasdefs {
+	for aliasdef := range aliasdefs {
+		for i := StdFuncCons + 1; int(i) < len(ret); i++ {
+			_ = walk(ret[i].Body, func(expr Expr) Expr {
+				if fnr, ok := expr.(ExprFuncRef); ok && fnr == aliasdef {
+					aliasdefs[aliasdef] = 1 + aliasdefs[aliasdef]
+				}
+				return expr
+			})
+		}
+	}
+	if len(aliasdefs) == 0 {
+		return
+	}
+	println("______________________________________-")
+	for aliasdef, numrefs := range aliasdefs {
+		println(numrefs)
+		continue
 		for i := StdFuncCons + 1; int(i) < len(ret); i++ {
 			ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 				if fnr, ok := expr.(ExprFuncRef); ok && fnr == aliasdef {
@@ -344,19 +366,27 @@ func optimize_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModif
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil && (numargs == 4 || numargs == 6) {
-				if opcode := OpCode(*fnref); opcode == OpEq || opcode == OpLt || opcode == OpGt {
-					if fnl, _ := allargs[2].(ExprFuncRef); fnl == StdFuncTrue || fnl == StdFuncFalse {
-						if fnr, _ := allargs[3].(ExprFuncRef); fnr == StdFuncTrue || fnr == StdFuncFalse {
-							if numargs == 4 && fnl == StdFuncTrue && fnr == StdFuncFalse {
-								didModify = true
-								return exprAppl{Callee: exprAppl{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}
-							} else if numargs == 6 && fnl == StdFuncFalse && fnr == StdFuncTrue {
-								didModify = true
-								return exprAppl{Callee: exprAppl{Callee: exprAppl{Callee: exprAppl{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}, Arg: allargs[5]}, Arg: allargs[4]}
+			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil {
+				if numargs == 4 || numargs == 6 {
+					if opcode := OpCode(*fnref); opcode == OpEq || opcode == OpLt || opcode == OpGt {
+						if fnl, _ := allargs[2].(ExprFuncRef); fnl == StdFuncTrue || fnl == StdFuncFalse {
+							if fnr, _ := allargs[3].(ExprFuncRef); fnr == StdFuncTrue || fnr == StdFuncFalse {
+								if numargs == 4 && fnl == StdFuncTrue && fnr == StdFuncFalse {
+									didModify = true
+									return exprAppl{Callee: exprAppl{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}
+								} else if numargs == 6 && fnl == StdFuncFalse && fnr == StdFuncTrue {
+									didModify = true
+									return exprAppl{Callee: exprAppl{Callee: exprAppl{Callee: exprAppl{Callee: *fnref, Arg: allargs[0]}, Arg: allargs[1]}, Arg: allargs[5]}, Arg: allargs[4]}
+								}
 							}
 						}
 					}
+				} else if numargs == 1 && *fnref == StdFuncFalse {
+					didModify = true
+					return StdFuncId
+				} else if numargs == 2 && (*fnref == StdFuncTrue || *fnref == StdFuncNil) {
+					didModify = true
+					return allargs[0]
 				}
 			}
 			return expr
