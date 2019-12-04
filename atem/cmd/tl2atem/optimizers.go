@@ -10,8 +10,8 @@ func optimize(src Prog) Prog {
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_ditchUnusedFuncDefs,
 			optimize_ditchDuplicateDefs,
-			optimize_inlineNaryFuncAliases,
 			optimize_inlineNullaries,
+			optimize_inlineNaryFuncAliases,
 			optimize_inlineSelectorCalls,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
@@ -60,8 +60,33 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// lambda-lifting in complex programs may result in multiple structurually equivalent func-defs.
 func optimize_ditchDuplicateDefs(src Prog) (ret Prog, didModify bool) {
 	ret = src
+	dupls := map[ExprFuncRef]ExprFuncRef{}
+	for i := StdFuncId; int(i) < len(ret)-1; i++ {
+		for j := i + 1; int(j) < len(ret)-1; j++ {
+			if len(ret[i].Args) == len(ret[j].Args) && eq(ret, ret[i].Body, ret[j].Body) && j > StdFuncCons {
+				if _, have := dupls[j]; !have {
+					dupls[j] = i
+				}
+			}
+		}
+	}
+	if len(dupls) == 0 {
+		return
+	}
+	for i := StdFuncCons + 1; int(i) < len(ret); i++ {
+		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			if fnref, ok := expr.(ExprFuncRef); ok {
+				if orig, have := dupls[fnref]; have {
+					didModify = true
+					return orig
+				}
+			}
+			return expr
+		})
+	}
 	return
 }
 
@@ -80,34 +105,33 @@ func optimize_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
 	if len(aliasdefs) == 0 {
 		return
 	}
-	for aliasdef := range aliasdefs {
-		for i := StdFuncCons + 1; int(i) < len(ret); i++ {
-			_ = walk(ret[i].Body, func(expr Expr) Expr {
-				if fnr, ok := expr.(ExprFuncRef); ok && fnr == aliasdef {
-					aliasdefs[aliasdef] = 1 + aliasdefs[aliasdef]
+	for i := StdFuncCons + 1; int(i) < len(ret); i++ {
+		_ = walk(ret[i].Body, func(expr Expr) Expr {
+			if fnref, ok := expr.(ExprFuncRef); ok {
+				if numrefs, is := aliasdefs[fnref]; numrefs > 0 {
+					delete(aliasdefs, fnref)
+				} else if is {
+					aliasdefs[fnref] = 1
 				}
-				return expr
-			})
-		}
+			}
+			return expr
+		})
 	}
 	if len(aliasdefs) == 0 {
 		return
 	}
-	println("______________________________________-")
-	for aliasdef, numrefs := range aliasdefs {
-		println(numrefs)
-		continue
-		for i := StdFuncCons + 1; int(i) < len(ret); i++ {
-			ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-				if fnr, ok := expr.(ExprFuncRef); ok && fnr == aliasdef {
-					didModify, expr = true, ret[aliasdef].Body
-					for i := 0; i < len(ret[aliasdef].Args); i++ {
+	for i := StdFuncCons + 1; int(i) < len(ret); i++ {
+		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+			if fnref, ok := expr.(ExprFuncRef); ok {
+				if numrefs, is := aliasdefs[fnref]; is && numrefs == 1 {
+					didModify, expr = true, ret[fnref].Body
+					for i := 0; i < len(ret[fnref].Args); i++ {
 						expr = exprAppl{Callee: StdFuncTrue, Arg: expr}
 					}
 				}
-				return expr
-			})
-		}
+			}
+			return expr
+		})
 	}
 	return
 }
@@ -367,7 +391,13 @@ func optimize_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModif
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if _, fnref, numargs, _, _, allargs := dissectCall(expr); fnref != nil {
-				if numargs == 4 || numargs == 6 {
+				if numargs == 1 && *fnref == StdFuncFalse {
+					didModify = true
+					return StdFuncId
+				} else if numargs == 2 && (*fnref == StdFuncTrue || *fnref == StdFuncNil) {
+					didModify = true
+					return allargs[0]
+				} else if numargs == 4 || numargs == 6 {
 					if opcode := OpCode(*fnref); opcode == OpEq || opcode == OpLt || opcode == OpGt {
 						if fnl, _ := allargs[2].(ExprFuncRef); fnl == StdFuncTrue || fnl == StdFuncFalse {
 							if fnr, _ := allargs[3].(ExprFuncRef); fnr == StdFuncTrue || fnr == StdFuncFalse {
@@ -381,12 +411,6 @@ func optimize_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModif
 							}
 						}
 					}
-				} else if numargs == 1 && *fnref == StdFuncFalse {
-					didModify = true
-					return StdFuncId
-				} else if numargs == 2 && (*fnref == StdFuncTrue || *fnref == StdFuncNil) {
-					didModify = true
-					return allargs[0]
 				}
 			}
 			return expr
