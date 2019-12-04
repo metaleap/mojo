@@ -9,6 +9,7 @@ func optimize(src Prog) Prog {
 		again, src = false, fixFuncDefArgsUsageNumbers(src)
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_ditchUnusedFuncDefs,
+			optimize_inlineNaryFuncAliases,
 			optimize_inlineNullaries,
 			optimize_inlineSelectorCalls,
 			optimize_argDropperCalls,
@@ -53,6 +54,37 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 					return expr
 				})
 			}
+		}
+	}
+	return
+}
+
+// lambda-lifting in complex programs may result in lots of func-defs that
+// swallow-discard n args to return merely another func-def. refs to those are
+// rewritten into calls of `StdFuncTrue` (nested if `n>1`) with said func-def
+func optimize_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	var aliasdefs []ExprFuncRef
+	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
+		_, okn := ret[i].Body.(ExprNumInt)
+		if _, okf := ret[i].Body.(ExprFuncRef); okf || okn {
+			aliasdefs = append(aliasdefs, i)
+		}
+	}
+	if len(aliasdefs) == 0 {
+		return
+	}
+	for _, aliasdef := range aliasdefs {
+		for i := StdFuncCons + 1; int(i) < len(ret); i++ {
+			ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+				if fnr, ok := expr.(ExprFuncRef); ok && fnr == aliasdef {
+					didModify, expr = true, ret[aliasdef].Body
+					for i := 0; i < len(ret[aliasdef].Args); i++ {
+						expr = exprAppl{Callee: StdFuncTrue, Arg: expr}
+					}
+				}
+				return expr
+			})
 		}
 	}
 	return

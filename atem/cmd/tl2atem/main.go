@@ -66,6 +66,9 @@ func main() {
 
 	outProg = optimize(outProg)
 	prefixNameMetasWithIdxs()
+	for i := range outProg {
+		outProg[i].Body = convTo(outProg[i].Body)
+	}
 	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(true)), os.ModePerm)
 	println("...done.")
 }

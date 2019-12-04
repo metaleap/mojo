@@ -88,8 +88,9 @@ type (
 	ExprArgRef  int
 	ExprFuncRef int
 	ExprCall    struct {
-		Callee Expr
-		Args   []Expr
+		Callee  Expr
+		Args    []Expr
+		Curried bool
 	}
 )
 

@@ -52,12 +52,12 @@ func LoadFromJson(src []byte) Prog {
 		for _, v := range arrargs {
 			args = append(args, int(v.(float64)))
 		}
-		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[2], int64(len(args))), Meta: meta})
+		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[2], int64(len(args)), nil), Meta: meta})
 	}
 	return me
 }
 
-func exprFromJson(from any, curFnNumArgs int64) Expr {
+func exprFromJson(from any, curFnNumArgs int64, curMeta map[string]any) Expr {
 	switch it := from.(type) {
 	case float64: // number literal
 		return ExprNumInt(int(it))
@@ -77,9 +77,9 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 		if len(it) == 1 { // either func-ref literal..
 			return ExprFuncRef(int(it[0].(float64)))
 		}
-		callee, args := exprFromJson(it[0], curFnNumArgs), make([]Expr, 0, len(it)-1)
+		callee, args := exprFromJson(it[0], curFnNumArgs, nil), make([]Expr, 0, len(it)-1)
 		for i := len(it) - 1; i > 0; i-- {
-			args = append(args, exprFromJson(it[i], curFnNumArgs))
+			args = append(args, exprFromJson(it[i], curFnNumArgs, nil))
 		}
 		if subcall, _ := callee.(*ExprCall); subcall == nil {
 			return &ExprCall{Callee: callee, Args: args}
@@ -87,6 +87,8 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 			subcall.Args = append(args, subcall.Args...)
 			return subcall
 		}
+	case map[string]any:
+		return exprFromJson(it[""], curFnNumArgs, it)
 	}
 	panic(from)
 }

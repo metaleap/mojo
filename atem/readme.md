@@ -61,6 +61,22 @@ var MaxLevel int
 ```
 
 ```go
+var NumCurryPrev int
+```
+
+```go
+var NumCurryUncurry int
+```
+
+```go
+var NumNonSkips int
+```
+
+```go
+var NumSkips int
+```
+
+```go
 var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
@@ -122,8 +138,9 @@ JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
 
 ```go
 type ExprCall struct {
-	Callee Expr
-	Args   []Expr
+	Callee  Expr
+	Args    []Expr
+	Curried bool
 }
 ```
 

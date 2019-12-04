@@ -61,7 +61,7 @@ func main() {
 		panic("Your main FuncDef needs exactly 2 Args but has " + strconv.Itoa(numargs) + ": " + prog[len(prog)-1].JsonSrc(false))
 	}
 	defer func() {
-		println("\n\nInstMaxDepth", MaxLevel)
+		println("\n\nInstMaxDepth", MaxLevel, "\t\tNumCurryUncurry", NumCurryUncurry, "\t\tNumCurryPrev", NumCurryPrev)
 		if thrown := recover(); thrown != nil {
 			if err, ok := thrown.([3]Expr); !ok {
 				panic(thrown)

@@ -19,6 +19,29 @@ type exprAppl struct {
 
 func (me exprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + me.Arg.JsonSrc() + "]" }
 
+func convFrom(expr Expr) Expr {
+	if call, _ := expr.(*ExprCall); call != nil {
+		expr = convFrom(call.Callee)
+		for i := len(call.Args) - 1; i > -1; i-- {
+			expr = exprAppl{Callee: expr, Arg: convFrom(call.Args[i])}
+		}
+	}
+	return expr
+}
+
+func convTo(expr Expr) Expr {
+	if call, ok := expr.(exprAppl); ok {
+		callee := convTo(call.Callee)
+		if subcall, _ := callee.(*ExprCall); subcall != nil {
+			subcall.Args = append([]Expr{convTo(call.Arg)}, subcall.Args...)
+			return subcall
+		} else {
+			return &ExprCall{Callee: callee, Args: []Expr{convTo(call.Arg)}}
+		}
+	}
+	return expr
+}
+
 func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFuncRef, numCallArgs int, numCallArgsThatAreCalls int, numArgRefs int, allArgs []Expr) {
 	for call, okc := expr.(exprAppl); okc; call, okc = call.Callee.(exprAppl) {
 		innerMostCallee, numCallArgs, allArgs = call.Callee, numCallArgs+1, append([]Expr{call.Arg}, allArgs...)
@@ -135,25 +158,8 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 					ret = expr
 				}
 			}()
-			var convto, convfrom func(Expr) Expr
-			convto = func(expr Expr) Expr {
-				if call, ok := expr.(exprAppl); ok {
-					return &ExprCall{Callee: convto(call.Callee), Args: []Expr{convto(call.Arg)}}
-				}
-				return expr
-			}
-			convfrom = func(expr Expr) Expr {
-				if call, _ := expr.(*ExprCall); call != nil {
-					expr = convfrom(call.Callee)
-					for i := len(call.Args) - 1; i > -1; i-- {
-						expr = exprAppl{Callee: expr, Arg: convfrom(call.Args[i])}
-					}
-					// return exprAppl{Callee: convfrom(call.Callee), Arg: convfrom(call.Arg)}
-				}
-				return expr
-			}
 			var hasargref bool // since interpreter is graph-rewriting, instantiating func bodies without a fully filled stack: reject such bodies as a sensible pre-eval result. otherwise, for example list creations would turn into the full, tiny, useless body of Cons etc.
-			ret = convfrom(prog.Eval(convto(ret)))
+			ret = convFrom(prog.Eval(convTo(ret)))
 			_ = walk(ret, func(it Expr) Expr {
 				_, isargref := it.(ExprArgRef)
 				hasargref = hasargref || isargref

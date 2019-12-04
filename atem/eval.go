@@ -71,7 +71,7 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 		}
 		if len(stack) < numargs { // not enough args on stack:
 			if len(stack) > 0 {
-				expr = &ExprCall{Callee: it, Args: stack[:]} // a closure value results
+				NumCurryUncurry, expr = 1+NumCurryUncurry, &ExprCall{Callee: it, Args: stack[:]} // a closure value results
 			}
 			return expr
 		} else if isopcode {
@@ -104,24 +104,48 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 			}
 			return me.eval(expr, stack[:len(stack)-2])
 		} else {
-			return me.eval(exprRewrittenWithArgRefsResolvedToStackEntries(0, me[it].Body, stack), stack[:len(stack)-numargs])
+			return me.eval(me.exprRewrittenWithArgRefsResolvedToStackEntries(0, me[it].Body, me[it].Args, stack), stack[:len(stack)-numargs])
 		}
 	}
 	return expr
 }
 
 var MaxLevel int
+var NumSkips int
+var NumNonSkips int
+var NumCurryPrev int
+var NumCurryUncurry int
 
-func exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Expr, stack []Expr) Expr {
+func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Expr, fnArgs []int, stack []Expr) Expr {
 	if level > MaxLevel {
 		MaxLevel = level
 	}
 	switch it := expr.(type) {
 	case *ExprCall:
 		level++
-		call := &ExprCall{Callee: exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Callee, stack), Args: make([]Expr, len(it.Args))}
-		for i := range it.Args {
-			call.Args[i] = exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Args[i], stack)
+		var fn *FuncDef
+		callee := it.Callee
+		if fnref, okf := callee.(ExprFuncRef); okf && fnref > -1 {
+			fn = &me[fnref]
+		}
+		if fn == nil {
+			callee = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, callee, fnArgs, stack)
+			if fnref, okf := callee.(ExprFuncRef); okf && fnref > -1 {
+				fn = &me[fnref]
+			}
+		}
+		skips, call := false, &ExprCall{Callee: callee, Args: make([]Expr, len(it.Args))}
+		for j, i := 0, len(it.Args)-1; i > -1; j, i = j+1, i-1 {
+			if fn == nil || j >= len(fn.Args) || fn.Args[j] > 0 {
+				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Args[i], fnArgs, stack)
+			} else {
+				skips = true
+			}
+		}
+		if skips {
+			NumSkips++
+		} else {
+			NumNonSkips++
 		}
 		return call
 	case ExprArgRef:
