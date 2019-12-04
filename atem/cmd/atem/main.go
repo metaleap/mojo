@@ -51,7 +51,7 @@ import (
 
 func main() {
 	debug.SetMaxStack(48 * 1024 * 1024 * 1024) // as long as this runs only on my machine... temporary, for a while, until all optimizations have settled and stabilized
-	debug.SetGCPercent(-1)                     // dito
+	// debug.SetGCPercent(-1)                     // dito
 	src, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)
@@ -61,6 +61,7 @@ func main() {
 		panic("Your main FuncDef needs exactly 2 Args but has " + strconv.Itoa(numargs) + ": " + prog[len(prog)-1].JsonSrc(false))
 	}
 	defer func() {
+		println("\n\nInstMaxDepth", MaxLevel)
 		if thrown := recover(); thrown != nil {
 			if err, ok := thrown.([3]Expr); !ok {
 				panic(thrown)
@@ -69,13 +70,11 @@ func main() {
 			}
 		}
 	}()
-	outexpr := prog.Eval(&ExprAppl{ // we start!
-		Callee: &ExprAppl{
-			Callee: ExprFuncRef(len(prog) - 1), // `main` is always last by convention
-			Arg:    ListsFrom(os.Args[2:]),     // first `main` param: list of all process args following `atem inputfile`
-		},
-		Arg: ListsFrom(os.Environ()), // second `main` param: list of all env-vars (list of "FOO=Bar" strings)
-	})
+	outexpr := prog.Eval(&ExprCall{ // we start!
+		Callee: ExprFuncRef(len(prog) - 1), // `main` is always last by convention
+		Args: []Expr{ListsFrom(os.Environ()), // second `main` param: `env`, a list of all env-vars (list of "FOO=Bar" strings)
+			ListsFrom(os.Args[2:]), // first `main` param: `args`, a list of all process args following `atem inputfile`
+		}})
 	outlist := prog.ListOfExprs(outexpr) // forces lazy thunks
 
 	if outbytes := ListToBytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
@@ -89,11 +88,11 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 	if len(retList) == 4 {
 		if fnhandler, okf := retList[0].(ExprFuncRef); okf && fnhandler > StdFuncCons && int(fnhandler) < len(prog)-1 && len(prog[fnhandler].Args) == 2 {
 			if sepchar, oks := retList[1].(ExprNumInt); oks && sepchar > -1 && sepchar < 256 {
-				_, oka := retList[3].(*ExprAppl)
-				if okf, _ := retList[3].(ExprFuncRef); oka || okf == StdFuncNil {
+				_, okc := retList[3].(*ExprCall)
+				if okf, _ := retList[3].(ExprFuncRef); okc || okf == StdFuncNil {
 					if initialoutput := ListToBytes(prog.ListOfExprs(retList[3])); initialoutput != nil {
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
-							retexpr := prog.Eval(&ExprAppl{Callee: &ExprAppl{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
+							retexpr := prog.Eval(&ExprCall{Callee: fnhandler, Args: []Expr{ListFrom(input), prevstate}}) //  &ExprCall{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
 							if retlist := prog.ListOfExprs(retexpr); len(retlist) == 2 {
 								if outlist := prog.ListOfExprs(retlist[1]); outlist != nil {
 									nextstate = retlist[0]

@@ -38,17 +38,16 @@
 // the birthing of _atmo_.
 //
 // SAPL's basics still apply for now: all funcs are top-level (no lambdas or
-// other locals), as such support 0 - n args (rather than all-unary). There
-// are no names: global funcs and, inside them, their args are referred to by
-// integer indices. Thus most expressions are atomic: arg-refs, func-refs,
-// and plain integers. The only non-atomic expression is call / application:
-// it is composed of two sub-expressions, the callee and the arg. Divergences:
-// our func-refs, if negative, denote a binary primitive-instruction op-code
-// such as addition, multiply, equality-testing etc. that is handled natively
-// by the interpreter. Unlike SAPL, our func-refs don't carry around their
-// number-of-args, instead they're looked up in the `Prog`. For applications
-// / calls, likely will move from the current unary style to n-ary, if feasible
-// without breaking partial-application or degrading our overall LoCs aims.
+// other locals), as such support 0 - n args (rather than all-unary as in
+// lambda-calculus-representative source languages). There are no names:
+// global funcs and, inside them, their args are referred to by integer indices.
+// Thus most expressions are atomic: arg-refs, func-refs, and plain integers.
+// The only non-atomic expression is `ExprCall`, made of `Callee` and `Args`.
+// Divergences from SAPL: our calls are n-ary not unary; our func-refs, if
+// negative, denote a binary primitive-instruction op-code such as addition,
+// multiply, equality-testing etc. that is handled natively by the interpreter;
+// our func-refs don't carry around their number-of-args, instead they're
+// looked up together with the `Body` in the `Prog` via the indicated index.
 package atem
 
 import (
@@ -88,11 +87,7 @@ type (
 	ExprNumInt  int
 	ExprArgRef  int
 	ExprFuncRef int
-	ExprAppl    struct {
-		Callee Expr
-		Arg    Expr
-	}
-	exprCall struct {
+	ExprCall    struct {
 		Callee Expr
 		Args   []Expr
 	}
@@ -107,8 +102,13 @@ func (me ExprArgRef) JsonSrc() string { return "\"" + strconv.Itoa(int(-me)-1) +
 // JsonSrc emits the re-`LoadFromJson`able representation of this `ExprFuncRef`.
 func (me ExprFuncRef) JsonSrc() string { return "[" + strconv.Itoa(int(me)) + "]" }
 
-// JsonSrc emits the re-`LoadFromJson`able representation of this `ExprAppl`.
-func (me *ExprAppl) JsonSrc() string { return "[" + me.Callee.JsonSrc() + ", " + me.Arg.JsonSrc() + "]" }
+func (me *ExprCall) JsonSrc() string {
+	ret := "[" + me.Callee.JsonSrc()
+	for i := len(me.Args) - 1; i > -1; i-- {
+		ret += ", " + me.Args[i].JsonSrc()
+	}
+	return ret + "]"
+}
 
 // JsonSrc emits the re-`LoadFromJson`able representation of this `FuncDef`.
 func (me *FuncDef) JsonSrc(dropFuncDefMetas bool) string {

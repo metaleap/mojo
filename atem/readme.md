@@ -43,19 +43,22 @@ various aspects and will continue to evolve various details in tandem with the
 birthing of _atmo_.
 
 SAPL's basics still apply for now: all funcs are top-level (no lambdas or other
-locals), as such support 0 - n args (rather than all-unary). There are no names:
-global funcs and, inside them, their args are referred to by integer indices.
-Thus most expressions are atomic: arg-refs, func-refs, and plain integers. The
-only non-atomic expression is call / application: it is composed of two
-sub-expressions, the callee and the arg. Divergences: our func-refs, if
-negative, denote a binary primitive-instruction op-code such as addition,
-multiply, equality-testing etc. that is handled natively by the interpreter.
-Unlike SAPL, our func-refs don't carry around their number-of-args, instead
-they're looked up in the `Prog`. For applications / calls, likely will move from
-the current unary style to n-ary, if feasible without breaking
-partial-application or degrading our overall LoCs aims.
+locals), as such support 0 - n args (rather than all-unary as in
+lambda-calculus-representative source languages). There are no names: global
+funcs and, inside them, their args are referred to by integer indices. Thus most
+expressions are atomic: arg-refs, func-refs, and plain integers. The only
+non-atomic expression is `ExprCall`, made of `Callee` and `Args`. Divergences
+from SAPL: our calls are n-ary not unary; our func-refs, if negative, denote a
+binary primitive-instruction op-code such as addition, multiply,
+equality-testing etc. that is handled natively by the interpreter; our func-refs
+don't carry around their number-of-args, instead they're looked up together with
+the `Body` in the `Prog` via the indicated index.
 
 ## Usage
+
+```go
+var MaxLevel int
+```
 
 ```go
 var OpPrtDst = os.Stderr.Write
@@ -91,7 +94,7 @@ type Expr interface {
 func ListFrom(str []byte) (ret Expr)
 ```
 ListFrom converts the specified byte string to a linked-list representing a text
-string during `Eval` (via `ExprAppl`s of `StdFuncCons` and `StdFuncNil`).
+string during `Eval` (via `ExprCall`s of `StdFuncCons` and `StdFuncNil`).
 
 #### func  ListsFrom
 
@@ -100,23 +103,6 @@ func ListsFrom(strs []string) (ret Expr)
 ```
 ListsFrom creates from `strs` linked-lists via `ListFrom`, and returns a
 linked-list of those.
-
-#### type ExprAppl
-
-```go
-type ExprAppl struct {
-	Callee Expr
-	Arg    Expr
-}
-```
-
-
-#### func (*ExprAppl) JsonSrc
-
-```go
-func (me *ExprAppl) JsonSrc() string
-```
-JsonSrc emits the re-`LoadFromJson`able representation of this `ExprAppl`.
 
 #### type ExprArgRef
 
@@ -131,6 +117,22 @@ type ExprArgRef int
 func (me ExprArgRef) JsonSrc() string
 ```
 JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
+
+#### type ExprCall
+
+```go
+type ExprCall struct {
+	Callee Expr
+	Args   []Expr
+}
+```
+
+
+#### func (*ExprCall) JsonSrc
+
+```go
+func (me *ExprCall) JsonSrc() string
+```
 
 #### type ExprFuncRef
 
@@ -224,9 +226,9 @@ const (
 	OpMod OpCode = -5
 	// Equality test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
 	OpEq OpCode = -6
-	// Less-than test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	// Less-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
 	OpLt OpCode = -7
-	// Greater-than test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	// Greater-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
 	OpGt OpCode = -8
 	// Writes both `Expr`s (the first one a string-ish `StdFuncCons`tructed linked-list of `ExprNumInt`s) to `OpPrtDst`, result is the right-hand-side `Expr` of the 2 input `Expr` operands
 	OpPrt OpCode = -42
@@ -250,25 +252,35 @@ expected to be: `[ func, func, ... , func ]` where `func` means: ` [ args, body
 ]` where `args` is a numbers array and `body` is the reverse of each concrete
 `Expr` implementer's `JsonSrc` method implementation, meaning: `ExprNumInt` is a
 JSON number, `ExprFuncRef` is a length-1 numbers array, `ExprArgRef` is a JSON
-string parseable into an integer, and `ExprAppl` is a variable length (greater
+string parseable into an integer, and `ExprCall` is a variable length (greater
 than 1) array of any of those possibilities. A `panic` occurs on any sort of
 error encountered from the input `src`.
+
+A note on `ExprCall`s, their `Args` orderings are reversed from the JSON one
+being read in or emitted back out via `JsonSrc()`. Args in the JSON format are
+like in any common notation: `[callee, arg1, arg2, arg3]`, but an `ExprCall`
+created from this will have an `Args` slice of `[arg3, arg2, arg1]` throughout
+its lifetime. Still, its `JsonSrc()` emits the original ordering. If the callee
+is another `ExprCall`, expect a JSON source notation of eg. `[[callee, x, y, z],
+a, b, c]` to turn into a single `ExprCall` with `Args` of [c, b, a, z, y, x], it
+would be re-emitted as `[callee, x, y, z, a, b, c]`. In any event,
+`ExprCall.Args` and `FuncDef.Args` orderings shall be consistent in the JSON
+source code format regardless of these run time re-orderings.
 
 A note on `ExprArgRef`s: these take different forms in the JSON format and at
 runtime. In the former, two intuitive-to-emit styles are supported: if positive
 they denote 0-based indexing such that 0 refers to the `FuncDef`'s first arg, 1
-to the second, 2 to the third etc; if negative, they're translated into this
-just-mentioned positive format by treating them as De Brujin indices, with -1
-referring to the `FuncDef`'s last arg, -2 to the one-before-last, -3 to the
-one-before-one-before-last etc. However at parse time, they're turned into a
+to the second, 2 to the third etc; if negative, they're read with -1 referring
+to the `FuncDef`'s last arg, -2 to the one-before-last, -3 to the
+one-before-one-before-last etc. Both styles at load time are translated into a
 form expected at run time, where 0 turns into -1, 1 into -2, 2 into -3 etc,
-allowing for faster stack accesses in the interpreter. `ExprArgRef.JsonSrc()`
+allowing for smoother stack accesses in the interpreter. `ExprArgRef.JsonSrc()`
 will restore the 0-based indexing form, however.
 
 #### func (Prog) Eq
 
 ```go
-func (me Prog) Eq(expr Expr, cmp Expr, evalAppls bool) bool
+func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool
 ```
 Eq is the fallback for `OpEq` calls with 2 operands that aren't both
 `ExprNumInt`s.
@@ -280,22 +292,23 @@ func (me Prog) Eval(expr Expr) Expr
 ```
 Eval operates thusly:
 
-- encountering an `ExprAppl`, its `Arg` is `append`ed to the `stack` and its
+- encountering an `ExprCall`, its `Args` are `append`ed to the `stack` and its
 `Callee` is then `Eval`'d;
 
 - encountering an `ExprFuncRef`, the `stack` is checked for having the proper
 minimum required `len` with regard to the referenced `FuncDef`'s number of
 `Args`. If okay, the pertinent number of args is taken (and removed) from the
 `stack` and the referenced `FuncDef`'s `Body`, rewritten with all inner
-`ExprArgRef`s (including those inside `ExprAppl`s) resolved to the `stack`
+`ExprArgRef`s (including those inside `ExprCall`s) resolved to the `stack`
 entries, is `Eval`'d (with the appropriately reduced `stack`);
 
 - encountering any other `Expr` type, it is merely returned.
 
 Corner cases for the `ExprFuncRef` situation: if the `stack` has too small a
-`len`, an `ExprAppl` representing the partial application is returned; if the
+`len`, either an `ExprCall` representing the partial-application closure is
+returned, or just the `ExprFuncRef` in case of a totally empty `stack`; if the
 `ExprFuncRef` is negative and thus referring to a primitive-instruction
-`OpCode`, the expected minimum required `len` for the `stack` is 2 and if this
+`OpCode`, 2 is the expected minimum required `len` for the `stack` and if this
 is met, the primitive instruction is carried out, its `Expr` result then being
 `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic` with a
 `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed by both its

@@ -23,9 +23,9 @@ const (
 	OpMod OpCode = -5
 	// Equality test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
 	OpEq OpCode = -6
-	// Less-than test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	// Less-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
 	OpLt OpCode = -7
-	// Greater-than test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	// Greater-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
 	OpGt OpCode = -8
 	// Writes both `Expr`s (the first one a string-ish `StdFuncCons`tructed linked-list of `ExprNumInt`s) to `OpPrtDst`, result is the right-hand-side `Expr` of the 2 input `Expr` operands
 	OpPrt OpCode = -42
@@ -37,22 +37,23 @@ var OpPrtDst = os.Stderr.Write
 
 // Eval operates thusly:
 //
-// - encountering an `ExprAppl`, its `Arg` is `append`ed to the `stack` and
+// - encountering an `ExprCall`, its `Args` are `append`ed to the `stack` and
 // its `Callee` is then `Eval`'d;
 //
 // - encountering an `ExprFuncRef`, the `stack` is checked for having the
 // proper minimum required `len` with regard to the referenced `FuncDef`'s
 // number of `Args`. If okay, the pertinent number of args is taken (and
 // removed) from the `stack` and the referenced `FuncDef`'s `Body`, rewritten
-// with all inner `ExprArgRef`s (including those inside `ExprAppl`s) resolved
+// with all inner `ExprArgRef`s (including those inside `ExprCall`s) resolved
 // to the `stack` entries, is `Eval`'d (with the appropriately reduced `stack`);
 //
 // - encountering  any other `Expr` type, it is merely returned.
 //
-// Corner cases for the `ExprFuncRef` situation: if the `stack` has too small
-// a `len`, an `ExprAppl` representing the partial application is returned;
+// Corner cases for the `ExprFuncRef` situation: if the `stack` has too small a
+// `len`, either an `ExprCall` representing the partial-application closure is
+// returned, or just the `ExprFuncRef` in case of a totally empty `stack`;
 // if the `ExprFuncRef` is negative and thus referring to a primitive-instruction
-// `OpCode`, the expected minimum required `len` for the `stack` is 2 and if
+// `OpCode`, 2 is the expected minimum required `len` for the `stack` and if
 // this is met, the primitive instruction is carried out, its `Expr` result
 // then being `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic`
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
@@ -61,16 +62,16 @@ func (me Prog) Eval(expr Expr) Expr { return me.eval(expr, make([]Expr, 0, 128))
 
 func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
-	case *ExprAppl:
-		return me.eval(it.Callee, append(stack, it.Arg))
+	case *ExprCall:
+		return me.eval(it.Callee, append(stack, it.Args...))
 	case ExprFuncRef:
 		numargs, isopcode := 2, (it < 0)
 		if !isopcode {
 			numargs = len(me[it].Args)
 		}
-		if len(stack) < numargs { // not enough args on stack: a partial-application aka closure
-			for i := len(stack) - 1; i >= 0; i-- {
-				expr = &ExprAppl{expr, stack[i]} // OPT: can keep ref to top-app instead of recreating it from stack
+		if len(stack) < numargs { // not enough args on stack:
+			if len(stack) > 0 {
+				expr = &ExprCall{Callee: it, Args: stack[:]} // a closure value results
 			}
 			return expr
 		} else if isopcode {
@@ -103,16 +104,26 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 			}
 			return me.eval(expr, stack[:len(stack)-2])
 		} else {
-			return me.eval(exprRewrittenWithArgRefsResolvedToStackEntries(me[it].Body, stack), stack[:len(stack)-numargs])
+			return me.eval(exprRewrittenWithArgRefsResolvedToStackEntries(0, me[it].Body, stack), stack[:len(stack)-numargs])
 		}
 	}
 	return expr
 }
 
-func exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack []Expr) Expr {
+var MaxLevel int
+
+func exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Expr, stack []Expr) Expr {
+	if level > MaxLevel {
+		MaxLevel = level
+	}
 	switch it := expr.(type) {
-	case *ExprAppl: // OPT: selector funcs!
-		return &ExprAppl{exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack), exprRewrittenWithArgRefsResolvedToStackEntries(it.Arg, stack)}
+	case *ExprCall:
+		level++
+		call := &ExprCall{Callee: exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Callee, stack), Args: make([]Expr, len(it.Args))}
+		for i := range it.Args {
+			call.Args[i] = exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Args[i], stack)
+		}
+		return call
 	case ExprArgRef:
 		return stack[len(stack)+int(it)]
 	}

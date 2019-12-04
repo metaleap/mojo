@@ -138,13 +138,17 @@ func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
 			var convto, convfrom func(Expr) Expr
 			convto = func(expr Expr) Expr {
 				if call, ok := expr.(exprAppl); ok {
-					return &ExprAppl{Callee: convto(call.Callee), Arg: convto(call.Arg)}
+					return &ExprCall{Callee: convto(call.Callee), Args: []Expr{convto(call.Arg)}}
 				}
 				return expr
 			}
 			convfrom = func(expr Expr) Expr {
-				if call, _ := expr.(*ExprAppl); call != nil {
-					return exprAppl{Callee: convfrom(call.Callee), Arg: convfrom(call.Arg)}
+				if call, _ := expr.(*ExprCall); call != nil {
+					expr = convfrom(call.Callee)
+					for i := len(call.Args) - 1; i > -1; i-- {
+						expr = exprAppl{Callee: expr, Arg: convfrom(call.Args[i])}
+					}
+					// return exprAppl{Callee: convfrom(call.Callee), Arg: convfrom(call.Arg)}
 				}
 				return expr
 			}
