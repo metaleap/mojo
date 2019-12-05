@@ -58,60 +58,56 @@ var OpPrtDst = os.Stderr.Write
 // then being `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic`
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
-func (me Prog) Eval(expr Expr) Expr { MaxStack = 0; return me.eval(expr, make([]Expr, 0, 256), false) }
+func (me Prog) Eval(expr Expr) Expr { return me.eval(expr, make([]Expr, 0, 1024)) }
 
-var MaxStack int
-var NumSkips int
-var NumNonSkips int
-
-func (me Prog) eval(expr Expr, stack []Expr, force bool) Expr {
-	if len(stack) > MaxStack {
-		MaxStack = len(stack)
-	}
-	switch it := expr.(type) {
-	case *ExprCall:
-		return me.eval(it.Callee, append(stack, it.Args...), force)
-	case ExprFuncRef:
-		numargs, isopcode := 2, (it < 0)
-		if !isopcode {
-			numargs = len(me[it].Args)
-		}
-		if len(stack) < numargs { // not enough args on stack:
-			if len(stack) > 0 { // then a closure value results
-				expr = &ExprCall{Callee: it, Args: stack[:]}
+func (me Prog) eval(expr Expr, stack []Expr) Expr {
+	for again := true; again; {
+		again = false
+		switch it := expr.(type) {
+		case *ExprCall:
+			stack = append(stack, it.Args...)
+			again, expr = true, it.Callee
+		case ExprFuncRef:
+			numargs, isopcode := 2, (it < 0)
+			if !isopcode {
+				numargs = len(me[it].Args)
 			}
-			return expr
-		} else if isopcode {
-			lhs, rhs := me.eval(stack[len(stack)-1], nil, true), me.eval(stack[len(stack)-2], nil, true)
-			switch opcode := OpCode(it); opcode {
-			case OpAdd:
-				expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-			case OpSub:
-				expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-			case OpMul:
-				expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-			case OpDiv:
-				expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
-			case OpMod:
-				expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-			case OpEq:
-				if expr = StdFuncFalse; me.Eq(lhs, rhs, true) {
-					expr = StdFuncTrue
+			if len(stack) < numargs { // not enough args on stack:
+				if len(stack) > 0 { // then a closure value results
+					expr = &ExprCall{Callee: it, Args: stack}
 				}
-			case OpGt, OpLt:
-				lt, l, r := (opcode == OpLt), lhs.(ExprNumInt), rhs.(ExprNumInt)
-				if expr = StdFuncFalse; (lt && l < r) || ((!lt) && l > r) {
-					expr = StdFuncTrue
+			} else if isopcode {
+				lhs, rhs := me.eval(stack[len(stack)-1], nil), me.eval(stack[len(stack)-2], nil)
+				switch opcode := OpCode(it); opcode {
+				case OpAdd:
+					expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
+				case OpSub:
+					expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
+				case OpMul:
+					expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+				case OpDiv:
+					expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
+				case OpMod:
+					expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
+				case OpEq:
+					if expr = StdFuncFalse; me.Eq(lhs, rhs, true) {
+						expr = StdFuncTrue
+					}
+				case OpGt, OpLt:
+					lt, l, r := (opcode == OpLt), lhs.(ExprNumInt), rhs.(ExprNumInt)
+					if expr = StdFuncFalse; (lt && l < r) || ((!lt) && l > r) {
+						expr = StdFuncTrue
+					}
+				case OpPrt:
+					expr = rhs
+					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
+				default:
+					panic([3]Expr{it, lhs, rhs})
 				}
-			case OpPrt:
-				expr = rhs
-				_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
-			default:
-				panic([3]Expr{it, lhs, rhs})
+				again, stack = true, stack[:len(stack)-2]
+			} else {
+				again, stack, expr = true, stack[:len(stack)-numargs], me.exprRewrittenWithArgRefsResolvedToStackEntries(me[it].Body, stack)
 			}
-			return me.eval(expr, stack[:len(stack)-2], force)
-		} else {
-			return me.eval(me.exprRewrittenWithArgRefsResolvedToStackEntries(me[it].Body, stack), stack[:len(stack)-numargs], force)
 		}
 	}
 	return expr
@@ -125,20 +121,6 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack [
 		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)}
 		for i := len(it.Args) - 1; i > -1; i-- {
 			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Args[i], stack)
-		}
-		return call
-	}
-	return expr
-}
-
-func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntriesRec(expr Expr, stack []Expr) Expr {
-	switch it := expr.(type) {
-	case ExprArgRef:
-		return stack[len(stack)+int(it)]
-	case *ExprCall:
-		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: me.exprRewrittenWithArgRefsResolvedToStackEntriesRec(it.Callee, stack)}
-		for i := len(it.Args) - 1; i > -1; i-- {
-			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntriesRec(it.Args[i], stack)
 		}
 		return call
 	}

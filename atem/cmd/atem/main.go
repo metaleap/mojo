@@ -43,15 +43,14 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"runtime/debug"
 	"strconv"
 
 	. "github.com/metaleap/atmo/atem"
 )
 
 func main() {
-	debug.SetMaxStack(48 * 1024 * 1024 * 1024) // as long as this runs only on my machine... temporary, for a while, until all optimizations have settled and stabilized
-	// debug.SetGCPercent(-1)                     // dito
+	// debug.SetMaxStack(48 * 1024 * 1024 * 1024)
+	// debug.SetGCPercent(-1)
 	src, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)
@@ -61,7 +60,6 @@ func main() {
 		panic("Your main FuncDef needs exactly 2 Args but has " + strconv.Itoa(numargs) + ": " + prog[len(prog)-1].JsonSrc(false))
 	}
 	defer func() {
-		println("\n\nMaxStack", MaxStack, "\tNumSkips", NumSkips, "\tNumNonSkips", NumNonSkips)
 		if thrown := recover(); thrown != nil {
 			if err, ok := thrown.([3]Expr); !ok {
 				panic(thrown)

@@ -57,18 +57,6 @@ the `Body` in the `Prog` via the indicated index.
 ## Usage
 
 ```go
-var MaxStack int
-```
-
-```go
-var NumNonSkips int
-```
-
-```go
-var NumSkips int
-```
-
-```go
 var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
