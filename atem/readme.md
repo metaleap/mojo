@@ -65,11 +65,11 @@ var NumCurryPrev int
 ```
 
 ```go
-var NumCurryUncurry int
+var NumNonSkips int
 ```
 
 ```go
-var NumNonSkips int
+var NumReCurry int
 ```
 
 ```go

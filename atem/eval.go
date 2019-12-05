@@ -74,8 +74,8 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 			numargs = len(me[it].Args)
 		}
 		if len(stack) < numargs { // not enough args on stack:
-			if len(stack) > 0 {
-				NumCurryUncurry, expr = 1+NumCurryUncurry, &ExprCall{Curried: numargs - len(stack), Callee: it, Args: stack[:]} // a closure value results
+			if len(stack) > 0 { // then a closure value results
+				NumReCurry, expr = 1+NumReCurry, &ExprCall{Curried: numargs - len(stack), Callee: it, Args: stack[:]}
 			}
 			return expr
 		} else if isopcode {
@@ -118,13 +118,15 @@ var MaxLevel int
 var NumSkips int
 var NumNonSkips int
 var NumCurryPrev int
-var NumCurryUncurry int
+var NumReCurry int
 
 func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Expr, fnArgs []int, stack []Expr) Expr {
 	if level > MaxLevel {
 		MaxLevel = level
 	}
 	switch it := expr.(type) {
+	case ExprArgRef:
+		return stack[len(stack)+int(it)]
 	case *ExprCall:
 		level++
 		var fn *FuncDef
@@ -157,8 +159,6 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Ex
 			NumNonSkips++
 		}
 		return call
-	case ExprArgRef:
-		return stack[len(stack)+int(it)]
 	}
 	return expr
 }
