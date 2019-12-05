@@ -12,14 +12,14 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 		case *ExprCall:
 			if that, ok := cmp.(*ExprCall); ok {
 				if evalCallNodes {
-					ok = me.Eq(me.eval(it.Callee, nil), me.eval(that.Callee, nil), true)
+					ok = me.Eq(me.eval(it.Callee, nil, false), me.eval(that.Callee, nil, false), true)
 				} else {
 					ok = me.Eq(it.Callee, that.Callee, false)
 				}
 				if ok = ok && len(it.Args) == len(that.Args); ok {
 					for i := 0; ok && i < len(it.Args) && i < len(that.Args); i++ {
 						if evalCallNodes {
-							ok = me.Eq(me.eval(it.Args[i], nil), me.eval(that.Args[i], nil), true)
+							ok = me.Eq(me.eval(it.Args[i], nil, false), me.eval(that.Args[i], nil, false), true)
 						} else {
 							ok = me.Eq(it.Args[i], that.Args[i], false)
 						}
@@ -53,9 +53,9 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 		} else if call, _ := next.(*ExprCall); call != nil && len(call.Args) >= 2 {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
 				for i := len(call.Args) - 1; i > 0; i-- {
-					ret = append(ret, me.eval(call.Args[i], nil))
+					ret = append(ret, me.eval(call.Args[i], nil, false))
 				}
-				ok, next = true, me.eval(call.Args[0], nil)
+				ok, next = true, me.eval(call.Args[0], nil, true)
 			}
 		}
 		if !ok {

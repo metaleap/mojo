@@ -141,41 +141,30 @@ func rewriteInnerMostCallee(expr exprAppl, rewriter func(Expr) Expr) exprAppl {
 	return expr
 }
 
-func tryEval(prog Prog, expr Expr, checkForArgRefs bool) (ret Expr) {
+func tryEval(prog Prog, expr Expr, preCheckForArgRefs bool) (ret Expr) {
 	ret = expr
-	if call, ok := expr.(exprAppl); ok {
-		ok2try := true
-		if checkForArgRefs {
-			_ = walk(call, func(it Expr) Expr {
-				_, isargref := it.(ExprArgRef)
-				ok2try = ok2try && !isargref
+	if _, ok := expr.(exprAppl); ok {
+		checkforargrefs := func() {
+			_ = walk(ret, func(it Expr) Expr {
+				if _, isargref := it.(ExprArgRef); isargref {
+					panic(it) // `recover`ed, see below
+				}
 				return it
 			})
 		}
-		if ok2try {
-			defer func() {
-				if recover() != nil {
-					ret = expr
-				}
-			}()
-			var hasargref bool // since interpreter is graph-rewriting, instantiating func bodies without a fully filled stack: reject such bodies as a sensible pre-eval result. otherwise, for example list creations would turn into the full, tiny, useless body of Cons etc.
-			ret = prog.Eval(convTo(ret))
-			dbg := -1
-			if call, _ := ret.(*ExprCall); call != nil {
-				dbg = call.Curried
-			}
-			ret = convFrom(ret)
-			_ = walk(ret, func(it Expr) Expr {
-				_, isargref := it.(ExprArgRef)
-				hasargref = hasargref || isargref
-				return it
-			})
-			if hasargref {
-				ret = expr
-			} else if dbg >= 0 && !eq(prog, expr, ret) {
-				println(dbg, "FROM", expr.JsonSrc(), "TO", ret.JsonSrc())
+		defer func() {
+			if recover() != nil {
 				ret = expr
 			}
+		}()
+		if preCheckForArgRefs {
+			checkforargrefs()
+		}
+		ret = prog.Eval(convTo(ret))
+		ret = convFrom(ret)
+		checkforargrefs()
+		if !eq(prog, expr, ret) {
+			println("EVALD", expr.JsonSrc(), "\tTO\t", ret.JsonSrc())
 		}
 	}
 	return

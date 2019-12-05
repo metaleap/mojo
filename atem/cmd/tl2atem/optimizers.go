@@ -150,7 +150,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 			nullaries[i], caninlinealways[i] = 0, numargs == 0 || numargcalls == 0
 		}
 	}
-	if len(nullaries) == 0 {
+	if didModify || len(nullaries) == 0 {
 		return
 	}
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
@@ -163,7 +163,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 			return expr
 		})
 	}
-	for i := int(StdFuncCons + 1); i < len(ret); i++ {
+	for i := int(StdFuncCons + 1); i < len(ret) && !didModify; i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
 				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {

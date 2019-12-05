@@ -61,15 +61,11 @@ var MaxLevel int
 ```
 
 ```go
-var NumCurryPrev int
+var MaxStack int
 ```
 
 ```go
 var NumNonSkips int
-```
-
-```go
-var NumReCurry int
 ```
 
 ```go
@@ -138,9 +134,8 @@ JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
 
 ```go
 type ExprCall struct {
-	Callee  Expr
-	Args    []Expr
-	Curried int
+	Callee Expr
+	Args   []Expr
 }
 ```
 

@@ -58,16 +58,20 @@ var OpPrtDst = os.Stderr.Write
 // then being `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic`
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
-func (me Prog) Eval(expr Expr) Expr { return me.eval(expr, make([]Expr, 0, 128)) }
+func (me Prog) Eval(expr Expr) Expr { MaxStack = 0; return me.eval(expr, make([]Expr, 0, 256), false) }
 
-func (me Prog) eval(expr Expr, stack []Expr) Expr {
+var MaxStack int
+var MaxLevel int
+var NumSkips int
+var NumNonSkips int
+
+func (me Prog) eval(expr Expr, stack []Expr, force bool) Expr {
+	if len(stack) > MaxStack {
+		MaxStack = len(stack)
+	}
 	switch it := expr.(type) {
 	case *ExprCall:
-		if len(stack) >= it.Curried {
-			return me.eval(it.Callee, append(stack, it.Args...))
-		} else {
-			NumCurryPrev++
-		}
+		return me.eval(it.Callee, append(stack, it.Args...), force)
 	case ExprFuncRef:
 		numargs, isopcode := 2, (it < 0)
 		if !isopcode {
@@ -75,11 +79,11 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 		}
 		if len(stack) < numargs { // not enough args on stack:
 			if len(stack) > 0 { // then a closure value results
-				NumReCurry, expr = 1+NumReCurry, &ExprCall{Curried: numargs - len(stack), Callee: it, Args: stack[:]}
+				expr = &ExprCall{Callee: it, Args: stack[:]}
 			}
 			return expr
 		} else if isopcode {
-			lhs, rhs := me.eval(stack[len(stack)-1], nil), me.eval(stack[len(stack)-2], nil)
+			lhs, rhs := me.eval(stack[len(stack)-1], nil, true), me.eval(stack[len(stack)-2], nil, true)
 			switch opcode := OpCode(it); opcode {
 			case OpAdd:
 				expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
@@ -106,21 +110,15 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 			default:
 				panic([3]Expr{it, lhs, rhs})
 			}
-			return me.eval(expr, stack[:len(stack)-2])
+			return me.eval(expr, stack[:len(stack)-2], force)
 		} else {
-			return me.eval(me.exprRewrittenWithArgRefsResolvedToStackEntries(0, me[it].Body, me[it].Args, stack), stack[:len(stack)-numargs])
+			return me.eval(me.exprRewrittenWithArgRefsResolvedToStackEntries(0, me[it].Body, stack), stack[:len(stack)-numargs], force)
 		}
 	}
 	return expr
 }
 
-var MaxLevel int
-var NumSkips int
-var NumNonSkips int
-var NumCurryPrev int
-var NumReCurry int
-
-func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Expr, fnArgs []int, stack []Expr) Expr {
+func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Expr, stack []Expr) Expr {
 	if level > MaxLevel {
 		MaxLevel = level
 	}
@@ -135,20 +133,15 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Ex
 			fn = &me[fnref]
 		}
 		if fn == nil {
-			callee = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, callee, fnArgs, stack)
+			callee = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, callee, stack)
 			if fnref, okf := callee.(ExprFuncRef); okf && fnref > -1 {
 				fn = &me[fnref]
 			}
 		}
-		skips, call := false, &ExprCall{Curried: it.Curried, Callee: callee, Args: make([]Expr, len(it.Args))}
-		if fn != nil {
-			if diff := len(fn.Args) - len(call.Args); diff > 0 && it.Curried > 0 && diff != it.Curried {
-				println(it.Curried, "VS", diff)
-			}
-		}
+		skips, call := false, &ExprCall{Callee: callee, Args: make([]Expr, len(it.Args))}
 		for j, i := 0, len(it.Args)-1; i > -1; j, i = j+1, i-1 {
 			if fn == nil || j >= len(fn.Args) || fn.Args[j] > 0 {
-				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Args[i], fnArgs, stack)
+				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Args[i], stack)
 			} else {
 				skips = true
 			}

@@ -77,19 +77,14 @@ func exprFromJson(from any, curFnNumArgs int64, curMeta map[string]any) Expr {
 		if len(it) == 1 { // either func-ref literal..
 			return ExprFuncRef(int(it[0].(float64)))
 		}
-		curried, callee, args := 0, exprFromJson(it[0], curFnNumArgs, nil), make([]Expr, 0, len(it)-1)
-		if curMeta != nil {
-			if fval, ok := curMeta["c"]; ok {
-				curried = int(fval.(float64))
-			}
-		}
+		callee, args := exprFromJson(it[0], curFnNumArgs, nil), make([]Expr, 0, len(it)-1)
 		for i := len(it) - 1; i > 0; i-- {
 			args = append(args, exprFromJson(it[i], curFnNumArgs, nil))
 		}
 		if subcall, _ := callee.(*ExprCall); subcall == nil {
-			return &ExprCall{Callee: callee, Args: args, Curried: curried}
+			return &ExprCall{Callee: callee, Args: args}
 		} else {
-			subcall.Curried, subcall.Args = curried, append(args, subcall.Args...)
+			subcall.Args = append(args, subcall.Args...)
 			return subcall
 		}
 	case map[string]any:

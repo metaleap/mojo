@@ -88,9 +88,8 @@ type (
 	ExprArgRef  int
 	ExprFuncRef int
 	ExprCall    struct {
-		Callee  Expr
-		Args    []Expr
-		Curried int
+		Callee Expr
+		Args   []Expr
 	}
 )
 
@@ -109,9 +108,6 @@ func (me *ExprCall) JsonSrc() string {
 		ret += ", " + me.Args[i].JsonSrc()
 	}
 	ret += "]"
-	if me.Curried > 0 {
-		return "{\"c\":" + strconv.Itoa(me.Curried) + ",\"\":" + ret + "}"
-	}
 	return ret
 }
 
