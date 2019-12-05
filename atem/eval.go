@@ -61,7 +61,6 @@ var OpPrtDst = os.Stderr.Write
 func (me Prog) Eval(expr Expr) Expr { MaxStack = 0; return me.eval(expr, make([]Expr, 0, 256), false) }
 
 var MaxStack int
-var MaxLevel int
 var NumSkips int
 var NumNonSkips int
 
@@ -112,44 +111,34 @@ func (me Prog) eval(expr Expr, stack []Expr, force bool) Expr {
 			}
 			return me.eval(expr, stack[:len(stack)-2], force)
 		} else {
-			return me.eval(me.exprRewrittenWithArgRefsResolvedToStackEntries(0, me[it].Body, stack), stack[:len(stack)-numargs], force)
+			return me.eval(me.exprRewrittenWithArgRefsResolvedToStackEntries(me[it].Body, stack), stack[:len(stack)-numargs], force)
 		}
 	}
 	return expr
 }
 
-func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(level int, expr Expr, stack []Expr) Expr {
-	if level > MaxLevel {
-		MaxLevel = level
-	}
+func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
 	case ExprArgRef:
 		return stack[len(stack)+int(it)]
 	case *ExprCall:
-		level++
-		var fn *FuncDef
-		callee := it.Callee
-		if fnref, okf := callee.(ExprFuncRef); okf && fnref > -1 {
-			fn = &me[fnref]
+		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)}
+		for i := len(it.Args) - 1; i > -1; i-- {
+			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Args[i], stack)
 		}
-		if fn == nil {
-			callee = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, callee, stack)
-			if fnref, okf := callee.(ExprFuncRef); okf && fnref > -1 {
-				fn = &me[fnref]
-			}
-		}
-		skips, call := false, &ExprCall{Callee: callee, Args: make([]Expr, len(it.Args))}
-		for j, i := 0, len(it.Args)-1; i > -1; j, i = j+1, i-1 {
-			if fn == nil || j >= len(fn.Args) || fn.Args[j] > 0 {
-				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(level, it.Args[i], stack)
-			} else {
-				skips = true
-			}
-		}
-		if skips {
-			NumSkips++
-		} else {
-			NumNonSkips++
+		return call
+	}
+	return expr
+}
+
+func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntriesRec(expr Expr, stack []Expr) Expr {
+	switch it := expr.(type) {
+	case ExprArgRef:
+		return stack[len(stack)+int(it)]
+	case *ExprCall:
+		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: me.exprRewrittenWithArgRefsResolvedToStackEntriesRec(it.Callee, stack)}
+		for i := len(it.Args) - 1; i > -1; i-- {
+			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntriesRec(it.Args[i], stack)
 		}
 		return call
 	}

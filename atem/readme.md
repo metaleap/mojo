@@ -57,10 +57,6 @@ the `Body` in the `Prog` via the indicated index.
 ## Usage
 
 ```go
-var MaxLevel int
-```
-
-```go
 var MaxStack int
 ```
 
