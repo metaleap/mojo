@@ -57,6 +57,10 @@ the `Body` in the `Prog` via the indicated index.
 ## Usage
 
 ```go
+var NumDrops int
+```
+
+```go
 var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
@@ -120,6 +124,7 @@ JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
 type ExprCall struct {
 	Callee Expr
 	Args   []Expr
+	SelFn  ExprFuncRef
 }
 ```
 

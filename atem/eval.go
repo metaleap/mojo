@@ -113,14 +113,46 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	return expr
 }
 
+const funcselectors bool = true
+
+var NumDrops int
+
 func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
 	case ExprArgRef:
 		return stack[len(stack)+int(it)]
 	case *ExprCall:
-		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)}
-		for i := len(it.Args) - 1; i > -1; i-- {
-			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Args[i], stack)
+		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)
+		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: callee}
+		copy(call.Args, it.Args)
+		if !funcselectors {
+			for i := len(call.Args) - 1; i > -1; i-- {
+				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(call.Args[i], stack)
+			}
+		} else {
+			fnr, okf := callee.(ExprFuncRef)
+			var fdiff int
+			if !okf {
+				if subcall, okc := callee.(*ExprCall); okc {
+					if fnr, _ = subcall.Callee.(ExprFuncRef); fnr > 0 {
+						fdiff = len(subcall.Args)
+					}
+				}
+			}
+			if fnr > 0 && (len(me[fnr].Args) == fdiff+len(call.Args)) {
+				for j, i := len(me[fnr].Args)-len(call.Args), len(call.Args)-1; i > -1; j, i = j+1, i-1 {
+					if me[fnr].Args[j] != 0 {
+						call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(call.Args[i], stack)
+					} else {
+						NumDrops++
+					}
+				}
+			} else {
+
+				for i := len(call.Args) - 1; i > -1; i-- {
+					call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(call.Args[i], stack)
+				}
+			}
 		}
 		return call
 	}

@@ -90,6 +90,7 @@ type (
 	ExprCall    struct {
 		Callee Expr
 		Args   []Expr
+		SelFn  ExprFuncRef
 	}
 )
 
