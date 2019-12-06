@@ -63,12 +63,13 @@ var OpPrtDst = os.Stderr.Write
 func (me Prog) Eval(expr Expr) Expr { return me.eval(expr, make([]Expr, 0, 1024)) }
 
 func (me Prog) eval(expr Expr, stack []Expr) Expr {
+	var lastcall *ExprCall
 	for again := true; again; {
 		again = false
 		switch it := expr.(type) {
 		case *ExprCall:
 			stack = append(stack, it.Args...)
-			again, expr = true, it.Callee
+			again, expr, lastcall = true, it.Callee, it
 		case ExprFuncRef:
 			numargs, isopcode := 2, (it < 0)
 			if !isopcode {
@@ -76,7 +77,11 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 			}
 			if len(stack) < numargs { // not enough args on stack:
 				if len(stack) > 0 { // then a closure value results
-					expr = &ExprCall{Callee: it, Args: stack}
+					if len(stack) > len(lastcall.Args) {
+						expr, lastcall = &ExprCall{Callee: it, Args: stack}, nil
+					} else {
+						expr, lastcall = lastcall, nil
+					}
 				}
 			} else if isopcode {
 				lhs, rhs := me.eval(stack[len(stack)-1], nil), me.eval(stack[len(stack)-2], nil)
