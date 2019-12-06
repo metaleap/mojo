@@ -76,9 +76,10 @@ type (
 		// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
 		// `Body` references this arg (note that the interpreter does not currently
 		// use this info), the arg's "identity" however is just its index in `Args`
-		Args []int
-		Body Expr
-		Meta []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
+		Args        []int
+		Body        Expr
+		Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
+		AllArgsUsed bool
 	}
 	Expr interface {
 		// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.
@@ -90,7 +91,6 @@ type (
 	ExprCall    struct {
 		Callee Expr
 		Args   []Expr
-		SelFn  ExprFuncRef
 	}
 )
 

@@ -57,10 +57,6 @@ the `Body` in the `Prog` via the indicated index.
 ## Usage
 
 ```go
-var NumDrops int
-```
-
-```go
 var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
@@ -124,7 +120,6 @@ JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
 type ExprCall struct {
 	Callee Expr
 	Args   []Expr
-	SelFn  ExprFuncRef
 }
 ```
 
@@ -188,9 +183,10 @@ type FuncDef struct {
 	// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
 	// `Body` references this arg (note that the interpreter does not currently
 	// use this info), the arg's "identity" however is just its index in `Args`
-	Args []int
-	Body Expr
-	Meta []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
+	Args        []int
+	Body        Expr
+	Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
+	AllArgsUsed bool
 }
 ```
 

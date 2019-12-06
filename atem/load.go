@@ -43,16 +43,18 @@ func LoadFromJson(src []byte) Prog {
 	}
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
-		meta, arrargs, args := []string{}, it[1].([]any), make([]int, 0, 0)
+		meta, allused, arrargs, args := []string{}, true, it[1].([]any), make([]int, 0, 0)
 		if metarr, _ := it[0].([]any); len(metarr) > 0 {
 			for _, mstr := range metarr {
 				meta = append(meta, mstr.(string))
 			}
 		}
-		for _, v := range arrargs {
-			args = append(args, int(v.(float64)))
+		for i, v := range arrargs {
+			if args = append(args, int(v.(float64))); 0 == args[i] {
+				allused = false
+			}
 		}
-		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[2], int64(len(args)), nil), Meta: meta})
+		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[2], int64(len(args)), nil), Meta: meta, AllArgsUsed: allused})
 	}
 	return me
 }

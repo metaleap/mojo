@@ -113,9 +113,20 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	return expr
 }
 
-const funcselectors bool = true
-
-var NumDrops int
+func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(expr Expr, stack []Expr) Expr {
+	switch it := expr.(type) {
+	case ExprArgRef:
+		return stack[len(stack)+int(it)]
+	case *ExprCall:
+		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Callee, stack)
+		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: callee}
+		for i := len(call.Args) - 1; i > -1; i-- {
+			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Args[i], stack)
+		}
+		return call
+	}
+	return expr
+}
 
 func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
@@ -123,35 +134,22 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack [
 		return stack[len(stack)+int(it)]
 	case *ExprCall:
 		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)
-		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: callee}
-		copy(call.Args, it.Args)
-		if !funcselectors {
-			for i := len(call.Args) - 1; i > -1; i-- {
-				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(call.Args[i], stack)
-			}
-		} else {
-			fnr, okf := callee.(ExprFuncRef)
-			var fdiff int
-			if !okf {
-				if subcall, okc := callee.(*ExprCall); okc {
-					if fnr, _ = subcall.Callee.(ExprFuncRef); fnr > 0 {
-						fdiff = len(subcall.Args)
-					}
+		arsgdiff, call := 0, &ExprCall{Args: make([]Expr, len(it.Args)), Callee: callee}
+		fnref, okf := callee.(ExprFuncRef)
+		if !okf {
+			if subcall, okc := callee.(*ExprCall); okc {
+				if fnref, _ = subcall.Callee.(ExprFuncRef); fnref > 0 {
+					arsgdiff = len(subcall.Args)
 				}
 			}
-			if fnr > 0 && (len(me[fnr].Args) == fdiff+len(call.Args)) {
-				for j, i := len(me[fnr].Args)-len(call.Args), len(call.Args)-1; i > -1; j, i = j+1, i-1 {
-					if me[fnr].Args[j] != 0 {
-						call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(call.Args[i], stack)
-					} else {
-						NumDrops++
-					}
-				}
-			} else {
-
-				for i := len(call.Args) - 1; i > -1; i-- {
-					call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(call.Args[i], stack)
-				}
+		}
+		jmax, neverdrop := -1, fnref <= 0 || me[fnref].AllArgsUsed
+		if fnref >= 0 {
+			jmax = len(me[fnref].Args) - 1
+		}
+		for j, i := arsgdiff, len(call.Args)-1; i > -1; j, i = j+1, i-1 {
+			if neverdrop || j > jmax || me[fnref].Args[j] != 0 {
+				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Args[i], stack)
 			}
 		}
 		return call

@@ -10,7 +10,7 @@
 		["3", "0", "1"] ]
 , [ ["[5]appdemo.readln.onInput","prevstate","inputLn"], [1,2],
 		[[4], ["1", [0], [[6], "0"]], [[4], [[7], [3], [[4], 10, "1"]], [3]]] ]
-, [ ["[6]appdemo.readln.onInput//lcl:nextstate0//lam://0//1087161","prevstate","//0//1087","//1//1088"], [1,0,0],
+, [ ["[6]appdemo.readln.onInput//lcl:nextstate0//lam://0//700161","prevstate","//0//700","//1//701"], [1,0,0],
 		"0" ]
 , [ ["[7]std.list.reversed//lcl:more0","acc","l"], [2,1],
 		["1", "0", [[8], "0"]] ]

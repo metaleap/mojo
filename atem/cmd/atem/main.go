@@ -60,7 +60,6 @@ func main() {
 		panic("Your main FuncDef needs exactly 2 Args but has " + strconv.Itoa(numargs) + ": " + prog[len(prog)-1].JsonSrc(false))
 	}
 	defer func() {
-		println("ND", NumDrops)
 		if thrown := recover(); thrown != nil {
 			if err, ok := thrown.([3]Expr); !ok {
 				panic(thrown)
