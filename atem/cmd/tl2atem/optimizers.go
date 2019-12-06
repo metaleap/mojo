@@ -215,7 +215,7 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// inlines a FuncDef into a call site if the latter is the only reference to the former, and provides enough args, and no arg is used more than once in the orig def's body
+// inlines a FuncDef into a call site if the latter is the only reference to the former, and supplies enough args, and no supplied non-atomic arg is used more than once in the orig def's body
 func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	refs := make(map[ExprFuncRef]map[ExprFuncRef]int, 32)
@@ -236,30 +236,33 @@ func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 		})
 	}
 	for fn, referencers := range refs {
-		could := (1 == len(referencers))
-		if could {
-			for _, argused := range ret[fn].Args {
-				if could = (argused <= 1); !could {
-					break
-				}
-			}
-		}
-		if could {
+		if 1 == len(referencers) { // fn referenced only in 1 FuncDef
 			for referencer, numrefs := range referencers {
-				if numrefs == 1 {
+				if numrefs == 1 { // fn referenced only once in 1 FuncDef
 					ret[referencer].Body = walk(ret[referencer].Body, func(expr Expr) Expr {
 						if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == fn && len(allargs) == len(ret[fn].Args) {
-							didModify, expr = true, walk(walk(ret[fn].Body, func(it Expr) Expr {
-								if argref, is := it.(ExprArgRef); is {
-									return exprTmp(argref)
+							could := true
+							for aidx, numargused := range ret[fn].Args {
+								if numargused > 1 {
+									if _, ok := allargs[aidx].(exprAppl); ok {
+										could = false
+										break
+									}
 								}
-								return it
-							}), func(it Expr) Expr {
-								if tmp, is := it.(exprTmp); is && tmp < 0 {
-									return allargs[(-tmp)-1]
-								}
-								return it
-							})
+							}
+							if could {
+								didModify, expr = true, walk(walk(ret[fn].Body, func(it Expr) Expr {
+									if argref, is := it.(ExprArgRef); is {
+										return exprTmp(argref)
+									}
+									return it
+								}), func(it Expr) Expr {
+									if tmp, is := it.(exprTmp); is && tmp < 0 {
+										return allargs[(-tmp)-1]
+									}
+									return it
+								})
+							}
 						}
 						return expr
 					})

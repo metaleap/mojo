@@ -57,6 +57,10 @@ the `Body` in the `Prog` via the indicated index.
 ## Usage
 
 ```go
+var NumDrops int
+```
+
+```go
 var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
@@ -287,7 +291,7 @@ Eq is the fallback for `OpEq` calls with 2 operands that aren't both
 ```go
 func (me Prog) Eval(expr Expr) Expr
 ```
-Eval operates thusly:
+Eval operates thusly, keeping an internal `stack` of `[]Expr`:
 
 - encountering an `ExprCall`, its `Args` are `append`ed to the `stack` and its
 `Callee` is then `Eval`'d;
@@ -299,7 +303,9 @@ minimum required `len` with regard to the referenced `FuncDef`'s number of
 `ExprArgRef`s (including those inside `ExprCall`s) resolved to the `stack`
 entries, is `Eval`'d (with the appropriately reduced `stack`);
 
-- encountering any other `Expr` type, it is merely returned.
+- encountering any other `Expr` type, it is merely returned if the `stack` is
+empty, else a `panic` with the `stack` signals that from the input `expr` a
+non-callable value ended up as the callee of an `ExprCall`.
 
 Corner cases for the `ExprFuncRef` situation: if the `stack` has too small a
 `len`, either an `ExprCall` representing the partial-application closure is

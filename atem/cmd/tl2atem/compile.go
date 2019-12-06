@@ -89,6 +89,30 @@ func compileTopDef(name string) int {
 		result := &outProg[idx]
 		curfuncsargs, body := dissectFunc(topdef)
 		result.Args = make([]int, len(curfuncsargs))
+		for again := true; again; {
+			again = false
+			for i, local := range locals {
+				if _, isfunc := local.Expr.(*tl.ExprFunc); !isfunc {
+					_, iscall := local.Expr.(*tl.ExprCall)
+					numref := body.ReplaceName(local.Name, local.Name)
+					for j := 0; j < i; j++ {
+						numref += locals[j].ReplaceName(local.Name, local.Name)
+					}
+					if numref > 0 {
+						if numref == 1 || !iscall {
+							body = body.RewriteName(local.Name, local.Expr)
+							for j := 0; j < i; j++ {
+								locals[j].Expr = locals[j].Expr.RewriteName(local.Name, local.Expr)
+							}
+							locals = append(locals[:i], locals[i+1:]...)
+							again = true
+						} else {
+							println(name, "\t", numref, "shared uses of argless local:\t", local.Name)
+						}
+					}
+				}
+			}
+		}
 		for i, f := range curfuncsargs {
 			result.Meta = append(result.Meta, f.ArgName)
 			result.Args[i] = body.ReplaceName(f.ArgName, f.ArgName) // just counts occurrences
