@@ -78,7 +78,8 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 			if len(stack) < numargs { // not enough args on stack:
 				if len(stack) > 0 { // then a closure value results
 					if len(stack) > len(lastcall.Args) {
-						expr, lastcall = &ExprCall{Callee: it, Args: stack}, nil
+						NumDrops++
+						expr, lastcall = &ExprCall{noArgRefs: lastcall.noArgRefs, Callee: it, Args: stack}, nil
 					} else {
 						expr, lastcall = lastcall, nil
 					}
@@ -113,7 +114,10 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 				}
 				again, stack = true, stack[:len(stack)-2]
 			} else {
-				again, stack, expr = true, stack[:len(stack)-numargs], me.exprRewrittenWithArgRefsResolvedToStackEntries(me[it].Body, stack)
+				if expr = me[it].Body; me[it].hasArgRefs {
+					expr = me.exprRewrittenWithArgRefsResolvedToStackEntries(expr, stack)
+				}
+				again, stack = true, stack[:len(stack)-numargs]
 			}
 		default:
 			if len(stack) != 0 {
@@ -129,8 +133,12 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(expr 
 	case ExprArgRef:
 		return stack[len(stack)+int(it)]
 	case *ExprCall:
+		if it.noArgRefs {
+			return it
+		}
 		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Callee, stack)
-		call := &ExprCall{Args: make([]Expr, len(it.Args)), Callee: callee}
+		NumDrops++
+		call := &ExprCall{noArgRefs: true, Args: make([]Expr, len(it.Args)), Callee: callee}
 		for i := len(call.Args) - 1; i > -1; i-- {
 			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Args[i], stack)
 		}
@@ -146,8 +154,12 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack [
 	case ExprArgRef:
 		return stack[len(stack)+int(it)]
 	case *ExprCall:
-		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Callee, stack)
-		arsgdiff, call := 0, &ExprCall{Args: make([]Expr, len(it.Args)), Callee: callee}
+		if it.noArgRefs {
+			return it
+		}
+		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)
+		NumDrops++
+		arsgdiff, call := 0, &ExprCall{noArgRefs: true, Args: make([]Expr, len(it.Args)), Callee: callee}
 		fnref, okf := callee.(ExprFuncRef)
 		if !okf {
 			if subcall, okc := callee.(*ExprCall); okc {
@@ -163,8 +175,6 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack [
 		for j, i := arsgdiff, len(call.Args)-1; i > -1; j, i = j+1, i-1 {
 			if neverdrop || j > jmax || me[fnref].Args[j] != 0 {
 				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Args[i], stack)
-			} else {
-				NumDrops++
 			}
 		}
 		return call

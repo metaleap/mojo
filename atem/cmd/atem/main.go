@@ -43,14 +43,14 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"runtime/debug"
 	"strconv"
 
 	. "github.com/metaleap/atmo/atem"
 )
 
 func main() {
-	// debug.SetMaxStack(48 * 1024 * 1024 * 1024)
-	// debug.SetGCPercent(-1)
+	debug.SetGCPercent(-1)
 	src, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)
@@ -93,13 +93,15 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
 							retexpr := prog.Eval(&ExprCall{Callee: fnhandler, Args: []Expr{ListFrom(input), prevstate}}) //  &ExprCall{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
 							if retlist := prog.ListOfExprs(retexpr); len(retlist) == 2 {
+								nextstate = retlist[0]
 								if outlist := prog.ListOfExprs(retlist[1]); outlist != nil {
-									nextstate = retlist[0]
 									os.Stdout.Write(ListToBytes(outlist))
+								} else {
+									os.Stderr.WriteString("RET-EXPR:\t" + retlist[1].JsonSrc() + "\n")
 								}
 							}
 							if nextstate == nil {
-								panic(retexpr.JsonSrc())
+								panic(len(retList))
 							}
 							return
 						}

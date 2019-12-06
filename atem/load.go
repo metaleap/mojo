@@ -43,18 +43,24 @@ func LoadFromJson(src []byte) Prog {
 	}
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
-		meta, allused, arrargs, args := []string{}, true, it[1].([]any), make([]int, 0, 0)
+		arrargs := it[1].([]any)
+		fd := FuncDef{Body: exprFromJson(it[2], int64(len(arrargs)), nil), hasArgRefs: false, allArgsUsed: true, Meta: []string{}, Args: make([]int, len(arrargs))}
 		if metarr, _ := it[0].([]any); len(metarr) > 0 {
 			for _, mstr := range metarr {
-				meta = append(meta, mstr.(string))
+				fd.Meta = append(fd.Meta, mstr.(string))
 			}
 		}
 		for i, v := range arrargs {
-			if args = append(args, int(v.(float64))); 0 == args[i] {
-				allused = false
+			if fd.Args[i] = int(v.(float64)); 0 == fd.Args[i] {
+				fd.allArgsUsed = false
 			}
 		}
-		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[2], int64(len(args)), nil), Meta: meta, allArgsUsed: allused})
+		if _, fd.hasArgRefs = fd.Body.(ExprArgRef); !fd.hasArgRefs {
+			if call, _ := fd.Body.(*ExprCall); call != nil {
+				fd.hasArgRefs = !call.noArgRefs
+			}
+		}
+		me = append(me, fd)
 	}
 	return me
 }
@@ -72,6 +78,8 @@ func exprFromJson(from any, curFnNumArgs int64, curMeta map[string]any) Expr {
 			}
 			if n < 0 || n >= curFnNumArgs {
 				panic("LoadFromJson: encountered bad ExprArgRef of " + strconv.FormatInt(n, 10) + " inside a FuncDef with " + strconv.FormatInt(curFnNumArgs, 10) + " arg(s)")
+			} else if curMeta != nil {
+				curMeta["ar"] = 0
 			}
 			return ExprArgRef(int(-(n + 1))) // rewrite arg-refs for later stack-access-from-tail-end: 0 -> -1, 1 -> -2, 2 -> -3, etc.. note: reverted again in ExprArgRef.JsonSrc()
 		}
@@ -79,14 +87,17 @@ func exprFromJson(from any, curFnNumArgs int64, curMeta map[string]any) Expr {
 		if len(it) == 1 { // either func-ref literal..
 			return ExprFuncRef(int(it[0].(float64)))
 		}
-		callee, args := exprFromJson(it[0], curFnNumArgs, nil), make([]Expr, 0, len(it)-1)
+		if curMeta == nil {
+			curMeta = make(map[string]any, 1)
+		}
+		callee, args := exprFromJson(it[0], curFnNumArgs, curMeta), make([]Expr, 0, len(it)-1)
 		for i := len(it) - 1; i > 0; i-- {
-			args = append(args, exprFromJson(it[i], curFnNumArgs, nil))
+			args = append(args, exprFromJson(it[i], curFnNumArgs, curMeta))
 		}
 		if subcall, _ := callee.(*ExprCall); subcall == nil {
-			return &ExprCall{Callee: callee, Args: args}
+			return &ExprCall{noArgRefs: curMeta["ar"] == nil, Callee: callee, Args: args}
 		} else {
-			subcall.Args = append(args, subcall.Args...)
+			subcall.Args, subcall.noArgRefs = append(args, subcall.Args...), subcall.noArgRefs && curMeta["ar"] == nil
 			return subcall
 		}
 	case map[string]any:

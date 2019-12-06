@@ -80,6 +80,7 @@ type (
 		Body        Expr
 		Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
 		allArgsUsed bool
+		hasArgRefs  bool
 	}
 	Expr interface {
 		// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.
@@ -89,8 +90,9 @@ type (
 	ExprArgRef  int
 	ExprFuncRef int
 	ExprCall    struct {
-		Callee Expr
-		Args   []Expr
+		Callee    Expr
+		Args      []Expr
+		noArgRefs bool
 	}
 )
 
