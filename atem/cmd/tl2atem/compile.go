@@ -104,10 +104,15 @@ func compileTopDef(name string) int {
 							for j := 0; j < i; j++ {
 								locals[j].Expr = locals[j].Expr.RewriteName(local.Name, local.Expr)
 							}
-							locals = append(locals[:i], locals[i+1:]...)
-							again = true
+							again, locals = true, append(locals[:i], locals[i+1:]...)
 						} else {
-							println(name, "\t", numref, "shared uses of argless local:\t", local.Name)
+							for j := 0; j < i; j++ {
+								if 0 < locals[j].ReplaceName(local.Name, local.Name) {
+									panic(name + "\t" + local.Name + "\tTODO: finish shared argless locals topic")
+								}
+							}
+							body = &tl.ExprCall{Callee: &tl.ExprFunc{ArgName: "//shr:" + local.Name, Body: body.RewriteName(local.Name, &tl.ExprName{NameVal: "//shr:" + local.Name})}, CallArg: local.Expr}
+							again, locals = true, append(locals[:i], locals[i+1:]...)
 						}
 					}
 				}
