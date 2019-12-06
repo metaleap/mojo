@@ -1,6 +1,9 @@
 package main
 
 import (
+	"strconv"
+	"strings"
+
 	. "github.com/metaleap/atmo/atem"
 )
 
@@ -21,6 +24,7 @@ func optimize(src Prog) Prog {
 			optimize_minifyNeedlesslyElaborateBoolOpCalls,
 			optimize_inlineOnceCalleds,
 			optimize_inlineEverSameArgs,
+			optimize_listCtors,
 			optimize_preEvals,
 		} {
 			if src, again = opt(src); again {
@@ -236,7 +240,7 @@ func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 		})
 	}
 	for fn, referencers := range refs {
-		if 1 == len(referencers) { // fn referenced only in 1 FuncDef
+		if 1 == len(referencers) && !strings.HasPrefix(ret[fn].Meta[0], "//str:") { // fn referenced only in 1 FuncDef
 			for referencer, numrefs := range referencers {
 				if numrefs == 1 { // fn referenced only once in 1 FuncDef
 					ret[referencer].Body = walk(ret[referencer].Body, func(expr Expr) Expr {
@@ -342,7 +346,7 @@ func optimize_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	rearrangers := make(map[int]int, 8)
 	for i := 0; i < len(ret)-1; i++ {
-		if _, _, _, numargcalls, numargrefs, allargs := dissectCall(ret[i].Body); len(allargs) > 0 && numargcalls == 0 && numargrefs > 0 {
+		if _, _, _, numargcalls, numargrefs, allargs := dissectCall(ret[i].Body); len(allargs) > 0 && numargcalls == 0 && numargrefs > 0 && !strings.HasPrefix(ret[i].Meta[0], "//str:") {
 			rearrangers[i] = len(allargs)
 		}
 	}
@@ -534,7 +538,7 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	allappls, num := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}
 	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
-		if !doesHaveNonCalleeUses(ret, i) {
+		if (!doesHaveNonCalleeUses(ret, i)) && !strings.HasPrefix(ret[i].Meta[0], "//str:") {
 			allappls[i] = nil
 		}
 	}
@@ -610,6 +614,102 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 				didModify = true
 				return
 			}
+		}
+	}
+	return
+}
+
+func optimize_listCtors(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	listctors := map[int]map[int]bool{}
+	for i := StdFuncCons + 1; int(i) < len(ret); i++ {
+		_ = walk(ret[i].Body, func(expr Expr) Expr {
+			if _, fnref, _, _, numargrefs, allargs := dissectCall(expr); fnref != nil && *fnref == StdFuncCons && len(allargs) == 2 {
+				if numargrefs == 0 {
+					_ = walk(expr, func(it Expr) Expr {
+						if numargrefs > 0 {
+							return nil
+						}
+						if _, isargref := it.(ExprArgRef); isargref {
+							numargrefs++
+						}
+						return it
+					})
+				}
+				if numargrefs == 0 {
+					if list := ret.ListOfExprs(convTo(expr)); len(list) > 0 {
+						if bytes := ListToBytes(list); bytes != nil {
+							m := listctors[len(list)]
+							if m == nil {
+								m = map[int]bool{}
+							}
+							m[int(i)] = true
+							listctors[len(list)] = m
+							return nil
+						}
+					}
+				}
+			}
+			return expr
+		})
+	}
+	for listlen, usedin := range listctors {
+		idx, off, name := -1, 0, "//str:"+strconv.Itoa(listlen)
+		for i := range ret {
+			if ret[i].Meta[0] == name {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			didModify, off, idx = true, 1, int(StdFuncCons+1)
+			var fd FuncDef
+			fd.Meta, fd.Args = []string{name}, make([]int, listlen)
+			fd.Body = StdFuncNil
+			for i := len(fd.Args) - 1; i > -1; i-- {
+				fd.Args[i] = 1
+				fd.Body = exprAppl{Callee: exprAppl{Callee: StdFuncCons, Arg: ExprArgRef(-(i + 1))}, Arg: fd.Body}
+			}
+			ret = append(ret[:idx], append(Prog{fd}, ret[idx:]...)...)
+			for i := idx + 1; i < len(ret); i++ {
+				ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+					if fnref, ok := expr.(ExprFuncRef); ok && int(fnref) >= idx {
+						return 1 + fnref
+					}
+					return expr
+				})
+			}
+		}
+		for fnref := range usedin {
+			ret[fnref+off].Body = walk(ret[fnref+off].Body, func(expr Expr) Expr {
+				if _, fnref, _, _, numargrefs, allargs := dissectCall(expr); fnref != nil && *fnref == StdFuncCons && len(allargs) == 2 {
+					if numargrefs == 0 {
+						_ = walk(expr, func(it Expr) Expr {
+							if numargrefs > 0 {
+								return nil
+							}
+							if _, isargref := it.(ExprArgRef); isargref {
+								numargrefs++
+							}
+							return it
+						})
+					}
+					if numargrefs == 0 {
+						if list := ret.ListOfExprs(convTo(expr)); len(list) == listlen {
+							if bytes := ListToBytes(list); bytes != nil {
+								didModify, expr = true, ExprFuncRef(idx)
+								for _, item := range list {
+									expr = exprAppl{Callee: expr, Arg: convFrom(item)}
+								}
+							}
+						}
+					}
+				}
+				return expr
+			})
+		}
+		if didModify {
+			return
 		}
 	}
 	return

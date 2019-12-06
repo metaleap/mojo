@@ -54,7 +54,7 @@ func LoadFromJson(src []byte) Prog {
 				allused = false
 			}
 		}
-		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[2], int64(len(args)), nil), Meta: meta, AllArgsUsed: allused})
+		me = append(me, FuncDef{Args: args, Body: exprFromJson(it[2], int64(len(args)), nil), Meta: meta, allArgsUsed: allused})
 	}
 	return me
 }

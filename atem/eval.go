@@ -151,7 +151,7 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack [
 				}
 			}
 		}
-		jmax, neverdrop := -1, fnref <= 0 || me[fnref].AllArgsUsed
+		jmax, neverdrop := -1, fnref <= 0 || me[fnref].allArgsUsed
 		if fnref >= 0 {
 			jmax = len(me[fnref].Args) - 1
 		}

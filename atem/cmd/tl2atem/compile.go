@@ -108,7 +108,7 @@ func compileTopDef(name string) int {
 						} else {
 							for j := 0; j < i; j++ {
 								if 0 < locals[j].ReplaceName(local.Name, local.Name) {
-									panic(name + "\t" + local.Name + "\tTODO: finish shared argless locals topic")
+									panic(name + "\t" + local.Name + "\tTODO: finish multiple-use non-atomic-shared-argless-locals topic")
 								}
 							}
 							body = &tl.ExprCall{Callee: &tl.ExprFunc{ArgName: "//shr:" + local.Name, Body: body.RewriteName(local.Name, &tl.ExprName{NameVal: "//shr:" + local.Name})}, CallArg: local.Expr}
