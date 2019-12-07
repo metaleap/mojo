@@ -339,7 +339,7 @@ JsonSrc emits the re-`LoadFromJson`able representation of this `Prog`.
 #### func (Prog) ListOfExprs
 
 ```go
-func (me Prog) ListOfExprs(expr Expr) (ret []Expr)
+func (me Prog) ListOfExprs(expr Expr, evalItems bool) (ret []Expr)
 ```
 ListOfExprs dissects the given `expr` into an `[]Expr` slice only if it is a
 closure resulting from `StdFuncCons` / `StdFuncNil` usage during `Eval`. The
@@ -351,7 +351,7 @@ construction, aka. "empty linked-list value" `Expr`.
 #### func (Prog) ListOfExprsToString
 
 ```go
-func (me Prog) ListOfExprsToString(expr Expr) string
+func (me Prog) ListOfExprsToString(expr Expr, evalItems bool) string
 ```
 ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
 and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`

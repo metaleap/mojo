@@ -15,46 +15,99 @@ var traceOutFile *os.File
 func init() {
 	if traceToFile {
 		traceOutFile, _ = os.Create("traced.txt")
-		OnEvalStep = func(prog Prog, expr Expr, stack []Expr) {
-			traceOutFile.WriteString(strings.Repeat("\t", CurEvalDepth))
-			switch it := expr.(type) {
-			case ExprNumInt:
-				traceOutFile.WriteString("INUM:\t" + strconv.Itoa(int(it)))
-			case ExprArgRef:
-				traceOutFile.WriteString("AREF:\t" + it.JsonSrc())
-			case ExprFuncRef:
-				numargs, name, bodysrc := 2, strconv.Itoa(int(it)), ""
-				if it > -1 {
-					numargs, name, bodysrc = len(prog[it].Args), prog[it].Meta[0], prog[it].Body.JsonSrc()
+		pwd, _ := os.Getwd()
+		traceOutFile.WriteString(pwd + "\n" + strings.Join(os.Args, " ") + "\n\n")
+
+		// var fnstack []ExprFuncRef
+		cache := map[string]string{}
+		var tostring func(Prog, Expr) string
+		tostring = func(prog Prog, expr Expr) (ret string) {
+			jstr := "_"
+			if expr != nil {
+				jstr = expr.JsonSrc()
+			}
+			if ret = cache[jstr]; ret == "" {
+				cache[jstr] = "‹∞›"
+				if expr == nil {
+					ret = "_"
 				} else {
-					lhs, rhs := stack[len(stack)-1], stack[len(stack)-2]
-					switch OpCode(it) {
-					case OpAdd:
-						name, bodysrc = "ADD", "{"+lhs.JsonSrc()+" + "+rhs.JsonSrc()+"}"
-					case OpSub:
-						name, bodysrc = "SUB", "{"+lhs.JsonSrc()+" - "+rhs.JsonSrc()+"}"
-					case OpMul:
-						name, bodysrc = "MUL", "{"+lhs.JsonSrc()+" * "+rhs.JsonSrc()+"}"
-					case OpDiv:
-						name, bodysrc = "DIV", "{"+lhs.JsonSrc()+" / "+rhs.JsonSrc()+"}"
-					case OpMod:
-						name, bodysrc = "MOD", "{"+lhs.JsonSrc()+" % "+rhs.JsonSrc()+"}"
-					case OpEq:
-						name, bodysrc = "EQ", "{"+lhs.JsonSrc()+" = "+rhs.JsonSrc()+"}"
-					case OpGt:
-						name, bodysrc = "GT", "{"+lhs.JsonSrc()+" > "+rhs.JsonSrc()+"}"
-					case OpLt:
-						name, bodysrc = "LT", "{"+lhs.JsonSrc()+" < "+rhs.JsonSrc()+"}"
-					case OpPrt:
-						name, bodysrc = "PRT", rhs.JsonSrc()
+					switch it := expr.(type) {
+					case ExprArgRef:
+						ret = jstr // prog[fnstack[len(fnstack)-1]].Meta[(-it)-1]
+					case ExprFuncRef:
+						if it > -1 {
+							ret = prog[it].Meta[0][strings.LastIndexByte(prog[it].Meta[0], ']')+1:]
+							ret = strings.TrimPrefix(ret, "std.num.")
+							ret = strings.TrimPrefix(ret, "std.list.")
+							ret = strings.TrimPrefix(ret, "std.json.")
+							ret = strings.TrimPrefix(ret, "std.")
+						} else {
+							switch OpCode(it) {
+							case OpAdd:
+								ret = "ADD"
+							case OpSub:
+								ret = "SUB"
+							case OpMul:
+								ret = "MUL"
+							case OpDiv:
+								ret = "DIV"
+							case OpMod:
+								ret = "MOD"
+							case OpEq:
+								ret = "EQ"
+							case OpLt:
+								ret = "LT"
+							case OpGt:
+								ret = "GT"
+							case OpPrt:
+								ret = "PRT"
+							default:
+								ret = "ERR"
+							}
+						}
+					case *ExprCall:
+						if list := prog.ListOfExprs(it, false); list == nil {
+							s := "(" + tostring(prog, it.Callee)
+							for i := len(it.Args) - 1; i > -1; i-- {
+								s += " " + tostring(prog, it.Args[i])
+							}
+							ret = s + ")"
+						} else if bytes := ListToBytes(list); bytes == nil {
+							s := "["
+							for _, item := range list {
+								s += tostring(prog, item) + ", "
+							}
+							ret = s + "]"
+						} else {
+							ret = strconv.Quote(string(bytes))
+						}
+					}
+					if ret == "" {
+						ret = jstr
 					}
 				}
-				traceOutFile.WriteString("FREF:\t" + name + "\tcurStackLen=" + strconv.Itoa(len(stack)) + "\tnumArgs=" + strconv.Itoa(numargs) + "\t\t" + bodysrc)
-			case *ExprCall:
-				traceOutFile.WriteString("CALL:" + "\tcurStackLen=" + strconv.Itoa(len(stack)) + "\tnumArgs=" + strconv.Itoa(len(it.Args)) + "\t\t" + it.JsonSrc())
-			default:
-				panic(it)
+				cache[jstr] = ret
 			}
+			return ret
+		}
+
+		OnEvalStep = func(prog Prog, expr Expr, stack []Expr) {
+			traceOutFile.WriteString(strings.Repeat("\t", CurEvalDepth))
+			traceOutFile.WriteString("|" + strconv.Itoa(len(stack)) + "|\t\t")
+			if fnref, okf := expr.(ExprFuncRef); okf {
+				numargs := 2
+				if fnref > -1 {
+					numargs = len(prog[fnref].Args)
+				}
+				if len(stack) >= numargs {
+					traceOutFile.WriteString("DE-STACK " + strconv.Itoa(numargs) + ":\t")
+				} else {
+					traceOutFile.WriteString("CLOSURE x" + strconv.Itoa(numargs) + ":\t")
+				}
+			} else if call, _ := expr.(*ExprCall); call != nil {
+				traceOutFile.WriteString("EN-STACK " + strconv.Itoa(len(call.Args)) + ":\t")
+			}
+			traceOutFile.WriteString(tostring(prog, expr))
 			traceOutFile.WriteString("\n")
 		}
 	}

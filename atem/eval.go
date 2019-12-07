@@ -88,7 +88,7 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 			if len(stack) < numargs { // not enough args on stack:
 				if len(stack) > 0 { // then a closure value results
 					if len(stack) > len(lastcall.Args) {
-						expr, lastcall = &ExprCall{noArgRefs: lastcall.noArgRefs, Callee: it, Args: stack}, nil
+						expr, lastcall = &ExprCall{Callee: it, Args: stack}, nil
 					} else {
 						expr, lastcall = lastcall, nil
 					}
@@ -119,7 +119,7 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 					}
 				case OpPrt:
 					expr = rhs
-					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
+					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs, true)), '\t'), me.ListOfExprsToString(rhs, true)...), '\n'))
 				default:
 					panic([3]Expr{it, lhs, rhs})
 				}
@@ -167,7 +167,7 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack [
 		if it.noArgRefs {
 			return it
 		}
-		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Callee, stack)
+		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)
 		arsgdiff, call := 0, &ExprCall{noArgRefs: true, Args: make([]Expr, len(it.Args)), Callee: callee}
 		fnref, okf := callee.(ExprFuncRef)
 		if !okf {

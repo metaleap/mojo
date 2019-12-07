@@ -9,6 +9,12 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 		case ExprNumInt:
 			that, ok := cmp.(ExprNumInt)
 			return ok && it == that
+		case ExprArgRef:
+			that, ok := cmp.(ExprArgRef)
+			return ok && (it == that || (it < 0 && that >= 0 && that == (-it)-1) || (it >= 0 && that < 0 && it == (-that)-1))
+		case ExprFuncRef:
+			that, ok := cmp.(ExprFuncRef)
+			return ok && it == that
 		case *ExprCall:
 			CurEvalDepth++
 			if that, ok := cmp.(*ExprCall); ok {
@@ -29,12 +35,6 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 				return ok
 			}
 			CurEvalDepth--
-		case ExprArgRef:
-			that, ok := cmp.(ExprArgRef)
-			return ok && (it == that || (it < 0 && that >= 0 && that == (-it)-1) || (it >= 0 && that < 0 && it == (-that)-1))
-		case ExprFuncRef:
-			that, ok := cmp.(ExprFuncRef)
-			return ok && it == that
 		}
 	}
 	return false
@@ -46,7 +46,7 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 // The `ret` is `return`ed as `nil` if `expr` isn't a product of `StdFuncCons`
 // / `StdFuncNil` usage; yet a non-`nil`, zero-`len` `ret` will result from a
 // mere `StdFuncNil` construction, aka. "empty linked-list value" `Expr`.
-func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
+func (me Prog) ListOfExprs(expr Expr, evalItems bool) (ret []Expr) {
 	ret = make([]Expr, 0, 1024)
 	for ok, next := true, expr; ok; {
 		ok = false
@@ -56,9 +56,13 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
 				CurEvalDepth++
 				for i := len(call.Args) - 1; i > 0; i-- {
-					ret = append(ret, me.eval(call.Args[i], nil))
+					if ret = append(ret, call.Args[i]); evalItems {
+						ret[len(ret)-1] = me.eval(ret[len(ret)-1], nil)
+					}
 				}
-				ok, next = true, me.eval(call.Args[0], nil)
+				if ok, next = true, call.Args[0]; evalItems {
+					next = me.eval(next, nil)
+				}
 				CurEvalDepth--
 			}
 		}
@@ -93,8 +97,8 @@ func ListToBytes(maybeNumList []Expr) (retNumListAsBytes []byte) {
 // ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
 // and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`
 // result, if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.
-func (me Prog) ListOfExprsToString(expr Expr) string {
-	if maybenumlist := me.ListOfExprs(expr); maybenumlist != nil {
+func (me Prog) ListOfExprsToString(expr Expr, evalItems bool) string {
+	if maybenumlist := me.ListOfExprs(expr, evalItems); maybenumlist != nil {
 		if bytes := ListToBytes(maybenumlist); bytes != nil {
 			return string(bytes)
 		}
