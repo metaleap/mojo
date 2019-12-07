@@ -43,6 +43,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 
@@ -50,6 +51,8 @@ import (
 )
 
 func main() {
+	runtime.LockOSThread()
+	runtime.GOMAXPROCS(1)
 	debug.SetGCPercent(-1)
 	src, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {

@@ -2,6 +2,7 @@ package atem
 
 import (
 	"os"
+	"time"
 )
 
 // OnEvalStep, defaulting to a no-op, can be set to trace atomic execution steps
@@ -72,73 +73,82 @@ var OpPrtDst = os.Stderr.Write
 func (me Prog) Eval(expr Expr) Expr {
 	CurEvalDepth = 0
 
-	// temporarily evaluate fac(5) on all calls until `evalNu` works... =)
-	fidx := len(me)
-	// (i.EQ 0) 1 (i.MUL (factorial (i.SUB 1)))
-	me = append(me, FuncDef{allArgsUsed: true, hasArgRefs: true, Args: []int{3}, Meta: []string{"fac", "n"},
-		Body: &ExprCall{
-			Callee: &ExprCall{Callee: ExprFuncRef(OpEq), Args: callArgs(ExprArgRef(-1), ExprNumInt(0))},
-			Args: callArgs(ExprNumInt(1), &ExprCall{Callee: ExprFuncRef(OpMul), Args: callArgs(ExprArgRef(-1), &ExprCall{
-				Callee: ExprFuncRef(fidx), Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: callArgs(ExprArgRef(-1), ExprNumInt(1))}},
-			})}),
-		},
-	})
-	println(me[fidx].JsonSrc(false), "\n____________________________________________\n\n")
-	expr = &ExprCall{Callee: ExprFuncRef(fidx), Args: []Expr{ExprNumInt(7)}}
+	if 1 > 0 {
+		// temporarily evaluate fac(7) on all calls until `evalNu` works... =)
+		fidx := len(me)
+		// (i.EQ 0) 1 (i.MUL (factorial (i.SUB 1)))
+		me = append(me, FuncDef{allArgsUsed: true, hasArgRefs: true, Args: []int{3}, Meta: []string{"fac", "n"},
+			Body: &ExprCall{
+				Callee: &ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpEq), Args: []Expr{ExprArgRef(-1)}}, Args: []Expr{ExprNumInt(0)}},
+				Args: callArgs(ExprNumInt(1), &ExprCall{Callee: ExprFuncRef(OpMul), Args: callArgs(ExprArgRef(-1), &ExprCall{
+					Callee: ExprFuncRef(fidx), Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: callArgs(ExprArgRef(-1), ExprNumInt(1))}},
+				})}),
+			},
+		})
+		println(me[fidx].JsonSrc(false), "\n____________________________________________\n\n")
+		expr = &ExprCall{Callee: ExprFuncRef(fidx), Args: []Expr{ExprNumInt(7)}}
+	}
 
-	return me.evalNu(expr, make([]Expr, 0, 1024))
+	stack := make([]Expr, 0, 1024)
+	t := time.Now().UnixNano()
+	ret := me.evalNu(expr, stack)
+	t = time.Now().UnixNano() - t
+	println(time.Duration(t).String())
+	return ret
 }
 
 func (me Prog) evalNu(expr Expr, stack []Expr) Expr {
 	switch it := expr.(type) {
 	case ExprArgRef:
-		// println("AREF\t" + it.JsonSrc())
-		// for i := range stack {
-		// 	jsrc := "_"
-		// 	if stack[i] != nil {
-		// 		jsrc = stack[i].JsonSrc()
-		// 	}
-		// 	println("\t@", i, "\t", jsrc)
-		// }
-		expr = stack[len(stack)+int(it)]
-		// println("\t@->\t" + expr.JsonSrc())
-	case *ExprCall:
-		// println("CALL\t" + it.JsonSrc())
-		// for i := range stack {
-		// 	jsrc := "_"
-		// 	if stack[i] != nil {
-		// 		jsrc = stack[i].JsonSrc()
-		// 	}
-		// 	println("\t@", i, "\t", jsrc)
-		// }
-		callee := me.evalNu(it.Callee, stack).(ExprFuncRef)
-		// println("\tC->\t", callee.JsonSrc())
-		stack = append(stack, it.Args...)
-		// for i := range stack {
-		// 	jsrc := "_"
-		// 	if stack[i] != nil {
-		// 		jsrc = stack[i].JsonSrc()
-		// 	}
-		// 	println("\t@", i, "\t", jsrc)
-		// }
-		numargs, isopcode := 2, (callee < 0)
-		if !isopcode {
-			numargs = len(me[callee].Args)
+		println("AREF\t" + it.JsonSrc())
+		for i := range stack {
+			jsrc := "_"
+			if stack[i] != nil {
+				jsrc = stack[i].JsonSrc()
+			}
+			println("\t@", i, "\t", jsrc)
 		}
-		// println("C\tWANT stack of:", numargs, ", have:", len(stack))
+		expr = stack[len(stack)+int(it)]
+		println("\t@->\t" + expr.JsonSrc())
+	case *ExprCall:
+		println("CALL\t" + it.JsonSrc())
+		for i := range stack {
+			jsrc := "_"
+			if stack[i] != nil {
+				jsrc = stack[i].JsonSrc()
+			}
+			println("\t@", i, "\t", jsrc)
+		}
+		callee := me.evalNu(it.Callee, stack)
+		fnref := callee.(ExprFuncRef)
+		println("\tC->\t", callee.JsonSrc())
+		stack = append(stack, it.Args...)
+		for i := range stack {
+			jsrc := "_"
+			if stack[i] != nil {
+				jsrc = stack[i].JsonSrc()
+			}
+			println("\t@", i, "\t", jsrc)
+		}
+		numargs, isopcode := 2, (fnref < 0)
+		if !isopcode {
+			numargs = len(me[fnref].Args)
+		}
+		println("C\tWANT stack of:", numargs, ", have:", len(stack))
 		if len(stack) < numargs { // not enough args on stack:
-			if expr = callee; len(stack) > 0 { // then a closure value results
-				expr = &ExprCall{Callee: callee, Args: stack}
+			if expr = fnref; len(stack) > 0 { // then a closure value results
+				expr = &ExprCall{Callee: fnref, Args: stack}
 			}
 		} else {
 			cutoff := len(stack) - numargs
 			fnstack := stack[cutoff:]
 			stack = stack[:cutoff]
+			println("GO", fnref, len(stack))
 			if isopcode {
 				CurEvalDepth++
 				lhs, rhs := me.evalNu(fnstack[1], stack), me.evalNu(fnstack[0], stack)
 				CurEvalDepth--
-				switch opcode := OpCode(callee); opcode {
+				switch opcode := OpCode(fnref); opcode {
 				case OpAdd:
 					expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
 				case OpSub:
@@ -166,21 +176,21 @@ func (me Prog) evalNu(expr Expr, stack []Expr) Expr {
 				}
 				expr = me.evalNu(expr, stack)
 			} else {
-				fn := me[callee]
-				// if fn.hasArgRefs {
-				for i, numuses := range fn.Args {
-					if idx := len(fnstack) - (i + 1); numuses == 0 {
-						fnstack[idx] = nil
-					} else {
-						fnstack[idx] = me.evalNu(fnstack[idx], stack)
+				fn := me[fnref]
+				if fn.hasArgRefs {
+					for i, numuses := range fn.Args {
+						if idx := len(fnstack) - (i + 1); numuses == 0 {
+							fnstack[idx] = nil
+						} else {
+							fnstack[idx] = me.evalNu(fnstack[idx], stack)
+						}
 					}
 				}
-				// }
 				expr = me.evalNu(fn.Body, fnstack)
 			}
 		}
 	default:
-		// println("V\t->\t", expr.JsonSrc())
+		println("V\t->\t", expr.JsonSrc())
 	}
 	return expr
 }
@@ -189,7 +199,7 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	var lastcall *ExprCall
 	for again := true; again; {
 		again = false
-		OnEvalStep(me, expr, stack)
+		// OnEvalStep(me, expr, stack)
 		switch it := expr.(type) {
 		case *ExprCall:
 			stack = append(stack, it.Args...)
