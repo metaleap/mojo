@@ -1,5 +1,13 @@
 package atem
 
+func callArgs(argsInIntuitiveOrder ...Expr) (argsInReverseOrder []Expr) {
+	argsInReverseOrder = make([]Expr, len(argsInIntuitiveOrder))
+	for i, argexpr := range argsInIntuitiveOrder {
+		argsInReverseOrder[len(argsInReverseOrder)-(i+1)] = argexpr
+	}
+	return
+}
+
 // Eq is the fallback for `OpEq` calls with 2 operands that aren't both `ExprNumInt`s.
 func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 	if expr == cmp {

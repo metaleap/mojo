@@ -69,7 +69,121 @@ var OpPrtDst = os.Stderr.Write
 // then being `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic`
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
-func (me Prog) Eval(expr Expr) Expr { CurEvalDepth = 0; return me.eval(expr, make([]Expr, 0, 1024)) }
+func (me Prog) Eval(expr Expr) Expr {
+	CurEvalDepth = 0
+
+	// temporarily evaluate fac(5) on all calls until `evalNu` works... =)
+	fidx := len(me)
+	// (i.EQ 0) 1 (i.MUL (factorial (i.SUB 1)))
+	me = append(me, FuncDef{allArgsUsed: true, hasArgRefs: true, Args: []int{3}, Meta: []string{"fac", "n"},
+		Body: &ExprCall{
+			Callee: &ExprCall{Callee: ExprFuncRef(OpEq), Args: callArgs(ExprArgRef(-1), ExprNumInt(0))},
+			Args: callArgs(ExprNumInt(1), &ExprCall{Callee: ExprFuncRef(OpMul), Args: callArgs(ExprArgRef(-1), &ExprCall{
+				Callee: ExprFuncRef(fidx), Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: callArgs(ExprArgRef(-1), ExprNumInt(1))}},
+			})}),
+		},
+	})
+	println(me[fidx].JsonSrc(false), "\n____________________________________________\n\n")
+	expr = &ExprCall{Callee: ExprFuncRef(fidx), Args: []Expr{ExprNumInt(7)}}
+
+	return me.evalNu(expr, make([]Expr, 0, 1024))
+}
+
+func (me Prog) evalNu(expr Expr, stack []Expr) Expr {
+	switch it := expr.(type) {
+	case ExprArgRef:
+		// println("AREF\t" + it.JsonSrc())
+		// for i := range stack {
+		// 	jsrc := "_"
+		// 	if stack[i] != nil {
+		// 		jsrc = stack[i].JsonSrc()
+		// 	}
+		// 	println("\t@", i, "\t", jsrc)
+		// }
+		expr = stack[len(stack)+int(it)]
+		// println("\t@->\t" + expr.JsonSrc())
+	case *ExprCall:
+		// println("CALL\t" + it.JsonSrc())
+		// for i := range stack {
+		// 	jsrc := "_"
+		// 	if stack[i] != nil {
+		// 		jsrc = stack[i].JsonSrc()
+		// 	}
+		// 	println("\t@", i, "\t", jsrc)
+		// }
+		callee := me.evalNu(it.Callee, stack).(ExprFuncRef)
+		// println("\tC->\t", callee.JsonSrc())
+		stack = append(stack, it.Args...)
+		// for i := range stack {
+		// 	jsrc := "_"
+		// 	if stack[i] != nil {
+		// 		jsrc = stack[i].JsonSrc()
+		// 	}
+		// 	println("\t@", i, "\t", jsrc)
+		// }
+		numargs, isopcode := 2, (callee < 0)
+		if !isopcode {
+			numargs = len(me[callee].Args)
+		}
+		// println("C\tWANT stack of:", numargs, ", have:", len(stack))
+		if len(stack) < numargs { // not enough args on stack:
+			if expr = callee; len(stack) > 0 { // then a closure value results
+				expr = &ExprCall{Callee: callee, Args: stack}
+			}
+		} else {
+			cutoff := len(stack) - numargs
+			fnstack := stack[cutoff:]
+			stack = stack[:cutoff]
+			if isopcode {
+				CurEvalDepth++
+				lhs, rhs := me.evalNu(fnstack[1], stack), me.evalNu(fnstack[0], stack)
+				CurEvalDepth--
+				switch opcode := OpCode(callee); opcode {
+				case OpAdd:
+					expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
+				case OpSub:
+					expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
+				case OpMul:
+					expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+				case OpDiv:
+					expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
+				case OpMod:
+					expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
+				case OpEq:
+					if expr = StdFuncFalse; me.Eq(lhs, rhs, false) {
+						expr = StdFuncTrue
+					}
+				case OpGt, OpLt:
+					lt, l, r := (opcode == OpLt), lhs.(ExprNumInt), rhs.(ExprNumInt)
+					if expr = StdFuncFalse; (lt && l < r) || ((!lt) && l > r) {
+						expr = StdFuncTrue
+					}
+				case OpPrt:
+					expr = rhs
+					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs, false)), '\t'), me.ListOfExprsToString(rhs, false)...), '\n'))
+				default:
+					panic([3]Expr{callee, lhs, rhs})
+				}
+				expr = me.evalNu(expr, stack)
+			} else {
+				fn := me[callee]
+				// if fn.hasArgRefs {
+				for i, numuses := range fn.Args {
+					if idx := len(fnstack) - (i + 1); numuses == 0 {
+						fnstack[idx] = nil
+					} else {
+						fnstack[idx] = me.evalNu(fnstack[idx], stack)
+					}
+				}
+				// }
+				expr = me.evalNu(fn.Body, fnstack)
+			}
+		}
+	default:
+		// println("V\t->\t", expr.JsonSrc())
+	}
+	return expr
+}
 
 func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	var lastcall *ExprCall

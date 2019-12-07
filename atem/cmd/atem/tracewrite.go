@@ -33,7 +33,7 @@ func init() {
 				} else {
 					switch it := expr.(type) {
 					case ExprArgRef:
-						ret = jstr // prog[fnstack[len(fnstack)-1]].Meta[(-it)-1]
+						ret = "@" + strconv.Itoa(int(-it)-1)
 					case ExprFuncRef:
 						if it > -1 {
 							ret = prog[it].Meta[0][strings.LastIndexByte(prog[it].Meta[0], ']')+1:]
@@ -94,20 +94,24 @@ func init() {
 		OnEvalStep = func(prog Prog, expr Expr, stack []Expr) {
 			traceOutFile.WriteString(strings.Repeat("\t", CurEvalDepth))
 			traceOutFile.WriteString("|" + strconv.Itoa(len(stack)) + "|\t\t")
-			if fnref, okf := expr.(ExprFuncRef); okf {
+			fnref, okf := expr.(ExprFuncRef)
+			if okf {
 				numargs := 2
 				if fnref > -1 {
 					numargs = len(prog[fnref].Args)
 				}
 				if len(stack) >= numargs {
-					traceOutFile.WriteString("DE-STACK " + strconv.Itoa(numargs) + ":\t")
+					traceOutFile.WriteString("DE-STACK: " + strconv.Itoa(len(stack)) + "-" + strconv.Itoa(numargs) + "\t\t")
 				} else {
-					traceOutFile.WriteString("CLOSURE x" + strconv.Itoa(numargs) + ":\t")
+					traceOutFile.WriteString("CLOSURE x" + strconv.Itoa(numargs) + ":\t\t")
 				}
 			} else if call, _ := expr.(*ExprCall); call != nil {
-				traceOutFile.WriteString("EN-STACK " + strconv.Itoa(len(call.Args)) + ":\t")
+				traceOutFile.WriteString("EN-STACK: " + strconv.Itoa(len(stack)) + "+" + strconv.Itoa(len(call.Args)) + "\t\t")
 			}
 			traceOutFile.WriteString(tostring(prog, expr))
+			if okf && fnref > -1 {
+				traceOutFile.WriteString("\t\tINTO:\t\t" + tostring(prog, prog[fnref].Body))
+			}
 			traceOutFile.WriteString("\n")
 		}
 	}
