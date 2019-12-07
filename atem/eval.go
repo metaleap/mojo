@@ -75,18 +75,18 @@ func (me Prog) Eval(expr Expr) Expr {
 	CurEvalDepth = 0
 
 	if 1 > 0 {
-		fidx := 21
-		fidx = len(me)
-		me = append(me, FuncDef{allArgsUsed: true, hasArgRefs: true, Args: []int{3}, Meta: []string{"fac", "n"},
-			Body: &ExprCall{
-				Callee: &ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpEq), Args: []Expr{ExprArgRef(-1)}}, Args: []Expr{ExprNumInt(0)}},
-				Args: callArgs(ExprNumInt(1), &ExprCall{Callee: ExprFuncRef(OpMul), Args: callArgs(ExprArgRef(-1), &ExprCall{
-					Callee: ExprFuncRef(fidx), Args: []Expr{&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{ExprArgRef(-1)}}, Args: []Expr{ExprNumInt(1)}}},
-				})}),
-			},
-		})
-		println(me[fidx].JsonSrc(false), "\n____________________________________________\n\n")
-		expr = &ExprCall{Callee: ExprFuncRef(fidx), Args: []Expr{ExprNumInt(7)}}
+		fidx := 40 // 21
+		// fidx = len(me)
+		// me = append(me, FuncDef{allArgsUsed: true, hasArgRefs: true, Args: []int{3}, Meta: []string{"fac", "n"},
+		// 	Body: &ExprCall{
+		// 		Callee: &ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpEq), Args: []Expr{ExprArgRef(-1)}}, Args: []Expr{ExprNumInt(0)}},
+		// 		Args: callArgs(ExprNumInt(1), &ExprCall{Callee: ExprFuncRef(OpMul), Args: callArgs(ExprArgRef(-1), &ExprCall{
+		// 			Callee: ExprFuncRef(fidx), Args: []Expr{&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{ExprArgRef(-1)}}, Args: []Expr{ExprNumInt(1)}}},
+		// 		})}),
+		// 	},
+		// })
+		// println(me[fidx].JsonSrc(false), "\n____________________________________________\n\n")
+		expr = &ExprCall{Callee: ExprFuncRef(fidx), Args: []Expr{ExprNumInt(2)}}
 	}
 
 	stack := make([]Expr, 0, 1024)
@@ -98,7 +98,6 @@ func (me Prog) Eval(expr Expr) Expr {
 }
 
 func (me Prog) evalIt(expr Expr, curArgs []Expr) Expr {
-
 	println(fmt.Sprintf("%T", expr), "\t\t", expr.JsonSrc())
 	println("\tCUR FUNC ARGS:", len(curArgs), "exprs")
 	for i, it := range curArgs {
@@ -163,176 +162,9 @@ func (me Prog) evalIt(expr Expr, curArgs []Expr) Expr {
 				expr = me.evalIt(me[fnref].Body, fnargs)
 			}
 			if len(nextargs) > 0 {
-				expr = me.evalIt(expr, nextargs)
+				expr = me.evalIt(&ExprCall{Callee: expr, Args: nextargs}, curArgs)
 			}
 		}
-	}
-	return expr
-}
-
-func (me Prog) evalMu(expr Expr, stack []Expr) Expr {
-	var numcallargs int
-	for again := true; again; {
-		again = false
-
-		println(fmt.Sprintf("%T", expr), "\t\t", expr.JsonSrc())
-		println("\tSTACK:", len(stack), "exprs")
-		for i, it := range stack {
-			jsrc := "_"
-			if it != nil {
-				jsrc = it.JsonSrc()
-			}
-			println("\t", i, "\t\t", jsrc)
-		}
-		println("\n")
-
-		switch it := expr.(type) {
-		case ExprArgRef:
-			again, expr = true, stack[len(stack)+int(it)]
-		case *ExprCall:
-			again, expr, stack, numcallargs = true, it.Callee, append(stack, it.Args...), numcallargs+len(it.Args)
-		case ExprFuncRef:
-			numargs, isfn := 2, it > -1
-			if isfn {
-				numargs = len(me[it].Args)
-			}
-			if len(stack) < numargs {
-				expr = &ExprCall{Callee: it, Args: stack}
-			} else {
-				cur := stack[len(stack)-numargs:]
-				for i := 0; i < numargs; i++ {
-					if idx := len(cur) - (i + 1); isfn && me[it].Args[i] == 0 {
-						cur[idx] = nil
-					} else {
-						cur[idx] = me.evalMu(cur[idx], stack[:len(stack)-numcallargs])
-					}
-				}
-				again, stack, numcallargs = true, stack[:len(stack)-numargs], 0
-
-				if isfn {
-					expr = me.evalMu(me[it].Body, cur)
-				} else {
-					lhs, rhs := cur[1], cur[0]
-					switch OpCode(it) {
-					case OpAdd:
-						expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-					case OpSub:
-						expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-					case OpMul:
-						expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-					case OpEq:
-						if expr = StdFuncFalse; lhs.(ExprNumInt) == rhs.(ExprNumInt) {
-							expr = StdFuncTrue
-						}
-					case OpLt:
-						if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
-							expr = StdFuncTrue
-						}
-					default:
-						panic(int(it))
-					}
-				}
-			}
-			// default:
-			// 	if len(stack) > 0 {
-			// 		panic(len(stack))
-			// 	}
-		}
-	}
-	return expr
-}
-
-func (me Prog) evalNu(expr Expr, stack []Expr) Expr {
-	switch it := expr.(type) {
-	case ExprArgRef:
-		println("AREF\t" + it.JsonSrc())
-		for i := range stack {
-			jsrc := "_"
-			if stack[i] != nil {
-				jsrc = stack[i].JsonSrc()
-			}
-			println("\t@", i, "\t", jsrc)
-		}
-		expr = stack[len(stack)+int(it)]
-		println("\t@->\t" + expr.JsonSrc())
-	case *ExprCall:
-		println("CALL\t" + it.JsonSrc())
-		callee, args := me.evalNu(it.Callee, stack), it.Args
-	haveBoth:
-		for subcall, okc := callee.(*ExprCall); okc; subcall, okc = callee.(*ExprCall) {
-			callee, args = subcall.Callee, append(append(make([]Expr, 0, len(args)+len(subcall.Args)), args...), subcall.Args...)
-		}
-		fnref := callee.(ExprFuncRef)
-		println("\tC->\t", callee.JsonSrc())
-		numargs, isopcode := 2, (fnref < 0)
-		if !isopcode {
-			numargs = len(me[fnref].Args)
-		}
-		println("C\tWANT:", numargs, ", have:", len(args))
-		if len(args) < numargs { // not enough args on stack:
-			println("CLOSURE", callee.JsonSrc(), len(args), "/", numargs)
-			expr = &ExprCall{Callee: callee, Args: args}
-		} else {
-			if diff := len(args) - numargs; diff > 0 {
-				println("DIFF", diff)
-				callee = me.evalNu(&ExprCall{Callee: callee, Args: args[diff:]}, stack)
-				args = args[:diff]
-				println("NOW", callee.JsonSrc(), "WITH", len(args))
-				goto haveBoth
-			}
-			stack = append(stack, args...)
-			cutoff := len(stack) - numargs
-			fnstack := stack[cutoff:]
-			stack = stack[:cutoff]
-
-			println("READY:", fnref, len(fnstack))
-			if isopcode {
-				CurEvalDepth++
-				lhs, rhs := me.evalNu(fnstack[1], stack), me.evalNu(fnstack[0], stack)
-				CurEvalDepth--
-				switch opcode := OpCode(fnref); opcode {
-				case OpAdd:
-					expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-				case OpSub:
-					expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-				case OpMul:
-					expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-				case OpDiv:
-					expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
-				case OpMod:
-					expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-				case OpEq:
-					if expr = StdFuncFalse; me.Eq(lhs, rhs, false) {
-						expr = StdFuncTrue
-					}
-				case OpGt, OpLt:
-					lt, l, r := (opcode == OpLt), lhs.(ExprNumInt), rhs.(ExprNumInt)
-					if expr = StdFuncFalse; (lt && l < r) || ((!lt) && l > r) {
-						expr = StdFuncTrue
-					}
-				case OpPrt:
-					expr = rhs
-					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs, false)), '\t'), me.ListOfExprsToString(rhs, false)...), '\n'))
-				default:
-					panic([3]Expr{fnref, lhs, rhs})
-				}
-				expr = me.evalNu(expr, stack)
-			} else {
-				fn := me[fnref]
-				if fn.hasArgRefs {
-					for i, numuses := range fn.Args {
-						if idx := len(fnstack) - (i + 1); numuses == 0 {
-							fnstack[idx] = nil
-						} else {
-							fnstack[idx] = me.evalNu(fnstack[idx], stack)
-						}
-					}
-				}
-				expr = me.evalNu(fn.Body, fnstack)
-			}
-		}
-	default:
-		println("V\t->\t", expr.JsonSrc())
 	}
 	return expr
 }
