@@ -108,7 +108,11 @@ func (me ExprFuncRef) JsonSrc() string { return "[" + strconv.Itoa(int(me)) + "]
 func (me *ExprCall) JsonSrc() string {
 	ret := "[" + me.Callee.JsonSrc()
 	for i := len(me.Args) - 1; i > -1; i-- {
-		ret += ", " + me.Args[i].JsonSrc()
+		argstr := "null" // at runtime only, for dropped args. not valid in our JSON source format
+		if me.Args[i] != nil {
+			argstr = me.Args[i].JsonSrc()
+		}
+		ret += ", " + argstr
 	}
 	ret += "]"
 	return ret

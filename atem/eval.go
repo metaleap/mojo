@@ -4,6 +4,15 @@ import (
 	"os"
 )
 
+// OnEvalStep, defaulting to a no-op, can be set to trace atomic execution steps
+var OnEvalStep = func(prog Prog, expr Expr, stack []Expr) {}
+
+// CurEvalDepth could be consumed in custom `OnEvalStep` handlers if needed.
+// `Eval` is per-se a mere graph-rewriting loop but does incur inner `Eval`
+// calls for both operands of binary "primitive instruction" `OpCode` operators.
+// This will be most severely noticable for list equality-comparison traversals.
+var CurEvalDepth int
+
 // OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
 // interpreter and invoked when encountering a call to a negative `ExprFuncRef`
 // with at least 2 operands on the current `Eval` stack. All `OpCode`-denoted
@@ -60,12 +69,13 @@ var OpPrtDst = os.Stderr.Write
 // then being `Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic`
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
-func (me Prog) Eval(expr Expr) Expr { return me.eval(expr, make([]Expr, 0, 1024)) }
+func (me Prog) Eval(expr Expr) Expr { CurEvalDepth = 0; return me.eval(expr, make([]Expr, 0, 1024)) }
 
 func (me Prog) eval(expr Expr, stack []Expr) Expr {
 	var lastcall *ExprCall
 	for again := true; again; {
 		again = false
+		OnEvalStep(me, expr, stack)
 		switch it := expr.(type) {
 		case *ExprCall:
 			stack = append(stack, it.Args...)
@@ -84,7 +94,9 @@ func (me Prog) eval(expr Expr, stack []Expr) Expr {
 					}
 				}
 			} else if isopcode {
+				CurEvalDepth++
 				lhs, rhs := me.eval(stack[len(stack)-1], nil), me.eval(stack[len(stack)-2], nil)
+				CurEvalDepth--
 				switch opcode := OpCode(it); opcode {
 				case OpAdd:
 					expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)

@@ -57,8 +57,21 @@ the `Body` in the `Prog` via the indicated index.
 ## Usage
 
 ```go
+var CurEvalDepth int
+```
+CurEvalDepth could be consumed in custom `OnEvalStep` handlers if needed. `Eval`
+is per-se a mere graph-rewriting loop but does incur inner `Eval` calls for both
+operands of binary "primitive instruction" `OpCode` operators. This will be most
+severely noticable for list equality-comparison traversals.
+
+```go
 var NumDrops int
 ```
+
+```go
+var OnEvalStep = func(prog Prog, expr Expr, stack []Expr) {}
+```
+OnEvalStep, defaulting to a no-op, can be set to trace atomic execution steps
 
 ```go
 var OpPrtDst = os.Stderr.Write

@@ -10,6 +10,7 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 			that, ok := cmp.(ExprNumInt)
 			return ok && it == that
 		case *ExprCall:
+			CurEvalDepth++
 			if that, ok := cmp.(*ExprCall); ok {
 				if evalCallNodes {
 					ok = me.Eq(me.eval(it.Callee, nil), me.eval(that.Callee, nil), true)
@@ -27,6 +28,7 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 				}
 				return ok
 			}
+			CurEvalDepth--
 		case ExprArgRef:
 			that, ok := cmp.(ExprArgRef)
 			return ok && (it == that || (it < 0 && that >= 0 && that == (-it)-1) || (it >= 0 && that < 0 && it == (-that)-1))
@@ -52,10 +54,12 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 			break
 		} else if call, okc := next.(*ExprCall); okc && len(call.Args) == 2 {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
+				CurEvalDepth++
 				for i := len(call.Args) - 1; i > 0; i-- {
 					ret = append(ret, me.eval(call.Args[i], nil))
 				}
 				ok, next = true, me.eval(call.Args[0], nil)
+				CurEvalDepth--
 			}
 		}
 		if !ok {

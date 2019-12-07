@@ -61,6 +61,10 @@ func main() {
 	}
 	defer func() {
 		println("ND", NumDrops)
+		if traceToFile {
+			traceOutFile.Sync()
+			traceOutFile.Close()
+		}
 		if thrown := recover(); thrown != nil {
 			if err, ok := thrown.([3]Expr); !ok {
 				panic(thrown)
