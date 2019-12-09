@@ -1,7 +1,9 @@
 package atem
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -105,17 +107,21 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		orig = expr
 		expr = curFnArgs[len(curFnArgs)+int(it)]
 	case *ExprCall:
+		if it.Callee == StdFuncCons && (!it.hasArgRefs) && len(it.Args) < 4 {
+			return it
+		}
 		orig = expr
-		// println(strings.Repeat(".", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		// print("\t", len(curFnArgs), " curArgs:")
-		// for i, argval := range curFnArgs {
-		// 	jstr := "_"
-		// 	if argval != nil {
-		// 		jstr = argval.JsonSrc()
-		// 	}
-		// 	print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
-		// }
-		// println()
+		println(strings.Repeat(".", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+		print("\t", len(curFnArgs), " curArgs:")
+		for i, argval := range curFnArgs {
+			jstr := "_"
+			if argval != nil {
+				jstr = argval.JsonSrc()
+			}
+			print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
+		}
+		println()
+
 		hasargrefs, callee, callargs := it.hasArgRefs, me.evalIt(level, it.Callee, curFnArgs), it.Args
 		for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
 			hasargrefs, callee, callargs = hasargrefs || sub.hasArgRefs, me.evalIt(level, sub.Callee, curFnArgs), append(callargs, sub.Args...)
@@ -136,18 +142,17 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		}
 		isclosure, fnargs := closure != 0, make([]Expr, len(callargs))
 		if isclosure && !hasargrefs {
-			copy(fnargs, callargs)
+			fnargs = callargs // copy(fnargs, callargs)
 		} else {
 			for i := range fnargs {
 				idx := numargs - (i + 1) + closure
-				// println("ARG", i, "~=", idx, "for", fnref, "usage:", me[fnref].Args[idx])
 				if isop || me[fnref].Args[idx] != 0 {
 					fnargs[i] = me.evalIt(level, callargs[i], curFnArgs)
 				}
 			}
 		}
 		if isclosure {
-			expr = &ExprCall{hasArgRefs: hasargrefs, Callee: fnref, Args: fnargs}
+			expr = &ExprCall{hasArgRefs: false, Callee: fnref, Args: fnargs}
 		} else {
 			if isop {
 				lhs, rhs := fnargs[1], fnargs[0]
@@ -178,8 +183,8 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		}
 	}
 	if orig != nil {
-		// println(strings.Repeat("<", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		// println(strings.Repeat(">", level), level, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
+		println(strings.Repeat("<", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+		println(strings.Repeat(">", level), level, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
 	}
 	return expr
 }

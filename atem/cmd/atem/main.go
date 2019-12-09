@@ -46,6 +46,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strconv"
+	"time"
 
 	. "github.com/metaleap/atmo/atem"
 )
@@ -77,12 +78,16 @@ func main() {
 			}
 		}
 	}()
-	outexpr := prog.Eval(&ExprCall{ // we start!
+	expr := &ExprCall{ // we start!
 		Callee: ExprFuncRef(len(prog) - 1), // `main` is always last by convention
 		Args: []Expr{ListsFrom(os.Environ()), // second `main` param: `env`, a list of all env-vars (list of "FOO=Bar" strings)
 			ListsFrom(os.Args[2:]), // first `main` param: `args`, a list of all process args following `atem inputfile`
-		}})
+		}}
+	t := time.Now().UnixNano()
+	outexpr := prog.Eval(expr)
 	outlist := prog.ListOfExprs(outexpr, true) // forces lazy thunks
+	t = time.Now().UnixNano() - t
+	println("T=", time.Duration(t).String())
 
 	if outbytes := ListToBytes(outlist); outbytes != nil { // by convention we expect a byte-array return from `main`
 		os.Stdout.Write(append(outbytes, '\n'))
