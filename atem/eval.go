@@ -144,6 +144,7 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		}
 		fnargs := make([]Expr, len(callargs))
 		for i := range fnargs {
+			println("ARG", i, "~=", numargs-(i+1), fnref, me[fnref].Args[numargs-(i+1)])
 			if idx := numargs - (i + 1); isop || me[fnref].Args[idx] != 0 {
 				if callargs[i] == nil {
 					panic("WOT3")
