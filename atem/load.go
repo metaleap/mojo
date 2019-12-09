@@ -57,7 +57,7 @@ func LoadFromJson(src []byte) Prog {
 		}
 		if _, fd.hasArgRefs = fd.Body.(ExprArgRef); !fd.hasArgRefs {
 			if call, _ := fd.Body.(*ExprCall); call != nil {
-				fd.hasArgRefs = !call.noArgRefs
+				fd.hasArgRefs = call.hasArgRefs
 			}
 		}
 		me = append(me, fd)
@@ -91,13 +91,20 @@ func exprFromJson(from any, curFnNumArgs int64, curMeta map[string]any) Expr {
 			curMeta = make(map[string]any, 1)
 		}
 		callee, args := exprFromJson(it[0], curFnNumArgs, curMeta), make([]Expr, 0, len(it)-1)
+		_, hasargrefs := callee.(ExprArgRef)
 		for i := len(it) - 1; i > 0; i-- {
-			args = append(args, exprFromJson(it[i], curFnNumArgs, curMeta))
+			idx := len(args)
+			if args = append(args, exprFromJson(it[i], curFnNumArgs, curMeta)); !hasargrefs {
+				if _, hasargrefs = args[idx].(ExprArgRef); !hasargrefs {
+					call, ok := args[idx].(*ExprCall)
+					hasargrefs = ok && call.hasArgRefs
+				}
+			}
 		}
 		if subcall, _ := callee.(*ExprCall); subcall == nil {
-			return &ExprCall{noArgRefs: curMeta["ar"] == nil, Callee: callee, Args: args}
+			return &ExprCall{hasArgRefs: hasargrefs, Callee: callee, Args: args}
 		} else {
-			subcall.Args, subcall.noArgRefs = append(args, subcall.Args...), subcall.noArgRefs && curMeta["ar"] == nil
+			subcall.Args, subcall.hasArgRefs = append(args, subcall.Args...), subcall.hasArgRefs || hasargrefs
 			return subcall
 		}
 	case map[string]any:

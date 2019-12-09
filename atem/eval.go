@@ -1,9 +1,7 @@
 package atem
 
 import (
-	"fmt"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -108,25 +106,19 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		expr = curFnArgs[len(curFnArgs)+int(it)]
 	case *ExprCall:
 		orig = expr
-		println(strings.Repeat(".", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		print("\t", len(curFnArgs), " curArgs:")
-		for i, argval := range curFnArgs {
-			jstr := "_"
-			if argval != nil {
-				jstr = argval.JsonSrc()
-			}
-			print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
-		}
-		println()
-		if it.Callee == nil {
-			panic("WOT1")
-		}
-		callee, callargs := me.evalIt(level, it.Callee, curFnArgs), it.Args
+		// println(strings.Repeat(".", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+		// print("\t", len(curFnArgs), " curArgs:")
+		// for i, argval := range curFnArgs {
+		// 	jstr := "_"
+		// 	if argval != nil {
+		// 		jstr = argval.JsonSrc()
+		// 	}
+		// 	print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
+		// }
+		// println()
+		hasargrefs, callee, callargs := it.hasArgRefs, me.evalIt(level, it.Callee, curFnArgs), it.Args
 		for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-			if sub.Callee == nil {
-				panic("WOT2")
-			}
-			callee, callargs = me.evalIt(level, sub.Callee, curFnArgs), append(callargs, sub.Args...)
+			hasargrefs, callee, callargs = hasargrefs || sub.hasArgRefs, me.evalIt(level, sub.Callee, curFnArgs), append(callargs, sub.Args...)
 		}
 		numargs, fnref := 2, callee.(ExprFuncRef)
 		isop := fnref < 0
@@ -134,26 +126,28 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 			numargs = len(me[fnref].Args)
 		}
 		var nextargs []Expr
-		var closure bool
+		var closure int
 		if diff := len(callargs) - numargs; diff < 0 {
-			closure = true
+			closure = diff
 		} else if diff > 0 {
 			nextargs = make([]Expr, diff)
 			copy(nextargs, callargs[:diff])
 			callargs = callargs[diff:] // append([]Expr{}, callargs[diff:]...)
 		}
-		fnargs := make([]Expr, len(callargs))
-		for i := range fnargs {
-			println("ARG", i, "~=", numargs-(i+1), fnref, me[fnref].Args[numargs-(i+1)])
-			if idx := numargs - (i + 1); isop || me[fnref].Args[idx] != 0 {
-				if callargs[i] == nil {
-					panic("WOT3")
+		isclosure, fnargs := closure != 0, make([]Expr, len(callargs))
+		if isclosure && !hasargrefs {
+			copy(fnargs, callargs)
+		} else {
+			for i := range fnargs {
+				idx := numargs - (i + 1) + closure
+				// println("ARG", i, "~=", idx, "for", fnref, "usage:", me[fnref].Args[idx])
+				if isop || me[fnref].Args[idx] != 0 {
+					fnargs[i] = me.evalIt(level, callargs[i], curFnArgs)
 				}
-				fnargs[i] = me.evalIt(level, callargs[i], curFnArgs)
 			}
 		}
-		if closure {
-			expr = &ExprCall{Callee: fnref, Args: fnargs}
+		if isclosure {
+			expr = &ExprCall{hasArgRefs: hasargrefs, Callee: fnref, Args: fnargs}
 		} else {
 			if isop {
 				lhs, rhs := fnargs[1], fnargs[0]
@@ -179,13 +173,13 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 				expr = me.evalIt(level, me[fnref].Body, fnargs)
 			}
 			if nextargs != nil {
-				expr = me.evalIt(level, &ExprCall{Callee: expr, Args: nextargs}, curFnArgs)
+				expr = me.evalIt(level, &ExprCall{hasArgRefs: hasargrefs, Callee: expr, Args: nextargs}, curFnArgs)
 			}
 		}
 	}
 	if orig != nil {
-		println(strings.Repeat("<", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		println(strings.Repeat(">", level), level, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
+		// println(strings.Repeat("<", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+		// println(strings.Repeat(">", level), level, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
 	}
 	return expr
 }
@@ -258,11 +252,11 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(expr 
 	case ExprArgRef:
 		return stack[len(stack)+int(it)]
 	case *ExprCall:
-		if it.noArgRefs {
+		if !it.hasArgRefs {
 			return it
 		}
 		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Callee, stack)
-		call := &ExprCall{noArgRefs: true, Args: make([]Expr, len(it.Args)), Callee: callee}
+		call := &ExprCall{hasArgRefs: false, Args: make([]Expr, len(it.Args)), Callee: callee}
 		for i := len(call.Args) - 1; i > -1; i-- {
 			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Args[i], stack)
 		}
@@ -278,11 +272,11 @@ func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack [
 	case ExprArgRef:
 		return stack[len(stack)+int(it)]
 	case *ExprCall:
-		if it.noArgRefs {
+		if !it.hasArgRefs {
 			return it
 		}
 		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)
-		arsgdiff, call := 0, &ExprCall{noArgRefs: true, Args: make([]Expr, len(it.Args)), Callee: callee}
+		arsgdiff, call := 0, &ExprCall{hasArgRefs: false, Args: make([]Expr, len(it.Args)), Callee: callee}
 		fnref, okf := callee.(ExprFuncRef)
 		if !okf {
 			if subcall, okc := callee.(*ExprCall); okc {

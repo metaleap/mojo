@@ -90,9 +90,9 @@ type (
 	ExprArgRef  int
 	ExprFuncRef int
 	ExprCall    struct {
-		Callee    Expr
-		Args      []Expr
-		noArgRefs bool
+		Callee     Expr
+		Args       []Expr
+		hasArgRefs bool
 	}
 )
 
