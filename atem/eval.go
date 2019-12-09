@@ -75,7 +75,7 @@ var OpPrtDst = os.Stderr.Write
 func (me Prog) Eval(expr Expr) Expr {
 	CurEvalDepth = 0
 
-	if 1 > 0 {
+	if 0 > 1 {
 		fidx := 40 // 21
 		// fidx = len(me)
 		// me = append(me, FuncDef{allArgsUsed: true, hasArgRefs: true, Args: []int{3}, Meta: []string{"fac", "n"},
@@ -98,72 +98,87 @@ func (me Prog) Eval(expr Expr) Expr {
 	return ret
 }
 
-func (me Prog) evalIt(level int, expr Expr, curArgs []Expr) Expr {
+func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 	var orig Expr
 	level++
 
 	switch it := expr.(type) {
 	case ExprArgRef:
 		orig = expr
-		expr = curArgs[len(curArgs)+int(it)]
+		expr = curFnArgs[len(curFnArgs)+int(it)]
 	case *ExprCall:
 		orig = expr
 		println(strings.Repeat(".", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		callee, callargs := me.evalIt(level, it.Callee, curArgs), it.Args
+		print("\t", len(curFnArgs), " curArgs:")
+		for i, argval := range curFnArgs {
+			jstr := "_"
+			if argval != nil {
+				jstr = argval.JsonSrc()
+			}
+			print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
+		}
+		println()
+		if it.Callee == nil {
+			panic("WOT1")
+		}
+		callee, callargs := me.evalIt(level, it.Callee, curFnArgs), it.Args
 		for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-			callee, callargs = me.evalIt(level, sub.Callee, curArgs), append(callargs, sub.Args...)
+			if sub.Callee == nil {
+				panic("WOT2")
+			}
+			callee, callargs = me.evalIt(level, sub.Callee, curFnArgs), append(callargs, sub.Args...)
 		}
 		numargs, fnref := 2, callee.(ExprFuncRef)
 		isop := fnref < 0
 		if !isop {
 			numargs = len(me[fnref].Args)
 		}
-		if 0 > 1 && len(callargs) < numargs {
-			return me.exprRewrittenWithArgRefsResolvedToStackEntries(&ExprCall{Callee: callee, Args: callargs}, curArgs)
+		var nextargs []Expr
+		var closure bool
+		if diff := len(callargs) - numargs; diff < 0 {
+			closure = true
+		} else if diff > 0 {
+			nextargs = make([]Expr, diff)
+			copy(nextargs, callargs[:diff])
+			callargs = callargs[diff:] // append([]Expr{}, callargs[diff:]...)
+		}
+		fnargs := make([]Expr, len(callargs))
+		for i := range fnargs {
+			if idx := numargs - (i + 1); isop || me[fnref].Args[idx] != 0 {
+				if callargs[i] == nil {
+					panic("WOT3")
+				}
+				fnargs[i] = me.evalIt(level, callargs[i], curFnArgs)
+			}
+		}
+		if closure {
+			expr = &ExprCall{Callee: fnref, Args: fnargs}
 		} else {
-			var nextargs []Expr
-			var closure bool
-			if diff := len(callargs) - numargs; diff < 0 {
-				closure = true
-			} else if diff > 0 {
-				nextargs = callargs[:diff]
-				callargs = callargs[diff:]
-			}
-			fnargs := make([]Expr, len(callargs))
-			for i := range fnargs {
-				if idx := numargs - (i + 1); isop || me[fnref].Args[idx] != 0 {
-					fnargs[i] = me.evalIt(level, callargs[i], curArgs)
-				}
-			}
-			if closure {
-				expr = &ExprCall{Callee: fnref, Args: fnargs}
-			} else {
-				if isop {
-					lhs, rhs := fnargs[1], fnargs[0]
-					switch OpCode(fnref) {
-					case OpAdd:
-						expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-					case OpSub:
-						expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-					case OpMul:
-						expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-					case OpEq:
-						if expr = StdFuncFalse; lhs.(ExprNumInt) == rhs.(ExprNumInt) {
-							expr = StdFuncTrue
-						}
-					case OpLt:
-						if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
-							expr = StdFuncTrue
-						}
-					default:
-						panic(fnref)
+			if isop {
+				lhs, rhs := fnargs[1], fnargs[0]
+				switch OpCode(fnref) {
+				case OpAdd:
+					expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
+				case OpSub:
+					expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
+				case OpMul:
+					expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+				case OpEq:
+					if expr = StdFuncFalse; lhs.(ExprNumInt) == rhs.(ExprNumInt) {
+						expr = StdFuncTrue
 					}
-				} else {
-					expr = me.evalIt(level, me[fnref].Body, fnargs)
+				case OpLt:
+					if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
+						expr = StdFuncTrue
+					}
+				default:
+					panic(fnref)
 				}
-				if len(nextargs) > 0 {
-					expr = me.evalIt(level, &ExprCall{Callee: expr, Args: nextargs}, curArgs)
-				}
+			} else {
+				expr = me.evalIt(level, me[fnref].Body, fnargs)
+			}
+			if nextargs != nil {
+				expr = me.evalIt(level, &ExprCall{Callee: expr, Args: nextargs}, curFnArgs)
 			}
 		}
 	}
