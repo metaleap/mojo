@@ -9,7 +9,7 @@ func callArgs(argsInIntuitiveOrder ...Expr) (argsInReverseOrder []Expr) {
 }
 
 // Eq is the fallback for `OpEq` calls with 2 operands that aren't both `ExprNumInt`s.
-func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
+func (me Prog) Eq(expr Expr, cmp Expr) bool {
 	if expr == cmp {
 		return true
 	} else {
@@ -24,25 +24,15 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 			that, ok := cmp.(ExprFuncRef)
 			return ok && it == that
 		case *ExprCall:
-			CurEvalDepth++
 			if that, ok := cmp.(*ExprCall); ok {
-				if evalCallNodes {
-					ok = me.Eq(me.eval(it.Callee, nil), me.eval(that.Callee, nil), true)
-				} else {
-					ok = me.Eq(it.Callee, that.Callee, false)
-				}
+				ok = me.Eq(it.Callee, that.Callee)
 				if ok = ok && len(it.Args) == len(that.Args); ok {
 					for i := 0; ok && i < len(it.Args) && i < len(that.Args); i++ {
-						if evalCallNodes {
-							ok = me.Eq(me.eval(it.Args[i], nil), me.eval(that.Args[i], nil), true)
-						} else {
-							ok = me.Eq(it.Args[i], that.Args[i], false)
-						}
+						ok = me.Eq(it.Args[i], that.Args[i])
 					}
 				}
 				return ok
 			}
-			CurEvalDepth--
 		}
 	}
 	return false
@@ -54,24 +44,20 @@ func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool {
 // The `ret` is `return`ed as `nil` if `expr` isn't a product of `StdFuncCons`
 // / `StdFuncNil` usage; yet a non-`nil`, zero-`len` `ret` will result from a
 // mere `StdFuncNil` construction, aka. "empty linked-list value" `Expr`.
-func (me Prog) ListOfExprs(expr Expr, evalItems bool) (ret []Expr) {
+func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 	ret = make([]Expr, 0, 1024)
-	for ok, next := true, expr; ok; {
+	for ok, next := true, me.eval(expr, nil); ok; {
 		ok = false
 		if fnref, _ := next.(ExprFuncRef); fnref == StdFuncNil {
 			break
 		} else if call, okc := next.(*ExprCall); okc && len(call.Args) == 2 {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
-				CurEvalDepth++
+				curEvalDepth++
 				for i := len(call.Args) - 1; i > 0; i-- {
-					if ret = append(ret, call.Args[i]); evalItems {
-						ret[len(ret)-1] = me.eval(ret[len(ret)-1], nil)
-					}
+					ret = append(ret, me.eval(call.Args[i], nil))
 				}
-				if ok, next = true, call.Args[0]; evalItems {
-					next = me.eval(next, nil)
-				}
-				CurEvalDepth--
+				ok, next = true, me.eval(call.Args[0], nil)
+				curEvalDepth--
 			}
 		}
 		if !ok {
@@ -105,8 +91,8 @@ func ListToBytes(maybeNumList []Expr) (retNumListAsBytes []byte) {
 // ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
 // and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`
 // result, if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.
-func (me Prog) ListOfExprsToString(expr Expr, evalItems bool) string {
-	if maybenumlist := me.ListOfExprs(expr, evalItems); maybenumlist != nil {
+func (me Prog) ListOfExprsToString(expr Expr) string {
+	if maybenumlist := me.ListOfExprs(expr); maybenumlist != nil {
 		if bytes := ListToBytes(maybenumlist); bytes != nil {
 			return string(bytes)
 		}

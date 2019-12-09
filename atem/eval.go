@@ -5,14 +5,13 @@ import (
 	"time"
 )
 
-// OnEvalStep, defaulting to a no-op, can be set to trace atomic execution steps
-var OnEvalStep = func(prog Prog, expr Expr, stack []Expr) {}
+// TODO
+// - consider case of:
+//   - someListArg caseNil caseCons
+//   - for one, in general: to have this call's args discarded or eval'd, need to eval callee first
+//   - however, if we just compared someListArg to known-selector-fnref we could avoid eval'ing first its closure value (as in, eval-the-callee) then again its full body, already knowing mere selection occurs
 
-// CurEvalDepth could be consumed in custom `OnEvalStep` handlers if needed.
-// `Eval` is per-se a mere graph-rewriting loop but does incur inner `Eval`
-// calls for both operands of binary "primitive instruction" `OpCode` operators.
-// This will be most severely noticable for list equality-comparison traversals.
-var CurEvalDepth int
+var curEvalDepth int
 
 // OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
 // interpreter and invoked when encountering a call to a negative `ExprFuncRef`
@@ -71,46 +70,35 @@ var OpPrtDst = os.Stderr.Write
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
-	CurEvalDepth = 0
-
-	if 0 > 1 {
-		fidx := 40 // 21
-		// fidx = len(me)
-		// me = append(me, FuncDef{allArgsUsed: true, hasArgRefs: true, Args: []int{3}, Meta: []string{"fac", "n"},
-		// 	Body: &ExprCall{
-		// 		Callee: &ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpEq), Args: []Expr{ExprArgRef(-1)}}, Args: []Expr{ExprNumInt(0)}},
-		// 		Args: callArgs(ExprNumInt(1), &ExprCall{Callee: ExprFuncRef(OpMul), Args: callArgs(ExprArgRef(-1), &ExprCall{
-		// 			Callee: ExprFuncRef(fidx), Args: []Expr{&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{ExprArgRef(-1)}}, Args: []Expr{ExprNumInt(1)}}},
-		// 		})}),
-		// 	},
-		// })
-		// println(me[fidx].JsonSrc(false), "\n____________________________________________\n\n")
-		expr = &ExprCall{Callee: ExprFuncRef(fidx), Args: []Expr{ExprNumInt(7)}}
-	}
-
+	curEvalDepth = 0
 	stack := make([]Expr, 0, 1024)
 	t := time.Now().UnixNano()
-	ret := me.evalIt(0, expr, stack)
+	ret := me.eval(expr, stack)
 	t = time.Now().UnixNano() - t
 	println(time.Duration(t).String())
 	return ret
 }
 
-func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
+func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 	var orig Expr
-	level++
+	curEvalDepth++
 
 	switch it := expr.(type) {
 	case ExprArgRef:
 		orig = expr
 		expr = curFnArgs[len(curFnArgs)+int(it)]
+	case ExprFuncRef:
+		if it > StdFuncCons && len(me[it].Args) == 0 {
+			expr = me.eval(me[it].Body, curFnArgs)
+		}
 	case *ExprCall:
 		orig = expr
-		if it.Callee == StdFuncCons && len(it.Args) < 4 && !it.hasArgRefs { // TODO, generalize & further investigating..
-			return it
-		}
+		// if it.Callee == StdFuncCons && len(it.Args) < 4 && !it.hasArgRefs { // TODO, generalize & further investigating..
+		// 	curEvalDepth--
+		// 	return it
+		// }
 
-		// println(strings.Repeat(".", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+		// println(strings.Repeat(".", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
 		// print("\t", len(curFnArgs), " curArgs:")
 		// for i, argval := range curFnArgs {
 		// 	jstr := "_"
@@ -121,9 +109,9 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		// }
 		// println()
 
-		hasargrefs, callee, callargs := it.hasArgRefs, me.evalIt(level, it.Callee, curFnArgs), it.Args
+		hasargrefs, callee, callargs := it.hasArgRefs, me.eval(it.Callee, curFnArgs), it.Args
 		for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-			hasargrefs, callee, callargs = hasargrefs || sub.hasArgRefs, me.evalIt(level, sub.Callee, curFnArgs), append(callargs, sub.Args...)
+			hasargrefs, callee, callargs = hasargrefs || sub.hasArgRefs, me.eval(sub.Callee, curFnArgs), append(callargs, sub.Args...)
 		}
 		numargs, fnref := 2, callee.(ExprFuncRef)
 		isop := fnref < 0
@@ -146,7 +134,7 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 			for i := range fnargs {
 				idx := numargs - (i + 1) + closure
 				if isop || me[fnref].Args[idx] != 0 {
-					fnargs[i] = me.evalIt(level, callargs[i], curFnArgs)
+					fnargs[i] = me.eval(callargs[i], curFnArgs)
 				}
 			}
 		}
@@ -167,7 +155,7 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 				case OpMod:
 					expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
 				case OpEq:
-					if expr = StdFuncFalse; me.Eq(lhs, rhs, false) {
+					if expr = StdFuncFalse; me.Eq(lhs, rhs) {
 						expr = StdFuncTrue
 					}
 				case OpLt:
@@ -180,136 +168,22 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 					}
 				case OpPrt:
 					expr = rhs
-					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs, false)), '\t'), me.ListOfExprsToString(rhs, false)...), '\n'))
+					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
 				default:
 					panic([3]Expr{it, lhs, rhs})
 				}
 			} else {
-				expr = me.evalIt(level, me[fnref].Body, fnargs)
+				expr = me.eval(me[fnref].Body, fnargs)
 			}
 			if nextargs != nil {
-				expr = me.evalIt(level, &ExprCall{hasArgRefs: hasargrefs, Callee: expr, Args: nextargs}, curFnArgs)
+				expr = me.eval(&ExprCall{hasArgRefs: hasargrefs, Callee: expr, Args: nextargs}, curFnArgs)
 			}
 		}
 	}
 	if orig != nil {
-		// 	println(strings.Repeat("<", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		// 	println(strings.Repeat(">", level), level, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
+		// 	println(strings.Repeat("<", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+		// 	println(strings.Repeat(">", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
 	}
-	return expr
-}
-
-func (me Prog) eval(expr Expr, stack []Expr) Expr {
-	for again := true; again; {
-		again = false
-		// OnEvalStep(me, expr, stack)
-		switch it := expr.(type) {
-		case *ExprCall:
-			stack = append(stack, it.Args...)
-			again, expr = true, it.Callee
-		case ExprFuncRef:
-			numargs, isopcode := 2, (it < 0)
-			if !isopcode {
-				numargs = len(me[it].Args)
-			}
-			if len(stack) < numargs { // not enough args on stack:
-				if len(stack) > 0 { // then a closure value results
-					expr = &ExprCall{Callee: it, Args: stack}
-				}
-			} else if isopcode {
-				CurEvalDepth++
-				lhs, rhs := me.eval(stack[len(stack)-1], nil), me.eval(stack[len(stack)-2], nil)
-				CurEvalDepth--
-				switch opcode := OpCode(it); opcode {
-				case OpAdd:
-					expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-				case OpSub:
-					expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-				case OpMul:
-					expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-				case OpDiv:
-					expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
-				case OpMod:
-					expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-				case OpEq:
-					if expr = StdFuncFalse; me.Eq(lhs, rhs, true) {
-						expr = StdFuncTrue
-					}
-				case OpGt, OpLt:
-					lt, l, r := (opcode == OpLt), lhs.(ExprNumInt), rhs.(ExprNumInt)
-					if expr = StdFuncFalse; (lt && l < r) || ((!lt) && l > r) {
-						expr = StdFuncTrue
-					}
-				case OpPrt:
-					expr = rhs
-					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs, true)), '\t'), me.ListOfExprsToString(rhs, true)...), '\n'))
-				default:
-					panic([3]Expr{it, lhs, rhs})
-				}
-				again, stack = true, stack[:len(stack)-2]
-			} else {
-				if expr = me[it].Body; me[it].hasArgRefs {
-					expr = me.exprRewrittenWithArgRefsResolvedToStackEntries(expr, stack)
-				}
-				again, stack = true, stack[:len(stack)-numargs]
-			}
-		default:
-			if len(stack) != 0 {
-				panic(stack)
-			}
-		}
-	}
-	return expr
-}
-
-func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(expr Expr, stack []Expr) Expr {
-	switch it := expr.(type) {
-	case ExprArgRef:
-		return stack[len(stack)+int(it)]
-	case *ExprCall:
-		if !it.hasArgRefs {
-			return it
-		}
-		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Callee, stack)
-		call := &ExprCall{hasArgRefs: false, Args: make([]Expr, len(it.Args)), Callee: callee}
-		for i := len(call.Args) - 1; i > -1; i-- {
-			call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries_NonOptimized(it.Args[i], stack)
-		}
-		return call
-	}
-	return expr
-}
-
-var NumDrops int
-
-func (me Prog) exprRewrittenWithArgRefsResolvedToStackEntries(expr Expr, stack []Expr) Expr {
-	switch it := expr.(type) {
-	case ExprArgRef:
-		return stack[len(stack)+int(it)]
-	case *ExprCall:
-		if !it.hasArgRefs {
-			return it
-		}
-		callee := me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Callee, stack)
-		arsgdiff, call := 0, &ExprCall{hasArgRefs: false, Args: make([]Expr, len(it.Args)), Callee: callee}
-		fnref, okf := callee.(ExprFuncRef)
-		if !okf {
-			if subcall, okc := callee.(*ExprCall); okc {
-				if fnref, _ = subcall.Callee.(ExprFuncRef); fnref != 0 {
-					arsgdiff = len(subcall.Args)
-				}
-			}
-		}
-		jmax, neverdrop := -1, fnref <= 0 || me[fnref].allArgsUsed
-		if fnref >= 0 {
-			jmax = len(me[fnref].Args) - 1
-		}
-		for j, i := arsgdiff, len(call.Args)-1; i > -1; j, i = j+1, i-1 {
-			if neverdrop || j > jmax || me[fnref].Args[j] != 0 {
-				call.Args[i] = me.exprRewrittenWithArgRefsResolvedToStackEntries(it.Args[i], stack)
-			}
-		}
-		return call
-	}
+	curEvalDepth--
 	return expr
 }

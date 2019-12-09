@@ -65,16 +65,11 @@ func main() {
 	}
 	defer func() {
 		thrown := recover()
-		println("ND", NumDrops)
-		if traceToFile {
-			traceOutFile.Sync()
-			traceOutFile.Close()
-		}
 		if thrown != nil {
 			if err, ok := thrown.([3]Expr); !ok {
 				panic(thrown)
 			} else {
-				os.Stderr.WriteString(prog.ListOfExprsToString(err[1], true) + "\t" + prog.ListOfExprsToString(err[2], true) + "\n")
+				os.Stderr.WriteString(prog.ListOfExprsToString(err[1]) + "\t" + prog.ListOfExprsToString(err[2]) + "\n")
 			}
 		}
 	}()
@@ -85,7 +80,7 @@ func main() {
 		}}
 	t := time.Now().UnixNano()
 	outexpr := prog.Eval(expr)
-	outlist := prog.ListOfExprs(outexpr, true) // forces lazy thunks
+	outlist := prog.ListOfExprs(outexpr) // forces lazy thunks
 	t = time.Now().UnixNano() - t
 	println("T=", time.Duration(t).String())
 
@@ -102,12 +97,12 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 			if sepchar, oks := retList[1].(ExprNumInt); oks && sepchar > -1 && sepchar < 256 {
 				_, okc := retList[3].(*ExprCall)
 				if okf, _ := retList[3].(ExprFuncRef); okc || okf == StdFuncNil {
-					if initialoutput := ListToBytes(prog.ListOfExprs(retList[3], true)); initialoutput != nil {
+					if initialoutput := ListToBytes(prog.ListOfExprs(retList[3])); initialoutput != nil {
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
 							retexpr := prog.Eval(&ExprCall{Callee: fnhandler, Args: []Expr{ListFrom(input), prevstate}}) //  &ExprCall{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
-							if retlist := prog.ListOfExprs(retexpr, true); len(retlist) == 2 {
+							if retlist := prog.ListOfExprs(retexpr); len(retlist) == 2 {
 								nextstate = retlist[0]
-								if outlist := prog.ListOfExprs(retlist[1], true); outlist != nil {
+								if outlist := prog.ListOfExprs(retlist[1]); outlist != nil {
 									os.Stdout.Write(ListToBytes(outlist))
 								} else {
 									os.Stderr.WriteString("RET-EXPR:\t" + retlist[1].JsonSrc() + "\n")

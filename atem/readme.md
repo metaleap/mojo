@@ -57,23 +57,6 @@ the `Body` in the `Prog` via the indicated index.
 ## Usage
 
 ```go
-var CurEvalDepth int
-```
-CurEvalDepth could be consumed in custom `OnEvalStep` handlers if needed. `Eval`
-is per-se a mere graph-rewriting loop but does incur inner `Eval` calls for both
-operands of binary "primitive instruction" `OpCode` operators. This will be most
-severely noticable for list equality-comparison traversals.
-
-```go
-var NumDrops int
-```
-
-```go
-var OnEvalStep = func(prog Prog, expr Expr, stack []Expr) {}
-```
-OnEvalStep, defaulting to a no-op, can be set to trace atomic execution steps
-
-```go
 var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
@@ -293,7 +276,7 @@ will restore the 0-based indexing form, however.
 #### func (Prog) Eq
 
 ```go
-func (me Prog) Eq(expr Expr, cmp Expr, evalCallNodes bool) bool
+func (me Prog) Eq(expr Expr, cmp Expr) bool
 ```
 Eq is the fallback for `OpEq` calls with 2 operands that aren't both
 `ExprNumInt`s.
@@ -339,7 +322,7 @@ JsonSrc emits the re-`LoadFromJson`able representation of this `Prog`.
 #### func (Prog) ListOfExprs
 
 ```go
-func (me Prog) ListOfExprs(expr Expr, evalItems bool) (ret []Expr)
+func (me Prog) ListOfExprs(expr Expr) (ret []Expr)
 ```
 ListOfExprs dissects the given `expr` into an `[]Expr` slice only if it is a
 closure resulting from `StdFuncCons` / `StdFuncNil` usage during `Eval`. The
@@ -351,7 +334,7 @@ construction, aka. "empty linked-list value" `Expr`.
 #### func (Prog) ListOfExprsToString
 
 ```go
-func (me Prog) ListOfExprsToString(expr Expr, evalItems bool) string
+func (me Prog) ListOfExprsToString(expr Expr) string
 ```
 ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
 and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`

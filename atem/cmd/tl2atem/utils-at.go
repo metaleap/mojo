@@ -90,7 +90,7 @@ func eq(prog Prog, expr Expr, cmp Expr) bool {
 		a2, oka2 := cmp.(exprAppl)
 		return oka2 && eq(prog, a1.Callee, a2.Callee) && eq(prog, a1.Arg, a2.Arg)
 	}
-	return prog.Eq(expr, cmp, false)
+	return prog.Eq(expr, cmp)
 }
 
 // some optimizers may drop certain arg uses while others may expect correct values in `FuncDef.Args`,
