@@ -105,6 +105,7 @@ func compileTopDef(name string) int {
 								locals[j].Expr = locals[j].Expr.RewriteName(local.Name, local.Expr)
 							}
 							again, locals = true, append(locals[:i], locals[i+1:]...)
+							break
 						} else {
 							for j := 0; j < i; j++ {
 								if 0 < locals[j].ReplaceName(local.Name, local.Name) {
@@ -113,6 +114,7 @@ func compileTopDef(name string) int {
 							}
 							body = &tl.ExprCall{Callee: &tl.ExprFunc{ArgName: "//shr:" + local.Name, Body: body.RewriteName(local.Name, &tl.ExprName{NameVal: "//shr:" + local.Name})}, CallArg: local.Expr}
 							again, locals = true, append(locals[:i], locals[i+1:]...)
+							break
 						}
 					}
 				}

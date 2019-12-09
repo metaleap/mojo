@@ -1,9 +1,7 @@
 package atem
 
 import (
-	"fmt"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -107,20 +105,21 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		orig = expr
 		expr = curFnArgs[len(curFnArgs)+int(it)]
 	case *ExprCall:
-		if it.Callee == StdFuncCons && (!it.hasArgRefs) && len(it.Args) < 4 {
+		orig = expr
+		if it.Callee == StdFuncCons && len(it.Args) < 4 && !it.hasArgRefs { // TODO, generalize & further investigating..
 			return it
 		}
-		orig = expr
-		println(strings.Repeat(".", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		print("\t", len(curFnArgs), " curArgs:")
-		for i, argval := range curFnArgs {
-			jstr := "_"
-			if argval != nil {
-				jstr = argval.JsonSrc()
-			}
-			print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
-		}
-		println()
+
+		// println(strings.Repeat(".", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+		// print("\t", len(curFnArgs), " curArgs:")
+		// for i, argval := range curFnArgs {
+		// 	jstr := "_"
+		// 	if argval != nil {
+		// 		jstr = argval.JsonSrc()
+		// 	}
+		// 	print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
+		// }
+		// println()
 
 		hasargrefs, callee, callargs := it.hasArgRefs, me.evalIt(level, it.Callee, curFnArgs), it.Args
 		for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
@@ -138,9 +137,9 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		} else if diff > 0 {
 			nextargs = make([]Expr, diff)
 			copy(nextargs, callargs[:diff])
-			callargs = callargs[diff:] // append([]Expr{}, callargs[diff:]...)
+			callargs = callargs[diff:]
 		}
-		isclosure, fnargs := closure != 0, make([]Expr, len(callargs))
+		isclosure, fnargs := (closure != 0), make([]Expr, len(callargs))
 		if isclosure && !hasargrefs {
 			fnargs = callargs // copy(fnargs, callargs)
 		} else {
@@ -163,16 +162,27 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 					expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
 				case OpMul:
 					expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+				case OpDiv:
+					expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
+				case OpMod:
+					expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
 				case OpEq:
-					if expr = StdFuncFalse; lhs.(ExprNumInt) == rhs.(ExprNumInt) {
+					if expr = StdFuncFalse; me.Eq(lhs, rhs, false) {
 						expr = StdFuncTrue
 					}
 				case OpLt:
 					if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
 						expr = StdFuncTrue
 					}
+				case OpGt:
+					if expr = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
+						expr = StdFuncTrue
+					}
+				case OpPrt:
+					expr = rhs
+					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs, false)), '\t'), me.ListOfExprsToString(rhs, false)...), '\n'))
 				default:
-					panic(fnref)
+					panic([3]Expr{it, lhs, rhs})
 				}
 			} else {
 				expr = me.evalIt(level, me[fnref].Body, fnargs)
@@ -183,8 +193,8 @@ func (me Prog) evalIt(level int, expr Expr, curFnArgs []Expr) Expr {
 		}
 	}
 	if orig != nil {
-		println(strings.Repeat("<", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		println(strings.Repeat(">", level), level, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
+		// 	println(strings.Repeat("<", level), level, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+		// 	println(strings.Repeat(">", level), level, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
 	}
 	return expr
 }
