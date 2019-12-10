@@ -60,6 +60,22 @@ func LoadFromJson(src []byte) Prog {
 				fd.hasArgRefs = call.hasArgRefs
 			}
 		}
+		if len(fd.Args) >= 2 {
+			if argref, isa := fd.Body.(ExprArgRef); isa {
+				fd.isSelectorOf = argref
+			} else if call, isc := fd.Body.(*ExprCall); isc && call.hasArgRefs {
+				if argref, isa = call.Callee.(ExprArgRef); isa {
+					for i := range call.Args {
+						if _, isa = call.Args[i].(ExprArgRef); !isa {
+							break
+						}
+					}
+					if isa {
+						fd.isSelectorOf = argref
+					}
+				}
+			}
+		}
 		me = append(me, fd)
 	}
 	return me

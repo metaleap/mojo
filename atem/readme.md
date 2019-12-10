@@ -52,9 +52,33 @@ from SAPL: our calls are n-ary not unary; our func-refs, if negative, denote a
 binary primitive-instruction op-code such as addition, multiply,
 equality-testing etc. that is handled natively by the interpreter; our func-refs
 don't carry around their number-of-args, instead they're looked up together with
-the `Body` in the `Prog` via the indicated index.
+the `Body` in the `Prog` via the indicated index. Finally, the lazy-ish
+evaluator approach has been replaced with a "mostly eager-ish" interpretation
+approach. Meaning: args to a call that are known to be discarded are not
+evaluated, but the others are reduced as much as feasible as early as possible;
+also to the greatest extent possible it will strive to mark "selector closures"
+(such as lists or any other ADT values) whose elements are "done" (no more calls
+or arg-refs remaining) to catch them early and prevent unnecessary
+re-evaluations and re-allocations of the exact same closure constructions as
+they're passed around.
 
 ## Usage
+
+```go
+var Count1 int
+```
+
+```go
+var Count2 int
+```
+
+```go
+var Count3 int
+```
+
+```go
+var Count4 int
+```
 
 ```go
 var OpPrtDst = os.Stderr.Write

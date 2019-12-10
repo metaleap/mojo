@@ -48,6 +48,14 @@
 // multiply, equality-testing etc. that is handled natively by the interpreter;
 // our func-refs don't carry around their number-of-args, instead they're
 // looked up together with the `Body` in the `Prog` via the indicated index.
+// Finally, the lazy-ish evaluator approach has been replaced with a "mostly
+// eager-ish" interpretation approach. Meaning: args to a call that are known
+// to be discarded are not evaluated, but the others are reduced as much as
+// feasible as early as possible; also to the greatest extent possible it will
+// strive to mark "selector closures" (such as lists or any other ADT values)
+// whose elements are "done" (no more calls or arg-refs remaining) to catch
+// them early and prevent unnecessary re-evaluations and re-allocations of the
+// exact same closure constructions as they're passed around.
 package atem
 
 import (
@@ -76,11 +84,12 @@ type (
 		// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
 		// `Body` references this arg (note that the interpreter does not currently
 		// use this info), the arg's "identity" however is just its index in `Args`
-		Args        []int
-		Body        Expr
-		Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
-		allArgsUsed bool
-		hasArgRefs  bool
+		Args         []int
+		Body         Expr
+		Meta         []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
+		allArgsUsed  bool
+		hasArgRefs   bool
+		isSelectorOf ExprArgRef
 	}
 	Expr interface {
 		// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.

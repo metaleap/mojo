@@ -119,3 +119,19 @@ func ListsFrom(strs []string) (ret Expr) {
 	}
 	return
 }
+
+// This is neither used by the evaluator nor by the parser but occasionally
+// handy temporarily for investigating, profiling or optimizing specifics.
+func walk(expr Expr, visitor func(Expr) Expr) Expr {
+	if ret := visitor(expr); ret != nil {
+		expr = ret
+		if call, ok := expr.(*ExprCall); ok {
+			call.Callee = walk(call.Callee, visitor)
+			for i, argval := range call.Args {
+				call.Args[i] = walk(argval, visitor)
+			}
+			expr = call
+		}
+	}
+	return expr
+}
