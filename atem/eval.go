@@ -121,9 +121,10 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				// }
 				// println()
 
-				hasargrefs, callee, callargs := it.hasArgRefs, me.eval(it.Callee, curFnArgs), it.Args
+				callee, callargs := me.eval(it.Callee, curFnArgs), it.Args
 				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-					hasargrefs, callee, callargs = hasargrefs || sub.hasArgRefs, me.eval(sub.Callee, curFnArgs), append(callargs, sub.Args...)
+					callee, callargs = me.eval(sub.Callee, curFnArgs), append(callargs, sub.Args...)
+					// TODO! track of sub-callee args-done info for re-eval-avoidance
 				}
 				numargs, fnref := 2, callee.(ExprFuncRef)
 				isop := fnref < 0
@@ -141,23 +142,16 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						copy(nextargs, callargs[:diff])
 						callargs = callargs[diff:]
 					}
-					var fnargs []Expr
-					isclosure := (closure != 0)
-					if 0 > 1 && isclosure && !hasargrefs { // seems like a little thing but makes a big difference
-						fnargs = callargs // copy(fnargs, callargs)
-					} else {
-						fnargs = make([]Expr, len(callargs))
-						for i := range fnargs {
-							idx := numargs - (i + 1) + closure
-							if allargsused || me[fnref].Args[idx] != 0 {
-								fnargs[i] = me.eval(callargs[i], curFnArgs)
-							}
+					fnargs := make([]Expr, len(callargs))
+					for i := range fnargs {
+						// TODO! some may have from closureWithArgsDone, dont re-eval them
+						idx := numargs - (i + 1) + closure
+						if allargsused || me[fnref].Args[idx] != 0 {
+							fnargs[i] = me.eval(callargs[i], curFnArgs)
 						}
 					}
-					if isclosure {
-						if hasargrefs || len(fnargs) != len(it.Args) {
-							expr = &ExprCall{allArgsDone: true, isClosure: true, hasArgRefs: false, Callee: fnref, Args: fnargs}
-						}
+					if closure != 0 {
+						expr = &ExprCall{allArgsDone: true, isClosure: true, Callee: fnref, Args: fnargs}
 					} else {
 						if isop {
 							lhs, rhs := fnargs[1], fnargs[0]
@@ -196,8 +190,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 							expr = me.eval(me[fnref].Body, fnargs)
 						}
 						if nextargs != nil {
-							// cases where hasargrefs is true but "wrongly so" for the below: 1 in every 280 - 1000. not worth recomputing for upcoming `expr nextargs` call.
-							again, expr = true, &ExprCall{hasArgRefs: hasargrefs, Callee: expr, Args: nextargs}
+							again, expr = true, &ExprCall{Callee: expr, Args: nextargs}
 						}
 					}
 				}
