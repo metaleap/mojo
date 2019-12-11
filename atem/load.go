@@ -44,7 +44,7 @@ func LoadFromJson(src []byte) Prog {
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
 		arrargs := it[1].([]any)
-		fd := FuncDef{Body: exprFromJson(it[2], int64(len(arrargs)), nil), hasArgRefs: false, allArgsUsed: true, Meta: []string{}, Args: make([]int, len(arrargs))}
+		fd := FuncDef{Body: exprFromJson(it[2], int64(len(arrargs))), hasArgRefs: false, allArgsUsed: true, Meta: []string{}, Args: make([]int, len(arrargs))}
 		if metarr, _ := it[0].([]any); len(metarr) > 0 {
 			for _, mstr := range metarr {
 				fd.Meta = append(fd.Meta, mstr.(string))
@@ -55,33 +55,13 @@ func LoadFromJson(src []byte) Prog {
 				fd.allArgsUsed = false
 			}
 		}
-		if _, fd.hasArgRefs = fd.Body.(ExprArgRef); !fd.hasArgRefs {
-			if call, _ := fd.Body.(*ExprCall); call != nil {
-				fd.hasArgRefs = call.hasArgRefs
-			}
-		}
-		if len(fd.Args) >= 2 {
-			if argref, isa := fd.Body.(ExprArgRef); isa {
-				fd.isSelectorOf = argref
-			} else if call, isc := fd.Body.(*ExprCall); isc && call.hasArgRefs {
-				if argref, isa = call.Callee.(ExprArgRef); isa {
-					for i := range call.Args {
-						if _, isa = call.Args[i].(ExprArgRef); !isa {
-							break
-						}
-					}
-					if isa {
-						fd.isSelectorOf = argref
-					}
-				}
-			}
-		}
 		me = append(me, fd)
 	}
+	me.postLoadPreProcess()
 	return me
 }
 
-func exprFromJson(from any, curFnNumArgs int64, curMeta map[string]any) Expr {
+func exprFromJson(from any, curFnNumArgs int64) Expr {
 	switch it := from.(type) {
 	case float64: // number literal
 		return ExprNumInt(int(it))
@@ -94,37 +74,79 @@ func exprFromJson(from any, curFnNumArgs int64, curMeta map[string]any) Expr {
 			}
 			if n < 0 || n >= curFnNumArgs {
 				panic("LoadFromJson: encountered bad ExprArgRef of " + strconv.FormatInt(n, 10) + " inside a FuncDef with " + strconv.FormatInt(curFnNumArgs, 10) + " arg(s)")
-			} else if curMeta != nil {
-				curMeta["ar"] = 0
 			}
 			return ExprArgRef(int(-(n + 1))) // rewrite arg-refs for later stack-access-from-tail-end: 0 -> -1, 1 -> -2, 2 -> -3, etc.. note: reverted again in ExprArgRef.JsonSrc()
 		}
 	case []any:
-		if len(it) == 1 { // either func-ref literal..
+		if len(it) == 1 { // func-ref literal
 			return ExprFuncRef(int(it[0].(float64)))
 		}
-		if curMeta == nil {
-			curMeta = make(map[string]any, 1)
-		}
-		callee, args := exprFromJson(it[0], curFnNumArgs, curMeta), make([]Expr, 0, len(it)-1)
+		callee, args := exprFromJson(it[0], curFnNumArgs), make([]Expr, 0, len(it)-1)
 		_, hasargrefs := callee.(ExprArgRef)
+		allargsdone := !hasargrefs
 		for i := len(it) - 1; i > 0; i-- {
-			idx := len(args)
-			if args = append(args, exprFromJson(it[i], curFnNumArgs, curMeta)); !hasargrefs {
-				if _, hasargrefs = args[idx].(ExprArgRef); !hasargrefs {
-					call, ok := args[idx].(*ExprCall)
-					hasargrefs = ok && call.hasArgRefs
-				}
-			}
+			arg := exprFromJson(it[i], curFnNumArgs)
+			args = append(args, arg)
+			_, isargref := arg.(ExprArgRef)
+			call, iscall := arg.(*ExprCall)
+			hasargrefs = hasargrefs || isargref || (iscall && call.hasArgRefs)
+			allargsdone = allargsdone && (!hasargrefs) && ((!iscall) || call.allArgsDone)
 		}
+		var ret *ExprCall
 		if subcall, _ := callee.(*ExprCall); subcall == nil {
-			return &ExprCall{hasArgRefs: hasargrefs, Callee: callee, Args: args}
+			ret = &ExprCall{allArgsDone: allargsdone, hasArgRefs: hasargrefs, Callee: callee, Args: args}
 		} else {
-			subcall.Args, subcall.hasArgRefs = append(args, subcall.Args...), subcall.hasArgRefs || hasargrefs
-			return subcall
+			subcall.Args, subcall.hasArgRefs, subcall.allArgsDone = append(args, subcall.Args...), subcall.hasArgRefs || hasargrefs, subcall.allArgsDone && allargsdone
+			ret = subcall
 		}
-	case map[string]any:
-		return exprFromJson(it[""], curFnNumArgs, it)
+		return ret
 	}
 	panic(from)
+}
+
+func (me Prog) postLoadPreProcess() {
+	for i := range me {
+		fd := &me[i]
+		fd.Body = walk(fd.Body, func(expr Expr) Expr {
+			if call, is := expr.(*ExprCall); is {
+				if _, isargref := call.Callee.(ExprArgRef); !isargref {
+					call.Callee = me.eval(call.Callee, nil)
+				}
+				if fnref, ok := call.Callee.(ExprFuncRef); ok {
+					numargs := 2
+					if fnref >= 0 {
+						numargs = len(me[fnref].Args)
+					}
+					if len(call.Args) < numargs {
+						call.isClosure = true
+					}
+				}
+			}
+			return expr
+		})
+		if _, fd.hasArgRefs = fd.Body.(ExprArgRef); !fd.hasArgRefs {
+			if call, _ := fd.Body.(*ExprCall); call != nil {
+				fd.hasArgRefs = call.hasArgRefs
+			}
+		}
+		if len(fd.Args) >= 2 {
+			if argref, isa := fd.Body.(ExprArgRef); isa {
+				fd.isSelectorOf = argref
+			} else if call, isc := fd.Body.(*ExprCall); isc && call.hasArgRefs {
+				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -1 {
+					for ia := range call.Args {
+						if _, isa = call.Args[ia].(ExprArgRef); !isa {
+							break
+						}
+					}
+					if isa {
+						fd.isSelectorOf = argref
+					}
+				}
+			}
+			if fd.isSelectorOf != 0 {
+				println("SEL:\t", fd.Meta[0])
+			}
+		}
+	}
 }

@@ -55,7 +55,7 @@
 // strive to mark "selector closures" (such as lists or any other ADT values)
 // whose elements are "done" (no more calls or arg-refs remaining) to catch
 // them early and prevent unnecessary re-evaluations and re-allocations of the
-// exact same closure constructions as they're passed around.
+// exact same closure constructions as they're passed around as args or callees.
 package atem
 
 import (
@@ -99,9 +99,11 @@ type (
 	ExprArgRef  int
 	ExprFuncRef int
 	ExprCall    struct {
-		Callee     Expr
-		Args       []Expr
-		hasArgRefs bool
+		Callee      Expr
+		Args        []Expr
+		hasArgRefs  bool
+		allArgsDone bool
+		isClosure   bool
 	}
 )
 

@@ -81,9 +81,8 @@ var OpPrtDst = os.Stderr.Write
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
 	curEvalDepth, maxDepth = 0, 0
-	stack := make([]Expr, 0, 1024)
 	t := time.Now().UnixNano()
-	ret := me.eval(expr, stack)
+	ret := me.eval(expr, nil)
 	t = time.Now().UnixNano() - t
 	println(time.Duration(t).String(), "\t\t\t", maxDepth, "\t\t", Count1, Count2, Count3, Count4)
 	return ret
@@ -97,101 +96,112 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 		maxDepth = curEvalDepth
 	}
 
-	switch it := expr.(type) {
-	case ExprArgRef:
-		expr = curFnArgs[len(curFnArgs)+int(it)]
-	case ExprFuncRef:
-		if it > StdFuncCons && len(me[it].Args) == 0 {
-			expr = me.eval(me[it].Body, curFnArgs)
-		}
-	case *ExprCall:
-		// println(strings.Repeat(".", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-		// print("\t", len(curFnArgs), " curArgs:")
-		// for i, argval := range curFnArgs {
-		// 	jstr := "_"
-		// 	if argval != nil {
-		// 		jstr = argval.JsonSrc()
-		// 	}
-		// 	print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
-		// }
-		// println()
+	for again := true; again; {
+		again = false
 
-		hasargrefs, callee, callargs := it.hasArgRefs, me.eval(it.Callee, curFnArgs), it.Args
-		for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-			hasargrefs, callee, callargs = hasargrefs || sub.hasArgRefs, me.eval(sub.Callee, curFnArgs), append(callargs, sub.Args...)
-		}
-		numargs, fnref := 2, callee.(ExprFuncRef)
-		isop := fnref < 0
-		allargsused := isop
-		if !isop {
-			numargs, allargsused = len(me[fnref].Args), me[fnref].allArgsUsed
-		}
-		var nextargs []Expr
-		var closure int
-		if diff := len(callargs) - numargs; diff < 0 {
-			closure = diff
-		} else if diff > 0 {
-			nextargs = make([]Expr, diff)
-			copy(nextargs, callargs[:diff])
-			callargs = callargs[diff:]
-		}
-		isclosure, fnargs := (closure != 0), make([]Expr, len(callargs))
-		if isclosure && !hasargrefs { // seems like a little thing but makes a big difference
-			fnargs = callargs // copy(fnargs, callargs)
-		} else {
-			for i := range fnargs {
-				idx := numargs - (i + 1) + closure
-				if allargsused || me[fnref].Args[idx] != 0 {
-					fnargs[i] = me.eval(callargs[i], curFnArgs)
+		switch it := expr.(type) {
+		case ExprArgRef:
+			expr = curFnArgs[len(curFnArgs)+int(it)]
+		case ExprFuncRef:
+			if it > StdFuncCons && len(me[it].Args) == 0 {
+				again, expr = true, me[it].Body
+			}
+		case *ExprCall:
+			if !(it.isClosure && it.allArgsDone) { // for ADT-heavy progs, no-op case covers between 1/3 to 3/4 of *ExprCall cases
+				Count1++
+				// println(strings.Repeat(".", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+				// print("\t", len(curFnArgs), " curArgs:")
+				// for i, argval := range curFnArgs {
+				// 	jstr := "_"
+				// 	if argval != nil {
+				// 		jstr = argval.JsonSrc()
+				// 	}
+				// 	print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
+				// }
+				// println()
+
+				hasargrefs, callee, callargs := it.hasArgRefs, me.eval(it.Callee, curFnArgs), it.Args
+				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
+					hasargrefs, callee, callargs = hasargrefs || sub.hasArgRefs, me.eval(sub.Callee, curFnArgs), append(callargs, sub.Args...)
 				}
-			}
-		}
-		if isclosure {
-			if hasargrefs || len(fnargs) != len(it.Args) {
-				expr = &ExprCall{hasArgRefs: false, Callee: fnref, Args: fnargs}
-			}
-		} else {
-			if isop {
-				lhs, rhs := fnargs[1], fnargs[0]
-				switch OpCode(fnref) {
-				case OpAdd:
-					expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-				case OpSub:
-					expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-				case OpMul:
-					expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-				case OpDiv:
-					expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
-				case OpMod:
-					expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-				case OpEq:
-					if expr = StdFuncFalse; me.Eq(lhs, rhs) {
-						expr = StdFuncTrue
-					}
-				case OpLt:
-					if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
-						expr = StdFuncTrue
-					}
-				case OpGt:
-					if expr = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
-						expr = StdFuncTrue
-					}
-				case OpPrt:
-					expr = rhs
-					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
-				default:
-					panic([3]Expr{it, lhs, rhs})
+				numargs, fnref := 2, callee.(ExprFuncRef)
+				isop := fnref < 0
+				allargsused := isop
+				if !isop {
+					numargs, allargsused = len(me[fnref].Args), me[fnref].allArgsUsed
 				}
-			} else {
-				expr = me.eval(me[fnref].Body, fnargs)
-			}
-			if nextargs != nil {
-				// cases where hasargrefs is true but "wrongly" for the below: 1 in every 280 - 1000. not worth recomputing for upcoming `expr nextargs` call.
-				expr = &ExprCall{hasArgRefs: hasargrefs, Callee: expr, Args: nextargs}
-				expr = me.eval(expr, curFnArgs)
+				var nextargs []Expr
+				var closure int
+				if diff := len(callargs) - numargs; diff < 0 {
+					closure = diff
+				} else if diff > 0 { // usually 1 or 2
+					nextargs = make([]Expr, diff)
+					copy(nextargs, callargs[:diff])
+					callargs = callargs[diff:]
+				}
+				var fnargs []Expr
+				isclosure := (closure != 0)
+				if isclosure && !hasargrefs { // seems like a little thing but makes a big difference
+					fnargs = callargs // copy(fnargs, callargs)
+				} else {
+					fnargs = make([]Expr, len(callargs))
+					for i := range fnargs {
+						idx := numargs - (i + 1) + closure
+						if allargsused || me[fnref].Args[idx] != 0 {
+							fnargs[i] = me.eval(callargs[i], curFnArgs)
+						}
+					}
+				}
+				if isclosure {
+					if hasargrefs || len(fnargs) != len(it.Args) {
+						expr = &ExprCall{allArgsDone: true, isClosure: true, hasArgRefs: false, Callee: fnref, Args: fnargs}
+					}
+				} else {
+					if isop {
+						lhs, rhs := fnargs[1], fnargs[0]
+						switch OpCode(fnref) {
+						case OpAdd:
+							expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
+						case OpSub:
+							expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
+						case OpMul:
+							expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+						case OpDiv:
+							expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
+						case OpMod:
+							expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
+						case OpEq:
+							if expr = StdFuncFalse; me.Eq(lhs, rhs) {
+								expr = StdFuncTrue
+							}
+						case OpLt:
+							if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
+								expr = StdFuncTrue
+							}
+						case OpGt:
+							if expr = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
+								expr = StdFuncTrue
+							}
+						case OpPrt:
+							expr = rhs
+							_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
+						default:
+							panic([3]Expr{it, lhs, rhs})
+						}
+					} else if nextargs == nil {
+						again, expr, curFnArgs = true, me[fnref].Body, fnargs
+					} else {
+						expr = me.eval(me[fnref].Body, fnargs)
+					}
+					if nextargs != nil {
+						// cases where hasargrefs is true but "wrongly so" for the below: 1 in every 280 - 1000. not worth recomputing for upcoming `expr nextargs` call.
+						again, expr = true, &ExprCall{hasArgRefs: hasargrefs, Callee: expr, Args: nextargs}
+					}
+				}
 			}
 		}
 	}
+
 	// 	println(strings.Repeat("<", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
 	// 	println(strings.Repeat(">", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
 	curEvalDepth--
