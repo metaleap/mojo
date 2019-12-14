@@ -131,7 +131,7 @@ func (me Prog) postLoadPreProcess() {
 		}
 		if len(fd.Args) >= 2 {
 			if argref, isa := fd.Body.(ExprArgRef); isa {
-				fd.isSelectorOf = argref
+				fd.selector.of = argref
 			} else if call, isc := fd.Body.(*ExprCall); isc && call.hasArgRefs {
 				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -1 {
 					for ia := range call.Args {
@@ -140,7 +140,7 @@ func (me Prog) postLoadPreProcess() {
 						}
 					}
 					if isa {
-						fd.isSelectorOf = argref
+						fd.selector.of, fd.selector.numArgs = argref, len(call.Args)
 					}
 				}
 			}

@@ -10,12 +10,13 @@ func optimize(src Prog) Prog {
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_ditchUnusedFuncDefs,
 			optimize_ditchDuplicateDefs,
+			optimize_lastArgDrop,
 			optimize_inlineNullaries,
 			optimize_inlineNaryFuncAliases,
 			optimize_inlineSelectorCalls,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
-			optimize_inlineArgsRearrangers,
+			// optimize_inlineArgsRearrangers,
 			optimize_primOpPreCalcs,
 			optimize_callsToGeqOrLeq,
 			optimize_minifyNeedlesslyElaborateBoolOpCalls,
@@ -175,6 +176,23 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 			}
 			return expr
 		})
+	}
+	return
+}
+
+func optimize_lastArgDrop(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	for i := StdFuncCons + 1; (!didModify) && int(i) < len(ret)-1; i++ {
+		if len(ret[i].Args) > 0 {
+			if appl, isappl := ret[i].Body.(exprAppl); isappl {
+				if arg, isarg := appl.Arg.(ExprArgRef); isarg && len(ret[i].Args) == -int(arg) && 1 == ret[i].Args[len(ret[i].Args)-1] {
+					ret[i].Args = ret[i].Args[:len(ret[i].Args)-1]
+					ret[i].Meta = ret[i].Meta[:len(ret[i].Meta)-1]
+					ret[i].Body = appl.Callee
+					didModify = true
+				}
+			}
+		}
 	}
 	return
 }
@@ -532,19 +550,22 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 // removes an arg from a FuncDef if no non-call uses of the FuncDef exist and all its callers supply said arg, and with the exact same (non-argref-containing) expression
 func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	allappls, num := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}
+	allappls, min, max := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}, map[ExprFuncRef]int{}
 	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
 		if !doesHaveNonCalleeUses(ret, i) {
 			allappls[i] = nil
 		}
 	}
 	for i := range allappls {
-		allappls[i], num[i] = nil, len(ret[i].Args)
+		max[i], min[i] = 0, len(ret[i].Args)
 		var chk func(Expr) Expr
 		chk = func(expr Expr) Expr {
 			if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == i {
-				if len(allargs) < num[i] {
-					num[i] = len(allargs)
+				if len(allargs) < min[i] {
+					min[i] = len(allargs)
+				}
+				if len(allargs) > max[i] {
+					max[i] = len(allargs)
 				}
 				if len(allargs) <= len(ret[i].Args) {
 					allappls[i] = append(allappls[i], expr)
@@ -561,54 +582,56 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 		}
 	}
 	for i, appls := range allappls {
-		for aidx := 0; aidx < num[i]; aidx++ {
-			var argval Expr
-			for _, appl := range appls {
-				if _, _, _, _, _, allargs := dissectCall(appl); len(allargs) > aidx {
-					_, hasargref := allargs[aidx].(ExprArgRef)
-					_ = walk(allargs[aidx], func(expr Expr) Expr {
-						if hasargref {
-							return nil
+		if len(appls) > 0 {
+			for aidx := 0; aidx < min[i]; aidx++ {
+				var argval Expr
+				for _, appl := range appls {
+					if _, _, _, _, _, allargs := dissectCall(appl); len(allargs) > aidx {
+						_, hasargref := allargs[aidx].(ExprArgRef)
+						_ = walk(allargs[aidx], func(expr Expr) Expr {
+							if hasargref {
+								return nil
+							}
+							_, hasargref = expr.(ExprArgRef)
+							return expr
+						})
+						if argval == nil && !hasargref {
+							argval = allargs[aidx]
+						} else if hasargref || !eq(ret, argval, allargs[aidx]) {
+							argval = exprTmp(-987654321)
 						}
-						_, hasargref = expr.(ExprArgRef)
-						return expr
-					})
-					if argval == nil && !hasargref {
-						argval = allargs[aidx]
-					} else if hasargref || !eq(ret, argval, allargs[aidx]) {
-						argval = exprTmp(-987654321)
 					}
 				}
-			}
-			if tmp, _ := argval.(exprTmp); argval != nil && tmp != -987654321 {
-				for j := StdFuncCons + 1; int(j) < len(ret); j++ {
-					ret[j].Body = walk(ret[j].Body, func(expr Expr) Expr {
-						if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == i && len(allargs) == 1+aidx {
-							return expr.(exprAppl).Callee
+				if tmp, _ := argval.(exprTmp); argval != nil && tmp != -987654321 {
+					for j := StdFuncCons + 1; int(j) < len(ret); j++ {
+						ret[j].Body = walk(ret[j].Body, func(expr Expr) Expr {
+							if _, fnref, _, _, _, allargs := dissectCall(expr); fnref != nil && *fnref == i && len(allargs) == 1+aidx {
+								return expr.(exprAppl).Callee
+							}
+							return expr
+						})
+					}
+					ret[i].Args = append(ret[i].Args[:aidx], ret[i].Args[1+aidx:]...)
+					ret[i].Meta = append(ret[i].Meta[:1+aidx], ret[i].Meta[2+aidx:]...)
+					ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+						if argref, is := expr.(ExprArgRef); is {
+							if idx := int(-argref) - 1; idx == aidx {
+								return argval
+							}
 						}
 						return expr
 					})
+					ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
+						if argref, is := expr.(ExprArgRef); is {
+							if idx := int(-argref) - 1; idx > aidx {
+								return 1 + argref
+							}
+						}
+						return expr
+					})
+					didModify = true
+					return
 				}
-				ret[i].Args = append(ret[i].Args[:aidx], ret[i].Args[1+aidx:]...)
-				ret[i].Meta = append(ret[i].Meta[:1+aidx], ret[i].Meta[2+aidx:]...)
-				ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-					if argref, is := expr.(ExprArgRef); is {
-						if idx := int(-argref) - 1; idx == aidx {
-							return argval
-						}
-					}
-					return expr
-				})
-				ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-					if argref, is := expr.(ExprArgRef); is {
-						if idx := int(-argref) - 1; idx > aidx {
-							return 1 + argref
-						}
-					}
-					return expr
-				})
-				didModify = true
-				return
 			}
 		}
 	}

@@ -76,7 +76,7 @@ func doesHaveNonCalleeUses(prog Prog, fn ExprFuncRef) (doesHaveNonCalleeOccurren
 		}
 		return expr
 	}
-	for i := StdFuncCons + 1; int(i) < len(prog) && !doesHaveNonCalleeOccurrences; i++ {
+	for i := 0; i < len(prog) && !doesHaveNonCalleeOccurrences; i++ {
 		_ = walk(prog[i].Body, scrut)
 	}
 	return

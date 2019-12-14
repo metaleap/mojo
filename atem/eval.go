@@ -80,7 +80,7 @@ func (me Prog) Eval(expr Expr) Expr {
 	t := time.Now().UnixNano()
 	ret := me.eval(expr, nil)
 	t = time.Now().UnixNano() - t
-	println(time.Duration(t).String(), "\t\t\t", maxDepth, "\t\t", Count1, Count2, Count3, Count4)
+	// println(time.Duration(t).String(), "\t\t\t", maxDepth, "\t\t", Count1, Count2, Count3, Count4)
 	return ret
 }
 
@@ -139,7 +139,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				if numargsdone < len(fnargs) {
 					fnargs = make([]Expr, len(callargs))
 					tmp := numargs - closure - 1
-					for i := len(fnargs) - 1; i >= 0; i-- {
+					for i := range fnargs {
 						if idx := tmp - i; allargsused || me[fnref].Args[idx] != 0 {
 							if numargsdone > i {
 								fnargs[i] = callargs[i]
@@ -151,7 +151,6 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				}
 				if closure != 0 {
 					expr = &ExprCall{allArgsDone: true, IsClosure: closure, Callee: fnref, Args: fnargs}
-					Count2++
 				} else {
 					if isop {
 						lhs, rhs := fnargs[1], fnargs[0]
@@ -184,26 +183,23 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						default:
 							panic([3]Expr{it, lhs, rhs})
 						}
-					} else {
-						if nextargs == nil && fnref == 4 {
-							Count1++
-							Count2++
-							again, expr, curFnArgs = true, &ExprCall{allArgsDone: true, Callee: fnargs[0], Args: fnargs[2:]}, nil
-						} else if nextargs == nil {
-							again, expr, curFnArgs = true, me[fnref].Body, fnargs
-						} else {
-							expr = me.eval(me[fnref].Body, fnargs)
+					} else if nextargs != nil {
+						expr = me.eval(me[fnref].Body, fnargs)
+					} else if me[fnref].selector.of != 0 {
+						if expr = fnargs[len(fnargs)+int(me[fnref].selector.of)]; me[fnref].selector.numArgs > 0 {
+							expr = &ExprCall{allArgsDone: true, Callee: expr, Args: fnargs[len(fnargs)-me[fnref].selector.numArgs:]}
 						}
+						again, curFnArgs = true, nil
+					} else {
+						again, expr, curFnArgs = true, me[fnref].Body, fnargs
 					}
 					if nextargs != nil {
-						if fnr, _ := expr.(ExprFuncRef); fnr > 0 && me[fnr].isSelectorOf != 0 && len(nextargs) >= len(me[fnr].Args) {
-							Count3++
-							again, expr = true, nextargs[len(nextargs)+int(me[fnr].isSelectorOf)]
+						if fnr, _ := expr.(ExprFuncRef); fnr > 0 && me[fnr].selector.of != 0 && me[fnr].selector.numArgs == 0 && len(nextargs) >= len(me[fnr].Args) {
+							again, expr = true, nextargs[len(nextargs)+int(me[fnr].selector.of)]
 							nextargs = nextargs[:len(nextargs)-len(me[fnr].Args)]
 						}
 					}
 					if len(nextargs) > 0 {
-						Count2++
 						again, expr = true, &ExprCall{allArgsDone: nextargsdone, Callee: expr, Args: nextargs}
 					}
 				}
@@ -220,6 +216,6 @@ var Count2 int
 var Count3 int
 var Count4 int
 
-func onEvalStepNoOp(Expr, []Expr) func(Expr, []Expr, bool) { Count4++; return onEvalStepDoneNoOp }
+func onEvalStepNoOp(Expr, []Expr) func(Expr, []Expr, bool) { return onEvalStepDoneNoOp }
 
 func onEvalStepDoneNoOp(Expr, []Expr, bool) {}
