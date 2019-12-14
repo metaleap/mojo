@@ -135,6 +135,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				var nextargs []Expr
 				var nextargsdone bool
 				var closure int
+				dbg := numargsdone > 0
 				if diff := len(callargs) - numargs; diff < 0 {
 					closure = diff
 				} else if diff > 0 { // usually 1 or 2
@@ -148,9 +149,11 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						numargsdone -= diff
 					}
 				}
+				if dbg && numargsdone == 0 && !nextargsdone {
+					Count4++
+				}
 				fnargs := make([]Expr, len(callargs))
 				for i := range fnargs {
-					// TODO! some may have come from closure-with-args-done, dont re-eval them
 					idx := numargs - (i + 1) + closure
 					if allargsused || me[fnref].Args[idx] != 0 {
 						if numargsdone > i {
@@ -200,7 +203,11 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 					} else {
 						expr = me.eval(me[fnref].Body, fnargs)
 					}
-					if nextargs != nil {
+					if fnr, _ := expr.(ExprFuncRef); fnr >= 0 && me[fnr].isSelectorOf != 0 && len(nextargs) >= len(me[fnr].Args) {
+						again, expr = true, nextargs[len(nextargs)+int(me[fnr].isSelectorOf)]
+						nextargs = nextargs[:len(nextargs)-len(me[fnr].Args)]
+					}
+					if len(nextargs) > 0 {
 						again, expr = true, &ExprCall{allArgsDone: nextargsdone, Callee: expr, Args: nextargs}
 					}
 				}

@@ -81,7 +81,7 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 		if len(it) == 1 { // func-ref literal
 			return ExprFuncRef(int(it[0].(float64)))
 		}
-		callee, args := exprFromJson(it[0], curFnNumArgs), make([]Expr, 0, len(it)-1)
+		callee, args := exprFromJson(it[0], curFnNumArgs), make([]Expr, 0, 1+len(it))
 		_, hasargrefs := callee.(ExprArgRef)
 		allargsdone := !hasargrefs
 		for i := len(it) - 1; i > 0; i-- {
@@ -145,7 +145,7 @@ func (me Prog) postLoadPreProcess() {
 				}
 			}
 			if fd.isSelectorOf != 0 {
-				println("SEL:\t", fd.Meta[0])
+				println("SEL:\t", fd.Meta[0], "OF:", fd.isSelectorOf)
 			}
 		}
 	}
