@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var OnEvalStep = onEvalStepNoOp
+
 // selectors: funcs with 2+ args and a body of:
 // - either only an argref
 // - or a call with argref callee and *only* argref call-args, callee > "0"
@@ -74,7 +76,7 @@ var OpPrtDst = os.Stderr.Write
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
-	curEvalDepth, maxDepth = 0, 0
+	CurEvalStepDepth, maxDepth = 0, 0
 	t := time.Now().UnixNano()
 	ret := me.eval(expr, nil)
 	t = time.Now().UnixNano() - t
@@ -82,15 +84,15 @@ func (me Prog) Eval(expr Expr) Expr {
 	return ret
 }
 
-var curEvalDepth int
+var CurEvalStepDepth int
 var maxDepth int
 
 func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
-	if curEvalDepth++; curEvalDepth > maxDepth {
-		maxDepth = curEvalDepth
+	if CurEvalStepDepth++; CurEvalStepDepth > maxDepth {
+		maxDepth = CurEvalStepDepth
 	}
-
 	for again := true; again; {
+		ondone := OnEvalStep(expr, curFnArgs)
 		again = false
 
 		switch it := expr.(type) {
@@ -101,20 +103,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				again, expr = true, me[it].Body
 			}
 		case *ExprCall:
-			if !(it.isClosure && it.allArgsDone) { // for ADT-heavy progs, no-op case covers between 1/3 to 3/4 of *ExprCall cases
-
-				// orig := expr
-				// println(strings.Repeat(".", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-				// print("\t", len(curFnArgs), " curArgs:")
-				// for i, argval := range curFnArgs {
-				// 	jstr := "_"
-				// 	if argval != nil {
-				// 		jstr = argval.JsonSrc()
-				// 	}
-				// 	print("\t", fmt.Sprintf("%T", argval), "@", i, "=", jstr)
-				// }
-				// println()
-
+			if it.IsClosure == 0 || !it.allArgsDone { // for ADT-heavy progs, no-op case covers between 1/3 to 3/4 of *ExprCall cases
 				numargsdone, callee, callargs := 0, me.eval(it.Callee, curFnArgs), it.Args
 				if it.allArgsDone {
 					numargsdone = len(it.Args)
@@ -146,19 +135,26 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						numargsdone -= diff
 					}
 				}
-				fnargs := make([]Expr, len(callargs))
-				for i := range fnargs {
-					idx := numargs - (i + 1) + closure
-					if allargsused || me[fnref].Args[idx] != 0 {
-						if numargsdone > i {
-							fnargs[i] = callargs[i]
-						} else {
-							fnargs[i] = me.eval(callargs[i], curFnArgs)
+				fnargs := callargs
+				if numargsdone < len(fnargs) {
+					fnargs = make([]Expr, len(callargs))
+					for i := range fnargs {
+						idx := numargs - (i + 1) + closure
+						if allargsused || me[fnref].Args[idx] != 0 {
+							if numargsdone > i {
+								fnargs[i] = callargs[i]
+							} else {
+								fnargs[i] = me.eval(callargs[i], curFnArgs)
+							}
 						}
 					}
 				}
 				if closure != 0 {
-					expr = &ExprCall{allArgsDone: true, isClosure: true, Callee: fnref, Args: fnargs}
+					expr = &ExprCall{allArgsDone: true, IsClosure: -closure, Callee: fnref, Args: fnargs}
+					Count2++
+					if me.Eq(expr, it) {
+						Count3++
+					}
 				} else {
 					if isop {
 						lhs, rhs := fnargs[1], fnargs[0]
@@ -191,10 +187,16 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						default:
 							panic([3]Expr{it, lhs, rhs})
 						}
-					} else if nextargs == nil {
-						again, expr, curFnArgs = true, me[fnref].Body, fnargs
 					} else {
-						expr = me.eval(me[fnref].Body, fnargs)
+						if nextargs == nil && fnref == 4 {
+							Count1++
+							Count2++
+							again, expr, curFnArgs = true, &ExprCall{allArgsDone: true, Callee: fnargs[0], Args: fnargs[2:]}, nil
+						} else if nextargs == nil {
+							again, expr, curFnArgs = true, me[fnref].Body, fnargs
+						} else {
+							expr = me.eval(me[fnref].Body, fnargs)
+						}
 					}
 					if nextargs != nil {
 						if fnr, _ := expr.(ExprFuncRef); fnr > 0 && me[fnr].isSelectorOf != 0 && len(nextargs) >= len(me[fnr].Args) {
@@ -203,17 +205,15 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						}
 					}
 					if len(nextargs) > 0 {
+						Count2++
 						again, expr = true, &ExprCall{allArgsDone: nextargsdone, Callee: expr, Args: nextargs}
 					}
 				}
 			}
-
-			// println(strings.Repeat("<", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-			// println(strings.Repeat(">", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
 		}
+		ondone(expr, curFnArgs, again)
 	}
-
-	curEvalDepth--
+	CurEvalStepDepth--
 	return expr
 }
 
@@ -221,3 +221,7 @@ var Count1 int
 var Count2 int
 var Count3 int
 var Count4 int
+
+func onEvalStepNoOp(Expr, []Expr) func(Expr, []Expr, bool) { Count4++; return onEvalStepDoneNoOp }
+
+func onEvalStepDoneNoOp(Expr, []Expr, bool) {}

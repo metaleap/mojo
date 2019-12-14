@@ -103,7 +103,7 @@ type (
 		Args        []Expr
 		hasArgRefs  bool
 		allArgsDone bool
-		isClosure   bool
+		IsClosure   int
 	}
 )
 

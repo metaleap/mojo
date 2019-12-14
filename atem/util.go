@@ -52,12 +52,12 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 			break
 		} else if call, okc := next.(*ExprCall); okc && len(call.Args) == 2 {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
-				curEvalDepth++
+				CurEvalStepDepth++
 				for i := len(call.Args) - 1; i > 0; i-- {
 					ret = append(ret, me.eval(call.Args[i], nil))
 				}
 				ok, next = true, me.eval(call.Args[0], nil)
-				curEvalDepth--
+				CurEvalStepDepth--
 			}
 		}
 		if !ok {
@@ -104,7 +104,7 @@ func (me Prog) ListOfExprsToString(expr Expr) string {
 func ListFrom(str []byte) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(str) - 1; i > -1; i-- {
-		ret = &ExprCall{isClosure: true, allArgsDone: true, hasArgRefs: false, Callee: StdFuncCons, Args: []Expr{ret, ExprNumInt(str[i])}}
+		ret = &ExprCall{IsClosure: 2, allArgsDone: true, hasArgRefs: false, Callee: StdFuncCons, Args: []Expr{ret, ExprNumInt(str[i])}}
 		// ret = &ExprCall{Callee: &ExprCall{Callee: StdFuncCons, Args: []Expr{ExprNumInt(str[i])}}, Args: []Expr{ret}}
 	}
 	return
@@ -114,7 +114,7 @@ func ListFrom(str []byte) (ret Expr) {
 func ListsFrom(strs []string) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(strs) - 1; i > -1; i-- {
-		ret = &ExprCall{isClosure: true, allArgsDone: true, hasArgRefs: false, Callee: StdFuncCons, Args: []Expr{ret, ListFrom([]byte(strs[i]))}}
+		ret = &ExprCall{IsClosure: 2, allArgsDone: true, hasArgRefs: false, Callee: StdFuncCons, Args: []Expr{ret, ListFrom([]byte(strs[i]))}}
 		// ret = &ExprCall{Callee: &ExprCall{Callee: StdFuncCons, Args: []Expr{ListFrom([]byte(strs[i]))}}, Args: []Expr{ret}}
 	}
 	return

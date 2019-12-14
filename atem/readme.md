@@ -81,6 +81,14 @@ var Count4 int
 ```
 
 ```go
+var CurEvalStepDepth int
+```
+
+```go
+var OnEvalStep = onEvalStepNoOp
+```
+
+```go
 var OpPrtDst = os.Stderr.Write
 ```
 OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
@@ -144,6 +152,8 @@ JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
 type ExprCall struct {
 	Callee Expr
 	Args   []Expr
+
+	IsClosure int
 }
 ```
 

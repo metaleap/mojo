@@ -117,8 +117,8 @@ func (me Prog) postLoadPreProcess() {
 					if fnref >= 0 {
 						numargs = len(me[fnref].Args)
 					}
-					if len(call.Args) < numargs {
-						call.isClosure = true
+					if diff := numargs - len(call.Args); diff > 0 {
+						call.IsClosure = diff
 					}
 				}
 			}

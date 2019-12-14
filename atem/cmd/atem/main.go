@@ -51,6 +51,8 @@ import (
 	. "github.com/metaleap/atmo/atem"
 )
 
+var prog Prog
+
 func main() {
 	runtime.LockOSThread()
 	runtime.GOMAXPROCS(1)
@@ -59,7 +61,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	prog := LoadFromJson(src)
+	if trace {
+		defer writeTraceFile()
+	}
+	prog = LoadFromJson(src)
 	if numargs := len(prog[len(prog)-1].Args); 2 != numargs {
 		panic("Your main FuncDef needs exactly 2 Args but has " + strconv.Itoa(numargs) + ": " + prog[len(prog)-1].JsonSrc(false))
 	}
