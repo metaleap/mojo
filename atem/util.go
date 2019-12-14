@@ -10,7 +10,7 @@ func callArgs(argsInIntuitiveOrder ...Expr) (argsInReverseOrder []Expr) {
 
 // Eq is the fallback for `OpEq` calls with 2 operands that aren't both `ExprNumInt`s.
 func (me Prog) Eq(expr Expr, cmp Expr) bool {
-	if expr == cmp {
+	if expr == cmp { // rare but can happen
 		return true
 	} else {
 		switch it := expr.(type) {
@@ -19,16 +19,17 @@ func (me Prog) Eq(expr Expr, cmp Expr) bool {
 			return ok && it == that
 		case ExprArgRef:
 			that, ok := cmp.(ExprArgRef)
-			return ok && (it == that || (it < 0 && that >= 0 && that == (-it)-1) || (it >= 0 && that < 0 && it == (-that)-1))
+			return ok && it == that
 		case ExprFuncRef:
 			that, ok := cmp.(ExprFuncRef)
 			return ok && it == that
 		case *ExprCall:
 			if that, ok := cmp.(*ExprCall); ok {
-				ok = me.Eq(it.Callee, that.Callee)
-				if ok = ok && len(it.Args) == len(that.Args); ok {
-					for i := 0; ok && i < len(it.Args) && i < len(that.Args); i++ {
-						ok = me.Eq(it.Args[i], that.Args[i])
+				if ok = len(it.Args) == len(that.Args) && me.Eq(it.Callee, that.Callee); ok {
+					for i := range it.Args {
+						if ok = me.Eq(it.Args[i], that.Args[i]); !ok {
+							break
+						}
 					}
 				}
 				return ok
@@ -52,12 +53,10 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 			break
 		} else if call, okc := next.(*ExprCall); okc && len(call.Args) == 2 {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
-				CurEvalStepDepth++
 				for i := len(call.Args) - 1; i > 0; i-- {
 					ret = append(ret, me.eval(call.Args[i], nil))
 				}
 				ok, next = true, me.eval(call.Args[0], nil)
-				CurEvalStepDepth--
 			}
 		}
 		if !ok {

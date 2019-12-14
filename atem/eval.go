@@ -125,7 +125,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				var nextargsdone bool
 				var closure int
 				if diff := len(callargs) - numargs; diff < 0 {
-					closure = diff
+					closure = -diff
 				} else if diff > 0 { // usually 1 or 2
 					nextargsdone, nextargs = numargsdone >= diff, make([]Expr, diff)
 					copy(nextargs, callargs[:diff])
@@ -138,9 +138,9 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				fnargs := callargs
 				if numargsdone < len(fnargs) {
 					fnargs = make([]Expr, len(callargs))
-					for i := range fnargs {
-						idx := numargs - (i + 1) + closure
-						if allargsused || me[fnref].Args[idx] != 0 {
+					tmp := numargs - closure - 1
+					for i := len(fnargs) - 1; i >= 0; i-- {
+						if idx := tmp - i; allargsused || me[fnref].Args[idx] != 0 {
 							if numargsdone > i {
 								fnargs[i] = callargs[i]
 							} else {
@@ -150,11 +150,8 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 					}
 				}
 				if closure != 0 {
-					expr = &ExprCall{allArgsDone: true, IsClosure: -closure, Callee: fnref, Args: fnargs}
+					expr = &ExprCall{allArgsDone: true, IsClosure: closure, Callee: fnref, Args: fnargs}
 					Count2++
-					if me.Eq(expr, it) {
-						Count3++
-					}
 				} else {
 					if isop {
 						lhs, rhs := fnargs[1], fnargs[0]
@@ -200,6 +197,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 					}
 					if nextargs != nil {
 						if fnr, _ := expr.(ExprFuncRef); fnr > 0 && me[fnr].isSelectorOf != 0 && len(nextargs) >= len(me[fnr].Args) {
+							Count3++
 							again, expr = true, nextargs[len(nextargs)+int(me[fnr].isSelectorOf)]
 							nextargs = nextargs[:len(nextargs)-len(me[fnr].Args)]
 						}

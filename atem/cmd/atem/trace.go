@@ -63,7 +63,7 @@ func writeStep(to *os.File, level int, step *EvalStep) {
 	}
 	to.WriteString("\n")
 	writeSteps(to, level+1, step.SubSteps)
-	to.WriteString(ind + "= " + toStr(step.Result))
+	to.WriteString(ind + " = " + toStr(step.Result))
 	if step.Again {
 		to.WriteString("\t\t···")
 		for i := len(step.NextArgs) - 1; i >= 0; i-- {

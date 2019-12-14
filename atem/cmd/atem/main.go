@@ -85,7 +85,7 @@ func main() {
 		}}
 	t := time.Now().UnixNano()
 	outexpr := prog.Eval(expr)
-	outlist := prog.ListOfExprs(outexpr) // forces lazy thunks
+	outlist := prog.ListOfExprs(outexpr)
 	t = time.Now().UnixNano() - t
 	println("T=", time.Duration(t).String())
 
