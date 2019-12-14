@@ -144,9 +144,6 @@ func (me Prog) postLoadPreProcess() {
 					}
 				}
 			}
-			if fd.isSelectorOf != 0 {
-				println("SEL:\t", fd.Meta[0], "OF:", fd.isSelectorOf)
-			}
 		}
 	}
 }
