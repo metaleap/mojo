@@ -13,15 +13,9 @@ import (
 //   - for one, in general: to have this call's args discarded or eval'd, need to eval callee first
 //     - status quo: only argref, no eval'ing
 //     - okay, but argref means our caller eval'd (also had to, tho)
-//   - ensure just compared resolved someListArg to known-selector-fnref we could avoid
+//   - mapping someListArg to known-selector-fnref we could avoid
 //     eval'ing first its closure value (as in, eval-the-callee) then again its full body,
 //     already knowing mere selection occurs
-
-// TODO
-// - consider case of call:
-//   - someListArg caseNil caseCons
-//   - for one, in general: to have this call's args discarded or eval'd, need to eval callee first
-//   - however, if we just compared someListArg to known-selector-fnref we could avoid eval'ing first its closure value (as in, eval-the-callee) then again its full body, already knowing mere selection occurs
 
 // OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
 // interpreter and invoked when encountering a call to a negative `ExprFuncRef`
@@ -121,10 +115,16 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				// }
 				// println()
 
-				callee, callargs := me.eval(it.Callee, curFnArgs), it.Args
+				numargsdone, callee, callargs := 0, me.eval(it.Callee, curFnArgs), it.Args
+				if it.allArgsDone {
+					numargsdone = len(it.Args)
+				}
 				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-					callee, callargs = me.eval(sub.Callee, curFnArgs), append(callargs, sub.Args...)
-					// TODO! track of sub-callee args-done info for re-eval-avoidance
+					callee = me.eval(sub.Callee, curFnArgs)
+					if sub.allArgsDone && numargsdone == len(callargs) {
+						numargsdone += len(sub.Args)
+					}
+					callargs = append(callargs, sub.Args...)
 				}
 				numargs, fnref := 2, callee.(ExprFuncRef)
 				isop := fnref < 0
@@ -132,72 +132,82 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				if !isop {
 					numargs, allargsused = len(me[fnref].Args), me[fnref].allArgsUsed
 				}
-				if !again {
-					var nextargs []Expr
-					var closure int
-					if diff := len(callargs) - numargs; diff < 0 {
-						closure = diff
-					} else if diff > 0 { // usually 1 or 2
-						nextargs = make([]Expr, diff)
-						copy(nextargs, callargs[:diff])
-						callargs = callargs[diff:]
+				var nextargs []Expr
+				var nextargsdone bool
+				var closure int
+				if diff := len(callargs) - numargs; diff < 0 {
+					closure = diff
+				} else if diff > 0 { // usually 1 or 2
+					if nextargsdone, nextargs = numargsdone >= diff, make([]Expr, diff); nextargsdone {
+						Count2++
 					}
-					fnargs := make([]Expr, len(callargs))
-					for i := range fnargs {
-						// TODO! some may have from closureWithArgsDone, dont re-eval them
-						idx := numargs - (i + 1) + closure
-						if allargsused || me[fnref].Args[idx] != 0 {
+					copy(nextargs, callargs[:diff])
+					if callargs = callargs[diff:]; numargsdone <= diff {
+						numargsdone = 0
+					} else {
+						numargsdone -= diff
+					}
+				}
+				fnargs := make([]Expr, len(callargs))
+				for i := range fnargs {
+					// TODO! some may have come from closure-with-args-done, dont re-eval them
+					idx := numargs - (i + 1) + closure
+					if allargsused || me[fnref].Args[idx] != 0 {
+						if numargsdone > i {
+							Count1++
+							fnargs[i] = callargs[i]
+						} else {
 							fnargs[i] = me.eval(callargs[i], curFnArgs)
 						}
 					}
-					if closure != 0 {
-						expr = &ExprCall{allArgsDone: true, isClosure: true, Callee: fnref, Args: fnargs}
-					} else {
-						if isop {
-							lhs, rhs := fnargs[1], fnargs[0]
-							switch OpCode(fnref) {
-							case OpAdd:
-								expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-							case OpSub:
-								expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-							case OpMul:
-								expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-							case OpDiv:
-								expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
-							case OpMod:
-								expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-							case OpEq:
-								if expr = StdFuncFalse; me.Eq(lhs, rhs) {
-									expr = StdFuncTrue
-								}
-							case OpLt:
-								if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
-									expr = StdFuncTrue
-								}
-							case OpGt:
-								if expr = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
-									expr = StdFuncTrue
-								}
-							case OpPrt:
-								expr = rhs
-								_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
-							default:
-								panic([3]Expr{it, lhs, rhs})
+				}
+				if closure != 0 {
+					expr = &ExprCall{allArgsDone: true, isClosure: true, Callee: fnref, Args: fnargs}
+				} else {
+					if isop {
+						lhs, rhs := fnargs[1], fnargs[0]
+						switch OpCode(fnref) {
+						case OpAdd:
+							expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
+						case OpSub:
+							expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
+						case OpMul:
+							expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+						case OpDiv:
+							expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
+						case OpMod:
+							expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
+						case OpEq:
+							if expr = StdFuncFalse; me.Eq(lhs, rhs) {
+								expr = StdFuncTrue
 							}
-						} else if nextargs == nil {
-							again, expr, curFnArgs = true, me[fnref].Body, fnargs
-						} else {
-							expr = me.eval(me[fnref].Body, fnargs)
+						case OpLt:
+							if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
+								expr = StdFuncTrue
+							}
+						case OpGt:
+							if expr = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
+								expr = StdFuncTrue
+							}
+						case OpPrt:
+							expr = rhs
+							_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
+						default:
+							panic([3]Expr{it, lhs, rhs})
 						}
-						if nextargs != nil {
-							again, expr = true, &ExprCall{Callee: expr, Args: nextargs}
-						}
+					} else if nextargs == nil {
+						again, expr, curFnArgs = true, me[fnref].Body, fnargs
+					} else {
+						expr = me.eval(me[fnref].Body, fnargs)
+					}
+					if nextargs != nil {
+						again, expr = true, &ExprCall{allArgsDone: nextargsdone, Callee: expr, Args: nextargs}
 					}
 				}
-
-				// println(strings.Repeat("<", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
-				// println(strings.Repeat(">", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
 			}
+
+			// println(strings.Repeat("<", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", orig, orig.JsonSrc()))
+			// println(strings.Repeat(">", curEvalDepth), curEvalDepth, fmt.Sprintf("\t%T\t\t%s", expr, expr.JsonSrc()))
 		}
 	}
 
