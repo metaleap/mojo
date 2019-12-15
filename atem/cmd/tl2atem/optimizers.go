@@ -10,13 +10,12 @@ func optimize(src Prog) Prog {
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_ditchUnusedFuncDefs,
 			optimize_ditchDuplicateDefs,
-			optimize_lastArgDrop,
 			optimize_inlineNullaries,
 			optimize_inlineNaryFuncAliases,
 			optimize_inlineSelectorCalls,
 			optimize_argDropperCalls,
 			optimize_inlineArgCallers,
-			// optimize_inlineArgsRearrangers,
+			optimize_inlineArgsRearrangers,
 			optimize_primOpPreCalcs,
 			optimize_callsToGeqOrLeq,
 			optimize_minifyNeedlesslyElaborateBoolOpCalls,
@@ -176,23 +175,6 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 			}
 			return expr
 		})
-	}
-	return
-}
-
-func optimize_lastArgDrop(src Prog) (ret Prog, didModify bool) {
-	ret = src
-	for i := StdFuncCons + 1; (!didModify) && int(i) < len(ret)-1; i++ {
-		if len(ret[i].Args) > 0 {
-			if appl, isappl := ret[i].Body.(exprAppl); isappl {
-				if arg, isarg := appl.Arg.(ExprArgRef); isarg && len(ret[i].Args) == -int(arg) && 1 == ret[i].Args[len(ret[i].Args)-1] {
-					ret[i].Args = ret[i].Args[:len(ret[i].Args)-1]
-					ret[i].Meta = ret[i].Meta[:len(ret[i].Meta)-1]
-					ret[i].Body = appl.Callee
-					didModify = true
-				}
-			}
-		}
 	}
 	return
 }
