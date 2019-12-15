@@ -82,9 +82,9 @@ func (me Prog) Eval(expr Expr) Expr {
 	ret := me.eval(expr, nil)
 	t = time.Now().UnixNano() - t
 	println(time.Duration(t).String(), "\t\t\t", maxDepth, "\t\t", Count1, Count2, Count3, Count4)
-	for fnr, num := range fnNumCalls {
-		println(num, "\tx\t", me[fnr].Meta[0])
-	}
+	// for fnr, num := range fnNumCalls {
+	// 	println(num, "\tx\t", me[fnr].Meta[0])
+	// }
 	return ret
 }
 
@@ -194,9 +194,8 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						expr = me.eval(me[fnref].Body, fnargs)
 					} else if me[fnref].selector.of != 0 {
 						if expr = fnargs[len(fnargs)+int(me[fnref].selector.of)]; me[fnref].selector.numArgs > 0 {
-							expr = &ExprCall{allArgsDone: true, Callee: expr, Args: fnargs[len(fnargs)-me[fnref].selector.numArgs:]}
+							again, curFnArgs, expr = true, nil, &ExprCall{allArgsDone: true, Callee: expr, Args: fnargs[len(fnargs)-me[fnref].selector.numArgs:]}
 						}
-						again, curFnArgs = true, nil
 					} else {
 						again, expr, curFnArgs = true, me[fnref].Body, fnargs
 					}
