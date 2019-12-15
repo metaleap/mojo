@@ -163,9 +163,6 @@ func tryEval(prog Prog, expr Expr, preCheckForArgRefs bool) (ret Expr) {
 		ret = prog.Eval(convTo(ret))
 		ret = convFrom(ret)
 		checkforargrefs()
-		if !eq(prog, expr, ret) {
-			println("EVALD", expr.JsonSrc(), "\tTO\t", ret.JsonSrc())
-		}
 	}
 	return
 }

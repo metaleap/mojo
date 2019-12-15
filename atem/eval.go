@@ -77,15 +77,20 @@ var OpPrtDst = os.Stderr.Write
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
 	CurEvalStepDepth, maxDepth = 0, 0
+	fnNumCalls = make(map[ExprFuncRef]int, len(me))
 	t := time.Now().UnixNano()
 	ret := me.eval(expr, nil)
 	t = time.Now().UnixNano() - t
-	// println(time.Duration(t).String(), "\t\t\t", maxDepth, "\t\t", Count1, Count2, Count3, Count4)
+	println(time.Duration(t).String(), "\t\t\t", maxDepth, "\t\t", Count1, Count2, Count3, Count4)
+	for fnr, num := range fnNumCalls {
+		println(num, "\tx\t", me[fnr].Meta[0])
+	}
 	return ret
 }
 
 var CurEvalStepDepth int
 var maxDepth int
+var fnNumCalls map[ExprFuncRef]int
 
 func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 	if CurEvalStepDepth++; CurEvalStepDepth > maxDepth {
@@ -100,6 +105,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 			expr = curFnArgs[len(curFnArgs)+int(it)]
 		case ExprFuncRef:
 			if it > StdFuncCons && len(me[it].Args) == 0 {
+				fnNumCalls[it] = 1 + fnNumCalls[it]
 				again, expr = true, me[it].Body
 			}
 		case *ExprCall:
@@ -119,6 +125,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				isop := fnref < 0
 				allargsused := isop
 				if !isop {
+					fnNumCalls[fnref] = 1 + fnNumCalls[fnref]
 					numargs, allargsused = len(me[fnref].Args), me[fnref].allArgsUsed
 				}
 				var nextargs []Expr
