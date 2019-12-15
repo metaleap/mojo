@@ -82,9 +82,9 @@ func (me Prog) Eval(expr Expr) Expr {
 	ret := me.eval(expr, nil)
 	t = time.Now().UnixNano() - t
 	println(time.Duration(t).String(), "\t\t\t", maxDepth, "\t\t", Count1, Count2, Count3, Count4)
-	// for fnr, num := range fnNumCalls {
-	// 	println(num, "\tx\t", me[fnr].Meta[0])
-	// }
+	for fnr, num := range fnNumCalls {
+		println(num, "\tx\t", me[fnr].Meta[0])
+	}
 	return ret
 }
 
