@@ -42,11 +42,13 @@ func convTo(expr Expr) Expr {
 	return expr
 }
 
-func dissectCall(expr Expr) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFuncRef, numCallArgs int, numCallArgsThatAreCalls int, numArgRefs int, allArgs []Expr) {
+func dissectCall(expr Expr, ignoreCallArgThatIsCallInCount func(exprAppl) bool) (innerMostCallee Expr, innerMostCalleeFnRef *ExprFuncRef, numCallArgs int, numCallArgsThatAreCalls int, numArgRefs int, allArgs []Expr) {
 	for call, okc := expr.(exprAppl); okc; call, okc = call.Callee.(exprAppl) {
 		innerMostCallee, numCallArgs, allArgs = call.Callee, numCallArgs+1, append([]Expr{call.Arg}, allArgs...)
-		if _, isargcall := call.Arg.(exprAppl); isargcall {
-			numCallArgsThatAreCalls++
+		if appl, isargcall := call.Arg.(exprAppl); isargcall {
+			if ignoreCallArgThatIsCallInCount == nil || !ignoreCallArgThatIsCallInCount(appl) {
+				numCallArgsThatAreCalls++
+			}
 		} else if _, isargref := call.Arg.(ExprArgRef); isargref {
 			numArgRefs++
 		}
@@ -113,7 +115,7 @@ func fixFuncDefArgsUsageNumbers(prog Prog) Prog {
 
 func rewriteCallArgs(callExpr exprAppl, numCallArgs int, rewriter func(int, Expr) Expr, argIdxs []int) exprAppl {
 	if numCallArgs <= 0 {
-		_, _, numCallArgs, _, _, _ = dissectCall(callExpr)
+		_, _, numCallArgs, _, _, _ = dissectCall(callExpr, nil)
 	}
 	idx, rewrite := numCallArgs-1, len(argIdxs) == 0
 	if !rewrite { // then rewrite = argIdxs.contains(idx) ... in Go:
