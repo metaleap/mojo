@@ -288,7 +288,7 @@ func (me Prog) eval2(expr Expr) Expr {
 			if it > 0 && len(me[it].Args) == 0 {
 				cur.stack[len(cur.stack)-1] = me[it].Body
 			} else if cur.pos == len(cur.stack)-1 && len(cur.stack) != 1 {
-				if cur.numArgs == 0 {
+				if !cur.argsDone {
 					cur.numArgs = 2
 					allargsused := true
 					if it > -1 {
@@ -306,8 +306,46 @@ func (me Prog) eval2(expr Expr) Expr {
 						}
 					}
 					cur.pos--
-				} else if len(cur.stack) > cur.numArgs {
-					cur.stack[len(cur.stack)-1] = me[it].Body
+				} else if len(cur.stack) <= cur.numArgs {
+					var result Expr
+					if it < 0 {
+						lhs, rhs := cur.stack[len(cur.stack)-3], cur.stack[len(cur.stack)-2]
+						switch OpCode(it) {
+						case OpAdd:
+							result = lhs.(ExprNumInt) + rhs.(ExprNumInt)
+						case OpSub:
+							result = lhs.(ExprNumInt) - rhs.(ExprNumInt)
+						case OpMul:
+							result = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+						case OpDiv:
+							result = lhs.(ExprNumInt) / rhs.(ExprNumInt)
+						case OpMod:
+							result = lhs.(ExprNumInt) % rhs.(ExprNumInt)
+						case OpGt:
+							if result = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
+								result = StdFuncTrue
+							}
+						case OpLt:
+							if result = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
+								result = StdFuncTrue
+							}
+						case OpEq:
+							if result = StdFuncFalse; me.Eq(lhs, rhs) {
+								result = StdFuncTrue
+							}
+						case OpPrt:
+							result = rhs
+							_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
+						default:
+							panic([3]Expr{it, lhs, rhs})
+						}
+					} else {
+						result = me[it].Body
+					}
+					cur.stack[len(cur.stack)-1] = result
+					if _, isfnref := result.(ExprFuncRef); isfnref {
+						cur.pos--
+					}
 				} else {
 					cur.pos--
 				}
