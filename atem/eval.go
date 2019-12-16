@@ -81,7 +81,7 @@ func (me Prog) Eval(expr Expr) Expr {
 	t := time.Now().UnixNano()
 	ret := me.eval(expr, nil)
 	t = time.Now().UnixNano() - t
-	println(time.Duration(t).String(), "\t\t\t", maxDepth, "\t\t", Count1, Count2, Count3, Count4)
+	println(time.Duration(t).String(), "\t\t\t", maxDepth, maxStack, "\t\t", Count1, Count2, Count3, Count4)
 	for fnr, num := range fnNumCalls {
 		println(num, "\tx\t", me[fnr].Meta[0])
 	}
@@ -90,6 +90,7 @@ func (me Prog) Eval(expr Expr) Expr {
 
 var CurEvalStepDepth int
 var maxDepth int
+var maxStack int
 var fnNumCalls map[ExprFuncRef]int
 
 func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
@@ -225,3 +226,116 @@ var Count4 int
 func onEvalStepNoOp(Expr, []Expr) func(Expr, []Expr, bool) { return onEvalStepDoneNoOp }
 
 func onEvalStepDoneNoOp(Expr, []Expr, bool) {}
+
+func (me Prog) eval2(expr Expr) Expr {
+	type level struct { // each call adds a new level, when done it's dropped
+		stack    []Expr // first is callee, then rest are args
+		pos      int    // begins at end of `stack` and counts down to 0
+		numArgs  int
+		argsDone bool
+	}
+
+	stacks := make([]level, 1, 1024)
+	stacks[0] = level{stack: append(make([]Expr, 0, 32), expr)}
+
+	for {
+		cur := &stacks[len(stacks)-1]
+
+		for cur.pos < 0 {
+			if cur.argsDone {
+				cur.pos = len(cur.stack) - 1
+			} else if len(stacks) == 1 {
+				goto done
+			} else {
+				prev := &stacks[len(stacks)-2]
+				prev.stack[prev.pos], prev.pos = cur.stack[len(cur.stack)-1], prev.pos-1
+				cur, stacks = prev, stacks[:len(stacks)-1]
+			}
+		}
+
+		switch it := cur.stack[cur.pos].(type) {
+
+		// a will-be-discarded call-arg slot. we arrive here as our `pos` counts down, and keep that up:
+		case nil:
+			cur.pos--
+
+		// a no-further-reducable final value, count down to "next" slot
+		case ExprNumInt:
+			cur.stack[cur.pos] = it
+			cur.pos--
+
+		case ExprArgRef:
+			var stack []Expr
+			if cur.argsDone {
+				stack = cur.stack
+			} else {
+				stack = stacks[len(stacks)-2].stack
+			}
+			cur.stack[cur.pos] = stack[(len(stack)-1)+int(it)]
+
+		case *ExprCall:
+			if it.allArgsDone && it.IsClosure != 0 {
+				cur.pos-- // got to a no-further-reducable final value (closure)
+			} else { // build up & add & enter the next `level`
+				callee, callargs := it.Callee, it.Args
+				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
+					callee, callargs = sub.Callee, append(callargs, sub.Args...)
+				}
+				stacks = append(stacks, level{pos: len(callargs), stack: append(callargs, callee)})
+			}
+
+		case ExprFuncRef:
+			if it > 0 && len(me[it].Args) == 0 {
+				cur.stack[len(cur.stack)-1] = me[it].Body
+			} else if cur.pos == len(cur.stack)-1 && len(cur.stack) != 1 {
+				if cur.numArgs == 0 {
+					cur.numArgs = 2
+					allargsused := true
+					if it > -1 {
+						cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
+					}
+					if !allargsused {
+						for i := 0; i < cur.numArgs; i++ {
+							if me[it].Args[i] == 0 {
+								if idx := len(cur.stack) - 2 - i; idx < 0 {
+									break
+								} else {
+									cur.stack[idx] = nil
+								}
+							}
+						}
+					}
+					cur.pos--
+				} else if len(cur.stack) > cur.numArgs {
+					cur.stack[len(cur.stack)-1] = me[it].Body
+				} else {
+					cur.pos--
+				}
+			} else {
+				cur.pos--
+			}
+		}
+
+		if cur.numArgs != 0 && cur.pos > -1 {
+			if cur.argsDone && cur.pos < (len(cur.stack)-1) {
+				result := cur.stack[len(cur.stack)-1]
+				if diff := cur.numArgs - (len(cur.stack) - 1); diff > 0 {
+					result = &ExprCall{allArgsDone: true, IsClosure: diff, Callee: result, Args: cur.stack[:len(cur.stack)-1]}
+					cur.stack = []Expr{result}
+				} else {
+					cur.stack = append(cur.stack[:len(cur.stack)-1-cur.numArgs], result)
+				}
+				cur.argsDone = false
+				if len(cur.stack) == 1 {
+					cur.pos = -1
+				} else {
+					cur.numArgs, cur.pos = 0, len(cur.stack)-1
+				}
+			} else if (!cur.argsDone) && cur.pos < (len(cur.stack)-1-cur.numArgs) {
+				cur.pos, cur.argsDone = -1, true
+			}
+		}
+	}
+done:
+	return stacks[0].stack[0]
+}
