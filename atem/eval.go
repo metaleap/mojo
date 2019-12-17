@@ -79,7 +79,7 @@ var OpPrtDst = os.Stderr.Write
 func (me Prog) Eval(expr Expr) Expr {
 	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: true, hasArgRefs: true,
 		Args: []int{1},
-		Body: &ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprFuncRef(0)}}, Args: []Expr{&ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprNumInt(54321)}}}},
+		Body: &ExprCall{Callee: ExprFuncRef(1), Args: []Expr{&ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprNumInt(54321)}}, &ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprArgRef(-1)}}}},
 	}
 	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(7)}}
 
@@ -113,7 +113,7 @@ func (me Prog) eval2(expr Expr) Expr {
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for ; numSteps < 12; numSteps++ {
+	for ; numSteps < 23; numSteps++ {
 		cur := &levels[len(levels)-1]
 		println("\nlevels", len(levels), "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs)
 		if len(levels) > maxLevels {
@@ -136,7 +136,9 @@ func (me Prog) eval2(expr Expr) Expr {
 			}
 		}
 
-		println(fmt.Sprintf("\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()))
+		if cur.stash[cur.pos] != nil {
+			println(fmt.Sprintf("\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()))
+		}
 
 		switch it := cur.stash[cur.pos].(type) {
 
@@ -239,7 +241,6 @@ func (me Prog) eval2(expr Expr) Expr {
 
 		if cur.numArgs != 0 && cur.pos < (len(cur.stash)-1) {
 			if cur.argsDone {
-				cur.calleeDone = true
 				result := cur.stash[len(cur.stash)-1]
 				if diff := cur.numArgs - (len(cur.stash) - 1); diff > 0 {
 					result = &ExprCall{allArgsDone: true, IsClosure: diff, Callee: result, Args: cur.stash[:len(cur.stash)-1]}
@@ -249,7 +250,7 @@ func (me Prog) eval2(expr Expr) Expr {
 					cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
 					println("\tB1.T", len(cur.stash))
 				}
-				cur.argsDone, cur.numArgs = false, 0
+				cur.calleeDone, cur.argsDone, cur.numArgs = false, false, 0
 				if len(cur.stash) == 1 {
 					cur.pos = -1
 				} else {
