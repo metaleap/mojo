@@ -77,9 +77,14 @@ var OpPrtDst = os.Stderr.Write
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
+	id := func(it Expr) Expr { return &ExprCall{Callee: StdFuncId, Args: []Expr{it}} }
 	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: true, hasArgRefs: true,
 		Args: []int{1},
-		Body: &ExprCall{Callee: ExprFuncRef(1), Args: []Expr{&ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprNumInt(54321)}}, &ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprArgRef(-1)}}}},
+		Body: &ExprCall{
+			Callee: StdFuncTrue, // &ExprCall{Callee: StdFuncFalse, Args: []Expr{StdFuncTrue, StdFuncFalse}},
+			// Callee: id(&ExprCall{Callee: id(id(StdFuncFalse)), Args: []Expr{id(StdFuncTrue), id(id(StdFuncFalse))}}),
+			Args: []Expr{ExprNumInt(22), id(ExprArgRef(-1))},
+		},
 	}
 	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(7)}}
 
@@ -113,9 +118,9 @@ func (me Prog) eval2(expr Expr) Expr {
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for ; numSteps < 23; numSteps++ {
+	for ; numSteps < 22; numSteps++ {
 		cur := &levels[len(levels)-1]
-		println("\nlevels", len(levels), "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs)
+		println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@")
 		if len(levels) > maxLevels {
 			maxLevels = len(levels)
 		}
@@ -153,12 +158,15 @@ func (me Prog) eval2(expr Expr) Expr {
 
 		case ExprArgRef:
 			var stash []Expr
-			if cur.argsDone { // we're in callee and consume our own eval'd args
-				stash = cur.stash
-			} else { // we're eval'ing args so we consume parent already-eval'd args
+			if cur.calleeDone {
+				stash = levels[len(levels)-1].stash
+			} else {
 				stash = levels[len(levels)-2].stash
 			}
 			cur.stash[cur.pos] = stash[(len(stash)-1)+int(it)]
+			if _, isargref := cur.stash[cur.pos].(ExprArgRef); isargref {
+				cur.pos--
+			}
 
 		case *ExprCall:
 			if it.allArgsDone && it.IsClosure != 0 {
