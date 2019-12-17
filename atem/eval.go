@@ -79,47 +79,48 @@ var OpPrtDst = os.Stderr.Write
 func (me Prog) Eval(expr Expr) Expr {
 	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: true, hasArgRefs: true,
 		Args: []int{1},
-		Body: &ExprCall{Callee: ExprFuncRef(0), Args: []Expr{&ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprNumInt(54321)}}}},
+		Body: &ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprFuncRef(0)}}, Args: []Expr{&ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprNumInt(54321)}}}},
 	}
 	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(7)}}
 
-	CurEvalStepDepth, maxDepth = 0, 0
+	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
 	t := time.Now().UnixNano()
 	ret := me.eval2(expr)
 	t = time.Now().UnixNano() - t
-	println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxDepth, maxStack, "\t\t", Count1, Count2, Count3, Count4)
+	println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", Count1, Count2, Count3, Count4)
 	for fnr, num := range fnNumCalls {
 		println(num, "\tx\t", me[fnr].Meta[0])
 	}
 	return ret
 }
 
-var CurEvalStepDepth int
-var maxDepth int
-var maxStack int
+var maxLevels int
+var maxStash int
+var numSteps int
 var fnNumCalls map[ExprFuncRef]int
 
 func (me Prog) eval2(expr Expr) Expr {
 	// every call stacks a new `level` on top of lower ones, when call is done it's dropped.
 	// but there's always 1 root / base `level` for our `expr`
 	type level struct {
-		stash    []Expr // args in reverse order, then callee
-		pos      int    // begins at end of `stash` and counts down to 0
-		numArgs  int
-		argsDone bool
+		stash      []Expr // args in reverse order, then callee
+		pos        int    // begins at end of `stash` and counts down to 0
+		numArgs    int
+		argsDone   bool
+		calleeDone bool
 	}
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for {
+	for ; numSteps < 12; numSteps++ {
 		cur := &levels[len(levels)-1]
-		println("levels", len(levels), "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs)
-		if len(levels) > maxDepth {
-			maxDepth = len(levels)
+		println("\nlevels", len(levels), "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs)
+		if len(levels) > maxLevels {
+			maxLevels = len(levels)
 		}
-		if len(cur.stash) > maxStack {
-			maxStack = len(cur.stash)
+		if len(cur.stash) > maxStash {
+			maxStash = len(cur.stash)
 		}
 
 		for cur.pos < 0 {
@@ -129,7 +130,7 @@ func (me Prog) eval2(expr Expr) Expr {
 				goto allDoneThusReturn
 			} else { // jump back up to prior level, dropping the current one
 				prev := &levels[len(levels)-2]
-				prev.stash[prev.pos], prev.pos = cur.stash[len(cur.stash)-1], prev.pos
+				prev.stash[prev.pos] = cur.stash[len(cur.stash)-1]
 				println("\tBACK FROM", len(levels)-1, "TO", len(levels)-2, "AT", prev.pos, "NOW HAS", prev.stash[prev.pos].JsonSrc())
 				cur, levels = prev, levels[:len(levels)-1]
 			}
@@ -167,12 +168,13 @@ func (me Prog) eval2(expr Expr) Expr {
 				}
 				levels = append(levels, level{pos: len(callargs), stash: append(callargs, callee)})
 				println("\tNEXTLEV, RET TO:", cur.pos)
+				continue
 			}
 
 		case ExprFuncRef:
 			if it > 0 && len(me[it].Args) == 0 {
 				cur.stash[len(cur.stash)-1] = me[it].Body
-			} else if cur.pos == len(cur.stash)-1 && len(cur.stash) != 1 {
+			} else if (!cur.calleeDone) && cur.pos == len(cur.stash)-1 && len(cur.stash) != 1 {
 				if !cur.argsDone {
 					cur.numArgs = 2
 					allargsused := true
@@ -223,10 +225,7 @@ func (me Prog) eval2(expr Expr) Expr {
 					} else {
 						result = me[it].Body
 					}
-					cur.stash[len(cur.stash)-1] = result
-					if _, isfnref := result.(ExprFuncRef); isfnref {
-						cur.pos--
-					}
+					cur.calleeDone, cur.stash[len(cur.stash)-1] = true, result
 				} else {
 					cur.pos--
 				}
@@ -235,18 +234,20 @@ func (me Prog) eval2(expr Expr) Expr {
 			}
 		}
 		if cur.pos >= 0 && cur.stash[cur.pos] != nil {
-			println("\t", cur.pos, "\t", cur.stash[cur.pos].JsonSrc())
+			println("\tTHEN\t", cur.pos, fmt.Sprintf("%T", cur.stash[cur.pos]), "\t", cur.stash[cur.pos].JsonSrc())
 		}
 
 		if cur.numArgs != 0 && cur.pos < (len(cur.stash)-1) {
 			if cur.argsDone {
-				println("\tB1")
+				cur.calleeDone = true
 				result := cur.stash[len(cur.stash)-1]
 				if diff := cur.numArgs - (len(cur.stash) - 1); diff > 0 {
 					result = &ExprCall{allArgsDone: true, IsClosure: diff, Callee: result, Args: cur.stash[:len(cur.stash)-1]}
 					cur.stash = []Expr{result}
+					println("\tB1.C", len(cur.stash))
 				} else {
 					cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
+					println("\tB1.T", len(cur.stash))
 				}
 				cur.argsDone, cur.numArgs = false, 0
 				if len(cur.stash) == 1 {
@@ -255,11 +256,11 @@ func (me Prog) eval2(expr Expr) Expr {
 					cur.pos = len(cur.stash) - 1
 				}
 			} else if cur.pos < (len(cur.stash) - (1 + cur.numArgs)) {
-				println("\tB2")
+				println("\tB2.A")
 				cur.pos, cur.argsDone = -1, true
 			}
 		}
-		println("\t", cur.pos)
+		println(numSteps, "\tFINALLY\t", cur.pos)
 	}
 allDoneThusReturn:
 	return levels[0].stash[0]
@@ -383,7 +384,6 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 		}
 		ondone(expr, curFnArgs, again)
 	}
-	CurEvalStepDepth--
 	return expr
 }
 

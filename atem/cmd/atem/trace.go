@@ -143,12 +143,10 @@ func listOfExprs(expr Expr) (ret []Expr) {
 			break
 		} else if call, okc := next.(*ExprCall); okc && len(call.Args) == 2 {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
-				CurEvalStepDepth++
 				for i := len(call.Args) - 1; i > 0; i-- {
 					ret = append(ret, call.Args[i])
 				}
 				ok, next = true, call.Args[0]
-				CurEvalStepDepth--
 			}
 		}
 		if !ok {

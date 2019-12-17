@@ -81,10 +81,6 @@ var Count4 int
 ```
 
 ```go
-var CurEvalStepDepth int
-```
-
-```go
 var OnEvalStep = onEvalStepNoOp
 ```
 
