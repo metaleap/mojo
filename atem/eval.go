@@ -83,7 +83,8 @@ func (me Prog) Eval(expr Expr) Expr {
 		Body: &ExprCall{
 			// Callee: &ExprCall{Callee: StdFuncTrue, Args: []Expr{StdFuncTrue, StdFuncFalse}},
 			Callee: id(&ExprCall{Callee: id(id(StdFuncTrue)), Args: []Expr{id(StdFuncTrue), id(id(StdFuncFalse))}}),
-			Args:   []Expr{&ExprCall{Callee: ExprFuncRef(OpDiv), Args: []Expr{id(id(ExprNumInt(22))), id(id(ExprArgRef(-1)))}}, id(id(ExprArgRef(-1)))},
+			Args:   []Expr{&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{id(id(ExprNumInt(22)))}}, Args: []Expr{id(id(ExprArgRef(-1)))}}, id(id(ExprArgRef(-1)))},
+			// Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{id(id(ExprNumInt(22))), (id(ExprArgRef(-1)))}}, id(id(ExprArgRef(-1)))},
 		},
 	}
 	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(7)}}
@@ -112,14 +113,14 @@ func (me Prog) eval2(expr Expr) Expr {
 		stash      []Expr // args in reverse order, then callee
 		pos        int    // begins at end of `stash` and counts down to 0
 		numArgs    int
-		argsDone   bool
 		argsLevel  int
+		argsDone   bool
 		calleeDone bool
 	}
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for ; numSteps < 88; numSteps++ {
+	for ; numSteps < 123; numSteps++ {
 		cur := &levels[len(levels)-1]
 		println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@")
 		if len(levels) > maxLevels {
