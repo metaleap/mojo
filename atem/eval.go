@@ -79,7 +79,7 @@ var OpPrtDst = os.Stderr.Write
 func (me Prog) Eval(expr Expr) Expr {
 	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: true, hasArgRefs: true,
 		Args: []int{1},
-		Body: ExprNumInt(12345),
+		Body: &ExprCall{Callee: ExprFuncRef(0), Args: []Expr{&ExprCall{Callee: ExprFuncRef(0), Args: []Expr{ExprNumInt(54321)}}}},
 	}
 	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(7)}}
 
@@ -99,6 +99,171 @@ var CurEvalStepDepth int
 var maxDepth int
 var maxStack int
 var fnNumCalls map[ExprFuncRef]int
+
+func (me Prog) eval2(expr Expr) Expr {
+	// every call stacks a new `level` on top of lower ones, when call is done it's dropped.
+	// but there's always 1 root / base `level` for our `expr`
+	type level struct {
+		stash    []Expr // args in reverse order, then callee
+		pos      int    // begins at end of `stash` and counts down to 0
+		numArgs  int
+		argsDone bool
+	}
+	levels := make([]level, 1, 1024)
+	levels[0].stash = append(make([]Expr, 0, 32), expr)
+
+	for {
+		cur := &levels[len(levels)-1]
+		println("levels", len(levels), "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs)
+		if len(levels) > maxDepth {
+			maxDepth = len(levels)
+		}
+		if len(cur.stash) > maxStack {
+			maxStack = len(cur.stash)
+		}
+
+		for cur.pos < 0 {
+			if cur.argsDone { // set at end-of-loop. now with all (used) args eval'd we jump back to callee
+				cur.pos = len(cur.stash) - 1
+			} else if len(levels) == 1 { // initial `expr` maximally reduced: return.
+				goto allDoneThusReturn
+			} else { // jump back up to prior level, dropping the current one
+				prev := &levels[len(levels)-2]
+				prev.stash[prev.pos], prev.pos = cur.stash[len(cur.stash)-1], prev.pos
+				println("\tBACK FROM", len(levels)-1, "TO", len(levels)-2, "AT", prev.pos, "NOW HAS", prev.stash[prev.pos].JsonSrc())
+				cur, levels = prev, levels[:len(levels)-1]
+			}
+		}
+
+		println(fmt.Sprintf("\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()))
+
+		switch it := cur.stash[cur.pos].(type) {
+
+		// a will-be-discarded call-arg slot. we arrive here as our `pos` counts down, and continue:
+		case nil:
+			cur.pos--
+
+		// a no-further-reducable final value, count down to "next" slot
+		case ExprNumInt:
+			cur.stash[cur.pos] = it
+			cur.pos--
+
+		case ExprArgRef:
+			var stash []Expr
+			if cur.argsDone { // we're in callee and consume our own eval'd args
+				stash = cur.stash
+			} else { // we're eval'ing args so we consume parent already-eval'd args
+				stash = levels[len(levels)-2].stash
+			}
+			cur.stash[cur.pos] = stash[(len(stash)-1)+int(it)]
+
+		case *ExprCall:
+			if it.allArgsDone && it.IsClosure != 0 {
+				cur.pos-- // we have a no-further-reducable final value (closure)
+			} else { // build up & add & enter the next `level`
+				callee, callargs := it.Callee, it.Args
+				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
+					callee, callargs = sub.Callee, append(callargs, sub.Args...)
+				}
+				levels = append(levels, level{pos: len(callargs), stash: append(callargs, callee)})
+				println("\tNEXTLEV, RET TO:", cur.pos)
+			}
+
+		case ExprFuncRef:
+			if it > 0 && len(me[it].Args) == 0 {
+				cur.stash[len(cur.stash)-1] = me[it].Body
+			} else if cur.pos == len(cur.stash)-1 && len(cur.stash) != 1 {
+				if !cur.argsDone {
+					cur.numArgs = 2
+					allargsused := true
+					if it > -1 {
+						cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
+					}
+					if !allargsused {
+						for i, idx := 0, len(cur.stash)-2; idx > -1 && i < cur.numArgs; i, idx = i+1, idx-1 {
+							if me[it].Args[i] == 0 {
+								cur.stash[idx] = nil
+							}
+						}
+					}
+					cur.pos--
+				} else if len(cur.stash) > cur.numArgs {
+					var result Expr
+					if it < 0 {
+						lhs, rhs := cur.stash[len(cur.stash)-3], cur.stash[len(cur.stash)-2]
+						switch OpCode(it) {
+						case OpAdd:
+							result = lhs.(ExprNumInt) + rhs.(ExprNumInt)
+						case OpSub:
+							result = lhs.(ExprNumInt) - rhs.(ExprNumInt)
+						case OpMul:
+							result = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+						case OpDiv:
+							result = lhs.(ExprNumInt) / rhs.(ExprNumInt)
+						case OpMod:
+							result = lhs.(ExprNumInt) % rhs.(ExprNumInt)
+						case OpGt:
+							if result = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
+								result = StdFuncTrue
+							}
+						case OpLt:
+							if result = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
+								result = StdFuncTrue
+							}
+						case OpEq:
+							if result = StdFuncFalse; me.Eq(lhs, rhs) {
+								result = StdFuncTrue
+							}
+						case OpPrt:
+							result = rhs
+							_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
+						default:
+							panic([3]Expr{it, lhs, rhs})
+						}
+					} else {
+						result = me[it].Body
+					}
+					cur.stash[len(cur.stash)-1] = result
+					if _, isfnref := result.(ExprFuncRef); isfnref {
+						cur.pos--
+					}
+				} else {
+					cur.pos--
+				}
+			} else {
+				cur.pos--
+			}
+		}
+		if cur.pos >= 0 && cur.stash[cur.pos] != nil {
+			println("\t", cur.pos, "\t", cur.stash[cur.pos].JsonSrc())
+		}
+
+		if cur.numArgs != 0 && cur.pos < (len(cur.stash)-1) {
+			if cur.argsDone {
+				println("\tB1")
+				result := cur.stash[len(cur.stash)-1]
+				if diff := cur.numArgs - (len(cur.stash) - 1); diff > 0 {
+					result = &ExprCall{allArgsDone: true, IsClosure: diff, Callee: result, Args: cur.stash[:len(cur.stash)-1]}
+					cur.stash = []Expr{result}
+				} else {
+					cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
+				}
+				cur.argsDone, cur.numArgs = false, 0
+				if len(cur.stash) == 1 {
+					cur.pos = -1
+				} else {
+					cur.pos = len(cur.stash) - 1
+				}
+			} else if cur.pos < (len(cur.stash) - (1 + cur.numArgs)) {
+				println("\tB2")
+				cur.pos, cur.argsDone = -1, true
+			}
+		}
+		println("\t", cur.pos)
+	}
+allDoneThusReturn:
+	return levels[0].stash[0]
+}
 
 func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 	for again := true; again; {
@@ -230,160 +395,3 @@ var Count4 int
 func onEvalStepNoOp(Expr, []Expr) func(Expr, []Expr, bool) { return onEvalStepDoneNoOp }
 
 func onEvalStepDoneNoOp(Expr, []Expr, bool) {}
-
-func (me Prog) eval2(expr Expr) Expr {
-	// every call stacks a new `level` on top of lower ones, when call is done it's dropped.
-	// but there's always 1 root / base `level` for our `expr`
-	type level struct {
-		stash    []Expr // args in reverse order, then callee
-		pos      int    // begins at end of `stash` and counts down to 0
-		numArgs  int
-		argsDone bool
-	}
-	levels := make([]level, 1, 1024)
-	levels[0].stash = append(make([]Expr, 0, 32), expr)
-
-	for {
-		cur := &levels[len(levels)-1]
-		println("levels", len(levels), "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs)
-		if len(levels) > maxDepth {
-			maxDepth = len(levels)
-		}
-		if len(cur.stash) > maxStack {
-			maxStack = len(cur.stash)
-		}
-
-		for cur.pos < 0 {
-			if cur.argsDone { // set at end-of-loop. now with all (used) args eval'd we jump back to callee
-				cur.pos = len(cur.stash) - 1
-			} else if len(levels) == 1 { // initial `expr` maximally reduced: return.
-				goto allDoneThusReturn
-			} else { // jump back up to prior level, dropping the current one
-				prev := &levels[len(levels)-2]
-				prev.stash[prev.pos], prev.pos = cur.stash[len(cur.stash)-1], prev.pos-1
-				cur, levels = prev, levels[:len(levels)-1]
-			}
-		}
-
-		println(fmt.Sprintf("\t%T", cur.stash[cur.pos]))
-
-		switch it := cur.stash[cur.pos].(type) {
-
-		// a will-be-discarded call-arg slot. we arrive here as our `pos` counts down, and continue:
-		case nil:
-			cur.pos--
-
-		// a no-further-reducable final value, count down to "next" slot
-		case ExprNumInt:
-			cur.stash[cur.pos] = it
-			cur.pos--
-
-		case ExprArgRef:
-			var stash []Expr
-			if cur.argsDone { // we're in callee and consume our own eval'd args
-				stash = cur.stash
-			} else { // we're eval'ing args so we consume parent already-eval'd args
-				stash = levels[len(levels)-2].stash
-			}
-			cur.stash[cur.pos] = stash[(len(stash)-1)+int(it)]
-
-		case *ExprCall:
-			if it.allArgsDone && it.IsClosure != 0 {
-				cur.pos-- // we have a no-further-reducable final value (closure)
-			} else { // build up & add & enter the next `level`
-				callee, callargs := it.Callee, it.Args
-				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-					callee, callargs = sub.Callee, append(callargs, sub.Args...)
-				}
-				levels = append(levels, level{pos: len(callargs), stash: append(callargs, callee)})
-			}
-
-		case ExprFuncRef:
-			if it > 0 && len(me[it].Args) == 0 {
-				cur.stash[len(cur.stash)-1] = me[it].Body
-			} else if cur.pos == len(cur.stash)-1 && len(cur.stash) != 1 {
-				if !cur.argsDone {
-					cur.numArgs = 2
-					allargsused := true
-					if it > -1 {
-						cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
-					}
-					if !allargsused {
-						for i, idx := 0, len(cur.stash)-2; idx > -1 && i < cur.numArgs; i, idx = i+1, idx-1 {
-							if me[it].Args[i] == 0 {
-								cur.stash[idx] = nil
-							}
-						}
-					}
-					cur.pos--
-				} else if len(cur.stash) > cur.numArgs {
-					var result Expr
-					if it < 0 {
-						lhs, rhs := cur.stash[len(cur.stash)-3], cur.stash[len(cur.stash)-2]
-						switch OpCode(it) {
-						case OpAdd:
-							result = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-						case OpSub:
-							result = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-						case OpMul:
-							result = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-						case OpDiv:
-							result = lhs.(ExprNumInt) / rhs.(ExprNumInt)
-						case OpMod:
-							result = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-						case OpGt:
-							if result = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
-								result = StdFuncTrue
-							}
-						case OpLt:
-							if result = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
-								result = StdFuncTrue
-							}
-						case OpEq:
-							if result = StdFuncFalse; me.Eq(lhs, rhs) {
-								result = StdFuncTrue
-							}
-						case OpPrt:
-							result = rhs
-							_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
-						default:
-							panic([3]Expr{it, lhs, rhs})
-						}
-					} else {
-						result = me[it].Body
-					}
-					cur.stash[len(cur.stash)-1] = result
-					if _, isfnref := result.(ExprFuncRef); isfnref {
-						cur.pos--
-					}
-				} else {
-					cur.pos--
-				}
-			} else {
-				cur.pos--
-			}
-		}
-
-		if cur.numArgs != 0 && cur.pos < (len(cur.stash)-1) {
-			if cur.argsDone {
-				result := cur.stash[len(cur.stash)-1]
-				if diff := cur.numArgs - (len(cur.stash) - 1); diff > 0 {
-					result = &ExprCall{allArgsDone: true, IsClosure: diff, Callee: result, Args: cur.stash[:len(cur.stash)-1]}
-					cur.stash = []Expr{result}
-				} else {
-					cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
-				}
-				cur.argsDone, cur.numArgs = false, 0
-				if len(cur.stash) == 1 {
-					cur.pos = -1
-				} else {
-					cur.pos = len(cur.stash) - 1
-				}
-			} else if cur.pos < (len(cur.stash) - (1 + cur.numArgs)) {
-				cur.pos, cur.argsDone = -1, true
-			}
-		}
-	}
-allDoneThusReturn:
-	return levels[0].stash[0]
-}
