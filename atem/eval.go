@@ -81,9 +81,9 @@ func (me Prog) Eval(expr Expr) Expr {
 	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: true, hasArgRefs: true,
 		Args: []int{1},
 		Body: &ExprCall{
-			Callee: StdFuncTrue, // &ExprCall{Callee: StdFuncFalse, Args: []Expr{StdFuncTrue, StdFuncFalse}},
-			// Callee: id(&ExprCall{Callee: id(id(StdFuncFalse)), Args: []Expr{id(StdFuncTrue), id(id(StdFuncFalse))}}),
-			Args: []Expr{ExprNumInt(22), id(ExprArgRef(-1))},
+			// Callee: &ExprCall{Callee: StdFuncTrue, Args: []Expr{StdFuncTrue, StdFuncFalse}},
+			Callee: id(&ExprCall{Callee: id(id(StdFuncTrue)), Args: []Expr{id(StdFuncTrue), id(id(StdFuncFalse))}}),
+			Args:   []Expr{&ExprCall{Callee: ExprFuncRef(OpDiv), Args: []Expr{id(id(ExprNumInt(22))), id(id(ExprArgRef(-1)))}}, id(id(ExprArgRef(-1)))},
 		},
 	}
 	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(7)}}
@@ -113,12 +113,13 @@ func (me Prog) eval2(expr Expr) Expr {
 		pos        int    // begins at end of `stash` and counts down to 0
 		numArgs    int
 		argsDone   bool
+		argsLevel  int
 		calleeDone bool
 	}
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for ; numSteps < 22; numSteps++ {
+	for ; numSteps < 88; numSteps++ {
 		cur := &levels[len(levels)-1]
 		println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@")
 		if len(levels) > maxLevels {
@@ -157,11 +158,9 @@ func (me Prog) eval2(expr Expr) Expr {
 			cur.pos--
 
 		case ExprArgRef:
-			var stash []Expr
+			stash := levels[cur.argsLevel].stash
 			if cur.calleeDone {
 				stash = levels[len(levels)-1].stash
-			} else {
-				stash = levels[len(levels)-2].stash
 			}
 			cur.stash[cur.pos] = stash[(len(stash)-1)+int(it)]
 			if _, isargref := cur.stash[cur.pos].(ExprArgRef); isargref {
@@ -176,7 +175,11 @@ func (me Prog) eval2(expr Expr) Expr {
 				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
 					callee, callargs = sub.Callee, append(callargs, sub.Args...)
 				}
-				levels = append(levels, level{pos: len(callargs), stash: append(callargs, callee)})
+				argslevel := cur.argsLevel
+				if cur.calleeDone {
+					argslevel = len(levels) - 1
+				}
+				levels = append(levels, level{pos: len(callargs), stash: append(callargs, callee), argsLevel: argslevel})
 				println("\tNEXTLEV, RET TO:", cur.pos)
 				continue
 			}
