@@ -87,7 +87,7 @@ func (me Prog) Eval(expr Expr) Expr {
 			// Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{id(id(ExprNumInt(22))), (id(ExprArgRef(-1)))}}, id(id(ExprArgRef(-1)))},
 		},
 	}
-	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(7)}}
+	expr = &ExprCall{Callee: ExprFuncRef(40), Args: []Expr{ExprNumInt(1)}}
 
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
@@ -111,7 +111,7 @@ func (me Prog) eval2(expr Expr) Expr {
 	// but there's always 1 root / base `level` for our `expr`
 	type level struct {
 		stash      []Expr // args in reverse order, then callee
-		pos        int    // begins at end of `stash` and counts down to 0
+		pos        int    // begins at end of `stash` and counts down
 		numArgs    int
 		argsLevel  int
 		argsDone   bool
@@ -120,9 +120,9 @@ func (me Prog) eval2(expr Expr) Expr {
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for ; numSteps < 123; numSteps++ {
+	for ; numSteps < 888; numSteps++ {
 		cur := &levels[len(levels)-1]
-		println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@")
+		println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@", cur.argsLevel)
 		if len(levels) > maxLevels {
 			maxLevels = len(levels)
 		}
@@ -172,7 +172,7 @@ func (me Prog) eval2(expr Expr) Expr {
 			if it.allArgsDone && it.IsClosure != 0 {
 				cur.pos-- // we have a no-further-reducable final value (closure)
 			} else { // build up & add & enter the next `level`
-				callee, callargs := it.Callee, it.Args
+				callee, callargs := it.Callee, append([]Expr{}, it.Args...)
 				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
 					callee, callargs = sub.Callee, append(callargs, sub.Args...)
 				}
@@ -259,7 +259,7 @@ func (me Prog) eval2(expr Expr) Expr {
 					cur.stash = []Expr{result}
 					println("\tB1.C", len(cur.stash))
 				} else {
-					cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
+					cur.stash = append(append([]Expr{}, cur.stash[:len(cur.stash)-1-cur.numArgs]...), result)
 					println("\tB1.T", len(cur.stash))
 				}
 				cur.calleeDone, cur.argsDone, cur.numArgs = false, false, 0
