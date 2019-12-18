@@ -283,9 +283,12 @@ func (me Prog) eval2(expr Expr) Expr {
 				} else {
 					cur.pos = len(cur.stash) - 1
 				}
-			} else if cur.pos < (len(cur.stash)-(1+cur.numArgs)) || cur.pos < 0 {
+			} else if cur.pos < 0 || cur.pos < (len(cur.stash)-(1+cur.numArgs)) {
 				println("\tB2.A")
 				cur.pos, cur.argsDone = -1, true
+				if _, isfnref := cur.stash[len(cur.stash)-1].(ExprFuncRef); !isfnref {
+					panic(cur.stash[len(cur.stash)-1]) // something non-callable
+				}
 			}
 		}
 		println(numSteps, "\tFINALLY\t", cur.pos, cur.argsDone, cur.calleeDone, "\n")
