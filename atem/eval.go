@@ -77,17 +77,22 @@ var OpPrtDst = os.Stderr.Write
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
-	id := func(it Expr) Expr { return &ExprCall{Callee: StdFuncId, Args: []Expr{it}} }
+	// id := func(it Expr) Expr { return &ExprCall{Callee: StdFuncId, Args: []Expr{it}} }
 	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: false, hasArgRefs: true,
 		Args: []int{1},
 		Body: &ExprCall{
-			// Callee: &ExprCall{Callee: StdFuncTrue, Args: []Expr{StdFuncTrue, StdFuncFalse}},
-			Callee: id(&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpEq), Args: []Expr{ExprNumInt(7), ExprArgRef(-1)}}, Args: []Expr{id(StdFuncTrue), id(id(StdFuncFalse))}}),
-			Args:   []Expr{&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{id(id(ExprNumInt(22)))}}, Args: []Expr{id(id(ExprArgRef(-1)))}}, id(&ExprCall{Callee: ExprFuncRef(OpMul), Args: []Expr{id(ExprArgRef(-1)), ExprArgRef(-1)}})},
-			// Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{id(id(ExprNumInt(22))), (id(ExprArgRef(-1)))}}, id(id(ExprArgRef(-1)))},
+			Callee: ExprFuncRef(OpEq),
+			Args: []Expr{&ExprCall{
+				Callee: StdFuncId,
+				Args: []Expr{&ExprCall{
+					Callee: ExprFuncRef(len(me) - 1), Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{
+						ExprNumInt(1), ExprArgRef(-1),
+					}}},
+				}, &ExprCall{Callee: ExprFuncRef(OpMul), Args: []Expr{ExprArgRef(-1)}}},
+			}, ExprNumInt(1), ExprNumInt(0), ExprArgRef(-1)},
 		},
 	}
-	expr = &ExprCall{Callee: ExprFuncRef(40), Args: []Expr{ExprNumInt(1)}}
+	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(1)}}
 
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
@@ -121,7 +126,15 @@ func (me Prog) eval2(expr Expr) Expr {
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
 	for ; numSteps < 888; numSteps++ {
+		print("\n\t")
 		cur := &levels[len(levels)-1]
+		for i := len(cur.stash) - 1; i >= 0; i-- {
+			str := "_"
+			if cur.stash[i] != nil {
+				str = cur.stash[i].JsonSrc()
+			}
+			print(str + "\t\t")
+		}
 		println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@", cur.argsLevel)
 		if len(levels) > maxLevels {
 			maxLevels = len(levels)
@@ -155,7 +168,6 @@ func (me Prog) eval2(expr Expr) Expr {
 
 		// a no-further-reducable final value, count down to "next" slot
 		case ExprNumInt:
-			cur.stash[cur.pos] = it
 			cur.pos--
 
 		case ExprArgRef:
@@ -268,12 +280,12 @@ func (me Prog) eval2(expr Expr) Expr {
 				} else {
 					cur.pos = len(cur.stash) - 1
 				}
-			} else if cur.pos < (len(cur.stash) - (1 + cur.numArgs)) {
+			} else if cur.pos < (len(cur.stash)-(1+cur.numArgs)) || cur.pos < 0 {
 				println("\tB2.A")
 				cur.pos, cur.argsDone = -1, true
 			}
 		}
-		println(numSteps, "\tFINALLY\t", cur.pos)
+		println(numSteps, "\tFINALLY\t", cur.pos, "\n")
 	}
 allDoneThusReturn:
 	return levels[0].stash[0]
