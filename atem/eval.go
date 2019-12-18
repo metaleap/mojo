@@ -92,7 +92,7 @@ func (me Prog) Eval(expr Expr) Expr {
 			}, ExprNumInt(1), ExprNumInt(0), ExprArgRef(-1)},
 		},
 	}
-	expr = &ExprCall{Callee: ExprFuncRef(len(me) - 1), Args: []Expr{ExprNumInt(1)}}
+	expr = &ExprCall{Callee: ExprFuncRef(21), Args: []Expr{ExprNumInt(7)}}
 
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
@@ -125,7 +125,7 @@ func (me Prog) eval2(expr Expr) Expr {
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for ; numSteps < 888; numSteps++ {
+	for ; numSteps < 88888; numSteps++ {
 		print("\n\t")
 		cur := &levels[len(levels)-1]
 		for i := len(cur.stash) - 1; i >= 0; i-- {
@@ -146,6 +146,9 @@ func (me Prog) eval2(expr Expr) Expr {
 		for cur.pos < 0 {
 			if cur.argsDone { // set at end-of-loop. now with all (used) args eval'd we jump back to callee
 				cur.pos = len(cur.stash) - 1
+			} else if len(cur.stash) != 1 {
+				cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
+					false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[len(cur.stash)-1], Args: append([]Expr{}, cur.stash[:len(cur.stash)-1]...)}}
 			} else if len(levels) == 1 { // initial `expr` maximally reduced: return.
 				goto allDoneThusReturn
 			} else { // jump back up to prior level, dropping the current one
@@ -285,7 +288,7 @@ func (me Prog) eval2(expr Expr) Expr {
 				cur.pos, cur.argsDone = -1, true
 			}
 		}
-		println(numSteps, "\tFINALLY\t", cur.pos, "\n")
+		println(numSteps, "\tFINALLY\t", cur.pos, cur.argsDone, cur.calleeDone, "\n")
 	}
 allDoneThusReturn:
 	return levels[0].stash[0]
