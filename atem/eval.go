@@ -78,12 +78,12 @@ var OpPrtDst = os.Stderr.Write
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
 	id := func(it Expr) Expr { return &ExprCall{Callee: StdFuncId, Args: []Expr{it}} }
-	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: true, hasArgRefs: true,
+	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: false, hasArgRefs: true,
 		Args: []int{1},
 		Body: &ExprCall{
 			// Callee: &ExprCall{Callee: StdFuncTrue, Args: []Expr{StdFuncTrue, StdFuncFalse}},
-			Callee: id(&ExprCall{Callee: id(id(StdFuncTrue)), Args: []Expr{id(StdFuncTrue), id(id(StdFuncFalse))}}),
-			Args:   []Expr{&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{id(id(ExprNumInt(22)))}}, Args: []Expr{id(id(ExprArgRef(-1)))}}, id(id(ExprArgRef(-1)))},
+			Callee: id(&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpEq), Args: []Expr{ExprNumInt(7), ExprArgRef(-1)}}, Args: []Expr{id(StdFuncTrue), id(id(StdFuncFalse))}}),
+			Args:   []Expr{&ExprCall{Callee: &ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{id(id(ExprNumInt(22)))}}, Args: []Expr{id(id(ExprArgRef(-1)))}}, id(&ExprCall{Callee: ExprFuncRef(OpMul), Args: []Expr{id(ExprArgRef(-1)), ExprArgRef(-1)}})},
 			// Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{id(id(ExprNumInt(22))), (id(ExprArgRef(-1)))}}, id(id(ExprArgRef(-1)))},
 		},
 	}
@@ -104,7 +104,7 @@ func (me Prog) Eval(expr Expr) Expr {
 var maxLevels int
 var maxStash int
 var numSteps int
-var fnNumCalls map[ExprFuncRef]int
+var fnNumCalls = map[ExprFuncRef]int{}
 
 func (me Prog) eval2(expr Expr) Expr {
 	// every call stacks a new `level` on top of lower ones, when call is done it's dropped.
@@ -206,7 +206,7 @@ func (me Prog) eval2(expr Expr) Expr {
 				} else if len(cur.stash) > cur.numArgs {
 					var result Expr
 					if it < 0 {
-						lhs, rhs := cur.stash[len(cur.stash)-3], cur.stash[len(cur.stash)-2]
+						lhs, rhs := cur.stash[len(cur.stash)-2], cur.stash[len(cur.stash)-3]
 						switch OpCode(it) {
 						case OpAdd:
 							result = lhs.(ExprNumInt) + rhs.(ExprNumInt)
