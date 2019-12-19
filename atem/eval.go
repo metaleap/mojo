@@ -78,21 +78,10 @@ var OpPrtDst = os.Stderr.Write
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
 	// id := func(it Expr) Expr { return &ExprCall{Callee: StdFuncId, Args: []Expr{it}} }
-	me[len(me)-1] = FuncDef{Meta: []string{"tmptest", "n"}, allArgsUsed: false, hasArgRefs: true,
-		Args: []int{1},
-		Body: &ExprCall{
-			Callee: ExprFuncRef(OpEq),
-			Args: []Expr{&ExprCall{
-				Callee: StdFuncId,
-				Args: []Expr{&ExprCall{
-					Callee: ExprFuncRef(len(me) - 1), Args: []Expr{&ExprCall{Callee: ExprFuncRef(OpSub), Args: []Expr{
-						ExprNumInt(1), ExprArgRef(-1),
-					}}},
-				}, &ExprCall{Callee: ExprFuncRef(OpMul), Args: []Expr{ExprArgRef(-1)}}},
-			}, ExprNumInt(1), ExprNumInt(0), ExprArgRef(-1)},
-		},
-	}
-	expr = &ExprCall{Callee: ExprFuncRef(21), Args: []Expr{ExprNumInt(7)}}
+	// me[len(me)-1] = FuncDef{Meta: []string{"main", "args", "env"}, allArgsUsed: false, hasArgRefs: true,
+	// 	Args: []int{0, 0},
+	// 	Body: &ExprCall{Callee: ExprFuncRef(6), Args: []Expr{ListFrom([]byte("!?")), ExprFuncRef(OpAdd)}},
+	// }
 
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
@@ -266,7 +255,7 @@ func (me Prog) eval2(expr Expr) Expr {
 			println("\tTHEN\t", cur.pos, fmt.Sprintf("%T", cur.stash[cur.pos]), "\t", cur.stash[cur.pos].JsonSrc())
 		}
 
-		if cur.numArgs != 0 && cur.pos < (len(cur.stash)-1) {
+		if len(cur.stash) != 1 && cur.pos < (len(cur.stash)-1) {
 			if cur.argsDone {
 				result := cur.stash[len(cur.stash)-1]
 				if diff := cur.numArgs - (len(cur.stash) - 1); diff > 0 {
@@ -283,12 +272,17 @@ func (me Prog) eval2(expr Expr) Expr {
 				} else {
 					cur.pos = len(cur.stash) - 1
 				}
+			} else if cur.numArgs == 0 {
+				if closure, iscl := cur.stash[len(cur.stash)-1].(*ExprCall); iscl {
+					cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
+						false, false, 0, 0, []Expr{&ExprCall{Callee: closure, Args: append([]Expr{}, cur.stash[:len(cur.stash)-1]...)}}
+					continue
+				} else { // callee evaluated to non-callable
+					panic(cur.stash[len(cur.stash)-1])
+				}
 			} else if cur.pos < 0 || cur.pos < (len(cur.stash)-(1+cur.numArgs)) {
 				println("\tB2.A")
 				cur.pos, cur.argsDone = -1, true
-				if _, isfnref := cur.stash[len(cur.stash)-1].(ExprFuncRef); !isfnref {
-					panic(cur.stash[len(cur.stash)-1]) // something non-callable
-				}
 			}
 		}
 		println(numSteps, "\tFINALLY\t", cur.pos, cur.argsDone, cur.calleeDone, "\n")
