@@ -47,16 +47,16 @@ func (me Prog) Eq(expr Expr, cmp Expr) bool {
 // mere `StdFuncNil` construction, aka. "empty linked-list value" `Expr`.
 func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 	ret = make([]Expr, 0, 1024)
-	for ok, next := true, me.eval(expr, nil); ok; {
+	for ok, next := true, expr; ok; {
 		ok = false
 		if fnref, _ := next.(ExprFuncRef); fnref == StdFuncNil {
 			break
 		} else if call, okc := next.(*ExprCall); okc && len(call.Args) == 2 {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
 				for i := len(call.Args) - 1; i > 0; i-- {
-					ret = append(ret, me.eval(call.Args[i], nil))
+					ret = append(ret, call.Args[i])
 				}
-				ok, next = true, me.eval(call.Args[0], nil)
+				ok, next = true, call.Args[0]
 			}
 		}
 		if !ok {

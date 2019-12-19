@@ -86,12 +86,12 @@ func (me Prog) Eval(expr Expr) Expr {
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
 	t := time.Now().UnixNano()
-	ret := me.eval2(expr)
+	ret := me.eval2(expr, nil)
 	t = time.Now().UnixNano() - t
 	println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", Count1, Count2, Count3, Count4)
-	for fnr, num := range fnNumCalls {
-		println(num, "\tx\t", me[fnr].Meta[0])
-	}
+	// for fnr, num := range fnNumCalls {
+	// 	println(num, "\tx\t", me[fnr].Meta[0])
+	// }
 	return ret
 }
 
@@ -100,7 +100,7 @@ var maxStash int
 var numSteps int
 var fnNumCalls = map[ExprFuncRef]int{}
 
-func (me Prog) eval2(expr Expr) Expr {
+func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 	// every call stacks a new `level` on top of lower ones, when call is done it's dropped.
 	// but there's always 1 root / base `level` for our `expr`
 	type level struct {
@@ -114,17 +114,18 @@ func (me Prog) eval2(expr Expr) Expr {
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for ; numSteps < 12345; numSteps++ {
-		print("\n\t")
+	for {
+		numSteps++
+		// print("\n\t")
 		cur := &levels[len(levels)-1]
-		for i := len(cur.stash) - 1; i >= 0; i-- {
-			str := "_"
-			if cur.stash[i] != nil {
-				str = cur.stash[i].JsonSrc()
-			}
-			print(str + "\t\t")
-		}
-		println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@", cur.argsLevel)
+		// for i := len(cur.stash) - 1; i >= 0; i-- {
+		// 	str := "_"
+		// 	if cur.stash[i] != nil {
+		// 		str = cur.stash[i].JsonSrc()
+		// 	}
+		// print(str + "\t\t")
+		// }
+		// println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@", cur.argsLevel)
 		if len(levels) > maxLevels {
 			maxLevels = len(levels)
 		}
@@ -143,14 +144,14 @@ func (me Prog) eval2(expr Expr) Expr {
 			} else { // jump back up to prior level, dropping the current one
 				prev := &levels[len(levels)-2]
 				prev.stash[prev.pos] = cur.stash[len(cur.stash)-1]
-				println("\tBACK FROM", len(levels)-1, "TO", len(levels)-2, "AT", prev.pos, "NOW HAS", prev.stash[prev.pos].JsonSrc())
+				// println("\tBACK FROM", len(levels)-1, "TO", len(levels)-2, "AT", prev.pos, "NOW HAS", prev.stash[prev.pos].JsonSrc())
 				cur, levels = prev, levels[:len(levels)-1]
 			}
 		}
 
-		if cur.stash[cur.pos] != nil {
-			println(cur.pos, fmt.Sprintf("NOW\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()), "\t\t\t", cur.stash[len(cur.stash)-1].JsonSrc())
-		}
+		// if cur.stash[cur.pos] != nil {
+		// println(cur.pos, fmt.Sprintf("NOW\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()), "\t\t\t", cur.stash[len(cur.stash)-1].JsonSrc())
+		// }
 
 		switch it := cur.stash[cur.pos].(type) {
 
@@ -185,7 +186,7 @@ func (me Prog) eval2(expr Expr) Expr {
 					argslevel = len(levels) - 1
 				}
 				levels = append(levels, level{pos: len(callargs), stash: append(callargs, callee), argsLevel: argslevel})
-				println("\tNEXTLEV, RET TO:", cur.pos)
+				// println("\tNEXTLEV, RET TO:", cur.pos)
 				continue
 			}
 
@@ -252,7 +253,7 @@ func (me Prog) eval2(expr Expr) Expr {
 			}
 		}
 		if cur.pos >= 0 && cur.stash[cur.pos] != nil {
-			println("\tTHEN\t", cur.pos, fmt.Sprintf("%T", cur.stash[cur.pos]), "\t", cur.stash[cur.pos].JsonSrc(), "\t\t\t", cur.stash[len(cur.stash)-1].JsonSrc())
+			// println("\tTHEN\t", cur.pos, fmt.Sprintf("%T", cur.stash[cur.pos]), "\t", cur.stash[cur.pos].JsonSrc(), "\t\t\t", cur.stash[len(cur.stash)-1].JsonSrc())
 		}
 
 		if len(cur.stash) != 1 && cur.pos < (len(cur.stash)-1) {
@@ -261,10 +262,10 @@ func (me Prog) eval2(expr Expr) Expr {
 				if diff := cur.numArgs - (len(cur.stash) - 1); diff > 0 {
 					result = &ExprCall{allArgsDone: true, IsClosure: diff, Callee: result, Args: cur.stash[:len(cur.stash)-1]}
 					cur.stash = []Expr{result}
-					println("\tB1.C", len(cur.stash))
+					// println("\tB1.C", len(cur.stash))
 				} else {
 					cur.stash = append(append([]Expr{}, cur.stash[:len(cur.stash)-1-cur.numArgs]...), result)
-					println("\tB1.T", len(cur.stash))
+					// println("\tB1.T", len(cur.stash))
 				}
 				cur.calleeDone, cur.argsDone, cur.numArgs = false, false, 0
 				if len(cur.stash) == 1 {
@@ -281,11 +282,11 @@ func (me Prog) eval2(expr Expr) Expr {
 					panic(cur.stash[len(cur.stash)-1])
 				}
 			} else if cur.pos < 0 || cur.pos < (len(cur.stash)-(1+cur.numArgs)) {
-				println("\tB2.A")
+				// println("\tB2.A")
 				cur.pos, cur.argsDone = -1, true
 			}
 		}
-		println(numSteps, "\tFINALLY\t", cur.pos, cur.argsDone, cur.calleeDone, "\n")
+		// println(numSteps, "\tFINALLY\t", cur.pos, cur.argsDone, cur.calleeDone, "\n")
 	}
 allDoneThusReturn:
 	return levels[0].stash[0]

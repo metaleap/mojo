@@ -110,7 +110,7 @@ func (me Prog) postLoadPreProcess() {
 		fd.Body = walk(fd.Body, func(expr Expr) Expr {
 			if call, is := expr.(*ExprCall); is {
 				if _, isargref := call.Callee.(ExprArgRef); !isargref {
-					call.Callee = me.eval(call.Callee, nil)
+					call.Callee = me.eval2(call.Callee, nil)
 				}
 				if fnref, ok := call.Callee.(ExprFuncRef); ok {
 					numargs := 2
