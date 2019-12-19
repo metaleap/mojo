@@ -149,7 +149,7 @@ type ExprCall struct {
 	Callee Expr
 	Args   []Expr
 
-	IsClosure int
+	IsClosure int // if != 0, all args must be ExprNumInt or ExprFuncRef or further `ExprCall`s with such guarantees and `IsClosure > 0`
 }
 ```
 

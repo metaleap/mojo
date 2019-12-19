@@ -80,7 +80,7 @@ func main() {
 	}()
 	expr := &ExprCall{ // we start!
 		Callee: ExprFuncRef(len(prog) - 1), // `main` is always last by convention
-		Args: []Expr{ListsFrom(os.Environ()), // second `main` param: `env`, a list of all env-vars (list of "FOO=Bar" strings)
+		Args: []Expr{ListsFrom(os.Environ() /*[]string{"!", "?"}*/), // second `main` param: `env`, a list of all env-vars (list of "FOO=Bar" strings)
 			ListsFrom(os.Args[2:]), // first `main` param: `args`, a list of all process args following `atem inputfile`
 		}}
 	t := time.Now().UnixNano()

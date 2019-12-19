@@ -77,12 +77,6 @@ var OpPrtDst = os.Stderr.Write
 // with a `[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed
 // by both its operands.
 func (me Prog) Eval(expr Expr) Expr {
-	// id := func(it Expr) Expr { return &ExprCall{Callee: StdFuncId, Args: []Expr{it}} }
-	// me[len(me)-1] = FuncDef{Meta: []string{"main", "args", "env"}, allArgsUsed: false, hasArgRefs: true,
-	// 	Args: []int{0, 0},
-	// 	Body: &ExprCall{Callee: ExprFuncRef(6), Args: []Expr{ListFrom([]byte("!?")), ExprFuncRef(OpAdd)}},
-	// }
-
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
 	t := time.Now().UnixNano()
@@ -111,7 +105,7 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 		argsDone   bool
 		calleeDone bool
 	}
-	levels := make([]level, 1, 1024)
+	levels := make([]level, 1, 12288)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
 	for {
@@ -123,7 +117,7 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 		// 	if cur.stash[i] != nil {
 		// 		str = cur.stash[i].JsonSrc()
 		// 	}
-		// print(str + "\t\t")
+		// 	print(str + "\t\t")
 		// }
 		// println("\nlevel", len(levels)-1, "stash", len(cur.stash), "\tpos", cur.pos, "\t\targs", cur.argsDone, cur.numArgs, "@", cur.argsLevel)
 		if len(levels) > maxLevels {
@@ -136,9 +130,10 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 		for cur.pos < 0 {
 			if cur.argsDone { // set at end-of-loop. now with all (used) args eval'd we jump back to callee
 				cur.pos = len(cur.stash) - 1
-			} else if len(cur.stash) != 1 {
-				cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
-					false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[len(cur.stash)-1], Args: append([]Expr{}, cur.stash[:len(cur.stash)-1]...)}}
+				// } else if len(cur.stash) != 1 {
+				// 	Count1++
+				// 	cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
+				// 		false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[len(cur.stash)-1], Args: cur.stash[:len(cur.stash)-1]}}
 			} else if len(levels) == 1 { // initial `expr` maximally reduced: return.
 				goto allDoneThusReturn
 			} else { // jump back up to prior level, dropping the current one
@@ -150,17 +145,15 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 		}
 
 		// if cur.stash[cur.pos] != nil {
-		// println(cur.pos, fmt.Sprintf("NOW\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()), "\t\t\t", cur.stash[len(cur.stash)-1].JsonSrc())
+		// 	println(cur.pos, fmt.Sprintf("NOW\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()))
 		// }
 
 		switch it := cur.stash[cur.pos].(type) {
 
-		// a will-be-discarded call-arg slot. we arrive here as our `pos` counts down, and continue:
-		case nil:
+		case nil: // a will-be-discarded call-arg slot. we arrive here as our `pos` counts down, and continue:
 			cur.pos--
 
-		// a no-further-reducable final value, count down to "next" slot
-		case ExprNumInt:
+		case ExprNumInt: // a no-further-reducable final value, count down to "next" slot
 			cur.pos--
 
 		case ExprArgRef:
@@ -174,10 +167,10 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 			}
 
 		case *ExprCall:
-			if it.allArgsDone && it.IsClosure != 0 {
+			if it.IsClosure != 0 {
 				cur.pos-- // we have a no-further-reducable final value (closure)
 			} else { // build up & add & enter the next `level`
-				callee, callargs := it.Callee, append([]Expr{}, it.Args...)
+				callee, callargs := it.Callee, append(make([]Expr, 0, 4+len(it.Args)), it.Args...)
 				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
 					callee, callargs = sub.Callee, append(callargs, sub.Args...)
 				}
@@ -196,13 +189,13 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 			} else if (!cur.calleeDone) && cur.pos == len(cur.stash)-1 && len(cur.stash) != 1 {
 				if !cur.argsDone {
 					cur.numArgs = 2
-					allargsused := true
+					allargsused, noargsused := true, false
 					if it > -1 {
-						cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
+						cur.numArgs, allargsused, noargsused = len(me[it].Args), me[it].allArgsUsed, !me[it].hasArgRefs
 					}
-					if !allargsused {
+					if noargsused || !allargsused {
 						for i, idx := 0, len(cur.stash)-2; idx > -1 && i < cur.numArgs; i, idx = i+1, idx-1 {
-							if me[it].Args[i] == 0 {
+							if noargsused || me[it].Args[i] == 0 {
 								cur.stash[idx] = nil
 							}
 						}
@@ -252,19 +245,21 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 				cur.pos--
 			}
 		}
-		if cur.pos >= 0 && cur.stash[cur.pos] != nil {
-			// println("\tTHEN\t", cur.pos, fmt.Sprintf("%T", cur.stash[cur.pos]), "\t", cur.stash[cur.pos].JsonSrc(), "\t\t\t", cur.stash[len(cur.stash)-1].JsonSrc())
-		}
+		// if cur.pos >= 0 && cur.stash[cur.pos] != nil {
+		// 	println("\tTHEN\t", cur.pos, fmt.Sprintf("%T", cur.stash[cur.pos]), "\t", cur.stash[cur.pos].JsonSrc())
+		// }
 
 		if len(cur.stash) != 1 && cur.pos < (len(cur.stash)-1) {
 			if cur.argsDone {
 				result := cur.stash[len(cur.stash)-1]
 				if diff := cur.numArgs - (len(cur.stash) - 1); diff > 0 {
-					result = &ExprCall{allArgsDone: true, IsClosure: diff, Callee: result, Args: cur.stash[:len(cur.stash)-1]}
-					cur.stash = []Expr{result}
+					Count2++
+					result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:len(cur.stash)-1]}
+					cur.stash[len(cur.stash)-1] = result
+					cur.stash = cur.stash[len(cur.stash)-1:] // []Expr{result}
 					// println("\tB1.C", len(cur.stash))
 				} else {
-					cur.stash = append(append([]Expr{}, cur.stash[:len(cur.stash)-1-cur.numArgs]...), result)
+					cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
 					// println("\tB1.T", len(cur.stash))
 				}
 				cur.calleeDone, cur.argsDone, cur.numArgs = false, false, 0
@@ -275,9 +270,8 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 				}
 			} else if cur.numArgs == 0 {
 				if closure, iscl := cur.stash[len(cur.stash)-1].(*ExprCall); iscl {
-					cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
-						false, false, 0, 0, []Expr{&ExprCall{Callee: closure, Args: append([]Expr{}, cur.stash[:len(cur.stash)-1]...)}}
-					continue
+					cur.stash = append(append(cur.stash[:len(cur.stash)-1], closure.Args...), closure.Callee)
+					cur.pos = len(cur.stash) - 1
 				} else { // callee evaluated to non-callable
 					panic(cur.stash[len(cur.stash)-1])
 				}
@@ -306,14 +300,11 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 				again, expr = true, me[it].Body
 			}
 		case *ExprCall:
-			if it.IsClosure == 0 || !it.allArgsDone { // for ADT-heavy progs, no-op case covers between 1/3 to 3/4 of *ExprCall cases
+			if it.IsClosure == 0 { // for ADT-heavy progs, no-op case covers between 1/3 to 3/4 of *ExprCall cases
 				numargsdone, callee, callargs := 0, me.eval(it.Callee, curFnArgs), it.Args
-				if it.allArgsDone {
-					numargsdone = len(it.Args)
-				}
 				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
 					callee = me.eval(sub.Callee, curFnArgs)
-					if sub.allArgsDone && numargsdone == len(callargs) {
+					if sub.IsClosure != 0 && numargsdone == len(callargs) {
 						numargsdone += len(sub.Args)
 					}
 					callargs = append(callargs, sub.Args...)
@@ -326,12 +317,11 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 					numargs, allargsused = len(me[fnref].Args), me[fnref].allArgsUsed
 				}
 				var nextargs []Expr
-				var nextargsdone bool
 				var closure int
 				if diff := len(callargs) - numargs; diff < 0 {
 					closure = -diff
 				} else if diff > 0 { // usually 1 or 2
-					nextargsdone, nextargs = numargsdone >= diff, make([]Expr, diff)
+					nextargs = make([]Expr, diff)
 					copy(nextargs, callargs[:diff])
 					if callargs = callargs[diff:]; numargsdone <= diff {
 						numargsdone = 0
@@ -354,7 +344,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 					}
 				}
 				if closure != 0 {
-					expr = &ExprCall{allArgsDone: true, IsClosure: closure, Callee: fnref, Args: fnargs}
+					expr = &ExprCall{IsClosure: closure, Callee: fnref, Args: fnargs}
 				} else {
 					if isop {
 						lhs, rhs := fnargs[1], fnargs[0]
@@ -391,7 +381,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						expr = me.eval(me[fnref].Body, fnargs)
 					} else if me[fnref].selector.of != 0 {
 						if expr = fnargs[len(fnargs)+int(me[fnref].selector.of)]; me[fnref].selector.numArgs > 0 {
-							again, curFnArgs, expr = true, nil, &ExprCall{allArgsDone: true, Callee: expr, Args: fnargs[len(fnargs)-me[fnref].selector.numArgs:]}
+							again, curFnArgs, expr = true, nil, &ExprCall{Callee: expr, Args: fnargs[len(fnargs)-me[fnref].selector.numArgs:]}
 						}
 					} else {
 						again, expr, curFnArgs = true, me[fnref].Body, fnargs
@@ -403,7 +393,7 @@ func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
 						}
 					}
 					if len(nextargs) > 0 {
-						again, expr = true, &ExprCall{allArgsDone: nextargsdone, Callee: expr, Args: nextargs}
+						again, expr = true, &ExprCall{Callee: expr, Args: nextargs}
 					}
 				}
 			}

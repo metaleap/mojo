@@ -102,11 +102,10 @@ type (
 	ExprArgRef  int
 	ExprFuncRef int
 	ExprCall    struct {
-		Callee      Expr
-		Args        []Expr
-		hasArgRefs  bool
-		allArgsDone bool
-		IsClosure   int
+		Callee     Expr
+		Args       []Expr
+		hasArgRefs bool
+		IsClosure  int // if != 0, all args must be ExprNumInt or ExprFuncRef or further `ExprCall`s with such guarantees and `IsClosure > 0`
 	}
 )
 

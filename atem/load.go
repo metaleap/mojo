@@ -81,22 +81,20 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 		if len(it) == 1 { // func-ref literal
 			return ExprFuncRef(int(it[0].(float64)))
 		}
-		callee, args := exprFromJson(it[0], curFnNumArgs), make([]Expr, 0 /*1+*/, len(it))
+		callee, args := exprFromJson(it[0], curFnNumArgs), make([]Expr, 0, len(it))
 		_, hasargrefs := callee.(ExprArgRef)
-		allargsdone := !hasargrefs
 		for i := len(it) - 1; i > 0; i-- {
 			arg := exprFromJson(it[i], curFnNumArgs)
 			args = append(args, arg)
 			_, isargref := arg.(ExprArgRef)
 			call, iscall := arg.(*ExprCall)
 			hasargrefs = hasargrefs || isargref || (iscall && call.hasArgRefs)
-			allargsdone = allargsdone && (!hasargrefs) && ((!iscall) || call.allArgsDone)
 		}
 		var ret *ExprCall
 		if subcall, _ := callee.(*ExprCall); subcall == nil {
-			ret = &ExprCall{allArgsDone: allargsdone, hasArgRefs: hasargrefs, Callee: callee, Args: args}
+			ret = &ExprCall{hasArgRefs: hasargrefs, Callee: callee, Args: args}
 		} else {
-			subcall.Args, subcall.hasArgRefs, subcall.allArgsDone = append(args, subcall.Args...), subcall.hasArgRefs || hasargrefs, subcall.allArgsDone && allargsdone
+			subcall.Args, subcall.hasArgRefs = append(args, subcall.Args...), subcall.hasArgRefs || hasargrefs
 			ret = subcall
 		}
 		return ret
@@ -107,23 +105,6 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 func (me Prog) postLoadPreProcess() {
 	for i := range me {
 		fd := &me[i]
-		fd.Body = walk(fd.Body, func(expr Expr) Expr {
-			if call, is := expr.(*ExprCall); is {
-				if _, isargref := call.Callee.(ExprArgRef); !isargref {
-					call.Callee = me.eval2(call.Callee, nil)
-				}
-				if fnref, ok := call.Callee.(ExprFuncRef); ok {
-					numargs := 2
-					if fnref >= 0 {
-						numargs = len(me[fnref].Args)
-					}
-					if diff := numargs - len(call.Args); diff > 0 {
-						call.IsClosure = diff
-					}
-				}
-			}
-			return expr
-		})
 		if _, fd.hasArgRefs = fd.Body.(ExprArgRef); !fd.hasArgRefs {
 			if call, _ := fd.Body.(*ExprCall); call != nil {
 				fd.hasArgRefs = call.hasArgRefs
