@@ -114,7 +114,7 @@ func (me Prog) eval2(expr Expr) Expr {
 	levels := make([]level, 1, 1024)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 
-	for ; numSteps < 88888; numSteps++ {
+	for ; numSteps < 12345; numSteps++ {
 		print("\n\t")
 		cur := &levels[len(levels)-1]
 		for i := len(cur.stash) - 1; i >= 0; i-- {
@@ -149,7 +149,7 @@ func (me Prog) eval2(expr Expr) Expr {
 		}
 
 		if cur.stash[cur.pos] != nil {
-			println(fmt.Sprintf("\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()))
+			println(cur.pos, fmt.Sprintf("NOW\t%T\t\t%s", cur.stash[cur.pos], cur.stash[cur.pos].JsonSrc()), "\t\t\t", cur.stash[len(cur.stash)-1].JsonSrc())
 		}
 
 		switch it := cur.stash[cur.pos].(type) {
@@ -191,7 +191,7 @@ func (me Prog) eval2(expr Expr) Expr {
 
 		case ExprFuncRef:
 			if it > 0 && len(me[it].Args) == 0 {
-				cur.stash[len(cur.stash)-1] = me[it].Body
+				cur.stash[cur.pos] = me[it].Body
 			} else if (!cur.calleeDone) && cur.pos == len(cur.stash)-1 && len(cur.stash) != 1 {
 				if !cur.argsDone {
 					cur.numArgs = 2
@@ -252,7 +252,7 @@ func (me Prog) eval2(expr Expr) Expr {
 			}
 		}
 		if cur.pos >= 0 && cur.stash[cur.pos] != nil {
-			println("\tTHEN\t", cur.pos, fmt.Sprintf("%T", cur.stash[cur.pos]), "\t", cur.stash[cur.pos].JsonSrc())
+			println("\tTHEN\t", cur.pos, fmt.Sprintf("%T", cur.stash[cur.pos]), "\t", cur.stash[cur.pos].JsonSrc(), "\t\t\t", cur.stash[len(cur.stash)-1].JsonSrc())
 		}
 
 		if len(cur.stash) != 1 && cur.pos < (len(cur.stash)-1) {
