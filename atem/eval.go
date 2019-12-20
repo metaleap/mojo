@@ -83,27 +83,30 @@ func (me Prog) eval(expr Expr, initialLevelsCap int) Expr {
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
 	var numargsdone int
 	var idxcurlevel int
+	var idxlast int
 	cur := &levels[idxcurlevel]
 
 again:
 	numSteps++
-	if len(cur.stash) > maxStash {
-		maxStash = len(cur.stash)
+	idxlast = len(cur.stash) - 1
+	if idxlast > maxStash {
+		maxStash = idxlast
 	}
 
 	for cur.pos < 0 {
 		if cur.argsDone { // set at end-of-loop. now with all (used) args eval'd we jump back to callee
-			cur.pos = len(cur.stash) - 1
-			// } else if len(cur.stash) != 1 {
+			cur.pos = idxlast
+			// } else if idxlast != 0 {
 			// 	Count1++
 			// 	cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
-			// 		false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[len(cur.stash)-1], Args: cur.stash[:len(cur.stash)-1]}}
+			// 		false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[idxlast], Args: cur.stash[:idxlast]}}
 		} else if idxcurlevel == 0 { // initial `expr` maximally reduced: return.
 			goto allDoneThusReturn
 		} else { // jump back up to prior level, dropping the current one
 			prev := &levels[idxcurlevel-1]
-			prev.stash[prev.pos] = cur.stash[len(cur.stash)-1]
+			prev.stash[prev.pos] = cur.stash[idxlast]
 			cur, levels, idxcurlevel = prev, levels[:idxcurlevel], idxcurlevel-1
+			idxlast = len(cur.stash) - 1
 		}
 	}
 
@@ -123,13 +126,15 @@ again:
 		cur.stash[cur.pos] = stash[(len(stash)-1)+int(it)]
 		if _, isargref := cur.stash[cur.pos].(ExprArgRef); isargref {
 			cur.pos--
+		} else {
+			goto again
 		}
 
 	case *ExprCall:
 		if it.IsClosure != 0 {
 			cur.pos-- // we have a no-further-reducable final value (closure)
 		} else { // build up & add & enter the next `level`
-			callee, callargs := it.Callee, append(make([]Expr, 0, 4+len(it.Args)), it.Args...)
+			callee, callargs := it.Callee, append(make([]Expr, 0, 3+len(it.Args)), it.Args...)
 			for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
 				callee, callargs = sub.Callee, append(callargs, sub.Args...)
 			}
@@ -148,98 +153,96 @@ again:
 	case ExprFuncRef:
 		if it > 0 && len(me[it].Args) == 0 {
 			cur.stash[cur.pos] = me[it].Body
-		} else if (!cur.calleeDone) && cur.pos == len(cur.stash)-1 && len(cur.stash) != 1 {
-			if cur.numArgs == 0 {
-				cur.numArgs = 2
-				allargsused := true
-				if it > -1 {
-					cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
-					// optional micro-optimization block:
-					if me[it].selector != 0 && len(cur.stash) > cur.numArgs {
-						if me[it].selector < 0 {
-							selected := cur.stash[(len(cur.stash)-1)+me[it].selector]
-							cur.stash = append(cur.stash[:len(cur.stash)-(1+cur.numArgs)], selected)
-							cur.pos = len(cur.stash) - 1
-						} else {
-							call, _ := me[it].Body.(*ExprCall)
-							argref, _ := call.Callee.(ExprArgRef)
-							newtail := make([]Expr, 1+len(call.Args))
-							newtail[len(call.Args)] = cur.stash[(len(cur.stash)-1)+int(argref)]
-							for i := range call.Args {
-								argref, _ = call.Args[i].(ExprArgRef)
-								newtail[i] = cur.stash[(len(cur.stash)-1)+int(argref)]
-							}
-							cur.stash = append(cur.stash[:len(cur.stash)-(1+cur.numArgs)], newtail...)
-							cur.pos = len(cur.stash) - 1
+			goto again
+		} else if cur.calleeDone || idxlast == 0 || cur.pos != idxlast {
+			cur.pos--
+		} else if cur.numArgs == 0 {
+			cur.numArgs = 2
+			allargsused := true
+			if it > -1 {
+				cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
+				// optional micro-optimization block: activates with approx. 25% - 35% of cases here
+				if me[it].selector != 0 && len(cur.stash) > cur.numArgs {
+					if me[it].selector < 0 {
+						selected := cur.stash[idxlast+me[it].selector]
+						cur.stash = append(cur.stash[:idxlast-cur.numArgs], selected)
+					} else {
+						call, _ := me[it].Body.(*ExprCall)
+						argref, _ := call.Callee.(ExprArgRef)
+						newtail := make([]Expr, 1+len(call.Args))
+						newtail[len(call.Args)] = cur.stash[idxlast+int(argref)]
+						for i := range call.Args {
+							argref, _ = call.Args[i].(ExprArgRef)
+							newtail[i] = cur.stash[idxlast+int(argref)]
 						}
-						if numargsdone -= cur.numArgs; numargsdone < 0 {
-							numargsdone = 0
-						}
-						cur.numArgs = 0
-						goto again
+						cur.stash = append(cur.stash[:idxlast-cur.numArgs], newtail...)
 					}
-				}
-				if !allargsused {
-					for i := numargsdone; i < cur.numArgs && i < len(cur.stash)-1; i++ {
-						if me[it].Args[i] == 0 {
-							cur.stash[len(cur.stash)-(2+i)] = nil
-						}
+					if numargsdone -= cur.numArgs; numargsdone < 0 {
+						numargsdone = 0
 					}
+					cur.numArgs, cur.pos = 0, len(cur.stash)-1
+					goto again
 				}
-				numargsdone, cur.pos = 0, cur.pos-(1+numargsdone)
-			} else if len(cur.stash) > cur.numArgs {
-				var result Expr
-				if it < 0 {
-					lhs, rhs := cur.stash[len(cur.stash)-2], cur.stash[len(cur.stash)-3]
-					switch OpCode(it) {
-					case OpAdd:
-						result = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-					case OpSub:
-						result = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-					case OpMul:
-						result = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-					case OpDiv:
-						result = lhs.(ExprNumInt) / rhs.(ExprNumInt)
-					case OpMod:
-						result = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-					case OpGt:
-						if result = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
-							result = StdFuncTrue
-						}
-					case OpLt:
-						if result = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
-							result = StdFuncTrue
-						}
-					case OpEq:
-						if result = StdFuncFalse; me.Eq(lhs, rhs) {
-							result = StdFuncTrue
-						}
-					case OpPrt:
-						result = rhs
-						_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
-					default:
-						panic([3]Expr{it, lhs, rhs})
-					}
-				} else {
-					result = me[it].Body
-				}
-				cur.calleeDone, cur.stash[len(cur.stash)-1] = true, result
-			} else {
-				cur.pos--
 			}
+			if !allargsused {
+				for i := numargsdone; i < cur.numArgs && i < idxlast; i++ {
+					if me[it].Args[i] == 0 {
+						cur.stash[len(cur.stash)-(2+i)] = nil
+					}
+				}
+			}
+			numargsdone, cur.pos = 0, cur.pos-(1+numargsdone)
+		} else if len(cur.stash) > cur.numArgs {
+			var result Expr
+			if it < 0 {
+				lhs, rhs := cur.stash[len(cur.stash)-2], cur.stash[len(cur.stash)-3]
+				switch OpCode(it) {
+				case OpAdd:
+					result = lhs.(ExprNumInt) + rhs.(ExprNumInt)
+				case OpSub:
+					result = lhs.(ExprNumInt) - rhs.(ExprNumInt)
+				case OpMul:
+					result = lhs.(ExprNumInt) * rhs.(ExprNumInt)
+				case OpDiv:
+					result = lhs.(ExprNumInt) / rhs.(ExprNumInt)
+				case OpMod:
+					result = lhs.(ExprNumInt) % rhs.(ExprNumInt)
+				case OpGt:
+					if result = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
+						result = StdFuncTrue
+					}
+				case OpLt:
+					if result = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
+						result = StdFuncTrue
+					}
+				case OpEq:
+					if result = StdFuncFalse; me.Eq(lhs, rhs) {
+						result = StdFuncTrue
+					}
+				case OpPrt:
+					result = rhs
+					_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
+				default:
+					panic([3]Expr{it, lhs, rhs})
+				}
+			} else {
+				result = me[it].Body
+			}
+			cur.calleeDone, cur.stash[idxlast] = true, result
+			goto again
 		} else {
 			cur.pos--
 		}
 	}
 
-	if len(cur.stash) != 1 && cur.pos < (len(cur.stash)-1) {
+	if idxlast != 0 && cur.pos < idxlast {
 		if cur.argsDone {
-			result := cur.stash[len(cur.stash)-1]
-			if diff := cur.numArgs - (len(cur.stash) - 1); diff > 0 {
+			result := cur.stash[idxlast]
+			if diff := cur.numArgs - idxlast; diff > 0 {
 				Count2++
-				result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:len(cur.stash)-1]}
-				cur.stash[len(cur.stash)-1] = result
-				cur.stash = cur.stash[len(cur.stash)-1:] // []Expr{result}
+				result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:idxlast]}
+				cur.stash[idxlast] = result
+				cur.stash = cur.stash[idxlast:]
 			} else {
 				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
 			}
@@ -250,13 +253,13 @@ again:
 				cur.pos = len(cur.stash) - 1
 			}
 		} else if cur.numArgs == 0 {
-			if closure, iscl := cur.stash[len(cur.stash)-1].(*ExprCall); iscl {
-				cur.stash = append(append(cur.stash[:len(cur.stash)-1], closure.Args...), closure.Callee)
+			if closure, iscl := cur.stash[idxlast].(*ExprCall); iscl {
+				cur.stash = append(cur.stash[:idxlast], append(closure.Args, closure.Callee)...)
 				numargsdone, cur.pos = len(closure.Args), len(cur.stash)-1
 			} else { // callee evaluated to non-callable
-				panic(cur.stash[len(cur.stash)-1])
+				panic(cur.stash[idxlast])
 			}
-		} else if cur.pos < 0 || cur.pos < (len(cur.stash)-(1+cur.numArgs)) {
+		} else if cur.pos < 0 || cur.pos < idxlast-cur.numArgs {
 			cur.pos, cur.argsDone = -1, true
 		}
 	}
