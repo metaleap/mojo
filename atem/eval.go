@@ -237,12 +237,19 @@ again:
 	if idxlast != 0 && cur.pos < idxlast {
 		if cur.argsDone {
 			result := cur.stash[idxlast]
-			if diff := cur.numArgs - idxlast; diff > 0 {
+			if diff := cur.numArgs - idxlast; diff < 1 {
+				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
+				// } else if idxcurlevel > 1 && len(levels[idxcurlevel-1].stash) != 1 && levels[idxcurlevel-1].pos == len(levels[idxcurlevel-1].stash)-1 {
+				// 	callee, callargs := result, cur.stash[:idxlast]
+				// 	idxcurlevel--
+				// 	cur, levels = &levels[idxcurlevel], levels[:len(levels)-1]
+				// 	cur.stash = append(append(cur.stash[:len(cur.stash)-1], callargs...), callee)
+				// 	cur.numArgs, cur.calleeDone, cur.pos, cur.argsDone = 0, false, len(cur.stash)-1, false
+				// 	goto again
+			} else {
 				result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:idxlast]}
 				cur.stash[idxlast] = result
 				cur.stash = cur.stash[idxlast:]
-			} else {
-				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
 			}
 			cur.calleeDone, cur.numArgs, cur.argsDone = false, 0, false
 			if len(cur.stash) == 1 {
