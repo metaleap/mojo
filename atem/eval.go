@@ -8,18 +8,6 @@ import (
 
 var OnEvalStep = onEvalStepNoOp
 
-// selectors: funcs with 2+ args and a body of:
-// - either only an argref
-// - or a call with argref callee and *only* argref call-args, callee > "0"
-
-// consider case of call: "someListArg" caseNil caseCons
-//   - for one, in general: to have this call's args discarded or eval'd, need to eval callee first
-//     - status quo: only argref, no eval'ing
-//     - okay, but argref means our caller eval'd (also had to, tho)
-//   - mapping someListArg to known-selector-fnref we could avoid
-//     eval'ing first its closure value (as in, eval-the-callee) then again its full body,
-//     already knowing mere selection occurs
-
 // OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
 // interpreter and invoked when encountering a call to a negative `ExprFuncRef`
 // with at least 2 operands on the current `Eval` stack. All `OpCode`-denoted
@@ -80,7 +68,7 @@ func (me Prog) Eval(expr Expr) Expr {
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
 	t := time.Now().UnixNano()
-	ret := me.eval2(expr, 12288)
+	ret := me.eval(expr, 32768)
 	t = time.Now().UnixNano() - t
 	println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", Count1, Count2, Count3, Count4)
 	// for fnr, num := range fnNumCalls {
@@ -94,7 +82,7 @@ var maxStash int
 var numSteps int
 var fnNumCalls = map[ExprFuncRef]int{}
 
-func (me Prog) eval2(expr Expr, initialLevelsCap int) Expr {
+func (me Prog) eval(expr Expr, initialLevelsCap int) Expr {
 	// every call stacks a new `level` on top of lower ones, when call is done it's dropped.
 	// but there's always 1 root / base `level` for our `expr`
 	type level struct {
@@ -193,25 +181,29 @@ func (me Prog) eval2(expr Expr, initialLevelsCap int) Expr {
 					allargsused, noargsused := true, false
 					if it > -1 {
 						cur.numArgs, allargsused, noargsused = len(me[it].Args), me[it].allArgsUsed, !me[it].hasArgRefs
-						if me[it].selector.of != 0 && len(cur.stash) > cur.numArgs {
-							if me[it].selector.numArgs == 0 {
-								selected := cur.stash[(len(cur.stash)-1)+int(me[it].selector.of)]
+						// optional micro-optimization block:
+						if me[it].selector != 0 && len(cur.stash) > cur.numArgs {
+							if me[it].selector < 0 {
+								selected := cur.stash[(len(cur.stash)-1)+me[it].selector]
 								cur.stash = append(cur.stash[:len(cur.stash)-(1+cur.numArgs)], selected)
 								cur.pos = len(cur.stash) - 1
-								if numargsdone -= cur.numArgs; numargsdone < 0 {
-									numargsdone = 0
-								}
-								cur.numArgs = 0
-								continue
 							} else {
-								// call, _ := me[it].Body.(*ExprCall)
-								// callee, _ := call.Callee.(ExprArgRef)
-
-								Count3++
-								if (len(cur.stash) - 1) > cur.numArgs {
-									Count4++
+								call, _ := me[it].Body.(*ExprCall)
+								argref, _ := call.Callee.(ExprArgRef)
+								newtail := make([]Expr, 1+len(call.Args))
+								newtail[len(call.Args)] = cur.stash[(len(cur.stash)-1)+int(argref)]
+								for i := range call.Args {
+									argref, _ = call.Args[i].(ExprArgRef)
+									newtail[i] = cur.stash[(len(cur.stash)-1)+int(argref)]
 								}
+								cur.stash = append(cur.stash[:len(cur.stash)-(1+cur.numArgs)], newtail...)
+								cur.pos = len(cur.stash) - 1
 							}
+							if numargsdone -= cur.numArgs; numargsdone < 0 {
+								numargsdone = 0
+							}
+							cur.numArgs = 0
+							continue
 						}
 					}
 					if noargsused || !allargsused {
@@ -305,123 +297,6 @@ func (me Prog) eval2(expr Expr, initialLevelsCap int) Expr {
 	}
 allDoneThusReturn:
 	return levels[0].stash[0]
-}
-
-func (me Prog) eval(expr Expr, curFnArgs []Expr) Expr {
-	for again := true; again; {
-		ondone := OnEvalStep(expr, curFnArgs)
-		again = false
-
-		switch it := expr.(type) {
-		case ExprArgRef:
-			expr = curFnArgs[len(curFnArgs)+int(it)]
-		case ExprFuncRef:
-			if it > StdFuncCons && len(me[it].Args) == 0 {
-				fnNumCalls[it] = 1 + fnNumCalls[it]
-				again, expr = true, me[it].Body
-			}
-		case *ExprCall:
-			if it.IsClosure == 0 { // for ADT-heavy progs, no-op case covers between 1/3 to 3/4 of *ExprCall cases
-				numargsdone, callee, callargs := 0, me.eval(it.Callee, curFnArgs), it.Args
-				for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-					callee = me.eval(sub.Callee, curFnArgs)
-					if sub.IsClosure != 0 && numargsdone == len(callargs) {
-						numargsdone += len(sub.Args)
-					}
-					callargs = append(callargs, sub.Args...)
-				}
-				numargs, fnref := 2, callee.(ExprFuncRef)
-				isop := fnref < 0
-				allargsused := isop
-				if !isop {
-					fnNumCalls[fnref] = 1 + fnNumCalls[fnref]
-					numargs, allargsused = len(me[fnref].Args), me[fnref].allArgsUsed
-				}
-				var nextargs []Expr
-				var closure int
-				if diff := len(callargs) - numargs; diff < 0 {
-					closure = -diff
-				} else if diff > 0 { // usually 1 or 2
-					nextargs = make([]Expr, diff)
-					copy(nextargs, callargs[:diff])
-					if callargs = callargs[diff:]; numargsdone <= diff {
-						numargsdone = 0
-					} else {
-						numargsdone -= diff
-					}
-				}
-				fnargs := callargs
-				if numargsdone < len(fnargs) {
-					fnargs = make([]Expr, len(callargs))
-					tmp := numargs - closure - 1
-					for i := range fnargs {
-						if idx := tmp - i; allargsused || me[fnref].Args[idx] != 0 {
-							if numargsdone > i {
-								fnargs[i] = callargs[i]
-							} else {
-								fnargs[i] = me.eval(callargs[i], curFnArgs)
-							}
-						}
-					}
-				}
-				if closure != 0 {
-					expr = &ExprCall{IsClosure: closure, Callee: fnref, Args: fnargs}
-				} else {
-					if isop {
-						lhs, rhs := fnargs[1], fnargs[0]
-						switch OpCode(fnref) {
-						case OpAdd:
-							expr = lhs.(ExprNumInt) + rhs.(ExprNumInt)
-						case OpSub:
-							expr = lhs.(ExprNumInt) - rhs.(ExprNumInt)
-						case OpMul:
-							expr = lhs.(ExprNumInt) * rhs.(ExprNumInt)
-						case OpDiv:
-							expr = lhs.(ExprNumInt) / rhs.(ExprNumInt)
-						case OpMod:
-							expr = lhs.(ExprNumInt) % rhs.(ExprNumInt)
-						case OpEq:
-							if expr = StdFuncFalse; me.Eq(lhs, rhs) {
-								expr = StdFuncTrue
-							}
-						case OpLt:
-							if expr = StdFuncFalse; lhs.(ExprNumInt) < rhs.(ExprNumInt) {
-								expr = StdFuncTrue
-							}
-						case OpGt:
-							if expr = StdFuncFalse; lhs.(ExprNumInt) > rhs.(ExprNumInt) {
-								expr = StdFuncTrue
-							}
-						case OpPrt:
-							expr = rhs
-							_, _ = OpPrtDst(append(append(append(ListToBytes(me.ListOfExprs(lhs)), '\t'), me.ListOfExprsToString(rhs)...), '\n'))
-						default:
-							panic([3]Expr{it, lhs, rhs})
-						}
-					} else if nextargs != nil {
-						expr = me.eval(me[fnref].Body, fnargs)
-					} else if me[fnref].selector.of != 0 {
-						if expr = fnargs[len(fnargs)+int(me[fnref].selector.of)]; me[fnref].selector.numArgs > 0 {
-							again, curFnArgs, expr = true, nil, &ExprCall{Callee: expr, Args: fnargs[len(fnargs)-me[fnref].selector.numArgs:]}
-						}
-					} else {
-						again, expr, curFnArgs = true, me[fnref].Body, fnargs
-					}
-					if nextargs != nil {
-						if fnr, _ := expr.(ExprFuncRef); fnr > 0 && me[fnr].selector.of != 0 && me[fnr].selector.numArgs == 0 && len(nextargs) >= len(me[fnr].Args) {
-							again, expr = true, nextargs[len(nextargs)+int(me[fnr].selector.of)]
-							nextargs = nextargs[:len(nextargs)-len(me[fnr].Args)]
-						}
-					}
-					if len(nextargs) > 0 {
-						again, expr = true, &ExprCall{Callee: expr, Args: nextargs}
-					}
-				}
-			}
-		}
-		ondone(expr, curFnArgs, again)
-	}
-	return expr
 }
 
 var Count1 int

@@ -89,10 +89,7 @@ type (
 		Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
 		allArgsUsed bool
 		hasArgRefs  bool
-		selector    struct {
-			of      ExprArgRef
-			numArgs int
-		}
+		selector    int
 	}
 	Expr interface {
 		// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.
