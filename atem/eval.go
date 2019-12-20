@@ -193,6 +193,26 @@ func (me Prog) eval2(expr Expr, initialLevelsCap int) Expr {
 					allargsused, noargsused := true, false
 					if it > -1 {
 						cur.numArgs, allargsused, noargsused = len(me[it].Args), me[it].allArgsUsed, !me[it].hasArgRefs
+						if me[it].selector.of != 0 && len(cur.stash) > cur.numArgs {
+							if me[it].selector.numArgs == 0 {
+								selected := cur.stash[(len(cur.stash)-1)+int(me[it].selector.of)]
+								cur.stash = append(cur.stash[:len(cur.stash)-(1+cur.numArgs)], selected)
+								cur.pos = len(cur.stash) - 1
+								if numargsdone -= cur.numArgs; numargsdone < 0 {
+									numargsdone = 0
+								}
+								cur.numArgs = 0
+								continue
+							} else {
+								// call, _ := me[it].Body.(*ExprCall)
+								// callee, _ := call.Callee.(ExprArgRef)
+
+								Count3++
+								if (len(cur.stash) - 1) > cur.numArgs {
+									Count4++
+								}
+							}
+						}
 					}
 					if noargsused || !allargsused {
 						for i, idx := numargsdone, len(cur.stash)-(2+numargsdone); idx > -1 && i < cur.numArgs; i, idx = i+1, idx-1 {
