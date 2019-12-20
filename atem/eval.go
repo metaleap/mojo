@@ -80,7 +80,7 @@ func (me Prog) Eval(expr Expr) Expr {
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	fnNumCalls = make(map[ExprFuncRef]int, len(me))
 	t := time.Now().UnixNano()
-	ret := me.eval2(expr, nil)
+	ret := me.eval2(expr, 12288)
 	t = time.Now().UnixNano() - t
 	println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", Count1, Count2, Count3, Count4)
 	// for fnr, num := range fnNumCalls {
@@ -94,7 +94,7 @@ var maxStash int
 var numSteps int
 var fnNumCalls = map[ExprFuncRef]int{}
 
-func (me Prog) eval2(expr Expr, _ []Expr) Expr {
+func (me Prog) eval2(expr Expr, initialLevelsCap int) Expr {
 	// every call stacks a new `level` on top of lower ones, when call is done it's dropped.
 	// but there's always 1 root / base `level` for our `expr`
 	type level struct {
@@ -105,8 +105,9 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 		argsDone   bool
 		calleeDone bool
 	}
-	levels := make([]level, 1, 12288)
+	levels := make([]level, 1, initialLevelsCap)
 	levels[0].stash = append(make([]Expr, 0, 32), expr)
+	var numargsdone int
 
 	for {
 		numSteps++
@@ -187,20 +188,20 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 			if it > 0 && len(me[it].Args) == 0 {
 				cur.stash[cur.pos] = me[it].Body
 			} else if (!cur.calleeDone) && cur.pos == len(cur.stash)-1 && len(cur.stash) != 1 {
-				if !cur.argsDone {
+				if cur.numArgs == 0 {
 					cur.numArgs = 2
 					allargsused, noargsused := true, false
 					if it > -1 {
 						cur.numArgs, allargsused, noargsused = len(me[it].Args), me[it].allArgsUsed, !me[it].hasArgRefs
 					}
 					if noargsused || !allargsused {
-						for i, idx := 0, len(cur.stash)-2; idx > -1 && i < cur.numArgs; i, idx = i+1, idx-1 {
+						for i, idx := numargsdone, len(cur.stash)-(2+numargsdone); idx > -1 && i < cur.numArgs; i, idx = i+1, idx-1 {
 							if noargsused || me[it].Args[i] == 0 {
 								cur.stash[idx] = nil
 							}
 						}
 					}
-					cur.pos--
+					numargsdone, cur.pos = 0, cur.pos-(1+numargsdone)
 				} else if len(cur.stash) > cur.numArgs {
 					var result Expr
 					if it < 0 {
@@ -262,7 +263,7 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 					cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
 					// println("\tB1.T", len(cur.stash))
 				}
-				cur.calleeDone, cur.argsDone, cur.numArgs = false, false, 0
+				cur.calleeDone, cur.numArgs, cur.argsDone = false, 0, false
 				if len(cur.stash) == 1 {
 					cur.pos = -1
 				} else {
@@ -271,7 +272,7 @@ func (me Prog) eval2(expr Expr, _ []Expr) Expr {
 			} else if cur.numArgs == 0 {
 				if closure, iscl := cur.stash[len(cur.stash)-1].(*ExprCall); iscl {
 					cur.stash = append(append(cur.stash[:len(cur.stash)-1], closure.Args...), closure.Callee)
-					cur.pos = len(cur.stash) - 1
+					numargsdone, cur.pos = len(closure.Args), len(cur.stash)-1
 				} else { // callee evaluated to non-callable
 					panic(cur.stash[len(cur.stash)-1])
 				}

@@ -105,7 +105,7 @@ type (
 		Callee     Expr
 		Args       []Expr
 		hasArgRefs bool
-		IsClosure  int // if != 0, all args must be ExprNumInt or ExprFuncRef or further `ExprCall`s with such guarantees and `IsClosure > 0`
+		IsClosure  int // if != 0 (indicating number of missing args), callee is an ExprFuncRef and all args must be ExprNumInt or ExprFuncRef or further `ExprCall`s with such guarantees and `IsClosure > 0`
 	}
 )
 
