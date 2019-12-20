@@ -37,7 +37,7 @@ type any = interface{} // just for less-noisily-reading JSON-unmarshalings below
 // -3 etc, allowing for smoother stack accesses in the interpreter.
 // `ExprArgRef.JsonSrc()` will restore the 0-based indexing form, however.
 func LoadFromJson(src []byte) Prog {
-	arr := make([][]any, 0, 128)
+	arr := make([][]any, 0, 512)
 	if e := json.Unmarshal(src, &arr); e != nil {
 		panic(e)
 	}
@@ -55,9 +55,24 @@ func LoadFromJson(src []byte) Prog {
 				fd.allArgsUsed = false
 			}
 		}
+		if len(fd.Args) >= 2 { // check if selector and set so
+			if argref, isa := fd.Body.(ExprArgRef); isa {
+				fd.selector = int(argref)
+			} else if call, isc := fd.Body.(*ExprCall); isc {
+				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -1 {
+					for ia := range call.Args {
+						if _, isa = call.Args[ia].(ExprArgRef); !isa {
+							break
+						}
+					}
+					if isa {
+						fd.selector = len(call.Args)
+					}
+				}
+			}
+		}
 		me = append(me, fd)
 	}
-	me.postLoadPreProcess()
 	return me
 }
 
@@ -96,26 +111,4 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 		return ret
 	}
 	panic(from)
-}
-
-func (me Prog) postLoadPreProcess() {
-	for i := range me {
-		fd := &me[i]
-		if len(fd.Args) >= 2 {
-			if argref, isa := fd.Body.(ExprArgRef); isa {
-				fd.selector = int(argref)
-			} else if call, isc := fd.Body.(*ExprCall); isc {
-				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -1 {
-					for ia := range call.Args {
-						if _, isa = call.Args[ia].(ExprArgRef); !isa {
-							break
-						}
-					}
-					if isa {
-						fd.selector = len(call.Args)
-					}
-				}
-			}
-		}
-	}
 }

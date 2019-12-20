@@ -53,7 +53,7 @@ func (me Prog) Eval(expr Expr) Expr {
 	t := time.Now().UnixNano()
 	ret := me.eval(expr, 32*1024)
 	t = time.Now().UnixNano() - t
-	println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", Count1, Count2, Count3, Count4)
+	println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", count1, count2, count3, count4)
 	return ret
 }
 
@@ -92,7 +92,7 @@ again:
 		if cur.argsDone { // set near the end of the `again` loop. now with all (used) args eval'd we jump back to also-already-eval'd-to-callable callee
 			cur.pos = idxlast
 			// } else if idxlast != 0 {
-			// 	Count1++
+			// 	count1++
 			// 	cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
 			// 		false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[idxlast], Args: cur.stash[:idxlast]}}
 		} else if idxcurlevel == 0 {
@@ -264,10 +264,10 @@ allDoneThusReturn:
 	return levels[0].stash[0]
 }
 
-var Count1 int
-var Count2 int
-var Count3 int
-var Count4 int
+var count1 int
+var count2 int
+var count3 int
+var count4 int
 
 func onEvalStepNoOp(Expr, []Expr) func(Expr, []Expr, bool) { return onEvalStepDoneNoOp }
 

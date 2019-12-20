@@ -1,40 +1,31 @@
 package atem
 
-func callArgs(argsInIntuitiveOrder ...Expr) (argsInReverseOrder []Expr) {
-	argsInReverseOrder = make([]Expr, len(argsInIntuitiveOrder))
-	for i, argexpr := range argsInIntuitiveOrder {
-		argsInReverseOrder[len(argsInReverseOrder)-(i+1)] = argexpr
-	}
-	return
-}
-
-// Eq is the fallback for `OpEq` calls with 2 operands that aren't both `ExprNumInt`s.
+// Eq is the implementation of the `OpEq` prim-op instruction code.
 func (me Prog) Eq(expr Expr, cmp Expr) bool {
-	if expr == cmp { // rare but can happen
+	if expr == cmp { // rare but can happen depending on program
 		return true
-	} else {
-		switch it := expr.(type) {
-		case ExprNumInt:
-			that, ok := cmp.(ExprNumInt)
-			return ok && it == that
-		case ExprArgRef:
-			that, ok := cmp.(ExprArgRef)
-			return ok && it == that
-		case ExprFuncRef:
-			that, ok := cmp.(ExprFuncRef)
-			return ok && it == that
-		case *ExprCall:
-			if that, ok := cmp.(*ExprCall); ok {
-				if ok = len(it.Args) == len(that.Args) && me.Eq(it.Callee, that.Callee); ok {
-					for i := range it.Args {
-						if ok = me.Eq(it.Args[i], that.Args[i]); !ok {
-							break
-						}
+	}
+	switch it := expr.(type) {
+	case ExprNumInt:
+		that, ok := cmp.(ExprNumInt)
+		return ok && it == that
+	case *ExprCall:
+		if that, ok := cmp.(*ExprCall); ok {
+			if ok = (len(it.Args) == len(that.Args)) && me.Eq(it.Callee, that.Callee); ok {
+				for i := range it.Args {
+					if ok = me.Eq(it.Args[i], that.Args[i]); !ok {
+						break
 					}
 				}
-				return ok
 			}
+			return ok
 		}
+	case ExprFuncRef:
+		that, ok := cmp.(ExprFuncRef)
+		return ok && it == that
+	case ExprArgRef:
+		that, ok := cmp.(ExprArgRef)
+		return ok && it == that
 	}
 	return false
 }
@@ -53,10 +44,7 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 			break
 		} else if call, okc := next.(*ExprCall); okc && len(call.Args) == 2 {
 			if fnref, _ = call.Callee.(ExprFuncRef); fnref == StdFuncCons {
-				for i := len(call.Args) - 1; i > 0; i-- {
-					ret = append(ret, call.Args[i])
-				}
-				ok, next = true, call.Args[0]
+				ok, next, ret = true, call.Args[0], append(ret, call.Args[1])
 			}
 		}
 		if !ok {
@@ -104,7 +92,6 @@ func ListFrom(str []byte) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(str) - 1; i > -1; i-- {
 		ret = &ExprCall{IsClosure: 2, Callee: StdFuncCons, Args: []Expr{ret, ExprNumInt(str[i])}}
-		// ret = &ExprCall{Callee: &ExprCall{Callee: StdFuncCons, Args: []Expr{ExprNumInt(str[i])}}, Args: []Expr{ret}}
 	}
 	return
 }
@@ -114,23 +101,22 @@ func ListsFrom(strs []string) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(strs) - 1; i > -1; i-- {
 		ret = &ExprCall{IsClosure: 2, Callee: StdFuncCons, Args: []Expr{ret, ListFrom([]byte(strs[i]))}}
-		// ret = &ExprCall{Callee: &ExprCall{Callee: StdFuncCons, Args: []Expr{ListFrom([]byte(strs[i]))}}, Args: []Expr{ret}}
 	}
 	return
 }
 
 // This is neither used by the evaluator nor by the parser but occasionally
 // handy temporarily for investigating, profiling or optimizing specifics.
-func walk(expr Expr, visitor func(Expr) Expr) Expr {
-	if ret := visitor(expr); ret != nil {
-		expr = ret
-		if call, ok := expr.(*ExprCall); ok {
-			call.Callee = walk(call.Callee, visitor)
-			for i, argval := range call.Args {
-				call.Args[i] = walk(argval, visitor)
-			}
-			expr = call
-		}
-	}
-	return expr
-}
+// func walk(expr Expr, visitor func(Expr) Expr) Expr {
+// 	if ret := visitor(expr); ret != nil {
+// 		expr = ret
+// 		if call, ok := expr.(*ExprCall); ok {
+// 			call.Callee = walk(call.Callee, visitor)
+// 			for i, argval := range call.Args {
+// 				call.Args[i] = walk(argval, visitor)
+// 			}
+// 			expr = call
+// 		}
+// 	}
+// 	return expr
+// }

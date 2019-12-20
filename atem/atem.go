@@ -1,16 +1,10 @@
 // _atem_ is both a minimal and low-level interpreted functional programming
 // language IR (_intermediate representation_, ie. not to be hand-written) and
 // its reference interpreter implementation (in lib form). It prioritizes
-// staying low-LoC enough to be able to port it over to any other current and
-// future lang / tech stack swiftly and with ease, over other concerns, by
-// design. At the time of writing, the "parsing" / loading in this Go-based
-// implementation is ~42 LoCs (the choice of a JSON code format is likewise
-// motivated by the stated "no-brainer portability" objective), the interpreting
-// / eval'ing parts around ~75 LoCs, AST node type formulations and their
-// `JsonSrc()` implementations around ~50 LoCs, and utilities for forcing
-// "`Eval` result linked-list-closures" into actual `[]int` or `[]byte` slices
-// or `string`s, or the other way around for passing into `Eval`, another ~55
-// LoCs. All counts approximate and net (excluding comments, blank lines etc).
+// staying low-LoC enough to be able to port it over to any other current or
+// future lang / tech stack swiftly and trivially, over other concerns, by
+// design. The choice of a JSON code format is likewise motivated by the
+// stated "no-brainer, low-effort portability" objective.
 //
 // This focus doesn't make for the most efficient interpreter in the world, but that
 // isn't the objective for _atem_. The goal is to provide the bootstrapping basis
@@ -22,12 +16,12 @@
 // experimental type-checking approaches envisioned to be explored within the
 // impending ongoing evolution of _atmo_ once its initial incarnation is birthed.
 //
-// For "ultimate real-world runtime artifact" purposes, _atem_ isn't intended;
+// For "real-world production runtime artifact" purposes, _atem_ isn't intended;
 // rather, transpilers and / or compilers to 3rd-party mature and widely enjoyed
 // interpreters / bytecode VMs or intermediate ASM targets like LLVM-IR would
 // be the envisioned generally-preferable direction anyway, except such trans-/
 // compilers must naturally be done in _atmo_ as well, so _atem_ is way to get
-// from nowhere to _there_, and to be _able_ (not forced) to replicate this
+// from nowhere to _there_, and to be _able_ (not required) to replicate this
 // original bootstrapping on any sort of tech base at any time whenever necessary.
 //
 // The initial inspiration / iteration for _atem_ was the elegantly minimalist
@@ -37,25 +31,22 @@
 // various aspects and will continue to evolve various details in tandem with
 // the birthing of _atmo_.
 //
-// SAPL's basics still apply for now: all funcs are top-level (no lambdas or
-// other locals), as such support 0 - n args (rather than all-unary as in
-// lambda-calculus-representative source languages). There are no names:
-// global funcs and, inside them, their args are referred to by integer indices.
-// Thus most expressions are atomic: arg-refs, func-refs, and plain integers.
-// The only non-atomic expression is `ExprCall`, made of `Callee` and `Args`.
+// Many of SAPL's design essentials still apply for now: all funcs are top-level
+// (no lambdas or other locals), as such support 0 - n args (rather than
+// all-unary as in plain lambda-calculus-representing source languages). There
+// are no names: global funcs and, inside them, their args are referred to by
+// integer indices. Thus most expression types are atomic `int`s: arg-refs,
+// func-refs, and plain integral numbers. The only non-atomic expression type
+// is `ExprCall`, made of `Callee` and `Args` (plus an `IsClosure` flag).
 // Divergences from SAPL: our calls are n-ary not unary; our func-refs, if
 // negative, denote a binary primitive-instruction op-code such as addition,
 // multiply, equality-testing etc. that is handled natively by the interpreter;
 // our func-refs don't carry around their number-of-args, instead they're
 // looked up together with the `Body` in the `Prog` via the indicated index.
 // Finally, the lazy-ish evaluator approach has been replaced with a "mostly
-// eager-ish" interpretation approach. Meaning: args to a call that are known
-// to be discarded are not evaluated, but the others are reduced as much as
-// feasible as early as possible; also to the greatest extent possible it will
-// strive to mark "selector closures" (such as lists or any other ADT values)
-// whose elements are "done" (no more calls or arg-refs remaining) to catch
-// them early and prevent unnecessary re-evaluations and re-allocations of the
-// exact same closure constructions as they're passed around as args or callees.
+// eager-ish" interpretation approach. Meaning: the callee is evaluated down
+// to a callable first, then args to a call that are marked (in source) as
+// unused are not evaluated, the others are evaluated before final consumption.
 package atem
 
 import (
