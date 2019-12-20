@@ -103,7 +103,7 @@ func (me Prog) ListOfExprsToString(expr Expr) string {
 func ListFrom(str []byte) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(str) - 1; i > -1; i-- {
-		ret = &ExprCall{IsClosure: 2, hasArgRefs: false, Callee: StdFuncCons, Args: []Expr{ret, ExprNumInt(str[i])}}
+		ret = &ExprCall{IsClosure: 2, Callee: StdFuncCons, Args: []Expr{ret, ExprNumInt(str[i])}}
 		// ret = &ExprCall{Callee: &ExprCall{Callee: StdFuncCons, Args: []Expr{ExprNumInt(str[i])}}, Args: []Expr{ret}}
 	}
 	return
@@ -113,7 +113,7 @@ func ListFrom(str []byte) (ret Expr) {
 func ListsFrom(strs []string) (ret Expr) {
 	ret = StdFuncNil
 	for i := len(strs) - 1; i > -1; i-- {
-		ret = &ExprCall{IsClosure: 2, hasArgRefs: false, Callee: StdFuncCons, Args: []Expr{ret, ListFrom([]byte(strs[i]))}}
+		ret = &ExprCall{IsClosure: 2, Callee: StdFuncCons, Args: []Expr{ret, ListFrom([]byte(strs[i]))}}
 		// ret = &ExprCall{Callee: &ExprCall{Callee: StdFuncCons, Args: []Expr{ListFrom([]byte(strs[i]))}}, Args: []Expr{ret}}
 	}
 	return

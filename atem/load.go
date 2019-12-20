@@ -44,7 +44,7 @@ func LoadFromJson(src []byte) Prog {
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
 		arrargs := it[1].([]any)
-		fd := FuncDef{Body: exprFromJson(it[2], int64(len(arrargs))), hasArgRefs: false, allArgsUsed: true, Meta: []string{}, Args: make([]int, len(arrargs))}
+		fd := FuncDef{Body: exprFromJson(it[2], int64(len(arrargs))), allArgsUsed: true, Meta: []string{}, Args: make([]int, len(arrargs))}
 		if metarr, _ := it[0].([]any); len(metarr) > 0 {
 			for _, mstr := range metarr {
 				fd.Meta = append(fd.Meta, mstr.(string))
@@ -82,19 +82,15 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 			return ExprFuncRef(int(it[0].(float64)))
 		}
 		callee, args := exprFromJson(it[0], curFnNumArgs), make([]Expr, 0, len(it))
-		_, hasargrefs := callee.(ExprArgRef)
 		for i := len(it) - 1; i > 0; i-- {
 			arg := exprFromJson(it[i], curFnNumArgs)
 			args = append(args, arg)
-			_, isargref := arg.(ExprArgRef)
-			call, iscall := arg.(*ExprCall)
-			hasargrefs = hasargrefs || isargref || (iscall && call.hasArgRefs)
 		}
 		var ret *ExprCall
 		if subcall, _ := callee.(*ExprCall); subcall == nil {
-			ret = &ExprCall{hasArgRefs: hasargrefs, Callee: callee, Args: args}
+			ret = &ExprCall{Callee: callee, Args: args}
 		} else {
-			subcall.Args, subcall.hasArgRefs = append(args, subcall.Args...), subcall.hasArgRefs || hasargrefs
+			subcall.Args = append(args, subcall.Args...)
 			ret = subcall
 		}
 		return ret
@@ -105,15 +101,10 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 func (me Prog) postLoadPreProcess() {
 	for i := range me {
 		fd := &me[i]
-		if _, fd.hasArgRefs = fd.Body.(ExprArgRef); !fd.hasArgRefs {
-			if call, _ := fd.Body.(*ExprCall); call != nil {
-				fd.hasArgRefs = call.hasArgRefs
-			}
-		}
 		if len(fd.Args) >= 2 {
 			if argref, isa := fd.Body.(ExprArgRef); isa {
 				fd.selector = int(argref)
-			} else if call, isc := fd.Body.(*ExprCall); isc && call.hasArgRefs {
+			} else if call, isc := fd.Body.(*ExprCall); isc {
 				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -1 {
 					for ia := range call.Args {
 						if _, isa = call.Args[ia].(ExprArgRef); !isa {

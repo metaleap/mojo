@@ -146,9 +146,8 @@ JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
 
 ```go
 type ExprCall struct {
-	Callee Expr
-	Args   []Expr
-
+	Callee    Expr
+	Args      []Expr
 	IsClosure int // if != 0 (indicating number of missing args), callee is an ExprFuncRef and all args must be ExprNumInt or ExprFuncRef or further `ExprCall`s with such guarantees and `IsClosure > 0`
 }
 ```
@@ -316,31 +315,15 @@ Eq is the fallback for `OpEq` calls with 2 operands that aren't both
 ```go
 func (me Prog) Eval(expr Expr) Expr
 ```
-Eval operates thusly, keeping an internal `stack` of `[]Expr`:
+Eval operates non-recursively via an internal call stack. A stack entry holds
+the callee and the args. The former is first evaluated down to a "callable"
+(ExprFuncRef or a closure), then only those args that are actually used. Then
+the "callable"'s body (or prim-op) is evaluated with all evaluated args
+reachable.
 
-- encountering an `ExprCall`, its `Args` are `append`ed to the `stack` and its
-`Callee` is then `Eval`'d;
-
-- encountering an `ExprFuncRef`, the `stack` is checked for having the proper
-minimum required `len` with regard to the referenced `FuncDef`'s number of
-`Args`. If okay, the pertinent number of args is taken (and removed) from the
-`stack` and the referenced `FuncDef`'s `Body`, rewritten with all inner
-`ExprArgRef`s (including those inside `ExprCall`s) resolved to the `stack`
-entries, is `Eval`'d (with the appropriately reduced `stack`);
-
-- encountering any other `Expr` type, it is merely returned if the `stack` is
-empty, else a `panic` with the `stack` signals that from the input `expr` a
-non-callable value ended up as the callee of an `ExprCall`.
-
-Corner cases for the `ExprFuncRef` situation: if the `stack` has too small a
-`len`, either an `ExprCall` representing the partial-application closure is
-returned, or just the `ExprFuncRef` in case of a totally empty `stack`; if the
-`ExprFuncRef` is negative and thus referring to a primitive-instruction
-`OpCode`, 2 is the expected minimum required `len` for the `stack` and if this
-is met, the primitive instruction is carried out, its `Expr` result then being
-`Eval`'d with the reduced-by-2 `stack`. Unknown op-codes `panic` with a
-`[3]Expr` of first the `OpCode`-referencing `ExprFuncRef` followed by both its
-operands.
+If not enough args are available, the result is a closure that does keep the
+already-evaluated args around for later completion. These will not be
+re-evaluated.
 
 #### func (Prog) JsonSrc
 
