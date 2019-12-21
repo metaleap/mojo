@@ -70,6 +70,9 @@ func LoadFromJson(src []byte) Prog {
 					}
 				}
 			}
+		} else if len(fd.Args) == 0 && !fd.hasArgRefs {
+			_, iscall := fd.Body.(*ExprCall)
+			fd.mereAlias = !iscall
 		}
 		me = append(me, fd)
 	}

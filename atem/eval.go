@@ -89,13 +89,7 @@ again:
 	}
 
 	for cur.pos < 0 { // in a new `level`, we start at end of `stash` (callee) and then travel down the args
-		if cur.argsDone { // set near the end of the `again` loop. now with all (used) args eval'd we jump back to also-already-eval'd-to-a-callable callee
-			cur.pos = idxcallee
-			// } else if idxcallee != 0 {
-			// 	count1++
-			// 	cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
-			// 		false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[idxcallee], Args: cur.stash[:idxcallee]}}
-		} else if idxlevel == 0 {
+		if idxlevel == 0 {
 			goto allDoneThusReturn // initial `expr` maximally reduced: return.
 		} else { // jump back up to parent call `level`, dropping the current one
 			parent := &levels[idxlevel-1]
@@ -127,10 +121,10 @@ again:
 			cur.pos--
 		} else { // build up & add & enter the next `level`
 			callee, callargs := it.Callee, append(make([]Expr, 0, 3+len(it.Args)), it.Args...)
-			for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) {
-				callee, callargs = sub.Callee, append(callargs, sub.Args...) // flatten call
+			for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) { // flatten to single call
+				callee, callargs = sub.Callee, append(callargs, sub.Args...)
 			}
-			lookuplevel := cur.argsLevel // same logic as above in `ExprArgRef` case:
+			lookuplevel := cur.argsLevel // same logic as above in `case` of `ExprArgRef`:
 			if cur.calleeDone {          // ...but this now occurs ~50/50
 				lookuplevel = idxlevel
 			}
@@ -144,12 +138,15 @@ again:
 		}
 
 	case ExprFuncRef: // recall: if it<0 the `ExprFuncRef` refers to an `OpCode`
-		if cur.calleeDone || cur.pos != idxcallee { // not in callee position, or else callee reduced to current `it`?
+		if isfn := it > -1; isfn && me[it].mereAlias {
+			cur.stash[cur.pos] = me[it].Body
+			goto again
+		} else if cur.calleeDone || cur.pos != idxcallee { // either not in callee position or else callee reduced to current `it`?
 			cur.pos-- // then the `ExprFuncRef` is a mere currently-no-further-reducable value to just pass along / return / preserve for now
-		} else /* we are in callee position */ if cur.numArgs == 0 { // then time to determine this now, first!
+		} else /* we are in callee position */ if cur.numArgs == 0 { // then must determine this now, first!
 			cur.numArgs = 2     // prim-op default
 			allargsused := true // prim-op default
-			if it > -1 {        // refers to actual func, not prim-op
+			if isfn {           // refers to actual func, not prim-op
 				cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
 				// optional micro-optimization block: entered-into for approx. 25% - 35% of cases here
 				if me[it].selector != 0 && len(cur.stash) > cur.numArgs {
@@ -175,7 +172,13 @@ again:
 				}
 			}
 			if cur.numArgs == 0 { // no args means a global:
-				cur.stash[cur.pos] = me[it].Body // always reduce when here in callee position (when it's passed as arg-val, it's only ever to be either discarded or in a later call appear in callee position)
+				call, _ := me[it].Body.(*ExprCall) // also means *ExprCall because others were caught at top of this `case`
+				cur.stash = append(append(cur.stash[:idxcallee], call.Args...), call.Callee)
+				if cur.pos = len(cur.stash) - 1; call.IsClosure == 0 {
+					numargsdone = 0
+				} else {
+					numargsdone += len(call.Args)
+				}
 				goto again
 			} else if !allargsused { // then ditch unused ones: by setting unused arg-slots in `stash` to `nil`
 				until := idxcallee
@@ -183,15 +186,17 @@ again:
 					until = cur.numArgs
 				}
 				for i := numargsdone; i < until; i++ {
-					if me[it].Args[i] == 0 {
+					if me[it].Args[i] == 0 { // unused? then clear args-slot:
 						cur.stash[len(cur.stash)-(2+i)] = nil
 					}
 				}
 			}
-			numargsdone, cur.pos = 0, cur.pos-(1+numargsdone)
-		} else if len(cur.stash) > cur.numArgs {
+			cur.pos, numargsdone = cur.pos-(1+numargsdone), 0 // jump down to first arg that needs eval-ing, will then count down from there
+		} else if len(cur.stash) > cur.numArgs { // we have all args eval'd, now comes the callee's body
 			var result Expr
-			if it < 0 {
+			if isfn { // substitution
+				result = me[it].Body
+			} else { // prim-op instruction code on left-hand-side and right-hand-side operands
 				lhs, rhs := cur.stash[len(cur.stash)-2], cur.stash[len(cur.stash)-3]
 				switch OpCode(it) {
 				case OpAdd:
@@ -222,23 +227,21 @@ again:
 				default:
 					panic([3]Expr{it, lhs, rhs})
 				}
-			} else {
-				result = me[it].Body
 			}
 			cur.calleeDone, cur.stash[idxcallee] = true, result
 			goto again
 		} else {
-			cur.pos--
+			cur.pos-- // in callee position but callee was already done: the post-`switch` checks below handle that if we count one down
 		}
 
-	} // done `switch`
+	} // done type-switch on cur.stash[cur.pos]
 
-	if idxcallee != 0 && cur.pos < idxcallee {
-		if cur.argsDone {
-			result := cur.stash[idxcallee]
-			if diff := cur.numArgs - idxcallee; diff < 1 {
+	if idxcallee != 0 && cur.pos < idxcallee { // we're still arg-ful and below callee-position
+		if cur.argsDone { // again: we are below callee position though all args were already eval'd:
+			result := cur.stash[idxcallee]                 // so `calleeDone` or not (50/50), we're good to return
+			if diff := cur.numArgs - idxcallee; diff < 1 { // the `calleeDone` (non-closure) case
 				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
-			} else if ilp := idxlevel - 1; idxlevel != 0 && len(levels[ilp].stash) != 1 && levels[ilp].numArgs == 0 && levels[ilp].pos == len(levels[ilp].stash)-1 {
+			} else /* result is closure */ if ilp := idxlevel - 1; ilp > 0 && len(levels[ilp].stash) != 1 && levels[ilp].numArgs == 0 && levels[ilp].pos == len(levels[ilp].stash)-1 {
 				// this block optional micro-optimization
 				callargs := cur.stash[:idxcallee]
 				idxlevel, numargsdone, cur, levels = ilp, len(callargs), &levels[ilp], levels[:idxlevel]
@@ -256,12 +259,13 @@ again:
 			} else {
 				cur.pos = len(cur.stash) - 1
 			}
-		} else if cur.numArgs == 0 {
-			closure, _ := cur.stash[idxcallee].(*ExprCall)
+		} else if cur.numArgs == 0 { // callee was not an `ExprFuncRef` so must be a closure:
+			closure, _ := cur.stash[idxcallee].(*ExprCall) // ... so unroll it into current `stash` :
 			cur.stash = append(append(cur.stash[:idxcallee], closure.Args...), closure.Callee)
-			numargsdone, cur.pos = len(closure.Args), len(cur.stash)-1
+			numargsdone, cur.pos = len(closure.Args), len(cur.stash)-1 // ... and start over at callee
 		} else if cur.pos < 0 || cur.pos < idxcallee-cur.numArgs {
-			cur.pos, cur.argsDone = -1, true
+			// okay, all args needed were eval'd, jump back to callee for its callable's body's reduction
+			cur.pos, cur.argsDone = idxcallee, true
 		}
 	}
 	goto again

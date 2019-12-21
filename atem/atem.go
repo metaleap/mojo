@@ -77,9 +77,10 @@ type (
 		Args        []int
 		Body        Expr
 		Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
+		selector    int
 		allArgsUsed bool
 		hasArgRefs  bool
-		selector    int
+		mereAlias   bool
 	}
 	Expr interface {
 		// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.
