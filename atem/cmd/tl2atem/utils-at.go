@@ -6,7 +6,7 @@ import (
 
 var exprNever = exprTmp(123456789)
 
-func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `tryEval`") } }
+func init() { OpPrtDst = func([]byte) (int, error) { panic("caught in `tryEvalArgRefLessCall`") } }
 
 type exprTmp int
 
@@ -85,7 +85,9 @@ func doesHaveNonCalleeUses(prog Prog, fn ExprFuncRef) (doesHaveNonCalleeOccurren
 }
 
 func eq(prog Prog, expr Expr, cmp Expr) bool {
-	if t1, okt1 := expr.(exprTmp); okt1 {
+	if expr == cmp {
+		return true
+	} else if t1, okt1 := expr.(exprTmp); okt1 {
 		t2, okt2 := cmp.(exprTmp)
 		return okt2 && t1 == t2
 	} else if a1, oka1 := expr.(exprAppl); oka1 {
@@ -143,9 +145,9 @@ func rewriteInnerMostCallee(expr exprAppl, rewriter func(Expr) Expr) exprAppl {
 	return expr
 }
 
-func tryEval(prog Prog, expr Expr, preCheckForArgRefs bool) (ret Expr) {
+func tryEvalArgRefLessCall(prog Prog, expr Expr, preCheckForArgRefs bool) (ret Expr) {
 	ret = expr
-	if _, ok := expr.(exprAppl); ok {
+	if _, ok := expr.(*ExprCall); ok {
 		defer func() {
 			if recover() != nil {
 				ret = expr
@@ -153,7 +155,7 @@ func tryEval(prog Prog, expr Expr, preCheckForArgRefs bool) (ret Expr) {
 		}()
 
 		checkforargrefs := func() {
-			_ = walk(ret, func(it Expr) Expr {
+			_ = walkInPostOrder(ret, func(it Expr) Expr {
 				if _, isargref := it.(ExprArgRef); isargref {
 					panic(it)
 				}
@@ -164,7 +166,7 @@ func tryEval(prog Prog, expr Expr, preCheckForArgRefs bool) (ret Expr) {
 		if preCheckForArgRefs {
 			checkforargrefs()
 		}
-		ret = convFrom(prog.Eval(convTo(ret)))
+		ret = prog.Eval(ret, false)
 		checkforargrefs()
 	}
 	return
@@ -179,4 +181,15 @@ func walk(expr Expr, visitor func(Expr) Expr) Expr {
 		}
 	}
 	return expr
+}
+
+func walkInPostOrder(expr Expr, visitor func(Expr) Expr) Expr {
+	if call, isc := expr.(*ExprCall); isc {
+		call.Callee = walkInPostOrder(call.Callee, visitor)
+		for i, arg := range call.Args {
+			call.Args[i] = walkInPostOrder(arg, visitor)
+		}
+		expr = call
+	}
+	return visitor(expr)
 }

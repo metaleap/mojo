@@ -51,12 +51,18 @@ var OpPrtDst = os.Stderr.Write
 // The final result of `Eval` will be an `ExprNumInt`, an `ExprFuncRef` or
 // such a closure value (an `*ExprCall` with `.IsClosure != 0`), the latter
 // can be tested for linked-list-ness and extracted via `Prog.ListOfExprs`.
-func (me Prog) Eval(expr Expr) Expr {
+func (me Prog) Eval(expr Expr, big bool) Expr {
 	maxLevels, maxStash, numSteps = 0, 0, 0
+	caplevels := 64
+	if big {
+		caplevels = 32 * 1024
+	}
 	t := time.Now().UnixNano()
-	ret := me.eval(expr, 32*1024)
+	ret := me.eval(expr, caplevels)
 	t = time.Now().UnixNano() - t
-	println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", count1, count2, count3, count4)
+	if big {
+		println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", count1, count2, count3, count4)
+	}
 	return ret
 }
 

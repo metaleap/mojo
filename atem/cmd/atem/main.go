@@ -84,7 +84,7 @@ func main() {
 			ListsFrom(os.Args[2:]), // first `main` param: `args`, a list of all process args following `atem inputfile`
 		}}
 	t := time.Now().UnixNano()
-	outexpr := prog.Eval(expr)
+	outexpr := prog.Eval(expr, true)
 	outlist := prog.ListOfExprs(outexpr)
 	t = time.Now().UnixNano() - t
 	println("T=", time.Duration(t).String())
@@ -104,7 +104,7 @@ func probeIfStdinReaderAndIfSoHandleOnceOrForever(prog Prog, retList []Expr) boo
 				if okf, _ := retList[3].(ExprFuncRef); okc || okf == StdFuncNil {
 					if initialoutput := ListToBytes(prog.ListOfExprs(retList[3])); initialoutput != nil {
 						initialstate, handlenextinput := retList[2], func(prevstate Expr, input []byte) (nextstate Expr) {
-							retexpr := prog.Eval(&ExprCall{Callee: fnhandler, Args: []Expr{ListFrom(input), prevstate}}) //  &ExprCall{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
+							retexpr := prog.Eval(&ExprCall{Callee: fnhandler, Args: []Expr{ListFrom(input), prevstate}}, true) //  &ExprCall{Callee: fnhandler, Arg: prevstate}, Arg: ListFrom(input)})
 							if retlist := prog.ListOfExprs(retexpr); len(retlist) == 2 {
 								nextstate = retlist[0]
 								if outlist := prog.ListOfExprs(retlist[1]); outlist != nil {

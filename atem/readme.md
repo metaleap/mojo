@@ -282,7 +282,7 @@ Eq is the implementation of the `OpEq` prim-op instruction code.
 #### func (Prog) Eval
 
 ```go
-func (me Prog) Eval(expr Expr) Expr
+func (me Prog) Eval(expr Expr, big bool) Expr
 ```
 Eval operates non-recursively via an internal call stack. Any stack entry beyond
 the "root" / "base" one (that at first holds `expr` and at the end the final

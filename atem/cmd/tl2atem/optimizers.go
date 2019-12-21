@@ -10,7 +10,6 @@ func optimize(src Prog) Prog {
 		for _, opt := range []func(Prog) (Prog, bool){
 			optimize_ditchUnusedFuncDefs,
 			optimize_ditchDuplicateDefs,
-			optimize_inlineNullaries,
 			optimize_inlineNaryFuncAliases,
 			optimize_inlineCallsToArgRefFuncs,
 			optimize_argDropperCalls,
@@ -21,7 +20,8 @@ func optimize(src Prog) Prog {
 			optimize_minifyNeedlesslyElaborateBoolOpCalls,
 			optimize_inlineOnceCalleds,
 			optimize_inlineEverSameArgs,
-			optimize_preEvals,
+			optimize_preEvalArgRefLessCalls,
+			optimize_inlineNullaries,
 		} {
 			if src, again = opt(src); again {
 				break
@@ -136,16 +136,13 @@ func optimize_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// nullary func-defs get first `tryEval`'d right here, then the result inlined at use sites if:
-// that site is the only reference to the def, or the def's eval'd body is atomic or a call with only atomic args
+// nullary func-defs get inlined at use sites if:
+// that site is the only reference to the def, or the def's body is atomic or a call with only atomic args
 func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	nullaries, caninlinealways := make(map[int]int), make(map[int]bool)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if 0 == len(ret[i].Args) {
-			if body := tryEval(ret, ret[i].Body, false); !eq(ret, body, ret[i].Body) {
-				didModify, ret[i].Body = true, body
-			}
 			_, _, numargs, numargcalls, _, _ := dissectCall(ret[i].Body, nil)
 			nullaries[i], caninlinealways[i] = 0, numargs == 0 || numargcalls == 0
 		}
@@ -624,15 +621,24 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 }
 
 // rewrites all calls with no arg-refs and no `OpPrt`s with their `Eval` result
-func optimize_preEvals(src Prog) (ret Prog, didModify bool) {
+func optimize_preEvalArgRefLessCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	for i := int(StdFuncCons + 1); i < len(ret); i++ {
-		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
-			if evald := tryEval(ret, expr, true); !eq(ret, evald, expr) {
-				expr, didModify = evald, true
+	conv := make([]FuncDef, len(ret))
+	copy(conv, ret)
+	for i := range conv {
+		conv[i].Body = convTo(conv[i].Body)
+	}
+	for i := int(StdFuncCons + 1); i < len(conv); i++ {
+		var didmodify bool
+		conv[i].Body = walkInPostOrder(conv[i].Body, func(expr Expr) Expr {
+			if evald := tryEvalArgRefLessCall(conv, expr, true); !eq(conv, evald, expr) {
+				expr, didModify, didmodify = evald, true, true
 			}
 			return expr
 		})
+		if didmodify {
+			ret[i].Body = convFrom(conv[i].Body)
+		}
 	}
 	return
 }

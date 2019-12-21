@@ -79,7 +79,6 @@ type (
 		Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
 		selector    int
 		allArgsUsed bool
-		hasArgRefs  bool
 		mereAlias   bool
 	}
 	Expr interface {
