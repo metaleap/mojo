@@ -73,7 +73,7 @@ func (me Prog) eval(expr Expr, initialLevelsCap int) Expr {
 		argsLevel int    // index in `levels` from where `ExprArgRef`s resolve
 
 		numArgs    int  // initially 0, until `ExprFuncRef` from the callee resolves
-		argsDone   bool // `true` after `numArgs` known and all (used) args in `stash` fully eval'd
+		argsDone   bool // `true` after `numArgs` known and all needed args in `stash` fully eval'd
 		calleeDone bool // `true` after the above and having jumped back to callee in `stash`
 	}
 
@@ -81,7 +81,7 @@ func (me Prog) eval(expr Expr, initialLevelsCap int) Expr {
 	levels[idxlevel].stash = []Expr{expr}
 	cur := &levels[idxlevel]
 
-again:
+restep:
 	numSteps++
 	idxcallee = len(cur.stash) - 1
 	if idxcallee > maxStash {
@@ -114,7 +114,7 @@ again:
 		}
 		lookupstash := levels[lookuplevel].stash
 		cur.stash[cur.pos] = lookupstash[(len(lookupstash)-1)+int(it)]
-		goto again // whatever we got, we want to further evaluate: no need for the final post-`switch` checks on `cur.pos` since it hasn't changed, can go at it again right away
+		goto restep // whatever we got, we want to further evaluate: no need for the final post-`switch` checks on `cur.pos` since it hasn't changed, can go at it again right away
 
 	case *ExprCall:
 		if it.IsClosure != 0 { // if so: a currently-no-further-reducable final value (closure)
@@ -134,13 +134,13 @@ again:
 			if idxlevel > maxLevels {
 				maxLevels = idxlevel
 			}
-			goto again
+			goto restep
 		}
 
 	case ExprFuncRef: // recall: if it<0 the `ExprFuncRef` refers to an `OpCode`
 		if isfn := it > -1; isfn && me[it].mereAlias {
 			cur.stash[cur.pos] = me[it].Body
-			goto again
+			goto restep
 		} else if cur.calleeDone || cur.pos != idxcallee { // either not in callee position or else callee reduced to current `it`?
 			cur.pos-- // then the `ExprFuncRef` is a mere currently-no-further-reducable value to just pass along / return / preserve for now
 		} else /* we are in callee position */ if cur.numArgs == 0 { // then must determine this now, first!
@@ -168,7 +168,7 @@ again:
 						numargsdone = 0
 					}
 					cur.numArgs, cur.pos = 0, len(cur.stash)-1
-					goto again
+					goto restep
 				}
 			}
 			if cur.numArgs == 0 { // no args means a global:
@@ -179,7 +179,7 @@ again:
 				} else {
 					numargsdone += len(call.Args)
 				}
-				goto again
+				goto restep
 			} else if !allargsused { // then ditch unused ones: by setting unused arg-slots in `stash` to `nil`
 				until := idxcallee
 				if cur.numArgs < idxcallee { // very rare (at *this* code-path point), around 0% - 0.1% of the time depending on program
@@ -192,11 +192,11 @@ again:
 				}
 			}
 			cur.pos, numargsdone = cur.pos-(1+numargsdone), 0 // jump down to first arg that needs eval-ing, will then count down from there
-		} else if len(cur.stash) > cur.numArgs { // we have all args eval'd, now comes the callee's body
+		} else if len(cur.stash) > cur.numArgs { // with all args eval'd, now comes the callee's body
 			var result Expr
 			if isfn { // substitution
 				result = me[it].Body
-			} else { // prim-op instruction code on left-hand-side and right-hand-side operands
+			} else { // prim-op instruction code: consume left-hand-side and right-hand-side operands
 				lhs, rhs := cur.stash[len(cur.stash)-2], cur.stash[len(cur.stash)-3]
 				switch OpCode(it) {
 				case OpAdd:
@@ -229,46 +229,44 @@ again:
 				}
 			}
 			cur.calleeDone, cur.stash[idxcallee] = true, result
-			goto again
+			goto restep // whatever we got here now, reduce it further until no longer reducible
 		} else {
-			cur.pos-- // in callee position but callee was already done: the post-`switch` checks below handle that if we count one down
+			cur.pos-- // in callee position but callee was already done: the post-`switch` checks below handle that if counting one down here, so we do
 		}
-
 	} // done type-switch on cur.stash[cur.pos]
 
-	if idxcallee != 0 && cur.pos < idxcallee { // we're still arg-ful and below callee-position
-		if cur.argsDone { // again: we are below callee position though all args were already eval'd:
-			result := cur.stash[idxcallee]                 // so `calleeDone` or not (50/50), we're good to return
-			if diff := cur.numArgs - idxcallee; diff < 1 { // the `calleeDone` (non-closure) case
-				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
+	if idxcallee != 0 && cur.pos < idxcallee { // still arg-ful and below callee-position
+		if cur.argsDone { // again: below callee position. were all args already eval'd previously?
+			result := cur.stash[idxcallee]                 // so return then, `calleeDone` or not (50/50)
+			if diff := cur.numArgs - idxcallee; diff < 1 { // the `calleeDone` (non-closure) case:
+				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extra args were around, then len(stash) > 1 now still, so our `level` is not done yet
 			} else /* result is closure */ if ilp := idxlevel - 1; ilp > 0 && len(levels[ilp].stash) != 1 && levels[ilp].numArgs == 0 && levels[ilp].pos == len(levels[ilp].stash)-1 {
-				// this block optional micro-optimization
-				callargs := cur.stash[:idxcallee]
-				idxlevel, numargsdone, cur, levels = ilp, len(callargs), &levels[ilp], levels[:idxlevel]
-				cur.stash = append(append(cur.stash[:len(cur.stash)-1], callargs...), result)
+				// this block optional micro-optimization: unroll into parent's `stash` instead of alloc'ing a new `ExprCall`
+				callee, callargs := result, cur.stash[:idxcallee]
+				cur, idxlevel, numargsdone, levels = &levels[ilp], ilp, len(callargs), levels[:idxlevel]
+				cur.stash = append(append(cur.stash[:len(cur.stash)-1], callargs...), callee)
 				cur.pos = len(cur.stash) - 1
-				goto again
-			} else {
+				goto restep
+			} else { // still closure case
 				result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:idxcallee]}
 				cur.stash[idxcallee] = result
 				cur.stash = cur.stash[idxcallee:]
 			}
 			cur.calleeDone, cur.numArgs, cur.argsDone = false, 0, false
-			if len(cur.stash) == 1 {
-				cur.pos = -1
-			} else {
+			if len(cur.stash) == 1 { // is this `level` done now?
+				cur.pos = -1 // caught at top of next `restep` iteration to push result back up to caller
+			} else { // we had extra args so another round of this (now smaller) `level`
 				cur.pos = len(cur.stash) - 1
 			}
 		} else if cur.numArgs == 0 { // callee was not an `ExprFuncRef` so must be a closure:
 			closure, _ := cur.stash[idxcallee].(*ExprCall) // ... so unroll it into current `stash` :
 			cur.stash = append(append(cur.stash[:idxcallee], closure.Args...), closure.Callee)
 			numargsdone, cur.pos = len(closure.Args), len(cur.stash)-1 // ... and start over at callee
-		} else if cur.pos < 0 || cur.pos < idxcallee-cur.numArgs {
-			// okay, all args needed were eval'd, jump back to callee for its callable's body's reduction
-			cur.pos, cur.argsDone = idxcallee, true
+		} else if cur.pos < 0 || cur.pos < idxcallee-cur.numArgs { // all args needed were eval'd:
+			cur.pos, cur.argsDone = idxcallee, true // note it down, and jump back to callee for eval'ing
 		}
 	}
-	goto again
+	goto restep
 
 allDoneThusReturn:
 	return levels[0].stash[0]
