@@ -16,7 +16,7 @@
 		[[[8], "1"], "0"] ]
 , [ ["[8]std.list.concat//lcl:prepend0","lsuff","items"], [2,1],
 		[["1", "0"], [[9], "0"]] ]
-, [ ["[9]std.list.concat//lcl:prepend0//lam:item168","lsuff","item","rest"], [1,1,1],
+, [ ["[9]std.list.concat//lcl:prepend0//lam:item169","lsuff","item","rest"], [1,1,1],
 		[[[10], "1"], [[[8], "0"], "2"]] ]
 , [ ["[10]std.list.+>"], [],
 		[4] ]

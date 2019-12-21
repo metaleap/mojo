@@ -299,6 +299,9 @@ The final result of `Eval` will be an `ExprNumInt`, an `ExprFuncRef` or such a
 closure value (an `*ExprCall` with `.IsClosure != 0`), the latter can be tested
 for linked-list-ness and extracted via `Prog.ListOfExprs`.
 
+The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
+beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.
+
 #### func (Prog) JsonSrc
 
 ```go

@@ -51,41 +51,44 @@ var OpPrtDst = os.Stderr.Write
 // The final result of `Eval` will be an `ExprNumInt`, an `ExprFuncRef` or
 // such a closure value (an `*ExprCall` with `.IsClosure != 0`), the latter
 // can be tested for linked-list-ness and extracted via `Prog.ListOfExprs`.
+//
+// The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
+// beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.
 func (me Prog) Eval(expr Expr, big bool) Expr {
-	maxLevels, maxStash, numSteps = 0, 0, 0
-	caplevels := 64
+	maxFrames, maxStash, numSteps = 0, 0, 0
+	capframes := 64
 	if big {
-		caplevels = 32 * 1024
+		capframes = 32 * 1024
 	}
-	t := time.Now().UnixNano()
-	ret := me.eval(expr, caplevels)
+	ret, t := me.eval(expr, capframes)
 	t = time.Now().UnixNano() - t
 	if big {
-		println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxLevels, maxStash, numSteps, "\t\t", count1, count2, count3, count4)
+		println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxFrames, maxStash, numSteps, "\t\t", count1, count2, count3, count4)
 	}
 	return ret
 }
 
-var maxLevels int
+var maxFrames int
 var maxStash int
 var numSteps int
 
-func (me Prog) eval(expr Expr, initialLevelsCap int) Expr {
-	// every new call stacks a new `level` on top of prior ones, when call is
-	// done it's dropped. but there's always 1 root / base `level` for our `expr`.
-	type level struct {
+func (me Prog) eval(expr Expr, initialFramesCap int) (Expr, int64) {
+	// every new call stacks a new `frame` on top of prior ones, when call is
+	// done it's dropped. but there's always 1 root / base `frame` for our `expr`.
+	type frame struct {
 		stash     []Expr // args in reverse order, then callee
 		pos       int    // begins at end of `stash` and counts down
-		argsLevel int    // index in `levels` from where `ExprArgRef`s resolve
+		argsFrame int    // index in `frames` from where `ExprArgRef`s resolve
 
 		numArgs    int  // initially 0, until `ExprFuncRef` from the callee resolves
 		argsDone   bool // `true` after `numArgs` known and all needed args in `stash` fully eval'd
 		calleeDone bool // `true` after the above and having jumped back to callee in `stash`
 	}
 
-	levels, idxlevel, idxcallee, numargsdone := make([]level, 1, initialLevelsCap), 0, 0, 0
-	levels[idxlevel].stash = []Expr{expr}
-	cur := &levels[idxlevel]
+	frames, idxframe, idxcallee, numargsdone := make([]frame, 1, initialFramesCap), 0, 0, 0
+	frames[idxframe].stash = []Expr{expr}
+	cur := &frames[idxframe]
+	starttime := time.Now().UnixNano()
 
 restep:
 	numSteps++
@@ -94,13 +97,13 @@ restep:
 		maxStash = idxcallee
 	}
 
-	for cur.pos < 0 { // in a new `level`, we start at end of `stash` (callee) and then travel down the args
-		if idxlevel == 0 {
+	for cur.pos < 0 { // in a new `frame`, we start at end of `stash` (callee) and then travel down the args
+		if idxframe == 0 {
 			goto allDoneThusReturn // initial `expr` maximally reduced: return.
-		} else { // jump back up to parent call `level`, dropping the current one
-			parent := &levels[idxlevel-1]
+		} else { // jump back up to parent call `frame`, dropping the current one
+			parent := &frames[idxframe-1]
 			parent.stash[parent.pos] = cur.stash[idxcallee]               // store result there
-			cur, levels, idxlevel = parent, levels[:idxlevel], idxlevel-1 // now we're in `parent`
+			cur, frames, idxframe = parent, frames[:idxframe], idxframe-1 // now we're in `parent`
 			idxcallee = len(cur.stash) - 1
 		}
 	}
@@ -114,31 +117,31 @@ restep:
 		cur.pos-- // count down as well to travel further down the `stash`
 
 	case ExprArgRef:
-		lookuplevel := cur.argsLevel // most common case
+		lookupframe := cur.argsFrame // most common case
 		if cur.calleeDone {          // very rare case:
-			lookuplevel = idxlevel // essentially callees that merely return one of their args as-is
+			lookupframe = idxframe // essentially callees that merely return one of their args as-is
 		}
-		lookupstash := levels[lookuplevel].stash
+		lookupstash := frames[lookupframe].stash
 		cur.stash[cur.pos] = lookupstash[(len(lookupstash)-1)+int(it)]
 		goto restep // whatever we got, we want to further evaluate: no need for the final post-`switch` checks on `cur.pos` since it hasn't changed, can go at it again right away
 
 	case *ExprCall:
 		if it.IsClosure != 0 { // if so: a currently-no-further-reducable final value (closure)
 			cur.pos--
-		} else { // build up & add & enter the next `level`
+		} else { // build up & add & enter the next `frame`
 			callee, callargs := it.Callee, append(make([]Expr, 0, 3+len(it.Args)), it.Args...)
 			for sub, isc := callee.(*ExprCall); isc; sub, isc = callee.(*ExprCall) { // flatten to single call
 				callee, callargs = sub.Callee, append(callargs, sub.Args...)
 			}
-			lookuplevel := cur.argsLevel // same logic as above in `case` of `ExprArgRef`:
+			lookupframe := cur.argsFrame // same logic as above in `case` of `ExprArgRef`:
 			if cur.calleeDone {          // ...but this now occurs ~50/50
-				lookuplevel = idxlevel
+				lookupframe = idxframe
 			}
-			idxlevel, levels = idxlevel+1, append(levels, level{
-				pos: len(callargs), stash: append(callargs, callee), argsLevel: lookuplevel})
-			cur = &levels[idxlevel] // now enter the newly created `level`
-			if idxlevel > maxLevels {
-				maxLevels = idxlevel
+			idxframe, frames = idxframe+1, append(frames, frame{
+				pos: len(callargs), stash: append(callargs, callee), argsFrame: lookupframe})
+			cur = &frames[idxframe] // now enter the newly created `frame`
+			if idxframe > maxFrames {
+				maxFrames = idxframe
 			}
 			goto restep
 		}
@@ -245,11 +248,11 @@ restep:
 		if cur.argsDone { // again: below callee position. were all args already eval'd previously?
 			result := cur.stash[idxcallee]                 // so return then, `calleeDone` or not (50/50)
 			if diff := cur.numArgs - idxcallee; diff < 1 { // the `calleeDone` (non-closure) case:
-				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extra args were around, then len(stash) > 1 now still, so our `level` is not done yet
-			} else /* result is closure */ if ilp := idxlevel - 1; ilp > 0 && len(levels[ilp].stash) != 1 && levels[ilp].numArgs == 0 && levels[ilp].pos == len(levels[ilp].stash)-1 {
+				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extra args were around, then len(stash) > 1 now still, so our `frame` is not done yet
+			} else /* result is closure */ if ilp := idxframe - 1; ilp > 0 && len(frames[ilp].stash) != 1 && frames[ilp].numArgs == 0 && frames[ilp].pos == len(frames[ilp].stash)-1 {
 				// this block optional micro-optimization: unroll into parent's `stash` instead of alloc'ing a new `ExprCall`
 				callee, callargs := result, cur.stash[:idxcallee]
-				cur, idxlevel, numargsdone, levels = &levels[ilp], ilp, len(callargs), levels[:idxlevel]
+				cur, idxframe, numargsdone, frames = &frames[ilp], ilp, len(callargs), frames[:idxframe]
 				cur.stash = append(append(cur.stash[:len(cur.stash)-1], callargs...), callee)
 				cur.pos = len(cur.stash) - 1
 				goto restep
@@ -259,9 +262,9 @@ restep:
 				cur.stash = cur.stash[idxcallee:]
 			}
 			cur.calleeDone, cur.numArgs, cur.argsDone = false, 0, false
-			if len(cur.stash) == 1 { // is this `level` done now?
+			if len(cur.stash) == 1 { // is this `frame` done now?
 				cur.pos = -1 // caught at top of next `restep` iteration to push result back up to caller
-			} else { // we had extra args so another round of this (now smaller) `level`
+			} else { // we had extra args so another round of this (now smaller) `frame`
 				cur.pos = len(cur.stash) - 1
 			}
 		} else if cur.numArgs == 0 { // callee was not an `ExprFuncRef` so must be a closure:
@@ -275,7 +278,7 @@ restep:
 	goto restep
 
 allDoneThusReturn:
-	return levels[0].stash[0]
+	return frames[0].stash[0], starttime
 }
 
 var count1 int
