@@ -146,24 +146,25 @@ func rewriteInnerMostCallee(expr exprAppl, rewriter func(Expr) Expr) exprAppl {
 func tryEval(prog Prog, expr Expr, preCheckForArgRefs bool) (ret Expr) {
 	ret = expr
 	if _, ok := expr.(exprAppl); ok {
-		checkforargrefs := func() {
-			_ = walk(ret, func(it Expr) Expr {
-				if _, isargref := it.(ExprArgRef); isargref {
-					panic(it) // `recover`ed, see below
-				}
-				return it
-			})
-		}
 		defer func() {
 			if recover() != nil {
 				ret = expr
 			}
 		}()
+
+		checkforargrefs := func() {
+			_ = walk(ret, func(it Expr) Expr {
+				if _, isargref := it.(ExprArgRef); isargref {
+					panic(it)
+				}
+				return it
+			})
+		}
+
 		if preCheckForArgRefs {
 			checkforargrefs()
 		}
-		ret = prog.Eval(convTo(ret))
-		ret = convFrom(ret)
+		ret = convFrom(prog.Eval(convTo(ret)))
 		checkforargrefs()
 	}
 	return
