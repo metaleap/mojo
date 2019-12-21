@@ -72,9 +72,8 @@ const (
 type (
 	Prog    []FuncDef
 	FuncDef struct {
-		// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
-		// `Body` references this arg (note that the interpreter does not currently
-		// use this info), the arg's "identity" however is just its index in `Args`
+		// Args holds this `FuncDef`'s arguments: each `int` denotes how often the `Body`
+		// references this arg, the arg's "identity" however is just its index in `Args`
 		Args        []int
 		Body        Expr
 		Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
@@ -99,7 +98,7 @@ type (
 // JsonSrc emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
 func (me ExprNumInt) JsonSrc() string { return strconv.Itoa(int(me)) }
 
-// JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
+// JsonSrc emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
 func (me ExprArgRef) JsonSrc() string { return "\"" + strconv.Itoa(int(-me)-1) + "\"" }
 
 // JsonSrc emits the re-`LoadFromJson`able representation of this `ExprFuncRef`.

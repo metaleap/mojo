@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-var OnEvalStep = onEvalStepNoOp
-
 // OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
 // interpreter and invoked when encountering a call to a negative `ExprFuncRef`
 // with at least 2 operands on the current `Eval` stack. All `OpCode`-denoted
@@ -35,19 +33,24 @@ const (
 	OpPrt OpCode = -42
 )
 
-// OpPrtDst is the output destination for all `OpPrt` primitive instructions.
+// OpPrtDst is the output sink for all `OpPrt` primitive instructions.
 // Must never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
 var OpPrtDst = os.Stderr.Write
 
-// Eval operates non-recursively via an internal call stack. A stack entry
-// holds the callee and the args. The former is first evaluated down to a
-// "callable" (ExprFuncRef or a closure), then only those args that are
-// actually used. Then the "callable"'s body (or prim-op) is evaluated with
-// all evaluated args reachable.
+// Eval operates non-recursively via an internal call stack. Any stack entry
+// beyond the "root" / "base" one (that at first holds `expr` and at the end
+// the final result value) first holds some call's callee and the args. The
+// former is first evaluated (down to a "callable": ExprFuncRef or a closure),
+// next then only those args that are actually used. Then the "callable"'s body
+// (or prim-op) is evaluated, consuming those freshly-obtained arg values.
 //
 // If not enough args are available, the result is a closure that does keep
 // the already-evaluated args around for later completion. These will not be
 // re-evaluated.
+//
+// The final result of `Eval` will be an `ExprNumInt`, an `ExprFuncRef` or
+// such a closure value (an `*ExprCall` with `.IsClosure != 0`), the latter
+// can be tested for linked-list-ness and extracted via `Prog.ListOfExprs`.
 func (me Prog) Eval(expr Expr) Expr {
 	maxLevels, maxStash, numSteps = 0, 0, 0
 	t := time.Now().UnixNano()
@@ -62,8 +65,8 @@ var maxStash int
 var numSteps int
 
 func (me Prog) eval(expr Expr, initialLevelsCap int) Expr {
-	// every call stacks a new `level` on top of lower ones, when call is done it's dropped.
-	// but there's always 1 root / base `level` for our `expr`
+	// every new call stacks a new `level` on top of prior ones, when call is
+	// done it's dropped. but there's always 1 root / base `level` for our `expr`.
 	type level struct {
 		stash     []Expr // args in reverse order, then callee
 		pos       int    // begins at end of `stash` and counts down
@@ -74,34 +77,32 @@ func (me Prog) eval(expr Expr, initialLevelsCap int) Expr {
 		calleeDone bool
 	}
 
+	numargsdone, idxlevel, idxstash := 0, 0, 0
 	levels := make([]level, 1, initialLevelsCap)
-	levels[0].stash = append(make([]Expr, 0, 32), expr)
-	var numargsdone int
-	var idxcurlevel int
-	var idxlast int
-	cur := &levels[idxcurlevel]
+	levels[idxlevel].stash = append(make([]Expr, 0, 16), expr)
+	cur := &levels[idxlevel]
 
 again:
 	numSteps++
-	idxlast = len(cur.stash) - 1
-	if idxlast > maxStash {
-		maxStash = idxlast
+	idxstash = len(cur.stash) - 1
+	if idxstash > maxStash {
+		maxStash = idxstash
 	}
 
 	for cur.pos < 0 {
 		if cur.argsDone { // set near the end of the `again` loop. now with all (used) args eval'd we jump back to also-already-eval'd-to-callable callee
-			cur.pos = idxlast
-			// } else if idxlast != 0 {
+			cur.pos = idxstash
+			// } else if idxstash != 0 {
 			// 	count1++
 			// 	cur.argsDone, cur.calleeDone, cur.numArgs, cur.pos, cur.stash =
-			// 		false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[idxlast], Args: cur.stash[:idxlast]}}
-		} else if idxcurlevel == 0 {
+			// 		false, false, 0, 0, []Expr{&ExprCall{Callee: cur.stash[idxstash], Args: cur.stash[:idxstash]}}
+		} else if idxlevel == 0 {
 			goto allDoneThusReturn // initial `expr` maximally reduced: return.
 		} else { // jump back up to prior level, dropping the current one
-			prev := &levels[idxcurlevel-1]
-			prev.stash[prev.pos] = cur.stash[idxlast]
-			cur, levels, idxcurlevel = prev, levels[:idxcurlevel], idxcurlevel-1
-			idxlast = len(cur.stash) - 1
+			prev := &levels[idxlevel-1]
+			prev.stash[prev.pos] = cur.stash[idxstash]
+			cur, levels, idxlevel = prev, levels[:idxlevel], idxlevel-1
+			idxstash = len(cur.stash) - 1
 		}
 	}
 
@@ -116,7 +117,7 @@ again:
 	case ExprArgRef:
 		stash := levels[cur.argsLevel].stash
 		if cur.calleeDone {
-			stash = levels[idxcurlevel].stash
+			stash = levels[idxlevel].stash
 		}
 		cur.stash[cur.pos] = stash[(len(stash)-1)+int(it)]
 		if _, isargref := cur.stash[cur.pos].(ExprArgRef); isargref {
@@ -135,12 +136,12 @@ again:
 			}
 			argslevel := cur.argsLevel
 			if cur.calleeDone {
-				argslevel = idxcurlevel
+				argslevel = idxlevel
 			}
-			idxcurlevel, levels = idxcurlevel+1, append(levels, level{pos: len(callargs), stash: append(callargs, callee), argsLevel: argslevel})
-			cur = &levels[idxcurlevel]
-			if idxcurlevel > maxLevels {
-				maxLevels = idxcurlevel
+			idxlevel, levels = idxlevel+1, append(levels, level{pos: len(callargs), stash: append(callargs, callee), argsLevel: argslevel})
+			cur = &levels[idxlevel]
+			if idxlevel > maxLevels {
+				maxLevels = idxlevel
 			}
 			goto again
 		}
@@ -149,7 +150,7 @@ again:
 		if it > 0 && len(me[it].Args) == 0 {
 			cur.stash[cur.pos] = me[it].Body
 			goto again
-		} else if cur.calleeDone || idxlast == 0 || cur.pos != idxlast {
+		} else if cur.calleeDone || idxstash == 0 || cur.pos != idxstash {
 			cur.pos--
 		} else if cur.numArgs == 0 {
 			cur.numArgs = 2     // prim-op default
@@ -159,18 +160,18 @@ again:
 				// optional micro-optimization block: activates with approx. 25% - 35% of cases here
 				if me[it].selector != 0 && len(cur.stash) > cur.numArgs {
 					if me[it].selector < 0 {
-						selected := cur.stash[idxlast+me[it].selector]
-						cur.stash = append(cur.stash[:idxlast-cur.numArgs], selected)
+						selected := cur.stash[idxstash+me[it].selector]
+						cur.stash = append(cur.stash[:idxstash-cur.numArgs], selected)
 					} else {
 						call, _ := me[it].Body.(*ExprCall)
 						argref, _ := call.Callee.(ExprArgRef)
 						newtail := make([]Expr, 1+len(call.Args))
-						newtail[len(call.Args)] = cur.stash[idxlast+int(argref)]
+						newtail[len(call.Args)] = cur.stash[idxstash+int(argref)]
 						for i := range call.Args {
 							argref, _ = call.Args[i].(ExprArgRef)
-							newtail[i] = cur.stash[idxlast+int(argref)]
+							newtail[i] = cur.stash[idxstash+int(argref)]
 						}
-						cur.stash = append(cur.stash[:idxlast-cur.numArgs], newtail...)
+						cur.stash = append(cur.stash[:idxstash-cur.numArgs], newtail...)
 					}
 					if numargsdone -= cur.numArgs; numargsdone < 0 {
 						numargsdone = 0
@@ -180,8 +181,8 @@ again:
 				}
 			}
 			if !allargsused { // then ditch unused ones
-				until := idxlast
-				if cur.numArgs < idxlast { // very rare but happens 0% - 0.1% of the time depending on program
+				until := idxstash
+				if cur.numArgs < idxstash { // very rare but happens 0% - 0.1% of the time depending on program
 					until = cur.numArgs
 				}
 				for i := numargsdone; i < until; i++ {
@@ -227,29 +228,29 @@ again:
 			} else {
 				result = me[it].Body
 			}
-			cur.calleeDone, cur.stash[idxlast] = true, result
+			cur.calleeDone, cur.stash[idxstash] = true, result
 			goto again
 		} else {
 			cur.pos--
 		}
 	}
 
-	if idxlast != 0 && cur.pos < idxlast {
+	if idxstash != 0 && cur.pos < idxstash {
 		if cur.argsDone {
-			result := cur.stash[idxlast]
-			if diff := cur.numArgs - idxlast; diff < 1 {
+			result := cur.stash[idxstash]
+			if diff := cur.numArgs - idxstash; diff < 1 {
 				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result)
-				// } else if idxcurlevel > 1 && len(levels[idxcurlevel-1].stash) != 1 && levels[idxcurlevel-1].pos == len(levels[idxcurlevel-1].stash)-1 {
-				// 	callee, callargs := result, cur.stash[:idxlast]
-				// 	idxcurlevel--
-				// 	cur, levels = &levels[idxcurlevel], levels[:len(levels)-1]
-				// 	cur.stash = append(append(cur.stash[:len(cur.stash)-1], callargs...), callee)
-				// 	cur.numArgs, cur.calleeDone, cur.pos, cur.argsDone = 0, false, len(cur.stash)-1, false
-				// 	goto again
+			} else if ilp := idxlevel - 1; idxlevel != 0 && len(levels[ilp].stash) != 1 && levels[ilp].numArgs == 0 && levels[ilp].pos == len(levels[ilp].stash)-1 {
+				// this block optional micro-optimization
+				callargs := cur.stash[:idxstash]
+				idxlevel, numargsdone, cur, levels = ilp, len(callargs), &levels[ilp], levels[:idxlevel]
+				cur.stash = append(append(cur.stash[:len(cur.stash)-1], callargs...), result)
+				cur.pos = len(cur.stash) - 1
+				goto again
 			} else {
-				result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:idxlast]}
-				cur.stash[idxlast] = result
-				cur.stash = cur.stash[idxlast:]
+				result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:idxstash]}
+				cur.stash[idxstash] = result
+				cur.stash = cur.stash[idxstash:]
 			}
 			cur.calleeDone, cur.numArgs, cur.argsDone = false, 0, false
 			if len(cur.stash) == 1 {
@@ -258,10 +259,10 @@ again:
 				cur.pos = len(cur.stash) - 1
 			}
 		} else if cur.numArgs == 0 {
-			closure, _ := cur.stash[idxlast].(*ExprCall)
-			cur.stash = append(append(cur.stash[:idxlast], closure.Args...), closure.Callee)
+			closure, _ := cur.stash[idxstash].(*ExprCall)
+			cur.stash = append(append(cur.stash[:idxstash], closure.Args...), closure.Callee)
 			numargsdone, cur.pos = len(closure.Args), len(cur.stash)-1
-		} else if cur.pos < 0 || cur.pos < idxlast-cur.numArgs {
+		} else if cur.pos < 0 || cur.pos < idxstash-cur.numArgs {
 			cur.pos, cur.argsDone = -1, true
 		}
 	}
@@ -275,7 +276,3 @@ var count1 int
 var count2 int
 var count3 int
 var count4 int
-
-func onEvalStepNoOp(Expr, []Expr) func(Expr, []Expr, bool) { return onEvalStepDoneNoOp }
-
-func onEvalStepDoneNoOp(Expr, []Expr, bool) {}

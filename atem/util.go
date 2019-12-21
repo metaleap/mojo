@@ -36,6 +36,9 @@ func (me Prog) Eq(expr Expr, cmp Expr) bool {
 // The `ret` is `return`ed as `nil` if `expr` isn't a product of `StdFuncCons`
 // / `StdFuncNil` usage; yet a non-`nil`, zero-`len` `ret` will result from a
 // mere `StdFuncNil` construction, aka. "empty linked-list value" `Expr`.
+//
+// The result of `ListOfExprs` can be passed to `ListToBytes` to extract the
+// `string` value represented by `expr`, if any.
 func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 	ret = make([]Expr, 0, 1024)
 	for ok, next := true, expr; ok; {

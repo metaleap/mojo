@@ -56,14 +56,10 @@ final consumption.
 ## Usage
 
 ```go
-var OnEvalStep = onEvalStepNoOp
-```
-
-```go
 var OpPrtDst = os.Stderr.Write
 ```
-OpPrtDst is the output destination for all `OpPrt` primitive instructions. Must
-never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
+OpPrtDst is the output sink for all `OpPrt` primitive instructions. Must never
+be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
 
 #### func  ListToBytes
 
@@ -115,7 +111,7 @@ type ExprArgRef int
 ```go
 func (me ExprArgRef) JsonSrc() string
 ```
-JsonSrc emits a non-re-`LoadFromJson`able representation of this `ExprArgRef`.
+JsonSrc emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
 
 #### type ExprCall
 
@@ -184,9 +180,8 @@ JsonSrc emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
 
 ```go
 type FuncDef struct {
-	// Args holds this `FuncDef`'s arguments: each `int` denotes how often the
-	// `Body` references this arg (note that the interpreter does not currently
-	// use this info), the arg's "identity" however is just its index in `Args`
+	// Args holds this `FuncDef`'s arguments: each `int` denotes how often the `Body`
+	// references this arg, the arg's "identity" however is just its index in `Args`
 	Args []int
 	Body Expr
 	Meta []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
@@ -289,15 +284,20 @@ Eq is the implementation of the `OpEq` prim-op instruction code.
 ```go
 func (me Prog) Eval(expr Expr) Expr
 ```
-Eval operates non-recursively via an internal call stack. A stack entry holds
-the callee and the args. The former is first evaluated down to a "callable"
-(ExprFuncRef or a closure), then only those args that are actually used. Then
-the "callable"'s body (or prim-op) is evaluated with all evaluated args
-reachable.
+Eval operates non-recursively via an internal call stack. Any stack entry beyond
+the "root" / "base" one (that at first holds `expr` and at the end the final
+result value) first holds some call's callee and the args. The former is first
+evaluated (down to a "callable": ExprFuncRef or a closure), next then only those
+args that are actually used. Then the "callable"'s body (or prim-op) is
+evaluated, consuming those freshly-obtained arg values.
 
 If not enough args are available, the result is a closure that does keep the
 already-evaluated args around for later completion. These will not be
 re-evaluated.
+
+The final result of `Eval` will be an `ExprNumInt`, an `ExprFuncRef` or such a
+closure value (an `*ExprCall` with `.IsClosure != 0`), the latter can be tested
+for linked-list-ness and extracted via `Prog.ListOfExprs`.
 
 #### func (Prog) JsonSrc
 
@@ -317,6 +317,9 @@ individual element `Expr`s are not themselves scrutinized however. The `ret` is
 `return`ed as `nil` if `expr` isn't a product of `StdFuncCons` / `StdFuncNil`
 usage; yet a non-`nil`, zero-`len` `ret` will result from a mere `StdFuncNil`
 construction, aka. "empty linked-list value" `Expr`.
+
+The result of `ListOfExprs` can be passed to `ListToBytes` to extract the
+`string` value represented by `expr`, if any.
 
 #### func (Prog) ListOfExprsToString
 

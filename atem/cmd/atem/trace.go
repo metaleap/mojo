@@ -23,7 +23,7 @@ type EvalStep struct {
 
 func init() {
 	if trace {
-		OnEvalStep = onEvalStep
+		// OnEvalStep = onEvalStep
 	}
 }
 
