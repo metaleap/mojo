@@ -77,23 +77,23 @@ func LoadFromJson(src []byte) Prog {
 		me = append(me, fd)
 	}
 	for i := range me {
-		me.markClosures(me[i].Body)
+		me[i].Body = me.postLoadPreProcess(me[i].Body)
 	}
 	return me
 }
 
-func (me Prog) markClosures(expr Expr) {
+func (me Prog) postLoadPreProcess(expr Expr) Expr {
+	for fnr, _ := expr.(ExprFuncRef); fnr > 0 && me[fnr].isMereAlias; fnr, _ = expr.(ExprFuncRef) {
+		expr = me[fnr].Body
+	}
 	if call, iscall := expr.(*ExprCall); iscall {
-		me.markClosures(call.Callee)
+		call.Callee = me.postLoadPreProcess(call.Callee)
 		for i := range call.Args {
-			me.markClosures(call.Args[i])
+			call.Args[i] = me.postLoadPreProcess(call.Args[i])
 		}
 		if f, _ := call.Callee.(ExprFuncRef); f > 0 {
 			diff := len(me[f].Args) - len(call.Args)
 			for i := 0; (diff > 0) && (i < len(call.Args)); i++ {
-				for fnr, _ := call.Args[i].(ExprFuncRef); fnr > 0 && me[fnr].isMereAlias; fnr, _ = call.Args[i].(ExprFuncRef) {
-					call.Args[i] = me[fnr].Body
-				}
 				_, isa := call.Args[i].(ExprArgRef)
 				if c, isc := call.Args[i].(*ExprCall); isa || (isc && c.IsClosure == 0) {
 					diff = 0
@@ -104,6 +104,7 @@ func (me Prog) markClosures(expr Expr) {
 			}
 		}
 	}
+	return expr
 }
 
 func exprFromJson(from any, curFnNumArgs int64) Expr {

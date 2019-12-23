@@ -143,12 +143,9 @@ restep:
 		}
 
 	case ExprFuncRef: // recall: if it<0 the `ExprFuncRef` refers to an `OpCode`
-		if isfn := it > -1; isfn && me[it].isMereAlias {
-			cur.stash[cur.pos] = me[it].Body
-			goto restep
-		} else if cur.calleeDone || cur.pos != idxcallee { // either not in callee position or else callee reduced to current `it`?
+		if cur.calleeDone || cur.pos != idxcallee { // either not in callee position or else callee reduced to current `it`?
 			cur.pos-- // then the `ExprFuncRef` is a mere currently-no-further-reducable value to just pass along / return / preserve for now
-		} else /* we are in callee position */ if cur.numArgs == 0 { // then must determine this now, first!
+		} else /* we are in callee position */ if isfn := it > -1; cur.numArgs == 0 { // then must determine this now, first!
 			cur.numArgs = 2     // prim-op default
 			allargsused := true // prim-op default
 			if isfn {           // refers to actual func, not prim-op
