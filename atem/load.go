@@ -3,6 +3,7 @@ package atem
 import (
 	"encoding/json"
 	"strconv"
+	"time"
 )
 
 type any = interface{} // just for less-noisily-reading JSON-unmarshalings below
@@ -76,6 +77,35 @@ func LoadFromJson(src []byte) Prog {
 		}
 		me = append(me, fd)
 	}
+
+	var markclosures func(expr Expr)
+	markclosures = func(expr Expr) {
+		if call, iscall := expr.(*ExprCall); iscall {
+			markclosures(call.Callee)
+			for i := range call.Args {
+				markclosures(call.Args[i])
+			}
+			if f, _ := call.Callee.(ExprFuncRef); f > 0 {
+				diff := len(me[f].Args) - len(call.Args)
+				for i := 0; (diff > 0) && (i < len(call.Args)); i++ {
+					if _, isa := call.Args[i].(ExprArgRef); isa {
+						diff = 0
+					} else if c, isc := call.Args[i].(*ExprCall); isc && c.IsClosure == 0 {
+						diff = 0
+					}
+				}
+				if call.IsClosure = diff; diff < 0 {
+					call.IsClosure = 0
+				}
+			}
+		}
+	}
+	t := time.Now().UnixNano()
+	for i := range me {
+		markclosures(me[i].Body)
+	}
+	t = time.Now().UnixNano() - t
+	println("PT", time.Duration(t).String())
 	return me
 }
 
