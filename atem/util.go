@@ -39,7 +39,7 @@ func Eq(expr Expr, cmp Expr) bool {
 //
 // The result of `ListOfExprs` can be passed to `ListToBytes` to extract the
 // `string` value represented by `expr`, if any.
-func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
+func ListOfExprs(expr Expr) (ret []Expr) {
 	ret = make([]Expr, 0, 1024)
 	for ok, next := true, expr; ok; {
 		ok = false
@@ -58,7 +58,7 @@ func (me Prog) ListOfExprs(expr Expr) (ret []Expr) {
 }
 
 // ListToBytes examines the given `[]Expr`, as normally obtained via
-// `Prog.ListOfExprs` and accumulates a `[]byte` slice as long as all elements
+// `ListOfExprs` and accumulates a `[]byte` slice as long as all elements
 // in said list are `ExprNumInt` values in the range 0 - 255. If the input is
 // `nil`, so will be `retNumListAsBytes`. If the input has a `len` of zero,
 // so will `retNumListAsBytes`. If any of the input `Expr`s isn't an in-range
@@ -78,11 +78,11 @@ func ListToBytes(maybeNumList []Expr) (retNumListAsBytes []byte) {
 	return
 }
 
-// ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
+// ListOfExprsToString is a wrapper around the combined usage of `ListOfExprs`
 // and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`
 // result, if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.
-func (me Prog) ListOfExprsToString(expr Expr) string {
-	if maybenumlist := me.ListOfExprs(expr); maybenumlist != nil {
+func ListOfExprsToString(expr Expr) string {
+	if maybenumlist := ListOfExprs(expr); maybenumlist != nil {
 		if bytes := ListToBytes(maybenumlist); bytes != nil {
 			return string(bytes)
 		}

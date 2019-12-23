@@ -68,15 +68,24 @@ func Eq(expr Expr, cmp Expr) bool
 ```
 Eq is the implementation of the `OpEq` prim-op instruction code.
 
+#### func  ListOfExprsToString
+
+```go
+func ListOfExprsToString(expr Expr) string
+```
+ListOfExprsToString is a wrapper around the combined usage of `ListOfExprs` and
+`ListToBytes` to extract the List-closure-encoded `string` of an `Eval` result,
+if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.
+
 #### func  ListToBytes
 
 ```go
 func ListToBytes(maybeNumList []Expr) (retNumListAsBytes []byte)
 ```
-ListToBytes examines the given `[]Expr`, as normally obtained via
-`Prog.ListOfExprs` and accumulates a `[]byte` slice as long as all elements in
-said list are `ExprNumInt` values in the range 0 - 255. If the input is `nil`,
-so will be `retNumListAsBytes`. If the input has a `len` of zero, so will
+ListToBytes examines the given `[]Expr`, as normally obtained via `ListOfExprs`
+and accumulates a `[]byte` slice as long as all elements in said list are
+`ExprNumInt` values in the range 0 - 255. If the input is `nil`, so will be
+`retNumListAsBytes`. If the input has a `len` of zero, so will
 `retNumListAsBytes`. If any of the input `Expr`s isn't an in-range `ExprNumInt`,
 then too will `retNumListAsBytes` be `nil`.
 
@@ -98,6 +107,21 @@ func ListFrom(str []byte) (ret Expr)
 ListFrom converts the specified byte string to a linked-list representing a text
 string during `Eval` (via `ExprCall`s of `StdFuncCons` and `StdFuncNil`).
 
+#### func  ListOfExprs
+
+```go
+func ListOfExprs(expr Expr) (ret []Expr)
+```
+ListOfExprs dissects the given `expr` into an `[]Expr` slice only if it is a
+closure resulting from `StdFuncCons` / `StdFuncNil` usage during `Eval`. The
+individual element `Expr`s are not themselves scrutinized however. The `ret` is
+`return`ed as `nil` if `expr` isn't a product of `StdFuncCons` / `StdFuncNil`
+usage; yet a non-`nil`, zero-`len` `ret` will result from a mere `StdFuncNil`
+construction, aka. "empty linked-list value" `Expr`.
+
+The result of `ListOfExprs` can be passed to `ListToBytes` to extract the
+`string` value represented by `expr`, if any.
+
 #### func  ListsFrom
 
 ```go
@@ -109,7 +133,7 @@ linked-list of those.
 #### type ExprArgRef
 
 ```go
-type ExprArgRef int
+type ExprArgRef int8
 ```
 
 
@@ -126,7 +150,7 @@ JsonSrc emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
 type ExprCall struct {
 	Callee    Expr
 	Args      []Expr
-	IsClosure int // determined at load time, not in input source: if `> 0` (indicating number of missing args), callee is an `ExprFuncRef` and all args are `ExprNumInt` or `ExprFuncRef` or further such `ExprCall`s with `.IsClosure > 0`
+	IsClosure int8 // determined at load time, not in input source: if `> 0` (indicating number of missing args), callee is an `ExprFuncRef` and all args are `ExprNumInt` or `ExprFuncRef` or further such `ExprCall`s with `.IsClosure > 0`
 }
 ```
 
@@ -284,9 +308,10 @@ will restore the 0-based indexing form, however.
 ```go
 func (me Prog) Eval(expr Expr, big bool) Expr
 ```
-Eval operates non-recursively via an internal call stack. Any stack entry beyond
-the "root" / "base" one (that at first holds `expr` and at the end the final
-result value) first holds some call's callee and the args. The former is first
+Eval operates more like a register machine than a stack machine, but still on a
+call stack allowing its non-recursive implementation. Any stack entry beyond the
+"root" / "base" one (that at first holds `expr` and at the end the final result
+value) first holds some call's callee and the args. The former is first
 evaluated (down to a "callable": ExprFuncRef or a closure), next then only those
 args that are actually used. Then the "callable"'s body (or prim-op) is
 evaluated, consuming those freshly-obtained arg values.
@@ -296,8 +321,8 @@ already-evaluated args around for later completion. These will not be
 re-evaluated.
 
 The final result of `Eval` will be an `ExprNumInt`, an `ExprFuncRef` or such a
-closure value (an `*ExprCall` with `.IsClosure != 0`), the latter can be tested
-for linked-list-ness and extracted via `Prog.ListOfExprs`.
+closure value (an `*ExprCall` with `.IsClosure > 0`), the latter can be tested
+for linked-list-ness and extracted via `ListOfExprs`.
 
 The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
 beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.
@@ -308,27 +333,3 @@ beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.
 func (me Prog) JsonSrc(dropFuncDefMetas bool) string
 ```
 JsonSrc emits the re-`LoadFromJson`able representation of this `Prog`.
-
-#### func (Prog) ListOfExprs
-
-```go
-func (me Prog) ListOfExprs(expr Expr) (ret []Expr)
-```
-ListOfExprs dissects the given `expr` into an `[]Expr` slice only if it is a
-closure resulting from `StdFuncCons` / `StdFuncNil` usage during `Eval`. The
-individual element `Expr`s are not themselves scrutinized however. The `ret` is
-`return`ed as `nil` if `expr` isn't a product of `StdFuncCons` / `StdFuncNil`
-usage; yet a non-`nil`, zero-`len` `ret` will result from a mere `StdFuncNil`
-construction, aka. "empty linked-list value" `Expr`.
-
-The result of `ListOfExprs` can be passed to `ListToBytes` to extract the
-`string` value represented by `expr`, if any.
-
-#### func (Prog) ListOfExprsToString
-
-```go
-func (me Prog) ListOfExprsToString(expr Expr) string
-```
-ListOfExprsToString is a wrapper around the combined usage of `Prog.ListOfExprs`
-and `ListToBytes` to extract the List-closure-encoded `string` of an `Eval`
-result, if it is one. Otherwise, `expr.JsonSrc()` is returned for convenience.

@@ -114,7 +114,7 @@ func toStr(expr Expr) (ret string) {
 		case *ExprCall:
 			if list := listOfExprs(it); list == nil {
 				if ret = ""; it.IsClosure != 0 {
-					ret += strconv.Itoa(it.IsClosure) + "#"
+					ret += strconv.FormatUint(uint64(it.IsClosure), 10) + "#"
 				}
 				ret += "(" + toStr(it.Callee)
 				for i := len(it.Args) - 1; i >= 0; i-- {
