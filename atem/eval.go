@@ -220,7 +220,7 @@ restep:
 						result = StdFuncTrue
 					}
 				case OpEq:
-					if result = StdFuncFalse; me.Eq(lhs, rhs) {
+					if result = StdFuncFalse; Eq(lhs, rhs) {
 						result = StdFuncTrue
 					}
 				case OpPrt:

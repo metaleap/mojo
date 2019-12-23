@@ -84,7 +84,7 @@ func doesHaveNonCalleeUses(prog Prog, fn ExprFuncRef) (doesHaveNonCalleeOccurren
 	return
 }
 
-func eq(prog Prog, expr Expr, cmp Expr) bool {
+func eq(expr Expr, cmp Expr) bool {
 	if expr == cmp {
 		return true
 	} else if t1, okt1 := expr.(exprTmp); okt1 {
@@ -92,9 +92,9 @@ func eq(prog Prog, expr Expr, cmp Expr) bool {
 		return okt2 && t1 == t2
 	} else if a1, oka1 := expr.(exprAppl); oka1 {
 		a2, oka2 := cmp.(exprAppl)
-		return oka2 && eq(prog, a1.Callee, a2.Callee) && eq(prog, a1.Arg, a2.Arg)
+		return oka2 && eq(a1.Callee, a2.Callee) && eq(a1.Arg, a2.Arg)
 	}
-	return prog.Eq(expr, cmp)
+	return Eq(expr, cmp)
 }
 
 // some optimizers may drop certain arg uses while others may expect correct values in `FuncDef.Args`,

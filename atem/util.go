@@ -1,7 +1,7 @@
 package atem
 
 // Eq is the implementation of the `OpEq` prim-op instruction code.
-func (me Prog) Eq(expr Expr, cmp Expr) bool {
+func Eq(expr Expr, cmp Expr) bool {
 	if expr == cmp { // rare but can happen depending on program
 		return true
 	}
@@ -11,9 +11,9 @@ func (me Prog) Eq(expr Expr, cmp Expr) bool {
 		return ok && it == that
 	case *ExprCall:
 		if that, ok := cmp.(*ExprCall); ok {
-			if ok = (len(it.Args) == len(that.Args)) && me.Eq(it.Callee, that.Callee); ok {
+			if ok = (len(it.Args) == len(that.Args)) && Eq(it.Callee, that.Callee); ok {
 				for i := range it.Args {
-					if ok = me.Eq(it.Args[i], that.Args[i]); !ok {
+					if ok = Eq(it.Args[i], that.Args[i]); !ok {
 						break
 					}
 				}
@@ -107,19 +107,3 @@ func ListsFrom(strs []string) (ret Expr) {
 	}
 	return
 }
-
-// This is neither used by the evaluator nor by the parser but occasionally
-// handy temporarily for investigating, profiling or optimizing specifics.
-// func walk(expr Expr, visitor func(Expr) Expr) Expr {
-// 	if ret := visitor(expr); ret != nil {
-// 		expr = ret
-// 		if call, ok := expr.(*ExprCall); ok {
-// 			call.Callee = walk(call.Callee, visitor)
-// 			for i, argval := range call.Args {
-// 				call.Args[i] = walk(argval, visitor)
-// 			}
-// 			expr = call
-// 		}
-// 	}
-// 	return expr
-// }
