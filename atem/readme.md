@@ -133,7 +133,7 @@ linked-list of those.
 #### type ExprArgRef
 
 ```go
-type ExprArgRef int8
+type ExprArgRef int
 ```
 
 
@@ -150,7 +150,7 @@ JsonSrc emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
 type ExprCall struct {
 	Callee    Expr
 	Args      []Expr
-	IsClosure int8 // determined at load time, not in input source: if `> 0` (indicating number of missing args), callee is an `ExprFuncRef` and all args are `ExprNumInt` or `ExprFuncRef` or further such `ExprCall`s with `.IsClosure > 0`
+	IsClosure int // determined at load time, not in input source: if `> 0` (indicating number of missing args), callee is an `ExprFuncRef` and all args are `ExprNumInt` or `ExprFuncRef` or further such `ExprCall`s with `.IsClosure > 0`
 }
 ```
 

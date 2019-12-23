@@ -77,22 +77,22 @@ func (me Prog) eval(expr Expr, initialFramesCap int) (Expr, int64) {
 	// done it's dropped. but there's always 1 root / base `frame` for our `expr`.
 	type frame struct {
 		stash     []Expr // args (could be too many or too few) in reverse order, then callee
-		pos       int8   // begins at end of `stash` and counts down
+		pos       int    // begins at end of `stash` and counts down
 		argsFrame int    // index in `frames` from where `ExprArgRef`s resolve
 
-		numArgs    int8 // initially 0, until resolving callee to `ExprFuncRef`
+		numArgs    int  // initially 0, until resolving callee to `ExprFuncRef`
 		argsDone   bool // `true` after `numArgs` known and all needed args in `stash` fully eval'd
 		calleeDone bool // `true` after the above and having jumped back to callee in `stash`
 	}
 
-	frames, idxframe, idxcallee, numargsdone := make([]frame, 1, initialFramesCap), 0, int8(0), int8(0)
+	frames, idxframe, idxcallee, numargsdone := make([]frame, 1, initialFramesCap), 0, 0, 0
 	frames[idxframe].stash = []Expr{expr}
 	cur := &frames[idxframe]
 	starttime := time.Now().UnixNano()
 
 restep:
 	numSteps++
-	idxcallee = int8(len(cur.stash) - 1)
+	idxcallee = len(cur.stash) - 1
 
 	for cur.pos < 0 { // in a new `frame`, we start at end of `stash` (callee) and then travel down the args until below 0
 		if idxframe == 0 {
@@ -101,7 +101,7 @@ restep:
 			parent := &frames[idxframe-1]
 			parent.stash[parent.pos] = cur.stash[idxcallee]               // store result there
 			cur, frames, idxframe = parent, frames[:idxframe], idxframe-1 // now we're in `parent`
-			idxcallee = int8(len(cur.stash) - 1)
+			idxcallee = len(cur.stash) - 1
 		}
 	}
 
@@ -114,11 +114,10 @@ restep:
 		cur.pos-- // count down as well to travel further down the `stash`
 
 	case ExprArgRef:
-		lookupframe := cur.argsFrame // most common case
-		if cur.calleeDone {          // very rare case:
-			lookupframe = idxframe // essentially callees that merely return one of their args as-is
+		lookupstash := frames[cur.argsFrame].stash // most common case
+		if cur.calleeDone {                        // very rare case:
+			lookupstash = frames[idxframe].stash // essentially callees that merely return one of their args as-is
 		}
-		lookupstash := frames[lookupframe].stash
 		cur.stash[cur.pos] = lookupstash[(len(lookupstash)-1)+int(it)]
 		goto restep // whatever we got, we want to further evaluate: no need for the final post-`switch` checks on `cur.pos` since it hasn't changed, can go at it again right away
 
@@ -135,7 +134,7 @@ restep:
 				lookupframe = idxframe
 			}
 			idxframe, frames = idxframe+1, append(frames, frame{
-				pos: int8(len(callargs)), stash: append(callargs, callee), argsFrame: lookupframe})
+				pos: len(callargs), stash: append(callargs, callee), argsFrame: lookupframe})
 			cur = &frames[idxframe] // now enter the newly created `frame`
 			if idxframe > maxFrames {
 				maxFrames = idxframe
@@ -144,15 +143,16 @@ restep:
 		}
 
 	case ExprFuncRef: // recall: if it<0 the `ExprFuncRef` refers to an `OpCode`
-		if cur.calleeDone || cur.pos != int8(idxcallee) { // either not in callee position or else callee reduced to current `it`?
+		// note, scenario of `me[it].isMereAlias && 0 == len(me[it].Args)` will never occur thanks to load-time `Prog.postLoadPreProcess` call.
+		if cur.calleeDone || cur.pos != idxcallee { // either not in callee position or else callee reduced to current `it`?
 			cur.pos-- // then the `ExprFuncRef` is a mere currently-no-further-reducable value to just pass along / return / preserve for now
 		} else /* we are in callee position */ if isfn := it > -1; cur.numArgs == 0 { // then must determine this now, first!
 			cur.numArgs = 2     // prim-op default
 			allargsused := true // prim-op default
 			if isfn {           // refers to actual func, not prim-op
-				cur.numArgs, allargsused = int8(len(me[it].Args)), me[it].allArgsUsed
+				cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
 				// optional micro-optimization block: entered-into for approx. 25% - 35% of cases here
-				if me[it].selector != 0 && int8(len(cur.stash)) > cur.numArgs {
+				if me[it].selector != 0 && len(cur.stash) > cur.numArgs {
 					if me[it].selector < 0 {
 						selected := cur.stash[idxcallee+me[it].selector]
 						cur.stash = append(cur.stash[:idxcallee-cur.numArgs], selected)
@@ -160,27 +160,27 @@ restep:
 						call, _ := me[it].Body.(*ExprCall)
 						argref, _ := call.Callee.(ExprArgRef)
 						newtail := make([]Expr, 1+len(call.Args))
-						newtail[len(call.Args)] = cur.stash[idxcallee+int8(argref)]
+						newtail[len(call.Args)] = cur.stash[idxcallee+int(argref)]
 						for i := range call.Args {
 							argref, _ = call.Args[i].(ExprArgRef)
-							newtail[i] = cur.stash[idxcallee+int8(argref)]
+							newtail[i] = cur.stash[idxcallee+int(argref)]
 						}
 						cur.stash = append(cur.stash[:idxcallee-cur.numArgs], newtail...)
 					}
 					if numargsdone -= cur.numArgs; numargsdone < 0 {
 						numargsdone = 0
 					}
-					cur.numArgs, cur.pos = 0, int8(len(cur.stash)-1)
+					cur.numArgs, cur.pos = 0, len(cur.stash)-1
 					goto restep
 				}
 			}
 			if cur.numArgs == 0 { // no args means a shared global constant:
 				call, _ := me[it].Body.(*ExprCall) // also means *ExprCall because others were caught at top of this `case`
 				cur.stash = append(append(cur.stash[:idxcallee], call.Args...), call.Callee)
-				if cur.pos = int8(len(cur.stash)) - 1; call.IsClosure == 0 {
+				if cur.pos = len(cur.stash) - 1; call.IsClosure == 0 {
 					numargsdone = 0
 				} else {
-					numargsdone += int8(len(call.Args))
+					numargsdone += len(call.Args)
 				}
 				goto restep
 			} else if !allargsused { // then ditch unused ones: by setting unused arg-slots in `stash` to `nil`
@@ -190,12 +190,12 @@ restep:
 				}
 				for i := numargsdone; i < until; i++ {
 					if me[it].Args[i] == 0 { // unused? then clear args-slot:
-						cur.stash[int8(len(cur.stash))-(2+i)] = nil
+						cur.stash[len(cur.stash)-(2+i)] = nil
 					}
 				}
 			}
 			cur.pos, numargsdone = cur.pos-(1+numargsdone), 0 // jump down to first arg that needs eval-ing, will then count down from there
-		} else if int8(len(cur.stash)) > cur.numArgs { // with all args eval'd, now comes the callee's body
+		} else if len(cur.stash) > cur.numArgs { // with all args eval'd, now comes the callee's body
 			var result Expr
 			if isfn { // substitution
 				result = me[it].Body
@@ -242,13 +242,13 @@ restep:
 		if cur.argsDone { // below callee position. have all args already eval'd previously?
 			result := cur.stash[idxcallee]                 // so return then, `calleeDone` or not (50/50)
 			if diff := cur.numArgs - idxcallee; diff < 1 { // the `calleeDone` (non-closure) case:
-				cur.stash = append(cur.stash[:int8(len(cur.stash))-1-cur.numArgs], result) // if extraneous args were around, then len(stash) > 1 now still, so our `frame` is not done yet
-			} else /* result is closure */ if ilp := idxframe - 1; ilp > 0 && len(frames[ilp].stash) != 1 && frames[ilp].numArgs == 0 && frames[ilp].pos == int8(len(frames[ilp].stash))-1 {
+				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extraneous args were around, then len(stash) > 1 now still, so our `frame` is not done yet
+			} else /* result is closure */ if ilp := idxframe - 1; ilp > 0 && len(frames[ilp].stash) != 1 && frames[ilp].numArgs == 0 && frames[ilp].pos == len(frames[ilp].stash)-1 {
 				// this block optional micro-optimization: unroll into parent's `stash` instead of alloc'ing a new `ExprCall`
 				callee, callargs := result, cur.stash[:idxcallee]
-				cur, idxframe, numargsdone, frames = &frames[ilp], ilp, int8(len(callargs)), frames[:idxframe]
+				cur, idxframe, numargsdone, frames = &frames[ilp], ilp, len(callargs), frames[:idxframe]
 				cur.stash = append(append(cur.stash[:len(cur.stash)-1], callargs...), callee)
-				cur.pos = int8(len(cur.stash)) - 1
+				cur.pos = len(cur.stash) - 1
 				goto restep
 			} else { // still closure case
 				result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:idxcallee]}
@@ -259,12 +259,12 @@ restep:
 			if len(cur.stash) == 1 { // is this `frame` done now?
 				cur.pos = -1 // caught at top of next `restep` iteration to push result back up to caller
 			} else { // we had extra args so another round of this (now smaller) `frame`
-				cur.pos = int8(len(cur.stash) - 1)
+				cur.pos = len(cur.stash) - 1
 			}
 		} else if cur.numArgs == 0 { // callee was not an `ExprFuncRef` so must be a closure:
 			closure, _ := cur.stash[idxcallee].(*ExprCall) // ... so unroll it into current `stash` :
 			cur.stash = append(append(cur.stash[:idxcallee], closure.Args...), closure.Callee)
-			numargsdone, cur.pos = int8(len(closure.Args)), int8(len(cur.stash))-1 // ... and start over at callee
+			numargsdone, cur.pos = len(closure.Args), len(cur.stash)-1 // ... and start over at callee
 		} else if cur.pos < 0 || cur.pos < idxcallee-cur.numArgs { // all args needed were eval'd:
 			cur.pos, cur.argsDone = idxcallee, true // note it down, and jump back to callee for eval'ing
 		}

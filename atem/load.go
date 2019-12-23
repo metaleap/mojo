@@ -60,7 +60,7 @@ func LoadFromJson(src []byte) Prog {
 			fd.isMereAlias = !iscall
 		} else if len(fd.Args) >= 2 { // check if selector and set so
 			if argref, isa := fd.Body.(ExprArgRef); isa {
-				fd.selector = int8(argref)
+				fd.selector = int(argref)
 			} else if call, isc := fd.Body.(*ExprCall); isc {
 				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -1 {
 					for ia := range call.Args {
@@ -69,7 +69,7 @@ func LoadFromJson(src []byte) Prog {
 						}
 					}
 					if isa {
-						fd.selector = int8(len(call.Args))
+						fd.selector = (len(call.Args))
 					}
 				}
 			}
@@ -97,8 +97,12 @@ func (me Prog) postLoadPreProcess(expr Expr) Expr {
 		for i := range call.Args {
 			call.Args[i] = me.postLoadPreProcess(call.Args[i])
 		}
-		if f, _ := call.Callee.(ExprFuncRef); f > 0 {
-			diff := int8(len(me[f].Args)) - int8(len(call.Args))
+		if f, _ := call.Callee.(ExprFuncRef); f != 0 {
+			numargs := (2)
+			if f > 0 {
+				numargs = (len(me[f].Args))
+			}
+			diff := numargs - (len(call.Args))
 			for i := 0; (diff > 0) && (i < len(call.Args)); i++ {
 				_, isa := call.Args[i].(ExprArgRef)
 				if c, isc := call.Args[i].(*ExprCall); isa || (isc && c.IsClosure == 0) {
