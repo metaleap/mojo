@@ -143,7 +143,7 @@ restep:
 		}
 
 	case ExprFuncRef: // recall: if it<0 the `ExprFuncRef` refers to an `OpCode`
-		if isfn := it > -1; isfn && me[it].mereAlias {
+		if isfn := it > -1; isfn && me[it].isMereAlias {
 			cur.stash[cur.pos] = me[it].Body
 			goto restep
 		} else if cur.calleeDone || cur.pos != idxcallee { // either not in callee position or else callee reduced to current `it`?

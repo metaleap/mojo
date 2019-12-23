@@ -79,7 +79,7 @@ type (
 		Meta        []string // ignored and not used in this lib: but still loaded from JSON and (re)emitted by `FuncDef.JsonSrc()`
 		selector    int
 		allArgsUsed bool
-		mereAlias   bool
+		isMereAlias bool
 	}
 	Expr interface {
 		// JsonSrc emits the re-`LoadFromJson`able representation of this `Expr`.
@@ -91,7 +91,7 @@ type (
 	ExprCall    struct {
 		Callee    Expr
 		Args      []Expr
-		IsClosure int // determined at load time, not in input source: if `> 0` (indicating number of missing args), callee is an `ExprFuncRef` and all args are `ExprNumInt` or `ExprFuncRef` (to a not-both-nullary-and-atomic `FuncDef`) or further such `ExprCall`s with `.IsClosure > 0`
+		IsClosure int // determined at load time, not in input source: if `> 0` (indicating number of missing args), callee is an `ExprFuncRef` and all args are `ExprNumInt` or `ExprFuncRef` or further such `ExprCall`s with `.IsClosure > 0`
 	}
 )
 
