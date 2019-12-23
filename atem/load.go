@@ -55,7 +55,10 @@ func LoadFromJson(src []byte) Prog {
 				fd.allArgsUsed = false
 			}
 		}
-		if len(fd.Args) >= 2 { // check if selector and set so
+		if len(fd.Args) == 0 {
+			_, iscall := fd.Body.(*ExprCall)
+			fd.mereAlias = !iscall
+		} else if len(fd.Args) >= 2 { // check if selector and set so
 			if argref, isa := fd.Body.(ExprArgRef); isa {
 				fd.selector = int(argref)
 			} else if call, isc := fd.Body.(*ExprCall); isc {
@@ -70,9 +73,6 @@ func LoadFromJson(src []byte) Prog {
 					}
 				}
 			}
-		} else if len(fd.Args) == 0 {
-			_, iscall := fd.Body.(*ExprCall)
-			fd.mereAlias = !iscall
 		}
 		me = append(me, fd)
 	}
@@ -92,7 +92,8 @@ func (me Prog) markClosures(expr Expr) {
 			diff := len(me[f].Args) - len(call.Args)
 			for i := 0; (diff > 0) && (i < len(call.Args)); i++ {
 				_, isa := call.Args[i].(ExprArgRef)
-				if c, isc := call.Args[i].(*ExprCall); isa || (isc && c.IsClosure == 0) {
+				fnr, _ := call.Args[i].(ExprFuncRef)
+				if c, isc := call.Args[i].(*ExprCall); isa || (isc && c.IsClosure == 0) || (fnr > 0 && me[fnr].mereAlias) {
 					diff = 0
 				}
 			}

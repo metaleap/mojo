@@ -91,7 +91,7 @@ type (
 	ExprCall    struct {
 		Callee    Expr
 		Args      []Expr
-		IsClosure int // if != 0 (indicating number of missing args), callee is an ExprFuncRef and all args must be ExprNumInt or ExprFuncRef or further `ExprCall`s with such guarantees and `IsClosure > 0`
+		IsClosure int // determined at load time, not in input source: if `> 0` (indicating number of missing args), callee is an `ExprFuncRef` and all args are `ExprNumInt` or `ExprFuncRef` (to a not-both-nullary-and-atomic `FuncDef`) or further such `ExprCall`s with `.IsClosure > 0`
 	}
 )
 
