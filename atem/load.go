@@ -3,7 +3,6 @@ package atem
 import (
 	"encoding/json"
 	"strconv"
-	"time"
 )
 
 type any = interface{} // just for less-noisily-reading JSON-unmarshalings below
@@ -77,36 +76,31 @@ func LoadFromJson(src []byte) Prog {
 		}
 		me = append(me, fd)
 	}
+	for i := range me {
+		me.markClosures(me[i].Body)
+	}
+	return me
+}
 
-	var markclosures func(expr Expr)
-	markclosures = func(expr Expr) {
-		if call, iscall := expr.(*ExprCall); iscall {
-			markclosures(call.Callee)
-			for i := range call.Args {
-				markclosures(call.Args[i])
+func (me Prog) markClosures(expr Expr) {
+	if call, iscall := expr.(*ExprCall); iscall {
+		me.markClosures(call.Callee)
+		for i := range call.Args {
+			me.markClosures(call.Args[i])
+		}
+		if f, _ := call.Callee.(ExprFuncRef); f > 0 {
+			diff := len(me[f].Args) - len(call.Args)
+			for i := 0; (diff > 0) && (i < len(call.Args)); i++ {
+				_, isa := call.Args[i].(ExprArgRef)
+				if c, isc := call.Args[i].(*ExprCall); isa || (isc && c.IsClosure == 0) {
+					diff = 0
+				}
 			}
-			if f, _ := call.Callee.(ExprFuncRef); f > 0 {
-				diff := len(me[f].Args) - len(call.Args)
-				for i := 0; (diff > 0) && (i < len(call.Args)); i++ {
-					if _, isa := call.Args[i].(ExprArgRef); isa {
-						diff = 0
-					} else if c, isc := call.Args[i].(*ExprCall); isc && c.IsClosure == 0 {
-						diff = 0
-					}
-				}
-				if call.IsClosure = diff; diff < 0 {
-					call.IsClosure = 0
-				}
+			if call.IsClosure = diff; diff < 0 {
+				call.IsClosure = 0
 			}
 		}
 	}
-	t := time.Now().UnixNano()
-	for i := range me {
-		markclosures(me[i].Body)
-	}
-	t = time.Now().UnixNano() - t
-	println("PT", time.Duration(t).String())
-	return me
 }
 
 func exprFromJson(from any, curFnNumArgs int64) Expr {
