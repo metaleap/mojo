@@ -55,7 +55,7 @@ var OpPrtDst = os.Stderr.Write
 // The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
 // beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.
 func (me Prog) Eval(expr Expr, big bool) Expr {
-	maxFrames, maxStash, numSteps = 0, 0, 0
+	maxFrames, numSteps = 0, 0
 	capframes := 64
 	if big {
 		capframes = 32 * 1024
@@ -63,24 +63,23 @@ func (me Prog) Eval(expr Expr, big bool) Expr {
 	ret, t := me.eval(expr, capframes)
 	t = time.Now().UnixNano() - t
 	if big {
-		println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxFrames, maxStash, numSteps, "\t\t", count1, count2, count3, count4)
+		println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxFrames, numSteps, "\t\t", count1, count2, count3, count4)
 	}
 	return ret
 }
 
 var maxFrames int
-var maxStash int
 var numSteps int
 
 func (me Prog) eval(expr Expr, initialFramesCap int) (Expr, int64) {
 	// every new call stacks a new `frame` on top of prior ones, when call is
 	// done it's dropped. but there's always 1 root / base `frame` for our `expr`.
 	type frame struct {
-		stash     []Expr // args in reverse order, then callee
+		stash     []Expr // args (could be too many or too few) in reverse order, then callee
 		pos       int    // begins at end of `stash` and counts down
 		argsFrame int    // index in `frames` from where `ExprArgRef`s resolve
 
-		numArgs    int  // initially 0, until `ExprFuncRef` from the callee resolves
+		numArgs    int  // initially 0, until resolving callee to `ExprFuncRef`
 		argsDone   bool // `true` after `numArgs` known and all needed args in `stash` fully eval'd
 		calleeDone bool // `true` after the above and having jumped back to callee in `stash`
 	}
@@ -93,11 +92,8 @@ func (me Prog) eval(expr Expr, initialFramesCap int) (Expr, int64) {
 restep:
 	numSteps++
 	idxcallee = len(cur.stash) - 1
-	if idxcallee > maxStash {
-		maxStash = idxcallee
-	}
 
-	for cur.pos < 0 { // in a new `frame`, we start at end of `stash` (callee) and then travel down the args
+	for cur.pos < 0 { // in a new `frame`, we start at end of `stash` (callee) and then travel down the args until below 0
 		if idxframe == 0 {
 			goto allDoneThusReturn // initial `expr` maximally reduced: return.
 		} else { // jump back up to parent call `frame`, dropping the current one
@@ -180,7 +176,7 @@ restep:
 					goto restep
 				}
 			}
-			if cur.numArgs == 0 { // no args means a global:
+			if cur.numArgs == 0 { // no args means a shared global constant:
 				call, _ := me[it].Body.(*ExprCall) // also means *ExprCall because others were caught at top of this `case`
 				cur.stash = append(append(cur.stash[:idxcallee], call.Args...), call.Callee)
 				if cur.pos = len(cur.stash) - 1; call.IsClosure == 0 {
@@ -245,10 +241,10 @@ restep:
 	} // done type-switch on cur.stash[cur.pos]
 
 	if idxcallee != 0 && cur.pos < idxcallee { // still arg-ful and below callee-position
-		if cur.argsDone { // again: below callee position. were all args already eval'd previously?
+		if cur.argsDone { // below callee position. have all args already eval'd previously?
 			result := cur.stash[idxcallee]                 // so return then, `calleeDone` or not (50/50)
 			if diff := cur.numArgs - idxcallee; diff < 1 { // the `calleeDone` (non-closure) case:
-				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extra args were around, then len(stash) > 1 now still, so our `frame` is not done yet
+				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extraneous args were around, then len(stash) > 1 now still, so our `frame` is not done yet
 			} else /* result is closure */ if ilp := idxframe - 1; ilp > 0 && len(frames[ilp].stash) != 1 && frames[ilp].numArgs == 0 && frames[ilp].pos == len(frames[ilp].stash)-1 {
 				// this block optional micro-optimization: unroll into parent's `stash` instead of alloc'ing a new `ExprCall`
 				callee, callargs := result, cur.stash[:idxcallee]

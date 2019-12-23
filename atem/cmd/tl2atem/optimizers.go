@@ -136,8 +136,9 @@ func optimize_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
-// nullary func-defs get inlined at use sites if:
-// that site is the only reference to the def, or the def's body is atomic or a call with only atomic args
+// nullary func-defs get inlined at use sites if: that use site is the only
+// reference to the def, or the def's body is atomic, or the def's body is a
+// call with only atomic args AND ALL USE SITES ARE CALLEE POSITIONS TODO
 func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	nullaries, caninlinealways := make(map[int]int), make(map[int]bool)
