@@ -150,6 +150,9 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	descs := make(map[int]*desc)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if 0 == len(ret[i].Args) {
+			if evald := tryEvalArgRefLessCall(ret, ret[i].Body, false); !eq(evald, ret[i].Body) {
+				didModify, ret[i].Body = true, evald
+			}
 			_, _, numargs, numargcalls, _, _ := dissectCall(ret[i].Body, nil)
 			descs[i] = &desc{isCall: numargs != 0, isCallWithOnlyAtomicArgs: numargs != 0 && numargcalls == 0}
 		}
