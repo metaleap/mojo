@@ -58,23 +58,10 @@ func main() {
 	inProg.ParseModules(modules, tl.ParseOpts{KeepNameRefs: true, KeepOpRefs: true, KeepRec: true, KeepSepLocals: true})
 	compile(maintopdefqname)
 
-	outProg = fixFuncDefArgsUsageNumbers(outProg)
-	prefixNameMetasWithIdxs()
-	ioutil.WriteFile(dstfilepath+".non-opt", []byte(outProg.JsonSrc(false)), os.ModePerm)
-	println("Compilation done, optimizing...")
-
-	outProg = optimize(outProg)
-	prefixNameMetasWithIdxs()
-	for i := range outProg {
-		outProg[i].Body = convTo(outProg[i].Body)
-	}
-	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(false)), os.ModePerm)
-	println("...done.")
-}
-
-func prefixNameMetasWithIdxs() {
 	for i := 0; i < len(outProg)-1; i++ {
 		pos := strings.IndexByte(outProg[i].Meta[0], ']')
 		outProg[i].Meta[0] = "[" + strconv.Itoa(i) + "]" + outProg[i].Meta[0][pos+1:]
 	}
+
+	ioutil.WriteFile(dstfilepath, []byte(outProg.JsonSrc(false)), os.ModePerm)
 }

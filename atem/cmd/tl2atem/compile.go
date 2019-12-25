@@ -28,7 +28,7 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 	case *tl.ExprLitNum:
 		return ExprNumInt(it.NumVal)
 	case *tl.ExprCall:
-		return exprAppl{Callee: compileExpr(it.Callee, curFunc, curFuncsArgs), Arg: compileExpr(it.CallArg, curFunc, curFuncsArgs)}
+		return &ExprCall{Callee: compileExpr(it.Callee, curFunc, curFuncsArgs), Args: []Expr{compileExpr(it.CallArg, curFunc, curFuncsArgs)}}
 	case *tl.ExprName:
 		if it.IdxOrInstr > 0 {
 			if opcode, ok := instr2op[tl.Instr(it.IdxOrInstr)]; ok {
