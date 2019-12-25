@@ -137,38 +137,62 @@ func optimize_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
 }
 
 // nullary func-defs get inlined at use sites if: that use site is the only
-// reference to the def, or the def's body is atomic, or the def's body is a
-// call with only atomic args AND ALL USE SITES ARE CALLEE POSITIONS TODO
+// reference to the def, or: the def's body is atomic, or: the def's body is a
+// call with only atomic args _and_ all use sites are callee positions
 func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
+	type desc struct {
+		numRefs                  int
+		numRefsCallees           int
+		isCall                   bool
+		isCallWithOnlyAtomicArgs bool
+	}
 	ret = src
-	nullaries, caninlinealways := make(map[int]int), make(map[int]bool)
+	descs := make(map[int]*desc)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
 		if 0 == len(ret[i].Args) {
 			_, _, numargs, numargcalls, _, _ := dissectCall(ret[i].Body, nil)
-			nullaries[i], caninlinealways[i] = 0, numargs == 0 || numargcalls == 0
+			descs[i] = &desc{isCall: numargs != 0, isCallWithOnlyAtomicArgs: numargs != 0 && numargcalls == 0}
 		}
 	}
-	if didModify || len(nullaries) == 0 {
+	if len(descs) == 0 {
 		return
+	}
+	chk := func(expr Expr, isCallee bool) {
+		if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
+			if desc, isnullary := descs[int(fnref)]; isnullary {
+				if isCallee {
+					desc.numRefsCallees++
+				} else {
+					desc.numRefs++
+				}
+			}
+		}
 	}
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		_ = walk(ret[i].Body, func(expr Expr) Expr {
-			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
-				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {
-					nullaries[int(fnref)] = 1 + numrefs
-				}
+			chk(expr, false)
+			if callee, _, numargs, _, _, _ := dissectCall(expr, nil); numargs > 0 {
+				chk(callee, true)
 			}
 			return expr
 		})
 	}
-	for i := int(StdFuncCons + 1); i < len(ret) && !didModify; i++ {
+	for i, desc := range descs {
+		if !(desc.numRefs == 1 || (!desc.isCall) ||
+			(desc.isCallWithOnlyAtomicArgs && desc.numRefsCallees == desc.numRefs)) {
+			delete(descs, i)
+		}
+	}
+	if len(descs) == 0 {
+		return
+	}
+	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 			if fnref, _ := expr.(ExprFuncRef); fnref > StdFuncCons {
-				if numrefs, isnullary := nullaries[int(fnref)]; isnullary {
-					if retexpr := ret[int(fnref)].Body; numrefs == 1 || caninlinealways[int(fnref)] {
-						didModify = didModify || !eq(expr, retexpr)
-						return retexpr
-					}
+				if _, isnullary := descs[int(fnref)]; isnullary {
+					retexpr := ret[int(fnref)].Body
+					didModify = didModify || !eq(expr, retexpr)
+					return retexpr
 				}
 			}
 			return expr

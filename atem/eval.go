@@ -71,6 +71,10 @@ func (me Prog) Eval(expr Expr, big bool) Expr {
 
 var maxFrames int
 var numSteps int
+var count1 int
+var count2 int
+var count3 int
+var count4 int
 
 func (me Prog) eval(expr Expr, initialFramesCap int) (Expr, int64) {
 	// every new call stacks a new `frame` on top of prior ones, when call is
@@ -242,8 +246,8 @@ restep:
 		if cur.argsDone { // below callee position. have all args already eval'd previously?
 			result := cur.stash[idxcallee]                 // so return then, `calleeDone` or not (50/50)
 			if diff := cur.numArgs - idxcallee; diff < 1 { // the `calleeDone` (non-closure) case:
-				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extraneous args were around, then len(stash) > 1 now still, so our `frame` is not done yet
-			} else /* result is closure */ if ilp := idxframe - 1; ilp > 0 && len(frames[ilp].stash) != 1 && frames[ilp].numArgs == 0 && frames[ilp].pos == len(frames[ilp].stash)-1 {
+				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extraneous args were around, then len(cur.stash) > 1 now still, so our `frame` is not done yet
+			} else /* result is closure */ if ilp := idxframe - 1; ilp > 0 && frames[ilp].numArgs == 0 && len(frames[ilp].stash) != 1 && frames[ilp].pos == len(frames[ilp].stash)-1 {
 				// this block optional micro-optimization: unroll into parent's `stash` instead of alloc'ing a new `ExprCall`
 				callee, callargs := result, cur.stash[:idxcallee]
 				cur, idxframe, numargsdone, frames = &frames[ilp], ilp, len(callargs), frames[:idxframe]
@@ -253,7 +257,7 @@ restep:
 			} else { // still closure case
 				result = &ExprCall{IsClosure: diff, Callee: result, Args: cur.stash[:idxcallee]}
 				cur.stash[idxcallee] = result
-				cur.stash = cur.stash[idxcallee:]
+				cur.stash = cur.stash[idxcallee:] // now 1 == len(cur.stash)
 			}
 			cur.calleeDone, cur.numArgs, cur.argsDone = false, 0, false
 			if len(cur.stash) == 1 { // is this `frame` done now?
@@ -274,8 +278,3 @@ restep:
 allDoneThusReturn:
 	return frames[0].stash[0], starttime
 }
-
-var count1 int
-var count2 int
-var count3 int
-var count4 int
