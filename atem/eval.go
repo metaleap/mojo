@@ -8,7 +8,7 @@ import (
 // Eval reduces `expr` to an `ExprNumInt`, an `ExprFuncRef` or a closure value
 // (an `*ExprCall` with `.IsClosure > 0`, see field description there), the
 // latter can be tested for linked-list-ness and extracted via `ListOfExprs`.
-
+//
 // The evaluator is akin to a tree-walking interpreter of the input `Prog` but
 // given the nature of the `atem` intermediate-representation language, that
 // amounts to a sort of register machine. A call stack is kept so that `Eval`
