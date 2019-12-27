@@ -15,13 +15,12 @@ import (
 // never needs to recursively call itself. Any stack entry beyond the "root" /
 // "base" one (that at first holds `expr` and at the end the final result value)
 // represents a call: it at first holds both said call's callee and its args.
-// The former is evaluated first (only down to a "callable": ExprFuncRef or a
+// The former is evaluated first (only down to a "callable": `ExprFuncRef` or
 // closure), next then only those args are evaluated that are actually needed.
-// Next, the "callable"'s body (or prim-op) is evaluated further, consuming
+// Finally, the "callable"'s body (or prim-op) is evaluated further, consuming
 // those freshly-obtained arg values while producing the call's result value.
 // (If in a call not enough args are supplied to the callee, the result is a
-// closure that does keep the already-evaluated args around for later completion.
-// These will not be re-evaluated.)
+// closure that does keep its fully-evaluated args around for later completion.)
 //
 // The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
 // beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.
@@ -64,8 +63,7 @@ func (me Prog) eval(expr Expr, initialFramesCap int) (Expr, int64) {
 
 	frames, idxframe, idxcallee, numargsdone := make([]frame, 1, initialFramesCap), 0, 0, 0
 	frames[idxframe].stash = []Expr{expr}
-	cur := &frames[idxframe]
-	starttime := time.Now().UnixNano()
+	cur, starttime := &frames[idxframe], time.Now().UnixNano()
 
 restep:
 	numSteps++
@@ -95,7 +93,7 @@ restep:
 		if cur.calleeDone {                        // very rare case:
 			lookupstash = frames[idxframe].stash // essentially callees that merely return one of their args as-is
 		}
-		cur.stash[cur.pos] = lookupstash[(len(lookupstash)-1)+int(it)]
+		cur.stash[cur.pos] = lookupstash[len(lookupstash)+int(it)]
 		goto restep // whatever we got, we want to further evaluate: no need for the final post-`switch` checks on `cur.pos` since it hasn't changed, can go at it again right away
 
 	case *ExprCall:
@@ -131,16 +129,18 @@ restep:
 				// optional micro-optimization block: entered-into for approx. 25% - 35% of cases here
 				if me[it].selector != 0 && len(cur.stash) > cur.numArgs {
 					if me[it].selector < 0 {
-						selected := cur.stash[idxcallee+me[it].selector]
+						selected := cur.stash[len(cur.stash)+me[it].selector]
 						cur.stash = append(cur.stash[:idxcallee-cur.numArgs], selected)
 					} else {
 						call, _ := me[it].Body.(*ExprCall)
 						argref, _ := call.Callee.(ExprArgRef)
 						newtail := make([]Expr, 1+len(call.Args))
-						newtail[len(call.Args)] = cur.stash[idxcallee+int(argref)]
+						count3++
+						newtail[len(call.Args)] = cur.stash[len(cur.stash)+int(argref)]
 						for i := range call.Args {
+							count4++
 							argref, _ = call.Args[i].(ExprArgRef)
-							newtail[i] = cur.stash[idxcallee+int(argref)]
+							newtail[i] = cur.stash[len(cur.stash)+int(argref)]
 						}
 						cur.stash = append(cur.stash[:idxcallee-cur.numArgs], newtail...)
 					}

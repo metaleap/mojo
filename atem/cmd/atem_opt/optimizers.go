@@ -283,7 +283,7 @@ func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 									return it
 								}), func(it Expr) Expr {
 									if tmp, is := it.(exprTmp); is && tmp < 0 {
-										return allargs[(-tmp)-1]
+										return allargs[(-tmp)-2]
 									}
 									return it
 								})
@@ -306,7 +306,7 @@ func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
 	for i := 0; i < len(ret)-1; i++ {
 		if callee, _, numargs, numargscalls, numargrefs, _ := dissectCall(ret[i].Body, nil); numargs > 0 && numargrefs == 1 && numargscalls == 0 {
 			if argref, ok := callee.(ExprArgRef); ok { // only 1 arg-ref in body and its the inner-most callee
-				argcallers[i] = (-argref) - 1
+				argcallers[i] = (-argref) - 2
 			}
 		}
 	}
@@ -341,7 +341,7 @@ func optimize_inlineCallsToArgRefFuncs(src Prog) (ret Prog, didModify bool) {
 	selectors := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
 		if argref, ok := ret[i].Body.(ExprArgRef); ok {
-			selectors[i] = (-argref) - 1
+			selectors[i] = (-argref) - 2
 		}
 	}
 	if len(selectors) == 0 {
@@ -385,7 +385,7 @@ func optimize_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
 					// take orig body and replace all arg-refs with our call args:
 					nuexpr := rewriteCallArgs(ret[*fnref].Body.(exprAppl), n, func(argidx int, argval Expr) Expr {
 						if argref, ok := argval.(ExprArgRef); ok {
-							argref = (-argref) - 1
+							argref = (-argref) - 2
 							counts[argref] = counts[argref] + 1
 							return allargs[argref]
 						}
@@ -394,7 +394,7 @@ func optimize_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
 					// same for the callee in the orig body:
 					nuexpr = rewriteInnerMostCallee(nuexpr, func(callee Expr) Expr {
 						if argref, ok := callee.(ExprArgRef); ok {
-							argref = (-argref) - 1
+							argref = (-argref) - 2
 							counts[argref] = counts[argref] + 1
 							return allargs[argref]
 						}
@@ -625,7 +625,7 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 					ret[i].Meta = append(ret[i].Meta[:1+aidx], ret[i].Meta[2+aidx:]...)
 					ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 						if argref, is := expr.(ExprArgRef); is {
-							if idx := int(-argref) - 1; idx == aidx {
+							if idx := int(-argref) - 2; idx == aidx {
 								return argval
 							}
 						}
@@ -633,7 +633,7 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 					})
 					ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
 						if argref, is := expr.(ExprArgRef); is {
-							if idx := int(-argref) - 1; idx > aidx {
+							if idx := int(-argref) - 2; idx > aidx {
 								return 1 + argref
 							}
 						}

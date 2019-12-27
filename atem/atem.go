@@ -130,7 +130,7 @@ var OpPrtDst = os.Stderr.Write
 func (me ExprNumInt) JsonSrc() string { return strconv.Itoa(int(me)) }
 
 // JsonSrc implements the `Expr` interface.
-func (me ExprArgRef) JsonSrc() string { return "\"" + strconv.Itoa(int(-me)-1) + "\"" }
+func (me ExprArgRef) JsonSrc() string { return "\"" + strconv.Itoa(int(-me)-2) + "\"" }
 
 // JsonSrc implements the `Expr` interface.
 func (me ExprFuncRef) JsonSrc() string { return "[" + strconv.Itoa(int(me)) + "]" }

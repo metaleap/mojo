@@ -299,9 +299,9 @@ they denote 0-based indexing such that 0 refers to the `FuncDef`'s first arg, 1
 to the second, 2 to the third etc; if negative, they're read with -1 referring
 to the `FuncDef`'s last arg, -2 to the one-before-last, -3 to the
 one-before-one-before-last etc. Both styles at load time are translated into a
-form expected at run time, where 0 turns into -1, 1 into -2, 2 into -3 etc,
-allowing for swifter stack accesses in the interpreter. `ExprArgRef.JsonSrc()`
-will restore the 0-based indexing form, however.
+form expected at run time, where 0 turns into -2, 1 into -3, 2 into -4 etc, for
+marginally speedier call-stack accesses in the interpreter.
+`ExprArgRef.JsonSrc()` will restore the 0-based indexing form, however.
 
 #### func (Prog) Eval
 
@@ -318,13 +318,12 @@ amounts to a sort of register machine. A call stack is kept so that `Eval` never
 needs to recursively call itself. Any stack entry beyond the "root" / "base" one
 (that at first holds `expr` and at the end the final result value) represents a
 call: it at first holds both said call's callee and its args. The former is
-evaluated first (only down to a "callable": ExprFuncRef or a closure), next then
-only those args are evaluated that are actually needed. Next, the "callable"'s
-body (or prim-op) is evaluated further, consuming those freshly-obtained arg
-values while producing the call's result value. (If in a call not enough args
-are supplied to the callee, the result is a closure that does keep the
-already-evaluated args around for later completion. These will not be
-re-evaluated.)
+evaluated first (only down to a "callable": `ExprFuncRef` or closure), next then
+only those args are evaluated that are actually needed. Finally, the
+"callable"'s body (or prim-op) is evaluated further, consuming those
+freshly-obtained arg values while producing the call's result value. (If in a
+call not enough args are supplied to the callee, the result is a closure that
+does keep its fully-evaluated args around for later completion.)
 
 The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
 beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB. Put

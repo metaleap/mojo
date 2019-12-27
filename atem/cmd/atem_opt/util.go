@@ -106,7 +106,7 @@ func fixFuncDefArgsUsageNumbers(prog Prog) Prog {
 		}
 		_ = walk(prog[i].Body, func(expr Expr) Expr {
 			if argref, ok := expr.(ExprArgRef); ok {
-				argref = (-argref) - 1
+				argref = (-argref) - 2
 				prog[i].Args[argref] = 1 + prog[i].Args[argref]
 			}
 			return expr

@@ -37,7 +37,7 @@ func compileExpr(expr tl.Expr, curFunc *FuncDef, curFuncsArgs []*tl.ExprFunc) Ex
 		} else {
 			for i, farg := range curFuncsArgs {
 				if farg.ArgName == it.NameVal {
-					return -ExprArgRef(1 + i)
+					return -ExprArgRef(2 + i)
 				}
 			}
 			if it.IdxOrInstr == 0 {

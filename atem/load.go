@@ -33,8 +33,8 @@ type any = interface{} // just for less-noisily-reading JSON-unmarshalings below
 // first arg, 1 to the second, 2 to the third etc; if negative, they're read
 // with -1 referring to the `FuncDef`'s last arg, -2 to the one-before-last, -3 to
 // the one-before-one-before-last etc. Both styles at load time are translated
-// into a form expected at run time, where 0 turns into -1, 1 into -2, 2 into
-// -3 etc, allowing for swifter stack accesses in the interpreter.
+// into a form expected at run time, where 0 turns into -2, 1 into -3, 2 into
+// -4 etc, for marginally speedier call-stack accesses in the interpreter.
 // `ExprArgRef.JsonSrc()` will restore the 0-based indexing form, however.
 func LoadFromJson(src []byte) Prog {
 	arr := make([][]any, 0, 512)
@@ -62,7 +62,7 @@ func LoadFromJson(src []byte) Prog {
 			if argref, isa := fd.Body.(ExprArgRef); isa {
 				fd.selector = int(argref)
 			} else if call, isc := fd.Body.(*ExprCall); isc {
-				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -1 {
+				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -2 {
 					for ia := range call.Args {
 						if _, isa = call.Args[ia].(ExprArgRef); !isa {
 							break
@@ -131,7 +131,7 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 			if n < 0 || n >= curFnNumArgs {
 				panic("LoadFromJson: encountered bad ExprArgRef of " + strconv.FormatInt(n, 10) + " inside a FuncDef with " + strconv.FormatInt(curFnNumArgs, 10) + " arg(s)")
 			}
-			return ExprArgRef(int(-(n + 1))) // rewrite arg-refs for later stack-access-from-tail-end: 0 -> -1, 1 -> -2, 2 -> -3, etc.. note: reverted again in ExprArgRef.JsonSrc()
+			return ExprArgRef(int(-(n + 2))) // rewrite arg-refs for later stack-access-from-tail-end: 0 -> -2, 1 -> -3, 2 -> -4, etc.. note: reverted again in ExprArgRef.JsonSrc()
 		}
 	case []any:
 		if len(it) == 1 { // func-ref literal
