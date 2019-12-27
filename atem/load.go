@@ -16,16 +16,16 @@ type any = interface{} // just for less-noisily-reading JSON-unmarshalings below
 // length (greater than 1) array of any of those possibilities.
 // A `panic` occurs on any sort of error encountered from the input `src`.
 //
-// A note on `ExprCall`s, their `Args` orderings are reversed from the JSON
-// one being read in or emitted back out via `JsonSrc()`. Args in the JSON
-// format are like in any common notation: `[callee, arg1, arg2, arg3]`, but an
+// A note on `ExprCall`s, their `Args` orderings are on-load reversed from those
+// being read in or emitted back out via `JsonSrc()`. Args in the JSON format are
+// ordered in a common intuitive manner: `[callee, arg1, arg2, arg3]`, but an
 // `ExprCall` created from this will have an `Args` slice of `[arg3, arg2, arg1]`
 // throughout its lifetime. Still, its `JsonSrc()` emits the original ordering.
 // If the callee is another `ExprCall`, expect a JSON source notation of eg.
 // `[[callee, x, y, z], a, b, c]` to turn into a single `ExprCall` with `Args`
 // of [c, b, a, z, y, x], it would be re-emitted as `[callee, x, y, z, a, b, c]`.
-// In any event, `ExprCall.Args` and `FuncDef.Args` orderings shall be consistent
-// in the JSON source code format regardless of these run time re-orderings.
+// `ExprCall.Args` and `FuncDef.Args` orderings are consistent in the JSON
+// source code format (when loading or emitting), but not at run time.
 //
 // A note on `ExprArgRef`s: these take different forms in the JSON format and
 // at runtime. In the former, two intuitive-to-emit styles are supported: if
@@ -34,7 +34,7 @@ type any = interface{} // just for less-noisily-reading JSON-unmarshalings below
 // with -1 referring to the `FuncDef`'s last arg, -2 to the one-before-last, -3 to
 // the one-before-one-before-last etc. Both styles at load time are translated
 // into a form expected at run time, where 0 turns into -1, 1 into -2, 2 into
-// -3 etc, allowing for smoother stack accesses in the interpreter.
+// -3 etc, allowing for swifter stack accesses in the interpreter.
 // `ExprArgRef.JsonSrc()` will restore the 0-based indexing form, however.
 func LoadFromJson(src []byte) Prog {
 	arr := make([][]any, 0, 512)

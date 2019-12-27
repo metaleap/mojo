@@ -142,7 +142,7 @@ type ExprArgRef int
 ```go
 func (me ExprArgRef) JsonSrc() string
 ```
-JsonSrc emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
+JsonSrc implements the `Expr` interface.
 
 #### type ExprCall
 
@@ -160,6 +160,7 @@ type ExprCall struct {
 ```go
 func (me *ExprCall) JsonSrc() string
 ```
+JsonSrc implements the `Expr` interface.
 
 #### type ExprFuncRef
 
@@ -191,7 +192,7 @@ code generator must emit implementations for them all, and placed correctly.
 ```go
 func (me ExprFuncRef) JsonSrc() string
 ```
-JsonSrc emits the re-`LoadFromJson`able representation of this `ExprFuncRef`.
+JsonSrc implements the `Expr` interface.
 
 #### type ExprNumInt
 
@@ -205,7 +206,7 @@ type ExprNumInt int
 ```go
 func (me ExprNumInt) JsonSrc() string
 ```
-JsonSrc emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
+JsonSrc implements the `Expr` interface.
 
 #### type FuncDef
 
@@ -235,8 +236,7 @@ type OpCode int
 
 OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
 interpreter and invoked when encountering a call to a negative `ExprFuncRef`
-with at least 2 operands on the current `Eval` stack. All `OpCode`-denoted
-primitive instructions consume always exactly 2 operands from said stack.
+supplied with two operand arguments.
 
 ```go
 const (
@@ -282,16 +282,16 @@ string parseable into an integer, and `ExprCall` is a variable length (greater
 than 1) array of any of those possibilities. A `panic` occurs on any sort of
 error encountered from the input `src`.
 
-A note on `ExprCall`s, their `Args` orderings are reversed from the JSON one
+A note on `ExprCall`s, their `Args` orderings are on-load reversed from those
 being read in or emitted back out via `JsonSrc()`. Args in the JSON format are
-like in any common notation: `[callee, arg1, arg2, arg3]`, but an `ExprCall`
-created from this will have an `Args` slice of `[arg3, arg2, arg1]` throughout
-its lifetime. Still, its `JsonSrc()` emits the original ordering. If the callee
-is another `ExprCall`, expect a JSON source notation of eg. `[[callee, x, y, z],
-a, b, c]` to turn into a single `ExprCall` with `Args` of [c, b, a, z, y, x], it
-would be re-emitted as `[callee, x, y, z, a, b, c]`. In any event,
-`ExprCall.Args` and `FuncDef.Args` orderings shall be consistent in the JSON
-source code format regardless of these run time re-orderings.
+ordered in a common intuitive manner: `[callee, arg1, arg2, arg3]`, but an
+`ExprCall` created from this will have an `Args` slice of `[arg3, arg2, arg1]`
+throughout its lifetime. Still, its `JsonSrc()` emits the original ordering. If
+the callee is another `ExprCall`, expect a JSON source notation of eg.
+`[[callee, x, y, z], a, b, c]` to turn into a single `ExprCall` with `Args` of
+[c, b, a, z, y, x], it would be re-emitted as `[callee, x, y, z, a, b, c]`.
+`ExprCall.Args` and `FuncDef.Args` orderings are consistent in the JSON source
+code format (when loading or emitting), but not at run time.
 
 A note on `ExprArgRef`s: these take different forms in the JSON format and at
 runtime. In the former, two intuitive-to-emit styles are supported: if positive
@@ -300,7 +300,7 @@ to the second, 2 to the third etc; if negative, they're read with -1 referring
 to the `FuncDef`'s last arg, -2 to the one-before-last, -3 to the
 one-before-one-before-last etc. Both styles at load time are translated into a
 form expected at run time, where 0 turns into -1, 1 into -2, 2 into -3 etc,
-allowing for smoother stack accesses in the interpreter. `ExprArgRef.JsonSrc()`
+allowing for swifter stack accesses in the interpreter. `ExprArgRef.JsonSrc()`
 will restore the 0-based indexing form, however.
 
 #### func (Prog) Eval
@@ -308,21 +308,19 @@ will restore the 0-based indexing form, however.
 ```go
 func (me Prog) Eval(expr Expr, big bool) Expr
 ```
-Eval operates more like a register machine than a stack machine, but still on a
-call stack allowing its non-recursive implementation. Any stack entry beyond the
-"root" / "base" one (that at first holds `expr` and at the end the final result
-value) first holds some call's callee and the args. The former is first
-evaluated (down to a "callable": ExprFuncRef or a closure), next then only those
-args that are actually used. Then the "callable"'s body (or prim-op) is
-evaluated, consuming those freshly-obtained arg values.
-
-If not enough args are available, the result is a closure that does keep the
+The evaluator is akin to a tree-walking interpreter of the input `Prog` but
+given the nature of the `atem` intermediate-representation language, that
+amounts to a sort of register machine. A call stack is kept so that `Eval` never
+needs to recursively call itself. Any stack entry beyond the "root" / "base" one
+(that at first holds `expr` and at the end the final result value) represents a
+call: it at first holds both said call's callee and its args. The former is
+evaluated first (only down to a "callable": ExprFuncRef or a closure), next then
+only those args are evaluated that are actually needed. Next, the "callable"'s
+body (or prim-op) is evaluated further, consuming those freshly-obtained arg
+values while producing the call's result value. (If in a call not enough args
+are supplied to the callee, the result is a closure that does keep the
 already-evaluated args around for later completion. These will not be
-re-evaluated.
-
-The final result of `Eval` will be an `ExprNumInt`, an `ExprFuncRef` or such a
-closure value (an `*ExprCall` with `.IsClosure > 0`), the latter can be tested
-for linked-list-ness and extracted via `ListOfExprs`.
+re-evaluated.)
 
 The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
 beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.

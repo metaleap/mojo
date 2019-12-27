@@ -2,56 +2,26 @@ package atem
 
 import (
 	"fmt"
-	"os"
 	"time"
 )
 
-// OpCode denotes a "primitive instruction", eg. one that is hardcoded in the
-// interpreter and invoked when encountering a call to a negative `ExprFuncRef`
-// with at least 2 operands on the current `Eval` stack. All `OpCode`-denoted
-// primitive instructions consume always exactly 2 operands from said stack.
-type OpCode int
+// Eval reduces `expr` to an `ExprNumInt`, an `ExprFuncRef` or a closure value
+// (an `*ExprCall` with `.IsClosure > 0`, see field description there), the
+// latter can be tested for linked-list-ness and extracted via `ListOfExprs`.
 
-const (
-	// Addition of 2 `ExprNumInt`s, result 1 `ExprNumInt`
-	OpAdd OpCode = -1
-	// Subtraction of 2 `ExprNumInt`s, result 1 `ExprNumInt`
-	OpSub OpCode = -2
-	// Multiplication of 2 `ExprNumInt`s, result 1 `ExprNumInt`
-	OpMul OpCode = -3
-	// Division of 2 `ExprNumInt`s, result 1 `ExprNumInt`
-	OpDiv OpCode = -4
-	// Modulo of 2 `ExprNumInt`s, result 1 `ExprNumInt`
-	OpMod OpCode = -5
-	// Equality test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
-	OpEq OpCode = -6
-	// Less-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
-	OpLt OpCode = -7
-	// Greater-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
-	OpGt OpCode = -8
-	// Writes both `Expr`s (the first one a string-ish `StdFuncCons`tructed linked-list of `ExprNumInt`s) to `OpPrtDst`, result is the right-hand-side `Expr` of the 2 input `Expr` operands
-	OpPrt OpCode = -42
-)
-
-// OpPrtDst is the output sink for all `OpPrt` primitive instructions.
-// Must never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
-var OpPrtDst = os.Stderr.Write
-
-// Eval operates more like a register machine than a stack machine, but still
-// on a call stack allowing its non-recursive implementation. Any stack entry
-// beyond the "root" / "base" one (that at first holds `expr` and at the end
-// the final result value) first holds some call's callee and the args. The
-// former is first evaluated (down to a "callable": ExprFuncRef or a closure),
-// next then only those args that are actually used. Then the "callable"'s body
-// (or prim-op) is evaluated, consuming those freshly-obtained arg values.
-//
-// If not enough args are available, the result is a closure that does keep
-// the already-evaluated args around for later completion. These will not be
-// re-evaluated.
-//
-// The final result of `Eval` will be an `ExprNumInt`, an `ExprFuncRef` or
-// such a closure value (an `*ExprCall` with `.IsClosure > 0`), the latter
-// can be tested for linked-list-ness and extracted via `ListOfExprs`.
+// The evaluator is akin to a tree-walking interpreter of the input `Prog` but
+// given the nature of the `atem` intermediate-representation language, that
+// amounts to a sort of register machine. A call stack is kept so that `Eval`
+// never needs to recursively call itself. Any stack entry beyond the "root" /
+// "base" one (that at first holds `expr` and at the end the final result value)
+// represents a call: it at first holds both said call's callee and its args.
+// The former is evaluated first (only down to a "callable": ExprFuncRef or a
+// closure), next then only those args are evaluated that are actually needed.
+// Next, the "callable"'s body (or prim-op) is evaluated further, consuming
+// those freshly-obtained arg values while producing the call's result value.
+// (If in a call not enough args are supplied to the callee, the result is a
+// closure that does keep the already-evaluated args around for later completion.
+// These will not be re-evaluated.)
 //
 // The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
 // beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.

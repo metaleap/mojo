@@ -50,6 +50,7 @@
 package atem
 
 import (
+	"os"
 	"strconv"
 )
 
@@ -93,17 +94,48 @@ type (
 		Args      []Expr
 		IsClosure int // determined at load time, not in input source: if `> 0` (indicating number of missing args), callee is an `ExprFuncRef` and all args are `ExprNumInt` or `ExprFuncRef` or further such `ExprCall`s with `.IsClosure > 0`
 	}
+
+	// OpCode denotes a "primitive instruction", eg. one that is hardcoded in
+	// the interpreter and invoked when encountering a call to a negative
+	// `ExprFuncRef` supplied with two operand arguments.
+	OpCode int
 )
 
-// JsonSrc emits the re-`LoadFromJson`able representation of this `ExprNumInt`.
+const (
+	// Addition of 2 `ExprNumInt`s, result 1 `ExprNumInt`
+	OpAdd OpCode = -1
+	// Subtraction of 2 `ExprNumInt`s, result 1 `ExprNumInt`
+	OpSub OpCode = -2
+	// Multiplication of 2 `ExprNumInt`s, result 1 `ExprNumInt`
+	OpMul OpCode = -3
+	// Division of 2 `ExprNumInt`s, result 1 `ExprNumInt`
+	OpDiv OpCode = -4
+	// Modulo of 2 `ExprNumInt`s, result 1 `ExprNumInt`
+	OpMod OpCode = -5
+	// Equality test between 2 `Expr`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpEq OpCode = -6
+	// Less-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpLt OpCode = -7
+	// Greater-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
+	OpGt OpCode = -8
+	// Writes both `Expr`s (the first one a string-ish `StdFuncCons`tructed linked-list of `ExprNumInt`s) to `OpPrtDst`, result is the right-hand-side `Expr` of the 2 input `Expr` operands
+	OpPrt OpCode = -42
+)
+
+// OpPrtDst is the output sink for all `OpPrt` primitive instructions.
+// Must never be `nil` during any `Prog`s that do potentially invoke `OpPrt`.
+var OpPrtDst = os.Stderr.Write
+
+// JsonSrc implements the `Expr` interface.
 func (me ExprNumInt) JsonSrc() string { return strconv.Itoa(int(me)) }
 
-// JsonSrc emits the re-`LoadFromJson`able representation of this `ExprArgRef`.
+// JsonSrc implements the `Expr` interface.
 func (me ExprArgRef) JsonSrc() string { return "\"" + strconv.Itoa(int(-me)-1) + "\"" }
 
-// JsonSrc emits the re-`LoadFromJson`able representation of this `ExprFuncRef`.
+// JsonSrc implements the `Expr` interface.
 func (me ExprFuncRef) JsonSrc() string { return "[" + strconv.Itoa(int(me)) + "]" }
 
+// JsonSrc implements the `Expr` interface.
 func (me *ExprCall) JsonSrc() string {
 	ret := "[" + me.Callee.JsonSrc()
 	for i := len(me.Args) - 1; i > -1; i-- {
