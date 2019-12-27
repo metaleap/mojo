@@ -327,7 +327,10 @@ already-evaluated args around for later completion. These will not be
 re-evaluated.)
 
 The `big` arg fine-tunes how much call-stack memory to pre-allocate at once
-beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB.
+beforehand. If `true`, this will be to the tune of ~2 MB, else under 10 KB. Put
+simply, `true` is for full-program running, `false` is for smallish "drive-by" /
+"side-car" evaluation attempts in the context of a given `Prog` such as in
+REPLs, optimizers, compilers or other code-processing tooling.
 
 #### func (Prog) JsonSrc
 
