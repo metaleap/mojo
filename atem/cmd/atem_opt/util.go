@@ -99,20 +99,19 @@ func eq(expr Expr, cmp Expr) bool {
 
 // some optimizers may drop certain arg uses while others may expect correct values in `FuncDef.Args`,
 // so as a first step before a new round, we ensure they're all correct for that round.
-func fixFuncDefArgsUsageNumbers(prog Prog) Prog {
+func fixFuncDefArgsUsageNumbers() {
 	for i := range prog {
 		for j := range prog[i].Args {
 			prog[i].Args[j] = 0
 		}
 		_ = walk(prog[i].Body, func(expr Expr) Expr {
 			if argref, ok := expr.(ExprArgRef); ok {
-				argref = (-argref) - 2
-				prog[i].Args[argref] = 1 + prog[i].Args[argref]
+				argidx := (-argref) - 2
+				prog[i].Args[argidx] = 1 + prog[i].Args[argidx]
 			}
 			return expr
 		})
 	}
-	return prog
 }
 
 func rewriteCallArgs(callExpr exprAppl, numCallArgs int, rewriter func(int, Expr) Expr, argIdxs []int) exprAppl {

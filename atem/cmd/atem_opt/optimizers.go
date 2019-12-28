@@ -4,36 +4,9 @@ import (
 	. "github.com/metaleap/atmo/atem"
 )
 
-func optimize(src Prog) Prog {
-	for again := true; again; {
-		again, src = false, fixFuncDefArgsUsageNumbers(src)
-		for _, opt := range []func(Prog) (Prog, bool){
-			optimize_ditchUnusedFuncDefs,
-			optimize_ditchDuplicateDefs,
-			optimize_inlineNaryFuncAliases,
-			optimize_inlineCallsToArgRefFuncs,
-			optimize_argDropperCalls,
-			optimize_inlineArgCallers,
-			optimize_inlineArgsRearrangers,
-			optimize_primOpPreCalcs,
-			optimize_callsToGeqOrLeq,
-			optimize_minifyNeedlesslyElaborateBoolOpCalls,
-			optimize_inlineOnceCalleds,
-			optimize_inlineEverSameArgs,
-			optimize_preEvalArgRefLessCalls,
-			optimize_inlineNullaries,
-		} {
-			if src, again = opt(src); again {
-				break
-			}
-		}
-	}
-	return src
-}
-
 // inliners or other optimizers may result in now-unused func-defs, here's a single routine that'll remove them.
 // it removes at most one at a time, fixing up all references, then returning with `didModify` of `true`, ensuring another call to find the next one
-func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
+func rewrite_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	defrefs := make(map[int]bool, len(ret))
 	for i := range ret {
@@ -61,7 +34,7 @@ func optimize_ditchUnusedFuncDefs(src Prog) (ret Prog, didModify bool) {
 }
 
 // lambda-lifting in complex programs may result in multiple structurually equivalent func-defs.
-func optimize_ditchDuplicateDefs(src Prog) (ret Prog, didModify bool) {
+func rewrite_ditchDuplicateDefs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	dupls := map[ExprFuncRef]ExprFuncRef{}
 	for i := StdFuncId; int(i) < len(ret)-1; i++ {
@@ -93,7 +66,7 @@ func optimize_ditchDuplicateDefs(src Prog) (ret Prog, didModify bool) {
 // lambda-lifting in complex programs may result in lots of func-defs that
 // swallow-discard n args to return merely another func-def. refs to those are
 // rewritten into calls of `StdFuncTrue` (nested if `n>1`) with said func-def
-func optimize_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
+func rewrite_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	aliasdefs := map[ExprFuncRef]int{}
 	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
@@ -139,7 +112,7 @@ func optimize_inlineNaryFuncAliases(src Prog) (ret Prog, didModify bool) {
 // nullary func-defs get inlined at use sites if: that use site is the only
 // reference to the def, or: the def's body is atomic, or: the def's body is a
 // call with only atomic args _and_ all use sites are callee positions
-func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
+func rewrite_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 	type desc struct {
 		numRefs                  int
 		numRefsCallees           int
@@ -205,7 +178,7 @@ func optimize_inlineNullaries(src Prog) (ret Prog, didModify bool) {
 }
 
 // in calls that provide known-to-be-discarded args, the latter are replaced with zero (rendered as -0 in JSON output)
-func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
+func rewrite_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	argdroppers := make(map[int][]int, 8)
 	for i := 0; i < len(ret)-1; i++ {
@@ -241,7 +214,7 @@ func optimize_argDropperCalls(src Prog) (ret Prog, didModify bool) {
 }
 
 // inlines a FuncDef into a call site if the latter is the only reference to the former, and supplies enough args, and no supplied non-atomic arg is used more than once in the orig def's body
-func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
+func rewrite_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	refs := make(map[ExprFuncRef]map[ExprFuncRef]int, 32)
 	for i, l := StdFuncCons+1, ExprFuncRef(len(ret)); i < l; i++ {
@@ -300,7 +273,7 @@ func optimize_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 
 // collects: FuncDefs with body being a call (with only atomic args) to one of its args, the callee being the only arg-ref in the body.
 // rewrites: calls to the above
-func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
+func rewrite_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	argcallers := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
@@ -336,7 +309,7 @@ func optimize_inlineArgCallers(src Prog) (ret Prog, didModify bool) {
 
 // gathers funcs that have arg-ref bodies, well-known examples are id / true / false / nil.
 // calls to those (with sufficient args) get replaced by the respective call-arg.
-func optimize_inlineCallsToArgRefFuncs(src Prog) (ret Prog, didModify bool) {
+func rewrite_inlineCallsToArgRefFuncs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	selectors := make(map[int]ExprArgRef, 8)
 	for i := 0; i < len(ret)-1; i++ {
@@ -363,7 +336,7 @@ func optimize_inlineCallsToArgRefFuncs(src Prog) (ret Prog, didModify bool) {
 
 // collects: FuncDefs with call bodies of only atomic args with at least one arg-ref.
 // rewrites: calls to the above with enough args, unless non-atomic args get used more than once
-func optimize_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
+func rewrite_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	rearrangers := make(map[int]int, 8)
 	for i := 0; i < len(ret)-1; i++ {
@@ -417,7 +390,7 @@ func optimize_inlineArgsRearrangers(src Prog) (ret Prog, didModify bool) {
 }
 
 // from `bexpr True False` to `bexpr`, from `(bexpr False True) foo bar` (aka `not`) to `bexpr bar foo`
-func optimize_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModify bool) {
+func rewrite_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
@@ -451,7 +424,7 @@ func optimize_minifyNeedlesslyElaborateBoolOpCalls(src Prog) (ret Prog, didModif
 }
 
 // ie. from foo>=1 to foo>0, 2<=foo to 1<foo etc.
-func optimize_callsToGeqOrLeq(src Prog) (ret Prog, didModify bool) {
+func rewrite_callsToGeqOrLeq(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	geqsleqs := map[int]bool{} // gathers any global gEQ / lEQ defs that or-combine LT/GT with EQ, if such exist
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
@@ -510,7 +483,7 @@ func optimize_callsToGeqOrLeq(src Prog) (ret Prog, didModify bool) {
 }
 
 // 0+foo, 1*foo, foo-0, foo/1 etc..
-func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
+func rewrite_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	for i := int(StdFuncCons + 1); i < len(ret); i++ {
 		ret[i].Body = walk(ret[i].Body, func(expr Expr) Expr {
@@ -558,7 +531,7 @@ func optimize_primOpPreCalcs(src Prog) (ret Prog, didModify bool) {
 }
 
 // removes an arg from a FuncDef if no non-call uses of the FuncDef exist and all its callers supply said arg, and with the exact same (non-argref-containing) expression
-func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
+func rewrite_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	allappls, min, max := map[ExprFuncRef][]Expr{}, map[ExprFuncRef]int{}, map[ExprFuncRef]int{}
 	for i := StdFuncCons + 1; int(i) < len(ret)-1; i++ {
@@ -649,7 +622,7 @@ func optimize_inlineEverSameArgs(src Prog) (ret Prog, didModify bool) {
 }
 
 // rewrites all calls with no arg-refs and no `OpPrt`s with their `Eval` result
-func optimize_preEvalArgRefLessCalls(src Prog) (ret Prog, didModify bool) {
+func rewrite_preEvalArgRefLessCalls(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	conv := make([]FuncDef, len(ret))
 	copy(conv, ret)
@@ -667,6 +640,21 @@ func optimize_preEvalArgRefLessCalls(src Prog) (ret Prog, didModify bool) {
 		if didmodify {
 			ret[i].Body = convFrom(conv[i].Body)
 		}
+	}
+	return
+}
+
+func rewrite_commonSubExprs(src Prog) (ret Prog, didModify bool) {
+	ret = src
+	havecses := make(map[int][]Expr)
+	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
+		_ = walk(ret[i].Body, func(expr Expr) Expr {
+
+			return expr
+		})
+	}
+	if len(havecses) == 0 {
+		return
 	}
 	return
 }

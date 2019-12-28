@@ -18,9 +18,35 @@ func main() {
 		for i := range prog {
 			prog[i].Body = convFrom(prog[i].Body)
 		}
-		prefixNameMetasWithIdxs()
-		prog = optimize(prog)
-		prefixNameMetasWithIdxs()
+		{
+			prefixNameMetasWithIdxs()
+			for again := true; again; {
+				again = false
+				fixFuncDefArgsUsageNumbers()
+				for _, mayberewrite := range []func(Prog) (Prog, bool){
+					rewrite_ditchUnusedFuncDefs,
+					rewrite_ditchDuplicateDefs,
+					rewrite_inlineNaryFuncAliases,
+					rewrite_inlineCallsToArgRefFuncs,
+					rewrite_argDropperCalls,
+					rewrite_inlineArgCallers,
+					rewrite_inlineArgsRearrangers,
+					rewrite_primOpPreCalcs,
+					rewrite_callsToGeqOrLeq,
+					rewrite_minifyNeedlesslyElaborateBoolOpCalls,
+					rewrite_inlineOnceCalleds,
+					rewrite_inlineEverSameArgs,
+					rewrite_preEvalArgRefLessCalls,
+					rewrite_inlineNullaries,
+					rewrite_commonSubExprs,
+				} {
+					if prog, again = mayberewrite(prog); again {
+						break
+					}
+				}
+			}
+			prefixNameMetasWithIdxs()
+		}
 		for i := range prog {
 			prog[i].Body = convTo(prog[i].Body)
 		}
