@@ -94,7 +94,11 @@ restep:
 			lookupstash = frames[idxframe].stash // essentially callees that merely return one of their args as-is
 		}
 		cur.stash[cur.pos] = lookupstash[len(lookupstash)+int(it)]
-		goto restep // whatever we got, we want to further evaluate: no need for the final post-`switch` checks on `cur.pos` since it hasn't changed, can go at it again right away
+		if cur.pos == idxcallee { // in callee pos? then:
+			goto restep // whatever we got, we want to further evaluate: no need for the final post-`switch` checks on `cur.pos` since it hasn't changed, can go at it again right away
+		} else {
+			cur.pos-- // no need to further evaluate because arg-values from `lookupstash` are already "maximally reduced for not-in-callee-pos purposes"
+		}
 
 	case *ExprCall:
 		if it.IsClosure != 0 { // if so: a currently-no-further-reducable final value (closure)
@@ -135,10 +139,8 @@ restep:
 						call, _ := me[it].Body.(*ExprCall)
 						argref, _ := call.Callee.(ExprArgRef)
 						newtail := make([]Expr, 1+len(call.Args))
-						count3++
 						newtail[len(call.Args)] = cur.stash[len(cur.stash)+int(argref)]
 						for i := range call.Args {
-							count4++
 							argref, _ = call.Args[i].(ExprArgRef)
 							newtail[i] = cur.stash[len(cur.stash)+int(argref)]
 						}

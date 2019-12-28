@@ -649,13 +649,14 @@ func rewrite_preEvalArgRefLessCalls(src Prog) (ret Prog, didModify bool) {
 
 func rewrite_commonSubExprs(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	havecses := make(map[int]map[exprAppl]int)
+	havecses := make(map[int]map[string]int)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
-		havecses[i] = make(map[exprAppl]int)
+		havecses[i] = make(map[string]int)
 		_ = walk(ret[i].Body, func(expr Expr) Expr {
 			if appl, is := expr.(exprAppl); is {
 				if _, fnref, numargs, _, _, _ := dissectCall(expr, nil); fnref == nil || (*fnref < 0 && numargs >= 2) || (*fnref >= 0 && numargs >= len(ret[*fnref].Args)) {
-					if count, have := havecses[i][appl]; have {
+					jsrc := appl.JsonSrc()
+					if count, have := havecses[i][jsrc]; have {
 						return nil
 					} else {
 						_ = walk(ret[i].Body, func(it Expr) Expr {
@@ -664,7 +665,8 @@ func rewrite_commonSubExprs(src Prog) (ret Prog, didModify bool) {
 							}
 							return it
 						})
-						if havecses[i][appl] = count; count > 1 {
+						if count > 1 {
+							havecses[i][jsrc] = count
 							return nil
 						}
 					}
@@ -689,7 +691,7 @@ func rewrite_commonSubExprs(src Prog) (ret Prog, didModify bool) {
 	println("_________________________________________________________")
 	for i, cses := range havecses {
 		for appl, count := range cses {
-			println(ret[i].Meta[0], count, "x\t\t", appl.JsonSrc())
+			println(ret[i].Meta[0], count, "x\t\t", appl)
 		}
 	}
 	return
