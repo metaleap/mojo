@@ -234,6 +234,9 @@ func rewrite_inlineOnceCalleds(src Prog) (ret Prog, didModify bool) {
 		})
 	}
 	for fn, referencers := range refs {
+		if didModify {
+			return
+		}
 		if 1 == len(referencers) { // fn referenced only in 1 FuncDef
 			for referencer, numrefs := range referencers {
 				if numrefs == 1 { // fn referenced only once in 1 FuncDef
@@ -646,15 +649,48 @@ func rewrite_preEvalArgRefLessCalls(src Prog) (ret Prog, didModify bool) {
 
 func rewrite_commonSubExprs(src Prog) (ret Prog, didModify bool) {
 	ret = src
-	havecses := make(map[int][]Expr)
+	havecses := make(map[int]map[exprAppl]int)
 	for i := int(StdFuncCons + 1); i < len(ret)-1; i++ {
+		havecses[i] = make(map[exprAppl]int)
 		_ = walk(ret[i].Body, func(expr Expr) Expr {
-
+			if appl, is := expr.(exprAppl); is {
+				if _, fnref, numargs, _, _, _ := dissectCall(expr, nil); fnref == nil || (*fnref < 0 && numargs >= 2) || (*fnref >= 0 && numargs >= len(ret[*fnref].Args)) {
+					if count, have := havecses[i][appl]; have {
+						return nil
+					} else {
+						_ = walk(ret[i].Body, func(it Expr) Expr {
+							if eq(appl, it) {
+								count++
+							}
+							return it
+						})
+						if havecses[i][appl] = count; count > 1 {
+							return nil
+						}
+					}
+				}
+			}
 			return expr
 		})
 	}
+	for i, cses := range havecses {
+		for appl, count := range cses {
+			if count <= 1 {
+				delete(cses, appl)
+			}
+		}
+		if havecses[i] = cses; len(cses) == 0 {
+			delete(havecses, i)
+		}
+	}
 	if len(havecses) == 0 {
 		return
+	}
+	println("_________________________________________________________")
+	for i, cses := range havecses {
+		for appl, count := range cses {
+			println(ret[i].Meta[0], count, "x\t\t", appl.JsonSrc())
+		}
 	}
 	return
 }
