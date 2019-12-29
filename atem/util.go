@@ -107,3 +107,18 @@ func ListsFrom(strs []string) (ret Expr) {
 	}
 	return
 }
+
+func decodeProgForOpEval(expr Expr) (prog [][]interface{}) {
+	if list := ListOfExprs(expr); list == nil {
+		panic(expr)
+	} else if len(list) != 0 {
+		prog = make([][]interface{}, len(list))
+
+	}
+
+	return
+}
+
+func decodeExprForOpEval(expr Expr) interface{} {
+	return nil
+}

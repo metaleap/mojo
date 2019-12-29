@@ -41,6 +41,10 @@ func LoadFromJson(src []byte) Prog {
 	if e := json.Unmarshal(src, &arr); e != nil {
 		panic(e)
 	}
+	return loadFromJson(arr)
+}
+
+func loadFromJson(arr [][]interface{}) Prog {
 	me := make(Prog, 0, len(arr))
 	for _, it := range arr {
 		arrargs := it[1].([]any)
@@ -55,66 +59,12 @@ func LoadFromJson(src []byte) Prog {
 				fd.allArgsUsed = false
 			}
 		}
-		if len(fd.Args) == 0 {
-			_, iscall := fd.Body.(*ExprCall)
-			fd.isMereAlias = !iscall
-		} else if len(fd.Args) >= 2 { // check if selector and set so
-			if argref, isa := fd.Body.(ExprArgRef); isa {
-				fd.selector = int(argref)
-			} else if call, isc := fd.Body.(*ExprCall); isc {
-				if argref, isa = call.Callee.(ExprArgRef); isa && argref != -2 {
-					for ia := range call.Args {
-						if _, isa = call.Args[ia].(ExprArgRef); !isa {
-							break
-						}
-					}
-					if isa {
-						fd.selector = (len(call.Args))
-					}
-				}
-			}
-		}
 		me = append(me, fd)
 	}
 	for i := range me {
-		me[i].Body = me.postLoadPreProcess(me[i].Body)
+		me.postLoadPreProcess(i)
 	}
 	return me
-}
-
-func (me Prog) postLoadPreProcess(expr Expr) Expr {
-	for fnr, _ := expr.(ExprFuncRef); fnr > 0 && me[fnr].isMereAlias; fnr, _ = expr.(ExprFuncRef) {
-		// main reason for this pre-reduction is to not need this check plus
-		// reduction in the interpreter loop on every `ExprFuncRef` occurrence.
-		// especially in pre-optimized input programs it would always be incurred
-		// but never "fire". to also allow less-/non-optimized input programs,
-		// we pre-reduce this on-load. another micro-optimization of sorts.
-		expr = me[fnr].Body
-	}
-	// now, detect and mark all recognizable "closures" as defined in the doc-comment for the `ExprCall.IsClosure` field
-	if call, iscall := expr.(*ExprCall); iscall {
-		call.Callee = me.postLoadPreProcess(call.Callee)
-		for i := range call.Args {
-			call.Args[i] = me.postLoadPreProcess(call.Args[i])
-		}
-		if f, _ := call.Callee.(ExprFuncRef); f != 0 {
-			numargs := (2)
-			if f > 0 {
-				numargs = (len(me[f].Args))
-			}
-			diff := numargs - (len(call.Args))
-			for i := 0; (diff > 0) && (i < len(call.Args)); i++ {
-				_, isa := call.Args[i].(ExprArgRef)
-				if c, isc := call.Args[i].(*ExprCall); isa || (isc && c.IsClosure == 0) {
-					diff = 0
-				}
-			}
-			if call.IsClosure = diff; diff < 0 {
-				call.IsClosure = 0
-			}
-		}
-	}
-	return expr
 }
 
 func exprFromJson(from any, curFnNumArgs int64) Expr {
@@ -152,4 +102,63 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 		return ret
 	}
 	panic(from)
+}
+
+func (me Prog) postLoadPreProcess(funcIdx int) {
+	fd := &me[funcIdx]
+	if len(fd.Args) == 0 {
+		_, iscall := fd.Body.(*ExprCall)
+		fd.isMereAlias = !iscall
+	} else if len(fd.Args) >= 2 { // check if selector and set so
+		if argref, isa := fd.Body.(ExprArgRef); isa {
+			fd.selector = int(argref)
+		} else if call, isc := fd.Body.(*ExprCall); isc {
+			if argref, isa = call.Callee.(ExprArgRef); isa && argref != -2 {
+				for ia := range call.Args {
+					if _, isa = call.Args[ia].(ExprArgRef); !isa {
+						break
+					}
+				}
+				if isa {
+					fd.selector = (len(call.Args))
+				}
+			}
+		}
+	}
+	fd.Body = me.detectAndMarkClosures(fd.Body)
+}
+
+func (me Prog) detectAndMarkClosures(expr Expr) Expr {
+	for fnr, _ := expr.(ExprFuncRef); fnr > 0 && me[fnr].isMereAlias; fnr, _ = expr.(ExprFuncRef) {
+		// main reason for this pre-reduction is to not need this check plus
+		// potential reduction in the interpreter loop on every `ExprFuncRef`
+		// occurrence. especially in pre-optimized input programs the check
+		// would always be incurred but never "fire". to also allow
+		// less-/non-optimized input programs, we pre-reduce this post-load.
+		expr = me[fnr].Body
+	}
+	// now, detect and mark all recognizable "closures" as defined in the doc-comment for the `ExprCall.IsClosure` field
+	if call, iscall := expr.(*ExprCall); iscall {
+		call.Callee = me.detectAndMarkClosures(call.Callee)
+		for i := range call.Args {
+			call.Args[i] = me.detectAndMarkClosures(call.Args[i])
+		}
+		if f, _ := call.Callee.(ExprFuncRef); f != 0 {
+			numargs := (2)
+			if f > 0 {
+				numargs = (len(me[f].Args))
+			}
+			diff := numargs - (len(call.Args))
+			for i := 0; (diff > 0) && (i < len(call.Args)); i++ {
+				_, isa := call.Args[i].(ExprArgRef)
+				if c, isc := call.Args[i].(*ExprCall); isa || (isc && c.IsClosure == 0) {
+					diff = 0
+				}
+			}
+			if call.IsClosure = diff; diff < 0 {
+				call.IsClosure = 0
+			}
+		}
+	}
+	return expr
 }

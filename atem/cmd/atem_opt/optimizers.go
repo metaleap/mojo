@@ -647,6 +647,7 @@ func rewrite_preEvalArgRefLessCalls(src Prog) (ret Prog, didModify bool) {
 	return
 }
 
+// **does not** currently eliminate CSEs, just detects eligible candidates and prints them to stderr for now. once encountered in real inputs, will embark on the elimination part.
 func rewrite_commonSubExprs(src Prog) (ret Prog, didModify bool) {
 	ret = src
 	havecses := make(map[int]map[string]int)

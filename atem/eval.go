@@ -206,6 +206,12 @@ restep:
 				case OpPrt:
 					result = rhs
 					_, _ = OpPrtDst(append(append(append(ListToBytes(ListOfExprs(lhs)), '\t'), ListOfExprsToString(rhs)...), '\n'))
+				case OpEval:
+					prog, jsonprog, jsonexpr := me, decodeProgForOpEval(lhs), decodeExprForOpEval(rhs)
+					if jsonprog != nil {
+						prog = loadFromJson(jsonprog)
+					}
+					result, _ = prog.eval(exprFromJson(jsonexpr, 0), 128)
 				default:
 					panic([3]Expr{it, lhs, rhs})
 				}
