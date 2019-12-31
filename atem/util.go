@@ -113,8 +113,12 @@ func decodeProgForOpEval(expr Expr) (prog [][]interface{}) {
 		panic(expr)
 	} else if len(lprog) != 0 {
 		prog = make([][]interface{}, len(lprog))
-		for i := range prog {
+		for i := range lprog {
+			if lfunc := ListOfExprs(lprog[i]); lfunc == nil {
+				panic(lfunc)
+			} else {
 
+			}
 		}
 	}
 
