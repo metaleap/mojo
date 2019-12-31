@@ -109,11 +109,13 @@ func ListsFrom(strs []string) (ret Expr) {
 }
 
 func decodeProgForOpEval(expr Expr) (prog [][]interface{}) {
-	if list := ListOfExprs(expr); list == nil {
+	if lprog := ListOfExprs(expr); lprog == nil {
 		panic(expr)
-	} else if len(list) != 0 {
-		prog = make([][]interface{}, len(list))
+	} else if len(lprog) != 0 {
+		prog = make([][]interface{}, len(lprog))
+		for i := range prog {
 
+		}
 	}
 
 	return

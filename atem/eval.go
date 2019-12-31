@@ -247,7 +247,7 @@ restep:
 				cur.pos = len(cur.stash) - 1
 			}
 		} else if cur.numArgs == 0 { // callee was not an `ExprFuncRef` so must be a closure:
-			closure, _ := cur.stash[idxcallee].(*ExprCall) // ... so unroll it into current `stash` :
+			closure := cur.stash[idxcallee].(*ExprCall) // ... so unroll it into current `stash` :
 			cur.stash = append(append(cur.stash[:idxcallee], closure.Args...), closure.Callee)
 			numargsdone, cur.pos = len(closure.Args), len(cur.stash)-1 // ... and start over at callee
 		} else if cur.pos < 0 || cur.pos < idxcallee-cur.numArgs { // all args needed were eval'd:
