@@ -108,23 +108,40 @@ func ListsFrom(strs []string) (ret Expr) {
 	return
 }
 
-func decodeProgForOpEval(expr Expr) (prog [][]interface{}) {
+func decodeJsonishExprForOpEval(expr Expr) interface{} {
+	list := ListOfExprs(expr)
+	if list == nil {
+		return float64(expr.(ExprNumInt))
+	} else if bytes := ListToBytes(list); bytes != nil {
+		return string(bytes)
+	}
+	arr := make([]interface{}, len(list))
+	for i := range list {
+		arr[i] = decodeJsonishExprForOpEval(list[i])
+	}
+	return arr
+}
+
+func decodeJsonishProgForOpEval(expr Expr) (prog [][]interface{}) {
 	if lprog := ListOfExprs(expr); lprog == nil {
 		panic(expr)
 	} else if len(lprog) != 0 {
 		prog = make([][]interface{}, len(lprog))
 		for i := range lprog {
-			if lfunc := ListOfExprs(lprog[i]); lfunc == nil {
-				panic(lfunc)
+			prog[i] = make([]interface{}, 3)
+			if lfunc := ListOfExprs(lprog[i]); len(lfunc) != 3 {
+				panic(lprog[i])
+			} else if largs := ListOfExprs(lfunc[1]); largs == nil {
+				panic(lfunc[1])
+			} else if args, lmeta := make([]interface{}, len(largs)), ListOfExprs(lfunc[0]); lmeta == nil {
+				panic(lfunc[0])
 			} else {
-
+				for j := range largs {
+					args[j] = float64(largs[j].(ExprNumInt))
+				}
+				prog[i][2], prog[i][1], prog[i][0] = decodeJsonishExprForOpEval(lfunc[2]), args, make([]interface{}, 0)
 			}
 		}
 	}
-
 	return
-}
-
-func decodeExprForOpEval(expr Expr) interface{} {
-	return nil
 }

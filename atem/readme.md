@@ -256,10 +256,10 @@ const (
 	OpLt OpCode = -7
 	// Greater-than test between 2 `ExprNumInt`s, result is `StdFuncTrue` or `StdFuncFalse`
 	OpGt OpCode = -8
-	// Evaluates the 2nd `Expr` with respect to the 1st. If the 1st is `StdFuncNil`, the 2nd encodes any expression to be evaluated in the context of the current `Prog`, else in the context of the `Prog` encoded by the 1st. Encoding is via `StdFuncNil` / `StdFuncCons` lists arranged just like the JSON format.
-	OpEval OpCode = -42
 	// Writes both `Expr`s (the first one a string-ish `StdFuncCons`tructed linked-list of `ExprNumInt`s) to `OpPrtDst`, result is the right-hand-side `Expr` of the 2 input `Expr` operands
-	OpPrt OpCode = -88
+	OpPrt OpCode = -42
+	// Evaluates the 2nd `Expr` with respect to the 1st. If the 1st is `StdFuncNil`, the 2nd encodes any expression to be evaluated in the context of the current `Prog`, else in the context of the `Prog` encoded by the 1st. Encoding is via `StdFuncNil` / `StdFuncCons` lists arranged just like the JSON format.
+	OpEval OpCode = -4242
 )
 ```
 
