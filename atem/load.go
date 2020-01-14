@@ -76,7 +76,7 @@ func exprFromJson(from any, curFnNumArgs int64) Expr {
 			panic(e)
 		} else {
 			if n < 0 { // support for de-brujin indices if negative
-				n = curFnNumArgs + n // now positive starting from zero (if it was correct to begin with)
+				n += curFnNumArgs // now positive starting from zero (if it was correct to begin with)
 			}
 			if n < 0 || n >= curFnNumArgs {
 				panic("LoadFromJson: encountered bad ExprArgRef of " + strconv.FormatInt(n, 10) + " inside a FuncDef with " + strconv.FormatInt(curFnNumArgs, 10) + " arg(s)")
