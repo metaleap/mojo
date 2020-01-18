@@ -28,7 +28,7 @@ import (
 // "drive-by" / "side-car" expression evaluation attempts in the context of a
 // given `Prog` such as in REPLs, optimizers, compilers or similar tooling.
 func (me Prog) Eval(expr Expr, big bool) Expr {
-	maxFrames, numSteps = 0, 0
+	maxFrames, maxStash, numSteps = 0, 0, 0
 	capframes := 64
 	if big {
 		capframes = 32 * 1024
@@ -36,12 +36,13 @@ func (me Prog) Eval(expr Expr, big bool) Expr {
 	ret, t := me.eval(expr, capframes)
 	t = time.Now().UnixNano() - t
 	if big {
-		println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxFrames, numSteps, "\t\t", count1, count2, count3, count4)
+		println(fmt.Sprintf("%T", ret), time.Duration(t).String(), "\t\t\t", maxFrames, maxStash, numSteps, "\t\t", count1, count2, count3, count4)
 	}
 	return ret
 }
 
 var maxFrames int
+var maxStash int
 var numSteps int
 var count1 int
 var count2 int
@@ -68,6 +69,9 @@ func (me Prog) eval(expr Expr, initialFramesCap int) (Expr, int64) {
 restep:
 	numSteps++
 	idxcallee = len(cur.stash) - 1
+	// if (len(cur.stash)) > maxStash {
+	// 	maxStash = len(cur.stash)
+	// }
 
 	for cur.pos < 0 { // in a new `frame`, we start at end of `stash` (callee) and then travel down the args until below 0
 		if idxframe == 0 {
