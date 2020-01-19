@@ -69,9 +69,9 @@ func (me Prog) eval(expr Expr, initialFramesCap int) (Expr, int64) {
 restep:
 	numSteps++
 	idxcallee = len(cur.stash) - 1
-	// if (len(cur.stash)) > maxStash {
-	// 	maxStash = len(cur.stash)
-	// }
+	if (len(cur.stash)) > maxStash {
+		maxStash = len(cur.stash)
+	}
 
 	for cur.pos < 0 { // in a new `frame`, we start at end of `stash` (callee) and then travel down the args until below 0
 		if idxframe == 0 {
