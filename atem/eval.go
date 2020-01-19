@@ -230,7 +230,7 @@ restep:
 	if idxcallee != 0 && cur.pos < idxcallee { // still arg-ful and below callee-position
 		if cur.argsDone { // below callee position. have all args already eval'd previously? so return then, `calleeDone` or not (50/50)
 			if result, diff := cur.stash[idxcallee], cur.numArgs-idxcallee; diff < 1 { // the `calleeDone` (non-closure) case:
-				cur.stash = append(cur.stash[:len(cur.stash)-1-cur.numArgs], result) // if extraneous args were around, then len(cur.stash) > 1 now still, so our `frame` is not done yet
+				cur.stash = append(cur.stash[:(len(cur.stash)-1)-cur.numArgs], result) // if extraneous args were around, then len(cur.stash) > 1 now still, so our `frame` is not done yet
 			} else /* result is closure */ if ilp := idxframe - 1; ilp > 0 && frames[ilp].numArgs == 0 && len(frames[ilp].stash) != 1 && frames[ilp].pos == len(frames[ilp].stash)-1 {
 				// this block optional micro-optimization: unroll into parent's `stash` instead of alloc'ing a new `ExprCall`
 				callee, callargs := result, cur.stash[:idxcallee]
