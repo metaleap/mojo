@@ -130,10 +130,9 @@ restep:
 		if cur.calleeDone || cur.pos != idxcallee { // either not in callee position or else callee reduced to current `it`?
 			cur.pos-- // then the `ExprFuncRef` is a mere currently-no-further-reducable value to just pass along / return / preserve for now
 		} else /* we are in callee position */ if isfn := it > -1; cur.numArgs == 0 { // then must determine this now, first!
-			cur.numArgs = 2     // prim-op default
-			allargsused := true // prim-op default
-			if isfn {           // refers to actual func, not prim-op
-				cur.numArgs, allargsused = len(me[it].Args), me[it].allArgsUsed
+			cur.numArgs = 2 // prim-op default
+			if isfn {       // refers to actual func, not prim-op
+				cur.numArgs = len(me[it].Args)
 				// optional micro-optimization block: entered-into for approx. 25% - 35% of cases here
 				if me[it].selector != 0 && len(cur.stash) > cur.numArgs {
 					if me[it].selector < 0 {
@@ -156,24 +155,24 @@ restep:
 					cur.numArgs, cur.pos = 0, len(cur.stash)-1
 					goto restep
 				}
-			}
-			if cur.numArgs == 0 { // no args means a shared global constant:
-				call, _ := me[it].Body.(*ExprCall) // also means *ExprCall because others were caught at top of this `case`
-				cur.stash = append(append(cur.stash[:idxcallee], call.Args...), call.Callee)
-				if cur.pos = len(cur.stash) - 1; call.IsClosure == 0 {
-					numargsdone = 0
-				} else {
-					numargsdone += len(call.Args)
-				}
-				goto restep
-			} else if !allargsused { // then ditch unused ones: by setting unused arg-slots in `stash` to `nil`
-				until := idxcallee
-				if cur.numArgs < idxcallee { // very rare (at *this* code-path point), around 0% - 0.1% of the time depending on program
-					until = cur.numArgs
-				}
-				for i := numargsdone; i < until; i++ {
-					if me[it].Args[i] == 0 { // unused? then clear args-slot:
-						cur.stash[len(cur.stash)-(2+i)] = nil
+				if cur.numArgs == 0 { // no args means a shared global constant:
+					call, _ := me[it].Body.(*ExprCall) // also means *ExprCall because others were caught during post-load pre-processing
+					cur.stash = append(append(cur.stash[:idxcallee], call.Args...), call.Callee)
+					if cur.pos = len(cur.stash) - 1; call.IsClosure == 0 {
+						numargsdone = 0
+					} else {
+						numargsdone += len(call.Args)
+					}
+					goto restep
+				} else if !me[it].allArgsUsed { // then ditch unused ones: by setting unused arg-slots in `stash` to `nil`
+					until := idxcallee
+					if cur.numArgs < idxcallee { // very rare (at *this* code-path point), around 0% - 0.1% of the time depending on program
+						until = cur.numArgs
+					}
+					for i := numargsdone; i < until; i++ {
+						if me[it].Args[i] == 0 { // unused? then clear args-slot:
+							cur.stash[len(cur.stash)-(2+i)] = nil
+						}
 					}
 				}
 			}
