@@ -89,3 +89,7 @@ func parseExprLitStr(lit_src Str) Str {
 	}
 	return ret_str[0:ret_len]
 }
+
+func parseExprLitList(full_src Str, all_toks Tokens, toks Tokens, all_toks_idx int) AstExprLitList {
+	panic("TODO")
+}
