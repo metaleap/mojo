@@ -6,10 +6,10 @@ very low-level (thus unidiomatic) code because we want to have a code base we ca
 transliterate into the initial language iteration that's largely LLVM-IR-like
 (just somewhat more human-readable/writable), hence:
 
+- program input and output remain as `type Str = []byte`, no use of `string`s
 - no 3rd-party imports whatsoever
 - no stdlib imports for core processing (just program setup & I/O)
   (hence manual implementations like uintToStr, uintFromStr, join etc)
-- program input and output remain as `type Str = []byte`, no use of `string`s
 - no `append`s, instead use of usually-over-sized but non-growing arrays being
   sliced by means of ad-hoc inline "custom" / "manual" `len` tracking
 - all `make` / `new` to be replaced by custom fixed-buffer allocation scheme

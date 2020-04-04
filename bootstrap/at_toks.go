@@ -37,7 +37,7 @@ func tokenize(full_src Str) Tokens {
 	i, cur_line_nr, cur_line_idx, toks_count := 0, 0, 0, 0
 	tok_start, tok_last := -1, -1
 	var state TokenKind = tok_kind_none
-	toks := make(Tokens, len(full_src))
+	toks := allocˇToken(len(full_src))
 	for i = 0; i < len(full_src); i++ {
 		c := full_src[i]
 		if c == '\n' {
@@ -189,7 +189,7 @@ func toksIndentBasedChunks(toks Tokens) []Tokens {
 			num_chunks++
 		}
 	}
-	ret := make([]Tokens, num_chunks)
+	ret := allocˇTokens(num_chunks)
 	{
 		start_from, next_idx := -1, 0
 		for i := range toks {

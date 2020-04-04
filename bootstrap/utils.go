@@ -5,8 +5,12 @@ import (
 )
 
 type (
-	Any = interface{}
-	Str = []byte
+	Any      = interface{}
+	Str      = []byte
+	StrNamed struct {
+		name  Str
+		value Str
+	}
 )
 
 var (
@@ -55,4 +59,48 @@ func uintFromStr(str Str) uint64 {
 	return ret
 }
 
-// func uintToStr(n uint64)
+func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
+	n := integer
+	var num_digits uint64 = 1
+	for n >= base {
+		num_digits++
+		n /= base
+	}
+	padding := (num_digits < min_len)
+	if padding {
+		num_digits = min_len
+	}
+	ret_str := allocˇu8(len(prefix) + int(num_digits))
+	for i := range ret_str {
+		ret_str[i] = '0'
+	}
+	for i := range prefix { // aka copy() but see comments in main.go, we stay low-level for a reason
+		ret_str[i] = prefix[i]
+	}
+	// 123 / 10     123 % 10            12 / 10     12 % 10
+	// =12          =3                  =1          =2
+	idx := len(ret_str) - 1
+	n = integer
+	for keep_going := true; keep_going; {
+		if n < base {
+			ret_str[idx] = byte(48 + n)
+			keep_going = false
+		} else {
+			ret_str[idx] = byte(48 + (n % base))
+			n /= base
+		}
+		if base > 10 && ret_str[idx] > '9' {
+			ret_str[idx] += 7
+		}
+		if keep_going {
+			idx--
+		}
+	}
+	return ret_str
+}
+
+func allocˇu8(len int) Str              { return make(Str, len) }
+func allocˇToken(len int) Tokens        { return make(Tokens, len) }
+func allocˇTokens(len int) []Tokens     { return make([]Tokens, len) }
+func allocˇAstDef(len int) []AstDef     { return make([]AstDef, len) }
+func allocˇStrNamed(len int) []StrNamed { return make([]StrNamed, len) }

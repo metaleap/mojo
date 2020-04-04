@@ -51,7 +51,7 @@ type AstNameRef struct {
 	refers_to Any
 }
 
-func astDefGatherAndRewriteLitStrs(def *AstDef, into [][2]Str, idx int) int {
+func astDefGatherAndRewriteLitStrs(def *AstDef, into []StrNamed, idx int) int {
 	return idx
 }
 

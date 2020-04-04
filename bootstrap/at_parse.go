@@ -5,7 +5,7 @@ func parse(all_toks Tokens, full_src Str) Ast {
 	ret_ast := Ast{
 		src:  full_src,
 		toks: all_toks,
-		defs: make([]AstDef, len(chunks)*2),
+		defs: allocˇAstDef(len(chunks) * 2),
 	}
 	toks_idx := 0
 	for i, this_chunk_toks := range chunks {
@@ -22,13 +22,12 @@ func parse(all_toks Tokens, full_src Str) Ast {
 	num_str_lits := 0
 	for i := range ret_ast.defs[0:len(chunks)] {
 		this_top_def := &ret_ast.defs[i]
-		str_lit_and_new_name_pairs := make([][2]Str, 4)
-		num := astDefGatherAndRewriteLitStrs(this_top_def, str_lit_and_new_name_pairs, 0)
-		for j := range str_lit_and_new_name_pairs[0:num] {
-			this_str_lit_and_new_name := &str_lit_and_new_name_pairs[j]
+		gathered := allocˇStrNamed(4)
+		num := astDefGatherAndRewriteLitStrs(this_top_def, gathered, 0)
+		for j := range gathered[0:num] {
 			ret_ast.defs[len(chunks)+num_str_lits] = AstDef{
-				head:       AstExpr{kind: AstExprIdent(this_str_lit_and_new_name[1])},
-				body:       AstExpr{kind: AstExprLitStr(this_str_lit_and_new_name[0])},
+				head:       AstExpr{kind: AstExprIdent(gathered[j].name)},
+				body:       AstExpr{kind: AstExprLitStr(gathered[j].value)},
 				is_top_def: true,
 			}
 			num_str_lits++
@@ -48,7 +47,7 @@ func parseDef(full_src Str, all_toks Tokens, dst_def *AstDef) {
 
 	dst_def.head = parseExpr(full_src, all_toks, toks[0:tok_idx_def], dst_def.base.toks_idx)
 	chunks_body := toksIndentBasedChunks(toks[tok_idx_def+1:])
-	dst_def.defs = make([]AstDef, len(chunks_body)-1)
+	dst_def.defs = allocˇAstDef(len(chunks_body) - 1)
 	toks_idx := dst_def.base.toks_idx + tok_idx_def + 1
 	for i, this_chunk_toks := range chunks_body {
 		if i == 0 {
