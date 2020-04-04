@@ -36,10 +36,7 @@ type AstExprForm []AstExpr
 
 type AstExprLitList []AstExpr
 
-type AstExprLitCurl []struct {
-	lhs AstExpr
-	rhs AstExpr
-}
+type AstExprLitCurl [][2]AstExpr
 
 type AstScopes struct {
 	cur    []AstNameRef

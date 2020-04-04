@@ -100,3 +100,19 @@ func parseExprLitList(full_src Str, all_toks Tokens, toks Tokens, all_toks_idx i
 	}
 	return ret_lit
 }
+
+func parseExprLitCurl(full_src Str, all_toks Tokens, toks Tokens, all_toks_idx int) AstExprLitCurl {
+	per_item_toks := toksSplit(toks, full_src, tok_kind_sep_comma)
+	ret_lit := AstExprLitCurl(allocˇ2AstExpr(len(per_item_toks)))
+	toks_idx := all_toks_idx
+	for i, this_item_toks := range per_item_toks {
+		tok_idx_colon := toksIndexOfFirst(this_item_toks, tok_kind_sep_colon)
+		if tok_idx_colon <= 0 || tok_idx_colon == len(this_item_toks)-1 {
+			fail("expr expected both before and after a ':' separator:\n", toksSrcStr(this_item_toks, full_src))
+		}
+		ret_lit[i][0] = parseExpr(full_src, all_toks, this_item_toks[0:tok_idx_colon], toks_idx)
+		ret_lit[i][1] = parseExpr(full_src, all_toks, this_item_toks[tok_idx_colon+1:], toks_idx+tok_idx_colon+1)
+		toks_idx += len(this_item_toks)
+	}
+	return ret_lit
+}
