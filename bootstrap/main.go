@@ -2,11 +2,12 @@ package main
 
 /*
 
-very low-level (thus unidiomatic) code because we want to have a code base we can
-transliterate into the initial language iteration that's largely LLVM-IR-like
-(just somewhat more human-readable/writable), hence:
+very low-level and unidiomatic code! because we want to have a most compact
+code base to later transliterate into the initial language iteration that's
+largely LLVM-IR-like (just somewhat more human-readable/writable), hence:
 
 - program input and output remain as `type Str = []byte`, no use of `string`s
+- no proper `error` handling, immediate `panic`s upon detecting a problem
 - no 3rd-party imports whatsoever
 - no stdlib imports for core processing (just program setup & I/O)
   (hence manual implementations like uintToStr, uintFromStr, join etc)

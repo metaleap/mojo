@@ -66,3 +66,26 @@ func parseDef(full_src Str, all_toks Tokens, dst_def *AstDef) {
 func parseExpr(full_src Str, all_toks Tokens, expr_toks Tokens, toks_idx int) AstExpr {
 	panic("TODO")
 }
+
+func parseExprLitInt(lit_src Str) uint64 {
+	return uintFromStr(lit_src)
+}
+
+func parseExprLitStr(lit_src Str) Str {
+	assert(len(lit_src) >= 2 && lit_src[0] == '"' && lit_src[len(lit_src)-1] == '"')
+	ret_str := allocˇu8(len(lit_src) - 2)
+	ret_len := 0
+	for i := 1; i < len(lit_src)-1; i++ {
+		if lit_src[i] != '\\' {
+			ret_str[ret_len] = lit_src[i]
+		} else {
+			int10str := lit_src[i+1 : i+4]
+			i += 3
+			integer := uintFromStr(int10str)
+			assert(integer < 256)
+			ret_str[ret_len] = byte(integer)
+		}
+		ret_len++
+	}
+	return ret_str[0:ret_len]
+}
