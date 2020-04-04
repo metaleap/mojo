@@ -40,4 +40,5 @@ func parse(all_toks Tokens, full_src Str) Ast {
 }
 
 func parseDef(full_src Str, all_toks Tokens, dst_def *AstDef) {
+	fail("TODO")
 }
