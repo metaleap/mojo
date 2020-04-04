@@ -14,7 +14,8 @@ type (
 )
 
 var (
-	stdout = os.Stdout
+	counter uint64
+	stdout  = os.Stdout
 )
 
 func write(s Str) {

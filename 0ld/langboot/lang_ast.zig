@@ -107,7 +107,7 @@ pub const AstDef = struct {
 
     fn rewriteStrLits(me: *AstDef, into: [][2]Str, idx_start: usize) usize {
         if (me.is_top_def and me.body.kind == .lit_str)
-            return 0;
+            return idx_start;
         var idx = me.body.rewriteStrLits(into, idx_start);
         for (me.defs) |*def|
             idx = def.rewriteStrLits(into, idx);
