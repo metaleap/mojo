@@ -23,7 +23,7 @@ func parse(all_toks Tokens, full_src Str) Ast {
 	for i := range ret_ast.defs[0:len(chunks)] {
 		top_def := &ret_ast.defs[i]
 		str_lit_and_new_name_pairs := make([][2]Str, 4)
-		num := astDefRewriteLitStrs(top_def, str_lit_and_new_name_pairs, 0)
+		num := astDefGatherAndRewriteLitStrs(top_def, str_lit_and_new_name_pairs, 0)
 		for j := range str_lit_and_new_name_pairs[0:num] {
 			str_lit_and_new_name := &str_lit_and_new_name_pairs[j]
 			ret_ast.defs[len(chunks)+num_str_lits] = AstDef{
