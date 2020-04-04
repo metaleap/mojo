@@ -34,9 +34,9 @@ type AstExprIdent Str
 
 type AstExprForm []AstExpr
 
-type AstExprLitList []AstExpr
+type AstExprLitClip []AstExpr
 
-type AstExprLitCurl [][2]AstExpr
+type AstExprLitCurl []AstExpr
 
 type AstScopes struct {
 	cur    []AstNameRef
@@ -50,6 +50,10 @@ type AstNameRef struct {
 
 func astDefGatherAndRewriteLitStrs(def *AstDef, into []StrNamed, idx int) int {
 	return idx
+}
+
+func astNodeFrom(toks_idx int, toks_len int) AstNode {
+	return AstNode{toks_idx: toks_idx, toks_len: toks_len}
 }
 
 func astNodeToks(node *AstNode, all_toks Tokens) Tokens {

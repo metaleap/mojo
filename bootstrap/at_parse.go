@@ -63,8 +63,63 @@ func parseDef(full_src Str, all_toks Tokens, dst_def *AstDef) {
 	}
 }
 
-func parseExpr(full_src Str, all_toks Tokens, expr_toks Tokens, toks_idx int) AstExpr {
-	panic("TODO")
+func parseExpr(full_src Str, all_toks Tokens, expr_toks Tokens, all_toks_idx int) AstExpr {
+	acc_ret := allocˇAstExpr(len(expr_toks))
+	acc_len := 0
+	for i := 0; i < len(expr_toks); i++ {
+		switch tok_kind := expr_toks[i].kind; tok_kind {
+		case tok_kind_lit_int:
+			tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+			acc_ret[acc_len] = AstExpr{
+				base: astNodeFrom(all_toks_idx+i, 1),
+				kind: AstExprLitInt(parseExprLitInt(tok_str)),
+			}
+		case tok_kind_lit_str:
+			tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+			acc_ret[acc_len] = AstExpr{
+				base: astNodeFrom(all_toks_idx+i, 1),
+				kind: AstExprLitStr(parseExprLitStr(tok_str)),
+			}
+		case tok_kind_sep_bcurly_open, tok_kind_sep_bsquare_open, tok_kind_sep_bparen_open:
+			idx_close := i + toksIndexOfMatchingBracket(expr_toks[i:])
+			if idx_close < 0 {
+				fail("no matching closing bracket near:", toksSrcStr(expr_toks, full_src))
+			}
+			if tok_kind == tok_kind_sep_bparen_open {
+				acc_ret[acc_len] = parseExpr(full_src, all_toks,
+					expr_toks[i+1:idx_close], all_toks_idx+i+1)
+			} else {
+				acc_ret[acc_len] = AstExpr{base: astNodeFrom(all_toks_idx+i, 1+(idx_close-i))}
+				bracketed_exprs := parseExprsDelimited(full_src, all_toks,
+					expr_toks[i+1:idx_close], all_toks_idx+i+1, tok_kind_sep_comma)
+				switch tok_kind {
+				case tok_kind_sep_bcurly_open:
+					acc_ret[acc_len].kind = AstExprLitCurl(bracketed_exprs)
+				case tok_kind_sep_bsquare_open:
+					acc_ret[acc_len].kind = AstExprLitClip(bracketed_exprs)
+				default:
+					unreachable()
+				}
+			}
+			i = idx_close // loop header will increment
+		default:
+			tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+			acc_ret[acc_len] = AstExpr{
+				base: astNodeFrom(all_toks_idx+i, 1),
+				kind: AstExprIdent(tok_str),
+			}
+		}
+		acc_len++
+	}
+
+	assert(acc_len != 0)
+	if acc_len == 1 {
+		return acc_ret[0]
+	}
+	return AstExpr{
+		base: astNodeFrom(all_toks_idx, len(expr_toks)),
+		kind: AstExprForm(acc_ret[0:acc_len]),
+	}
 }
 
 func parseExprLitInt(lit_src Str) uint64 {
@@ -90,29 +145,13 @@ func parseExprLitStr(lit_src Str) Str {
 	return ret_str[0:ret_len]
 }
 
-func parseExprLitList(full_src Str, all_toks Tokens, toks Tokens, all_toks_idx int) AstExprLitList {
-	per_item_toks := toksSplit(toks, full_src, tok_kind_sep_comma)
-	ret_lit := AstExprLitList(allocˇAstExpr(len(per_item_toks)))
+func parseExprsDelimited(full_src Str, all_toks Tokens, toks Tokens, all_toks_idx int, tok_kind_sep TokenKind) []AstExpr {
+	per_item_toks := toksSplit(toks, full_src, tok_kind_sep)
+	ret_exprs := allocˇAstExpr(len(per_item_toks))
 	toks_idx := all_toks_idx
 	for i, this_item_toks := range per_item_toks {
-		ret_lit[i] = parseExpr(full_src, all_toks, this_item_toks, toks_idx)
+		ret_exprs[i] = parseExpr(full_src, all_toks, this_item_toks, toks_idx)
 		toks_idx += len(this_item_toks)
 	}
-	return ret_lit
-}
-
-func parseExprLitCurl(full_src Str, all_toks Tokens, toks Tokens, all_toks_idx int) AstExprLitCurl {
-	per_item_toks := toksSplit(toks, full_src, tok_kind_sep_comma)
-	ret_lit := AstExprLitCurl(allocˇ2AstExpr(len(per_item_toks)))
-	toks_idx := all_toks_idx
-	for i, this_item_toks := range per_item_toks {
-		tok_idx_colon := toksIndexOfFirst(this_item_toks, tok_kind_sep_colon)
-		if tok_idx_colon <= 0 || tok_idx_colon == len(this_item_toks)-1 {
-			fail("expr expected both before and after a ':' separator:\n", toksSrcStr(this_item_toks, full_src))
-		}
-		ret_lit[i][0] = parseExpr(full_src, all_toks, this_item_toks[0:tok_idx_colon], toks_idx)
-		ret_lit[i][1] = parseExpr(full_src, all_toks, this_item_toks[tok_idx_colon+1:], toks_idx+tok_idx_colon+1)
-		toks_idx += len(this_item_toks)
-	}
-	return ret_lit
+	return ret_exprs
 }

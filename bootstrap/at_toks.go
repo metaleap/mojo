@@ -247,6 +247,33 @@ func toksIndexOfLast(toks Tokens, kind TokenKind) int {
 	return -1
 }
 
+func toksIndexOfMatchingBracket(toks Tokens) int {
+	tok_open := toks[0].kind
+	tok_close := tok_kind_none
+	switch tok_open {
+	case tok_kind_sep_bcurly_open:
+		tok_close = tok_kind_sep_bcurly_close
+	case tok_kind_sep_bparen_open:
+		tok_close = tok_kind_sep_bparen_close
+	case tok_kind_sep_bsquare_open:
+		tok_close = tok_kind_sep_bsquare_close
+	}
+	assert(tok_close != tok_kind_none)
+	level := 0
+	for i := range toks {
+		switch toks[i].kind {
+		case tok_open:
+			level++
+		case tok_close:
+			level--
+			if level == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
 func toksSplit(toks Tokens, full_src Str, tok_kind TokenKind) []Tokens {
 	assert(tok_kind != tok_kind_sep_bcurly_open && tok_kind != tok_kind_sep_bcurly_close &&
 		tok_kind != tok_kind_sep_bparen_open && tok_kind != tok_kind_sep_bparen_close &&

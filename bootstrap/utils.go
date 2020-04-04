@@ -99,10 +99,9 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	return ret_str
 }
 
-func allocˇu8(len int) Str                { return make(Str, len) }
-func allocˇToken(len int) Tokens          { return make(Tokens, len) }
-func allocˇTokens(len int) []Tokens       { return make([]Tokens, len) }
-func allocˇAstDef(len int) []AstDef       { return make([]AstDef, len) }
-func allocˇAstExpr(len int) []AstExpr     { return make([]AstExpr, len) }
-func allocˇ2AstExpr(len int) [][2]AstExpr { return make([][2]AstExpr, len) }
-func allocˇStrNamed(len int) []StrNamed   { return make([]StrNamed, len) }
+func allocˇu8(len int) Str              { return make(Str, len) }
+func allocˇToken(len int) Tokens        { return make(Tokens, len) }
+func allocˇTokens(len int) []Tokens     { return make([]Tokens, len) }
+func allocˇAstDef(len int) []AstDef     { return make([]AstDef, len) }
+func allocˇAstExpr(len int) []AstExpr   { return make([]AstExpr, len) }
+func allocˇStrNamed(len int) []StrNamed { return make([]StrNamed, len) }
