@@ -35,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	toks := tokenize(input_src_file_bytes, false)
+	toks := tokenize(input_src_file_bytes)
 	assert(len(toks) != 0)
 
 	ast := parse(toks, input_src_file_bytes)

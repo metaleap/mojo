@@ -19,51 +19,11 @@ const (
 	tok_kind_sep_bsquare_close
 	tok_kind_sep_comma
 	tok_kind_sep_colon
-	tok_kind_sep_colon_eq
+	tok_kind_sep_def
 	tok_kind_sep_semicolon
 )
 
 type Tokens []Token
-
-func toksSrcStr(toks Tokens, full_src Str) Str {
-	first, last := &toks[0], &toks[len(toks)-1]
-	return full_src[first.idx : last.idx+last.len]
-}
-
-func toksIndentBasedChunks(toks Tokens) []Tokens {
-	cmp_pos_col := tokPosCol(&toks[0])
-	for i := range toks {
-		if pos_col := tokPosCol(&toks[i]); pos_col < cmp_pos_col {
-			cmp_pos_col = pos_col
-		}
-	}
-	var num_chunks int
-	for i := range toks {
-		if i == 0 || tokPosCol(&toks[i]) <= cmp_pos_col {
-			num_chunks++
-		}
-	}
-	ret := make([]Tokens, num_chunks)
-	{
-		start_from, next_idx := -1, 0
-		for i := range toks {
-			tok := &toks[i]
-			if i == 0 || tokPosCol(tok) <= cmp_pos_col {
-				if start_from != -1 {
-					ret[next_idx] = toks[start_from:i]
-					next_idx++
-				}
-				start_from = i
-			}
-		}
-		if start_from != -1 {
-			ret[next_idx] = toks[start_from:]
-			next_idx++
-		}
-		assert(next_idx == num_chunks)
-	}
-	return ret
-}
 
 type Token struct {
 	idx      int
@@ -73,9 +33,7 @@ type Token struct {
 	kind     TokenKind
 }
 
-func tokPosCol(tok *Token) int { return tok.idx - tok.line_idx }
-
-func tokenize(full_src Str, include_comments bool) Tokens {
+func tokenize(full_src Str) Tokens {
 	i, cur_line_nr, cur_line_idx, toks_count := 0, 0, 0, 0
 	tok_start, tok_last := -1, -1
 	var state TokenKind = tok_kind_none
@@ -141,7 +99,7 @@ func tokenize(full_src Str, include_comments bool) Tokens {
 					if i < len(full_src)-1 && full_src[i+1] == '=' {
 						tok_last = i + 1
 						tok_start = i
-						state = tok_kind_sep_colon_eq
+						state = tok_kind_sep_def
 						i++
 					} else {
 						tok_last = i
@@ -173,7 +131,7 @@ func tokenize(full_src Str, include_comments bool) Tokens {
 			if state == tok_kind_none || tok_start == -1 {
 				unreachable()
 			}
-			if state != tok_kind_comment || include_comments {
+			{
 				tok_len := (tok_last - tok_start) + 1
 				toks[toks_count] = Token{
 					kind:     state,
@@ -196,7 +154,7 @@ func tokenize(full_src Str, include_comments bool) Tokens {
 	if tok_start != -1 {
 		if state == tok_kind_none {
 			unreachable()
-		} else if state != tok_kind_comment || include_comments {
+		} else {
 			tok_len := i - tok_start
 			toks[toks_count] = Token{
 				kind:     state,
@@ -209,4 +167,64 @@ func tokenize(full_src Str, include_comments bool) Tokens {
 		}
 	}
 	return toks[0:toks_count]
+}
+
+func tokPosCol(tok *Token) int { return tok.idx - tok.line_idx }
+
+func toksSrcStr(toks Tokens, full_src Str) Str {
+	first, last := &toks[0], &toks[len(toks)-1]
+	return full_src[first.idx : last.idx+last.len]
+}
+
+func toksIndentBasedChunks(toks Tokens) []Tokens {
+	cmp_pos_col := tokPosCol(&toks[0])
+	for i := range toks {
+		if pos_col := tokPosCol(&toks[i]); pos_col < cmp_pos_col {
+			cmp_pos_col = pos_col
+		}
+	}
+	var num_chunks int
+	for i := range toks {
+		if i == 0 || tokPosCol(&toks[i]) <= cmp_pos_col {
+			num_chunks++
+		}
+	}
+	ret := make([]Tokens, num_chunks)
+	{
+		start_from, next_idx := -1, 0
+		for i := range toks {
+			tok := &toks[i]
+			if i == 0 || tokPosCol(tok) <= cmp_pos_col {
+				if start_from != -1 {
+					ret[next_idx] = toks[start_from:i]
+					next_idx++
+				}
+				start_from = i
+			}
+		}
+		if start_from != -1 {
+			ret[next_idx] = toks[start_from:]
+			next_idx++
+		}
+		assert(next_idx == num_chunks)
+	}
+	return ret
+}
+
+func toksIndexOfFirst(toks Tokens, kind TokenKind) int {
+	for i := range toks {
+		if toks[i].kind == kind {
+			return i
+		}
+	}
+	return -1
+}
+
+func toksIndexOfLast(toks Tokens, kind TokenKind) int {
+	for i := len(toks) - 1; i >= 0; i-- {
+		if toks[i].kind == kind {
+			return i
+		}
+	}
+	return -1
 }

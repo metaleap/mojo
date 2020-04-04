@@ -54,3 +54,11 @@ type AstNameRef struct {
 func astDefGatherAndRewriteLitStrs(def *AstDef, into [][2]Str, idx int) int {
 	return idx
 }
+
+func astNodeToks(node *AstNode, all_toks Tokens) Tokens {
+	return all_toks[node.toks_idx : node.toks_idx+node.toks_len]
+}
+
+func astNodeSrcStr(node *AstNode, full_src Str, all_toks Tokens) Str {
+	return toksSrcStr(astNodeToks(node, all_toks), full_src)
+}
