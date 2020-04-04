@@ -6,13 +6,16 @@ very low-level (thus unidiomatic) code because we want to have a code base we ca
 transliterate into the initial language iteration that's largely LLVM-IR-like
 (just somewhat more human-readable/writable), hence:
 
-- program input and output remain as `type Str = []byte`, not `string`s
-- no `append`s, instead use of usually-over-sized but non-growing buffer-ish
-  arrays (with ad-hoc inline custom `len` tracking)
-- all `make` / `new` to be replaced by custom fixed-buffer allocator scheme
-- no (non-empty) interface type decls, just empty `interface{}` with type
-  switches, for later transliterating into pseudo-tagged-union-ish style
-- no methods or struct-embeds, no big point when losing them anyway in IR
+- no 3rd-party imports whatsoever
+- no stdlib imports for core processing (just program setup & I/O)
+  (hence manual implementations like uintToStr, uintFromStr, join etc)
+- program input and output remain as `type Str = []byte`, no use of `string`s
+- no `append`s, instead use of usually-over-sized but non-growing arrays being
+  sliced by means of ad-hoc inline "custom" / "manual" `len` tracking
+- all `make` / `new` to be replaced by custom fixed-buffer allocation scheme
+- no (non-empty) interface type decls, just empty `interface{}` with type switch
+  where needed, for later transliterating into low-level tagged-union-ish style
+- no methods or struct-embeds, no point because we won't have them in IR either
 
 */
 

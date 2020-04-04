@@ -26,7 +26,7 @@ func assert(b bool) {
 }
 
 func unreachable() {
-	panic("reached unreachable, backtrace:")
+	fail("reached unreachable, backtrace:")
 }
 
 func fail(msg_parts ...Any) {
@@ -40,3 +40,19 @@ func fail(msg_parts ...Any) {
 	}
 	panic(msg_parts[len(msg_parts)-1])
 }
+
+func uintFromStr(str Str) uint64 {
+	assert(len(str) > 0)
+	var mult uint64 = 1
+	var ret uint64
+	for i := len(str) - 1; i >= 0; i-- {
+		if str[i] < '0' || str[i] > '9' {
+			fail("malformed uint literal: ", str)
+		}
+		ret += mult * uint64(str[i]-48)
+		mult *= 10
+	}
+	return ret
+}
+
+// func uintToStr(n uint64)
