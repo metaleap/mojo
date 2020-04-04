@@ -103,4 +103,5 @@ func allocˇu8(len int) Str              { return make(Str, len) }
 func allocˇToken(len int) Tokens        { return make(Tokens, len) }
 func allocˇTokens(len int) []Tokens     { return make([]Tokens, len) }
 func allocˇAstDef(len int) []AstDef     { return make([]AstDef, len) }
+func allocˇAstExpr(len int) []AstExpr   { return make([]AstExpr, len) }
 func allocˇStrNamed(len int) []StrNamed { return make([]StrNamed, len) }

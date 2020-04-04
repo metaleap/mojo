@@ -91,5 +91,12 @@ func parseExprLitStr(lit_src Str) Str {
 }
 
 func parseExprLitList(full_src Str, all_toks Tokens, toks Tokens, all_toks_idx int) AstExprLitList {
-	panic("TODO")
+	per_item_toks := toksSplit(toks, full_src, tok_kind_sep_comma)
+	ret_lit := AstExprLitList(allocˇAstExpr(len(per_item_toks)))
+	toks_idx := all_toks_idx
+	for i, this_item_toks := range per_item_toks {
+		ret_lit[i] = parseExpr(full_src, all_toks, this_item_toks, toks_idx)
+		toks_idx += len(this_item_toks)
+	}
+	return ret_lit
 }
