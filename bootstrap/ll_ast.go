@@ -119,8 +119,8 @@ const (
 )
 
 type LLExprPhi struct {
-	ty    LLType
-	preds []struct {
+	ty           LLType
+	predecessors []struct {
 		expr       LLExpr
 		block_name Str
 	}
@@ -129,7 +129,7 @@ type LLExprPhi struct {
 type LLExprGep struct {
 	ty       LLType
 	base_ptr LLExprTyped
-	idxs     []LLExprTyped
+	indices  []LLExprTyped
 }
 
 type LLTypeInt struct {

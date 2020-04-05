@@ -330,9 +330,27 @@ func llEmitExprCmpI(ll_expr_cmp_i *LLExprCmpI) {
 }
 
 func llEmitExprPhi(ll_expr_phi *LLExprPhi) {
-
+	write(Str("phi "))
+	llEmit(ll_expr_phi.ty)
+	for i := range ll_expr_phi.predecessors {
+		if i > 0 {
+			write(Str(","))
+		}
+		write(Str(" ["))
+		llEmit(ll_expr_phi.predecessors[i].expr)
+		write(Str(", %"))
+		write(ll_expr_phi.predecessors[i].block_name)
+		write(Str("]"))
+	}
 }
 
 func llEmitExprGep(ll_expr_gep *LLExprGep) {
-
+	write(Str("getelementptr "))
+	llEmit(ll_expr_gep.ty)
+	write(Str(", "))
+	llEmit(ll_expr_gep.base_ptr)
+	for i := range ll_expr_gep.indices {
+		write(Str(", "))
+		llEmit(ll_expr_gep.indices[i])
+	}
 }
