@@ -12,7 +12,28 @@ func llModule(ast *Ast) LLModule {
 	}
 	num_globals, num_funcs := 0, 0
 
+	for i := range ast.defs {
+		top_def := &ast.defs[i]
+		top_def_name := astDefName(top_def)
+		switch body := top_def.body.kind.(type) {
+		case AstExprLitStr:
+			ret_mod.globals[num_globals] = llGlobalFromLitStr(top_def_name, body)
+			num_globals++
+		default:
+			panic(body)
+		}
+	}
+
 	ret_mod.globals = ret_mod.globals[0:num_globals]
 	ret_mod.funcs = ret_mod.funcs[0:num_funcs]
 	return ret_mod
+}
+
+func llGlobalFromLitStr(name Str, body AstExprLitStr) LLGlobal {
+	return LLGlobal{
+		name:        name,
+		constant:    true,
+		ty:          LLTypeArr{size: len(body), ty: LLTypeInt{bit_width: 8}},
+		initializer: LLExprLitStr(body),
+	}
 }
