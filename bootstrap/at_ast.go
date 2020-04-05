@@ -88,27 +88,25 @@ func astDefGatherAndRewriteLitStrs(def *AstDef, into []StrNamed, idx int) int {
 }
 
 func astExprGatherAndRewriteLitStrs(expr *AstExpr, into []StrNamed, idx int) int {
-	if !astExprIsBuiltin(expr) {
-		switch expr_kind := expr.kind.(type) {
-		case AstExprForm:
-			for i := range expr_kind {
-				idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
-			}
-		case AstExprLitCurl:
-			for i := range expr_kind {
-				idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
-			}
-		case AstExprLitClip:
-			for i := range expr_kind {
-				idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
-			}
-		case AstExprLitStr:
-			counter++
-			new_name := uintToStr(counter, 10, 1, Str(".str_"))
-			expr.kind = AstExprIdent(new_name)
-			into[idx] = StrNamed{name: new_name, value: expr_kind}
-			idx++
+	switch expr_kind := expr.kind.(type) {
+	case AstExprForm:
+		for i := range expr_kind {
+			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
 		}
+	case AstExprLitCurl:
+		for i := range expr_kind {
+			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
+		}
+	case AstExprLitClip:
+		for i := range expr_kind {
+			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
+		}
+	case AstExprLitStr:
+		counter++
+		new_name := uintToStr(counter, 10, 1, Str(".str_"))
+		expr.kind = AstExprIdent(new_name)
+		into[idx] = StrNamed{name: new_name, value: expr_kind}
+		idx++
 	}
 	return idx
 }

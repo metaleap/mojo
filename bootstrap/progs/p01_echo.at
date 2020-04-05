@@ -10,20 +10,20 @@ intro_msg :=
   "I'll echo what you enter, up until EOF aka Ctrl+D...\010"
 
 
-main := /fn /I32 {}
-        /case ok { /true: 0, /else: 1 }
+main := /fun /I32 {}
+        /switch ok { /true: 0, /default: 1 }
 
-  ok          := /case (/opNe n_out_intro len_str) {
+  ok          := /switch (/opNe n_out_intro len_str) {
                     /true: /false,
-                    /else: maybe
+                    /default: maybe
                   }
-  maybe       := /case (/opEq n_in_read 0) {
+  maybe       := /switch (/opEq n_in_read 0) {
                     /false: /opEq n_out_echo n_in_read,
-                    /else: /true, //# todo: check errs
+                    /default: /true, //# todo: check errs
                   }
   n_out_intro := /call {} libcFWrite intro_msg 1 len_str libc_stdout
   n_in_read   := /call {} libcFRead buf 1 buf_size libc_stdin
   n_out_echo  := /call {} libcFWrite buf 1 n_in_read libc_stdout
   buf         := /alloca /I8 buf_size
   buf_size    := 512
-  len_str     := /len intro_msg
+  len_str     := /lenOf intro_msg

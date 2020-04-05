@@ -1,0 +1,29 @@
+
+libcFRead   := /extFn "fread" /I64 { buf: /*, size: /I64, count: /I64, stream: /* }
+libcFWrite  := /extFn "fwrite" /I64 { buf: /*, size: /I64, count: /I64, stream: /* }
+libcFError  := /extFn "ferror" /I32 { buf: /* }
+libc_stdout := /extVar "stdout" /*
+libc_stdin  := /extVar "stdin" /*
+
+
+intro_msg :=
+  "I'll echo what you enter, up until EOF aka Ctrl+D...\010"
+
+
+main := /fun /I32 {}
+        /switch ok { /true: 0, /default: 1 }
+
+  ok          := /switch (/opNe n_out_intro len_str) {
+                    /true: /false,
+                    /default: maybe
+                  }
+  maybe       := /switch (/opEq n_in_read 0) {
+                    /false: /opEq n_out_echo n_in_read,
+                    /default: /true, //# todo: check errs
+                  }
+  n_out_intro := /call {} libcFWrite intro_msg 1 len_str libc_stdout
+  n_in_read   := /call {} libcFRead buf 1 buf_size libc_stdin
+  n_out_echo  := /call {} libcFWrite buf 1 n_in_read libc_stdout
+  buf         := /alloca /I8 buf_size
+  buf_size    := 512
+  len_str     := /lenOf intro_msg

@@ -45,5 +45,5 @@ func main() {
 	ast := parse(toks, input_src_file_bytes)
 	assert(len(ast.defs) != 0)
 
-	println(len(toks), len(ast.defs))
+	println(len(toks), "\t\t", len(ast.defs))
 }

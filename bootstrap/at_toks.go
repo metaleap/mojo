@@ -224,17 +224,8 @@ func toksIndentBasedChunks(toks Tokens) []Tokens {
 	return ret
 }
 
-func toksIndexOfFirst(toks Tokens, kind TokenKind) int {
+func toksIndexOfKind(toks Tokens, kind TokenKind) int {
 	for i := range toks {
-		if toks[i].kind == kind {
-			return i
-		}
-	}
-	return -1
-}
-
-func toksIndexOfLast(toks Tokens, kind TokenKind) int {
-	for i := len(toks) - 1; i >= 0; i-- {
 		if toks[i].kind == kind {
 			return i
 		}

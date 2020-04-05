@@ -40,7 +40,7 @@ func parse(all_toks Tokens, full_src Str) Ast {
 
 func parseDef(full_src Str, all_toks Tokens, dst_def *AstDef) {
 	toks := astNodeToks(&dst_def.base, all_toks)
-	tok_idx_def := toksIndexOfFirst(toks, tok_kind_sep_def)
+	tok_idx_def := toksIndexOfKind(toks, tok_kind_sep_def)
 	if tok_idx_def <= 0 || tok_idx_def == len(toks)-1 {
 		fail("expected '<head_expr> := <body_expr>', near:\n", astNodeSrcStr(&dst_def.base, full_src, all_toks))
 	}
