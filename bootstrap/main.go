@@ -32,7 +32,6 @@ func main() {
 	runtime.LockOSThread()
 	debug.SetGCPercent(-1)
 	runtime.GOMAXPROCS(1)
-	debug.SetMaxThreads(6) // should be 1 really, but Go has other ideas.. anything under 6 runtime-panics, ridiculously.
 
 	input_src_file_name := os.Args[1]
 	input_src_file_bytes, err := ioutil.ReadFile(input_src_file_name)

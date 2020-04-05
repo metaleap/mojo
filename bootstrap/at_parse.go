@@ -1,6 +1,6 @@
 package main
 
-func parse(all_toks Tokens, full_src Str) Ast {
+func parse(all_toks []Token, full_src Str) Ast {
 	chunks := toksIndentBasedChunks(all_toks)
 	ret_ast := Ast{
 		src:  full_src,
@@ -22,7 +22,7 @@ func parse(all_toks Tokens, full_src Str) Ast {
 	num_str_lits := 0
 	for i := range ret_ast.defs[0:len(chunks)] {
 		this_top_def := &ret_ast.defs[i]
-		gathered := allocˇStrNamed(4)
+		gathered := allocˇStrNamed(32)
 		num := astDefGatherAndRewriteLitStrs(this_top_def, gathered, 0)
 		for j := range gathered[0:num] {
 			ret_ast.defs[len(chunks)+num_str_lits] = AstDef{
@@ -38,7 +38,7 @@ func parse(all_toks Tokens, full_src Str) Ast {
 	return ret_ast
 }
 
-func parseDef(full_src Str, all_toks Tokens, dst_def *AstDef) {
+func parseDef(full_src Str, all_toks []Token, dst_def *AstDef) {
 	toks := astNodeToks(&dst_def.base, all_toks)
 	tok_idx_def := toksIndexOfKind(toks, tok_kind_sep_def)
 	if tok_idx_def <= 0 || tok_idx_def == len(toks)-1 {
@@ -63,7 +63,7 @@ func parseDef(full_src Str, all_toks Tokens, dst_def *AstDef) {
 	}
 }
 
-func parseExpr(full_src Str, all_toks Tokens, expr_toks Tokens, all_toks_idx int) AstExpr {
+func parseExpr(full_src Str, all_toks []Token, expr_toks []Token, all_toks_idx int) AstExpr {
 	acc_ret := allocˇAstExpr(len(expr_toks))
 	acc_len := 0
 	for i := 0; i < len(expr_toks); i++ {
@@ -81,10 +81,11 @@ func parseExpr(full_src Str, all_toks Tokens, expr_toks Tokens, all_toks_idx int
 				kind: AstExprLitStr(parseExprLitStr(tok_str)),
 			}
 		case tok_kind_sep_bcurly_open, tok_kind_sep_bsquare_open, tok_kind_sep_bparen_open:
-			idx_close := i + toksIndexOfMatchingBracket(expr_toks[i:])
+			idx_close := toksIndexOfMatchingBracket(expr_toks[i:])
 			if idx_close < 0 {
 				fail("no matching closing bracket near:", toksSrcStr(expr_toks, full_src))
 			}
+			idx_close += i
 			if tok_kind == tok_kind_sep_bparen_open {
 				acc_ret[acc_len] = parseExpr(full_src, all_toks,
 					expr_toks[i+1:idx_close], all_toks_idx+i+1)
@@ -145,7 +146,7 @@ func parseExprLitStr(lit_src Str) Str {
 	return ret_str[0:ret_len]
 }
 
-func parseExprsDelimited(full_src Str, all_toks Tokens, toks Tokens, all_toks_idx int, tok_kind_sep TokenKind) []AstExpr {
+func parseExprsDelimited(full_src Str, all_toks []Token, toks []Token, all_toks_idx int, tok_kind_sep TokenKind) []AstExpr {
 	per_item_toks := toksSplit(toks, full_src, tok_kind_sep)
 	ret_exprs := allocˇAstExpr(len(per_item_toks))
 	toks_idx := all_toks_idx

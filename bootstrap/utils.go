@@ -45,7 +45,8 @@ func fail(msg_parts ...Any) {
 			print(msg_part)
 		}
 	}
-	panic("\n\n__________\nBACKTRACE:")
+	print("\n\n")
+	panic("\n__________\nBACKTRACE:")
 }
 
 func strEql(one Str, two Str) bool {
@@ -114,9 +115,14 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	return ret_str
 }
 
+/*
+	why have the below instead of direct explicit `make()` calls everywhere?
+	later want to move from OS heap allocs to a pre-alloc'd fixed-size buffer.
+*/
+
 func allocˇu8(len int) Str                  { return make(Str, len) }
-func allocˇToken(len int) Tokens            { return make(Tokens, len) }
-func allocˇTokens(len int) []Tokens         { return make([]Tokens, len) }
+func allocˇToken(len int) []Token           { return make([]Token, len) }
+func allocˇTokens(len int) [][]Token        { return make([][]Token, len) }
 func allocˇAstDef(len int) []AstDef         { return make([]AstDef, len) }
 func allocˇAstExpr(len int) []AstExpr       { return make([]AstExpr, len) }
 func allocˇAstNameRef(len int) []AstNameRef { return make([]AstNameRef, len) }

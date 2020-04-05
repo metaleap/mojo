@@ -19,8 +19,8 @@ func llModule(ast *Ast) LLModule {
 		case AstExprLitStr:
 			ret_mod.globals[num_globals] = llGlobalFromLitStr(top_def_name, body)
 			num_globals++
-		default:
-			panic(body)
+			// default:
+			// 	panic(body)
 		}
 	}
 

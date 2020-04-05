@@ -2,7 +2,7 @@ package main
 
 type Ast struct {
 	src   Str
-	toks  Tokens
+	toks  []Token
 	defs  []AstDef
 	scope AstScopes
 }
@@ -52,11 +52,11 @@ func astNodeFrom(toks_idx int, toks_len int) AstNode {
 	return AstNode{toks_idx: toks_idx, toks_len: toks_len}
 }
 
-func astNodeToks(node *AstNode, all_toks Tokens) Tokens {
+func astNodeToks(node *AstNode, all_toks []Token) []Token {
 	return all_toks[node.toks_idx : node.toks_idx+node.toks_len]
 }
 
-func astNodeSrcStr(node *AstNode, full_src Str, all_toks Tokens) Str {
+func astNodeSrcStr(node *AstNode, full_src Str, all_toks []Token) Str {
 	return toksSrcStr(astNodeToks(node, all_toks), full_src)
 }
 

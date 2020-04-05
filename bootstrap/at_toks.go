@@ -22,8 +22,6 @@ const (
 	tok_kind_sep_def
 )
 
-type Tokens []Token
-
 type Token struct {
 	idx      int
 	len      int
@@ -32,7 +30,7 @@ type Token struct {
 	kind     TokenKind
 }
 
-func tokenize(full_src Str) Tokens {
+func tokenize(full_src Str) []Token {
 	i, cur_line_nr, cur_line_idx, toks_count := 0, 0, 0, 0
 	tok_start, tok_last := -1, -1
 	var state TokenKind = tok_kind_none
@@ -166,10 +164,16 @@ func tokenize(full_src Str) Tokens {
 
 func tokPosCol(tok *Token) int { return tok.idx - tok.line_idx }
 
-func toksCountUnnested(toks Tokens, full_src Str, tok_kind TokenKind) int {
-	assert(tok_kind != tok_kind_sep_bcurly_open && tok_kind != tok_kind_sep_bcurly_close &&
-		tok_kind != tok_kind_sep_bparen_open && tok_kind != tok_kind_sep_bparen_close &&
-		tok_kind != tok_kind_sep_bsquare_open && tok_kind != tok_kind_sep_bsquare_close)
+func tokIsOpening(tok_kind TokenKind) bool {
+	return tok_kind == tok_kind_sep_bcurly_open || tok_kind == tok_kind_sep_bparen_open || tok_kind == tok_kind_sep_bsquare_open
+}
+
+func tokIsClosing(tok_kind TokenKind) bool {
+	return tok_kind == tok_kind_sep_bcurly_close || tok_kind == tok_kind_sep_bparen_close || tok_kind == tok_kind_sep_bsquare_close
+}
+
+func toksCountUnnested(toks []Token, full_src Str, tok_kind TokenKind) int {
+	assert(!(tokIsOpening(tok_kind) || tokIsClosing(tok_kind)))
 
 	ret_num := 0
 	level := 0
@@ -177,9 +181,9 @@ func toksCountUnnested(toks Tokens, full_src Str, tok_kind TokenKind) int {
 		tok := &toks[i]
 		if tok.kind == tok_kind && level == 0 {
 			ret_num++
-		} else if tok.kind == tok_kind_sep_bcurly_open || tok.kind == tok_kind_sep_bparen_open || tok.kind == tok_kind_sep_bsquare_open {
+		} else if tokIsOpening(tok.kind) {
 			level++
-		} else if tok.kind == tok_kind_sep_bcurly_close || tok.kind == tok_kind_sep_bparen_close || tok.kind == tok_kind_sep_bsquare_close {
+		} else if tokIsClosing(tok.kind) {
 			level--
 			if level < 0 {
 				fail("brackets mismatch near:\n", toksSrcStr(toks, full_src))
@@ -189,19 +193,22 @@ func toksCountUnnested(toks Tokens, full_src Str, tok_kind TokenKind) int {
 	return ret_num
 }
 
-func toksIndentBasedChunks(toks Tokens) []Tokens {
+func toksIndentBasedChunks(toks []Token) [][]Token {
 	cmp_pos_col := tokPosCol(&toks[0])
 	for i := range toks {
-		if pos_col := tokPosCol(&toks[i]); pos_col < cmp_pos_col {
+		tok := &toks[i]
+		if pos_col := tokPosCol(tok); pos_col < cmp_pos_col {
 			cmp_pos_col = pos_col
 		}
 	}
+
 	var num_chunks int
 	for i := range toks {
 		if i == 0 || tokPosCol(&toks[i]) <= cmp_pos_col {
 			num_chunks++
 		}
 	}
+
 	ret := allocˇTokens(num_chunks)
 	{
 		start_from, next_idx := -1, 0
@@ -224,7 +231,7 @@ func toksIndentBasedChunks(toks Tokens) []Tokens {
 	return ret
 }
 
-func toksIndexOfKind(toks Tokens, kind TokenKind) int {
+func toksIndexOfKind(toks []Token, kind TokenKind) int {
 	for i := range toks {
 		if toks[i].kind == kind {
 			return i
@@ -233,7 +240,7 @@ func toksIndexOfKind(toks Tokens, kind TokenKind) int {
 	return -1
 }
 
-func toksIndexOfMatchingBracket(toks Tokens) int {
+func toksIndexOfMatchingBracket(toks []Token) int {
 	tok_open := toks[0].kind
 	tok_close := tok_kind_none
 	switch tok_open {
@@ -260,10 +267,8 @@ func toksIndexOfMatchingBracket(toks Tokens) int {
 	return -1
 }
 
-func toksSplit(toks Tokens, full_src Str, tok_kind TokenKind) []Tokens {
-	assert(tok_kind != tok_kind_sep_bcurly_open && tok_kind != tok_kind_sep_bcurly_close &&
-		tok_kind != tok_kind_sep_bparen_open && tok_kind != tok_kind_sep_bparen_close &&
-		tok_kind != tok_kind_sep_bsquare_open && tok_kind != tok_kind_sep_bsquare_close)
+func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
+	assert(!(tokIsOpening(tok_kind) || tokIsClosing(tok_kind)))
 
 	ret_toks := allocˇTokens(1 + toksCountUnnested(toks, full_src, tok_kind))
 	ret_idx := 0
@@ -279,9 +284,9 @@ func toksSplit(toks Tokens, full_src Str, tok_kind TokenKind) []Tokens {
 					ret_idx++
 				}
 				start_from = i + 1
-			} else if tok.kind == tok_kind_sep_bcurly_open || tok.kind == tok_kind_sep_bparen_open || tok.kind == tok_kind_sep_bsquare_open {
+			} else if tokIsOpening(tok.kind) {
 				level++
-			} else if tok.kind == tok_kind_sep_bcurly_close || tok.kind == tok_kind_sep_bparen_close || tok.kind == tok_kind_sep_bsquare_close {
+			} else if tokIsClosing(tok.kind) {
 				level--
 				if level < 0 {
 					fail("brackets mismatch near:\n", toksSrcStr(toks, full_src))
@@ -297,7 +302,7 @@ func toksSplit(toks Tokens, full_src Str, tok_kind TokenKind) []Tokens {
 	return ret_toks[0:ret_idx]
 }
 
-func toksSrcStr(toks Tokens, full_src Str) Str {
+func toksSrcStr(toks []Token, full_src Str) Str {
 	first, last := &toks[0], &toks[len(toks)-1]
 	return full_src[first.idx : last.idx+last.len]
 }

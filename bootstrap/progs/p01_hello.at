@@ -1,0 +1,16 @@
+
+libcFRead   := /extFun "fread" /I64 { buf: /P, size: /I64, count: /I64, stream: /P }
+libcFWrite  := /extFun "fwrite" /I64 { buf: /P, size: /I64, count: /I64, stream: /P }
+libcFError  := /extFun "ferror" /I32 { buf: /P }
+libc_stdout := /extVar "stdout" /P
+libc_stdin  := /extVar "stdin" /P
+
+
+intro_msg :=
+  "Well hello there"
+
+
+main :=
+  /defFun /I32 {} {
+      foo: bar,
+    }
