@@ -30,8 +30,8 @@ type LLFunc struct {
 }
 
 type LLBasicBlock struct {
-	name       Str
-	statements []LLStmt
+	name  Str
+	stmts []LLStmt
 }
 
 type LLStmtLet struct {
@@ -39,7 +39,9 @@ type LLStmtLet struct {
 	expr LLExpr
 }
 
-type LLStmtRet LLExprTyped
+type LLStmtRet struct {
+	expr LLExprTyped
+}
 
 type LLStmtSwitch struct {
 	comparee           LLExprTyped
@@ -132,7 +134,7 @@ type LLExprGep struct {
 }
 
 type LLTypeInt struct {
-	bit_width int
+	bit_width int32 // i23 really..
 }
 
 type LLTypePtr struct {
@@ -144,7 +146,7 @@ type LLTypeArr struct {
 	size int
 }
 
-type LLTypeAgg struct {
+type LLTypeStruct struct {
 	fields []LLType
 }
 

@@ -8,6 +8,26 @@ func llEmit(ll_something Any) {
 		llEmitGlobal(ll)
 	case *LLFunc:
 		llEmitFunc(ll)
+	case *LLBasicBlock:
+		llEmitBlock(ll)
+	case LLStmtBr:
+		llEmitStmtBr(&ll)
+	case LLStmtRet:
+		llEmitStmtRet(&ll)
+	case LLStmtLet:
+		llEmitStmtLet(&ll)
+	case LLStmtSwitch:
+		llEmitStmtSwitch(&ll)
+	case LLTypeInt:
+		llEmitTypeInt(&ll)
+	case LLTypePtr:
+		llEmitTypePtr(&ll)
+	case LLTypeArr:
+		llEmitTypeArr(&ll)
+	case LLTypeStruct:
+		llEmitTypeStruct(&ll)
+	case LLTypeFun:
+		llEmitTypeFun(&ll)
 	case LLType, LLExpr, LLStmt:
 		switch ll_other := ll.(type) {
 		default:
@@ -81,4 +101,89 @@ func llEmitFunc(ll_func *LLFunc) {
 		}
 		write(Str("}\n"))
 	}
+}
+
+func llEmitBlock(ll_block *LLBasicBlock) {
+	write(ll_block.name)
+	write(Str(":\n"))
+	for i := range ll_block.stmts {
+		write(Str("  "))
+		llEmit(&ll_block.stmts[i])
+		write(Str("\n"))
+	}
+}
+
+func llEmitStmtBr(ll_stmt_br *LLStmtBr) {
+	write(Str("br label %"))
+	write(ll_stmt_br.block_name)
+}
+
+func llEmitStmtRet(ll_stmt_ret *LLStmtRet) {
+	write(Str("ret "))
+	llEmit(ll_stmt_ret.expr)
+}
+
+func llEmitStmtLet(ll_stmt_let *LLStmtLet) {
+	write(Str("%"))
+	write(ll_stmt_let.name)
+	write(Str(" = "))
+	llEmit(ll_stmt_let.expr)
+}
+
+func llEmitStmtSwitch(ll_stmt_switch *LLStmtSwitch) {
+	write(Str("switch"))
+	llEmit(ll_stmt_switch.comparee)
+	write(Str(", label %"))
+	llEmit(ll_stmt_switch.default_block_name)
+	write(Str(" ["))
+	for i := range ll_stmt_switch.cases {
+		llEmit(ll_stmt_switch.cases[i].expr)
+		write(Str(", label %"))
+		write(ll_stmt_switch.cases[i].block_name)
+		if i > 0 {
+			write(Str(",\n    "))
+		}
+	}
+	write(Str("]"))
+}
+
+func llEmitTypeInt(ll_type_int *LLTypeInt) {
+	write(Str("i"))
+	write(uintToStr(uint64(ll_type_int.bit_width), 10, 1, nil))
+}
+
+func llEmitTypePtr(ll_type_ptr *LLTypePtr) {
+	llEmit(ll_type_ptr.ty)
+	write(Str("*"))
+}
+
+func llEmitTypeArr(ll_type_arr *LLTypeArr) {
+	write(Str("["))
+	write(uintToStr(uint64(ll_type_arr.size), 10, 1, nil))
+	write(Str(" x "))
+	llEmit(ll_type_arr.ty)
+	write(Str("]"))
+}
+
+func llEmitTypeStruct(ll_type_struct *LLTypeStruct) {
+	write(Str("{"))
+	for i := range ll_type_struct.fields {
+		if i > 0 {
+			write(Str(", "))
+		}
+		llEmit(ll_type_struct.fields[i])
+	}
+	write(Str("}"))
+}
+
+func llEmitTypeFun(ll_type_fun *LLTypeFun) {
+	llEmit(ll_type_fun.ty)
+	write(Str("("))
+	for i := range ll_type_fun.params {
+		if i > 0 {
+			write(Str(", "))
+		}
+		llEmit(ll_type_fun.params[i])
+	}
+	write(Str(")"))
 }
