@@ -60,12 +60,25 @@ func astNodeSrcStr(node *AstNode, full_src Str, all_toks Tokens) Str {
 	return toksSrcStr(astNodeToks(node, all_toks), full_src)
 }
 
+func astExprIsLitStr(expr *AstExpr) bool {
+	_, ok := expr.kind.(AstExprLitStr)
+	return ok
+}
+
+func astExprIsBuiltin(expr *AstExpr) bool {
+	switch expr_kind := expr.kind.(type) {
+	case AstExprIdent:
+		return expr_kind[0] == '/'
+	case AstExprForm:
+		ident, ok := expr_kind[0].kind.(AstExprIdent)
+		return ok && ident[0] == '/'
+	}
+	return false
+}
+
 func astDefGatherAndRewriteLitStrs(def *AstDef, into []StrNamed, idx int) int {
-	if def.is_top_def {
-		switch def.body.kind.(type) {
-		case AstExprLitStr:
-			return idx
-		}
+	if def.is_top_def && astExprIsLitStr(&def.body) {
+		return idx
 	}
 	idx = astExprGatherAndRewriteLitStrs(&def.body, into, idx)
 	for i := range def.defs {
@@ -75,25 +88,27 @@ func astDefGatherAndRewriteLitStrs(def *AstDef, into []StrNamed, idx int) int {
 }
 
 func astExprGatherAndRewriteLitStrs(expr *AstExpr, into []StrNamed, idx int) int {
-	switch expr_kind := expr.kind.(type) {
-	case AstExprForm:
-		for i := range expr_kind {
-			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
+	if !astExprIsBuiltin(expr) {
+		switch expr_kind := expr.kind.(type) {
+		case AstExprForm:
+			for i := range expr_kind {
+				idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
+			}
+		case AstExprLitCurl:
+			for i := range expr_kind {
+				idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
+			}
+		case AstExprLitClip:
+			for i := range expr_kind {
+				idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
+			}
+		case AstExprLitStr:
+			counter++
+			new_name := uintToStr(counter, 10, 1, Str(".str_"))
+			expr.kind = AstExprIdent(new_name)
+			into[idx] = StrNamed{name: new_name, value: expr_kind}
+			idx++
 		}
-	case AstExprLitCurl:
-		for i := range expr_kind {
-			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
-		}
-	case AstExprLitClip:
-		for i := range expr_kind {
-			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
-		}
-	case AstExprLitStr:
-		counter++
-		new_name := uintToStr(counter, 10, 1, Str(".str_"))
-		expr.kind = AstExprIdent(new_name)
-		into[idx] = StrNamed{name: new_name, value: expr_kind}
-		idx++
 	}
 	return idx
 }

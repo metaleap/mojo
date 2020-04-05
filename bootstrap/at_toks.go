@@ -20,7 +20,6 @@ const (
 	tok_kind_sep_comma
 	tok_kind_sep_colon
 	tok_kind_sep_def
-	tok_kind_sep_semicolon
 )
 
 type Tokens []Token
@@ -50,7 +49,7 @@ func tokenize(full_src Str) Tokens {
 		} else {
 			switch state {
 			case tok_kind_lit_int, tok_kind_ident:
-				if c == ' ' || c == '\t' || c == '"' || c == '\'' || c == '[' || c == ']' || c == '{' || c == '}' || c == '(' || c == ')' || c == ';' || c == ',' || c == ':' {
+				if c == ' ' || c == '\t' || c == '"' || c == '\'' || c == '[' || c == ']' || c == '{' || c == '}' || c == '(' || c == ')' || c == ',' || c == ':' {
 					i--
 					tok_last = i
 				}
@@ -91,10 +90,6 @@ func tokenize(full_src Str) Tokens {
 					tok_last = i
 					tok_start = i
 					state = tok_kind_sep_comma
-				case ';':
-					tok_last = i
-					tok_start = i
-					state = tok_kind_sep_semicolon
 				case ':':
 					if i < len(full_src)-1 && full_src[i+1] == '=' {
 						tok_last = i + 1
