@@ -60,20 +60,8 @@ func astNodeSrcStr(node *AstNode, full_src Str, all_toks Tokens) Str {
 	return toksSrcStr(astNodeToks(node, all_toks), full_src)
 }
 
-func astExprIsLitStr(expr *AstExpr) bool {
-	_, ok := expr.kind.(AstExprLitStr)
-	return ok
-}
-
-func astExprIsBuiltin(expr *AstExpr) bool {
-	switch expr_kind := expr.kind.(type) {
-	case AstExprIdent:
-		return expr_kind[0] == '/'
-	case AstExprForm:
-		ident, ok := expr_kind[0].kind.(AstExprIdent)
-		return ok && ident[0] == '/'
-	}
-	return false
+func astDefName(def *AstDef) Str {
+	return def.head.kind.(AstExprIdent)
 }
 
 func astDefGatherAndRewriteLitStrs(def *AstDef, into []StrNamed, idx int) int {
@@ -109,4 +97,62 @@ func astExprGatherAndRewriteLitStrs(expr *AstExpr, into []StrNamed, idx int) int
 		idx++
 	}
 	return idx
+}
+
+func astExprIsLitStr(expr *AstExpr) bool {
+	_, ok := expr.kind.(AstExprLitStr)
+	return ok
+}
+
+func astExprIsBuiltin(expr *AstExpr) bool {
+	switch expr_kind := expr.kind.(type) {
+	case AstExprIdent:
+		return expr_kind[0] == '/'
+	case AstExprForm:
+		ident, ok := expr_kind[0].kind.(AstExprIdent)
+		return ok && ident[0] == '/'
+	}
+	return false
+}
+
+func astResolveIdents(ast *Ast) {
+	ast.scope.cur = allocˇAstNameRef(len(ast.defs))
+	for i := range ast.defs {
+		def := &ast.defs[i]
+		ast.scope.cur[i] = AstNameRef{name: astDefName(def), refers_to: def}
+	}
+	for i := range ast.defs {
+		astDefResolveIdents(&ast.defs[i], ast, &ast.scope)
+	}
+}
+
+func astDefResolveIdents(def *AstDef, ast *Ast, parent *AstScopes) {
+	def.scope.parent = parent
+	def.scope.cur = allocˇAstNameRef(len(def.defs))
+	for i := range def.defs {
+		sub_def := &def.defs[i]
+		def_name := astDefName(sub_def)
+		if nil != astScopesResolve(&def.scope, def_name, i) {
+			fail("duplicate name '", def_name, "' near:\n", astNodeSrcStr(&def.base, ast.src, ast.toks))
+		}
+		def.scope.cur[i] = AstNameRef{name: def_name, refers_to: sub_def}
+	}
+	for i := range def.defs {
+		sub_def := &def.defs[i]
+		astDefResolveIdents(sub_def, ast, &def.scope)
+	}
+}
+
+func astScopesResolve(scope *AstScopes, name Str, only_until_before_idx int) Any {
+	for i := range scope.cur {
+		if i == only_until_before_idx {
+			break
+		} else if strEql(name, scope.cur[i].name) {
+			return scope.cur[i]
+		}
+	}
+	if scope.parent != nil {
+		return astScopesResolve(scope.parent, name, -1)
+	}
+	return nil
 }

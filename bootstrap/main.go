@@ -10,7 +10,7 @@ largely LLVM-IR-like (just somewhat more human-readable/writable), hence:
 - no proper `error` handling, immediate `panic`s upon detecting a problem
 - no 3rd-party imports whatsoever
 - no stdlib imports for core processing (just program setup & I/O)
-  (hence manual implementations like uintToStr, uintFromStr, join etc)
+  (hence manual implementations like uintToStr, uintFromStr, strEql etc)
 - no `append`s, instead use of usually-over-sized but non-growing arrays being
   sliced by means of ad-hoc inline "custom" / "manual" `len` tracking
 - all `make` / `new` to be replaced by custom fixed-buffer allocation scheme
@@ -44,6 +44,7 @@ func main() {
 
 	ast := parse(toks, input_src_file_bytes)
 	assert(len(ast.defs) != 0)
+	astResolveIdents(&ast)
 
 	println(len(toks), "\t\t", len(ast.defs))
 }

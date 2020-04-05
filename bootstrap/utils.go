@@ -26,24 +26,38 @@ func write(s Str) {
 
 func assert(b bool) {
 	if !b {
-		fail("assertion failure, backtrace:")
+		fail("assertion failure")
 	}
 }
 
 func unreachable() {
-	fail("reached unreachable, backtrace:")
+	fail("reached unreachable")
 }
 
 func fail(msg_parts ...Any) {
-	for i := 0; i < len(msg_parts)-1; i++ {
+	for i := 0; i < len(msg_parts); i++ {
 		switch msg_part := msg_parts[i].(type) {
 		case Str:
 			print(string(msg_part))
+		case string: // same-looking as the default case, but need it explicitly for expected output at least in go1.14
+			print(msg_part)
 		default:
 			print(msg_part)
 		}
 	}
-	panic(msg_parts[len(msg_parts)-1])
+	panic("\n\n__________\nBACKTRACE:")
+}
+
+func strEql(one Str, two Str) bool {
+	if len(one) == len(two) {
+		for i := range one {
+			if one[i] != two[i] {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func uintFromStr(str Str) uint64 {
@@ -100,9 +114,10 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	return ret_str
 }
 
-func allocˇu8(len int) Str              { return make(Str, len) }
-func allocˇToken(len int) Tokens        { return make(Tokens, len) }
-func allocˇTokens(len int) []Tokens     { return make([]Tokens, len) }
-func allocˇAstDef(len int) []AstDef     { return make([]AstDef, len) }
-func allocˇAstExpr(len int) []AstExpr   { return make([]AstExpr, len) }
-func allocˇStrNamed(len int) []StrNamed { return make([]StrNamed, len) }
+func allocˇu8(len int) Str                  { return make(Str, len) }
+func allocˇToken(len int) Tokens            { return make(Tokens, len) }
+func allocˇTokens(len int) []Tokens         { return make([]Tokens, len) }
+func allocˇAstDef(len int) []AstDef         { return make([]AstDef, len) }
+func allocˇAstExpr(len int) []AstExpr       { return make([]AstExpr, len) }
+func allocˇAstNameRef(len int) []AstNameRef { return make([]AstNameRef, len) }
+func allocˇStrNamed(len int) []StrNamed     { return make([]StrNamed, len) }
