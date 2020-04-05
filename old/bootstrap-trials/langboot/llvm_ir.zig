@@ -561,9 +561,6 @@ fn shouldTopDefBeFuncDef(top_def: *AstDef) bool {
 }
 
 pub fn llModuleFrom(ast: *Ast) LLModule {
-    var well_known_types = alloc(LLType, 1);
-    well_known_types[0] = .{ .i = 8 };
-
     var ret = LLModule{
         .globals = alloc(LLGlobal, ast.defs.len),
         .funcs = alloc(LLFunc, ast.defs.len),
@@ -593,7 +590,7 @@ pub fn llModuleFrom(ast: *Ast) LLModule {
                     .constant = true,
                     .name = name,
                     .initializer = .{ .lit_str = lit_str },
-                    .ty = LLType{ .a = .{ .size = lit_str.len, .of = &well_known_types[0] } },
+                    .ty = LLType{ .a = .{ .size = lit_str.len, .of = keep(LLType{ .i = 8 }) } },
                 };
             },
             .builtin => |builtin| switch (builtin.*) {

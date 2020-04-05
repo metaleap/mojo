@@ -46,5 +46,6 @@ func main() {
 	assert(len(ast.defs) != 0)
 	astResolveIdents(&ast)
 
-	println(len(toks), "\t\t", len(ast.defs))
+	ll_mod := llModule(&ast)
+	llEmit(&ll_mod)
 }
