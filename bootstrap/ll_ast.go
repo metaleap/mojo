@@ -77,15 +77,15 @@ type LLExprAlloca struct {
 type LLExprLoad LLExprTyped
 
 type LLExprCall struct {
-	Callee LLExprTyped
-	Args   []LLExprTyped
+	callee LLExprTyped
+	args   []LLExprTyped
 }
 
 type LLExprBinOp struct {
-	ty  LLType
-	lhs LLExpr
-	rhs LLExpr
-	op  LLExprBinOpKind
+	ty      LLType
+	lhs     LLExpr
+	rhs     LLExpr
+	op_kind LLExprBinOpKind
 }
 
 type LLExprBinOpKind int
@@ -93,30 +93,29 @@ type LLExprBinOpKind int
 const (
 	_ LLExprBinOpKind = iota
 	ll_bin_op_add
-	ll_bin_op_sub
 )
 
 type LLExprCmpI struct {
-	ty  LLType
-	lhs LLExpr
-	rhs LLExpr
-	cmp LLExprCmpIKind
+	ty       LLType
+	lhs      LLExpr
+	rhs      LLExpr
+	cmp_kind LLExprCmpIKind
 }
 
 type LLExprCmpIKind int
 
 const (
 	_ LLExprCmpIKind = iota
-	ll_cmpi_eq
-	ll_cmpi_ne
-	ll_cmpi_ugt
-	ll_cmpi_uge
-	ll_cmpi_ult
-	ll_cmpi_ule
-	ll_cmpi_sgt
-	ll_cmpi_sge
-	ll_cmpi_slt
-	ll_cmpi_sle
+	ll_cmp_i_eq
+	ll_cmp_i_ne
+	ll_cmp_i_ugt
+	ll_cmp_i_uge
+	ll_cmp_i_ult
+	ll_cmp_i_ule
+	ll_cmp_i_sgt
+	ll_cmp_i_sge
+	ll_cmp_i_slt
+	ll_cmp_i_sle
 )
 
 type LLExprPhi struct {

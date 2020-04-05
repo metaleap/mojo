@@ -28,6 +28,30 @@ func llEmit(ll_something Any) {
 		llEmitTypeStruct(&ll)
 	case LLTypeFun:
 		llEmitTypeFun(&ll)
+	case LLExprIdentLocal:
+		llEmitExprIdentLocal(ll)
+	case LLExprIdentGlobal:
+		llEmitExprIdentGlobal(ll)
+	case LLExprLitInt:
+		llEmitExprLitInt(ll)
+	case LLExprLitStr:
+		llEmitExprLitStr(ll)
+	case LLExprTyped:
+		llEmitExprTyped(&ll)
+	case LLExprAlloca:
+		llEmitExprAlloca(&ll)
+	case LLExprLoad:
+		llEmitExprLoad(&ll)
+	case LLExprCall:
+		llEmitExprCall(&ll)
+	case LLExprBinOp:
+		llEmitExprBinOp(&ll)
+	case LLExprCmpI:
+		llEmitExprCmpI(&ll)
+	case LLExprPhi:
+		llEmitExprPhi(&ll)
+	case LLExprGep:
+		llEmitExprGep(&ll)
 	case LLType, LLExpr, LLStmt:
 		switch ll_other := ll.(type) {
 		default:
@@ -186,4 +210,129 @@ func llEmitTypeFun(ll_type_fun *LLTypeFun) {
 		llEmit(ll_type_fun.params[i])
 	}
 	write(Str(")"))
+}
+
+func llEmitExprIdentLocal(ll_expr_ident_local LLExprIdentLocal) {
+	write(Str("%"))
+	write(ll_expr_ident_local)
+}
+
+func llEmitExprIdentGlobal(ll_expr_ident_global LLExprIdentGlobal) {
+	write(Str("@"))
+	write(ll_expr_ident_global)
+}
+
+func llEmitExprLitInt(ll_expr_lit_int LLExprLitInt) {
+	write(uintToStr(uint64(ll_expr_lit_int), 10, 1, nil))
+}
+
+func llEmitExprLitStr(ll_expr_lit_str LLExprLitStr) {
+	write(Str("c\""))
+	for i := range ll_expr_lit_str {
+		if char := ll_expr_lit_str[i]; char >= 32 && char < 127 {
+			write(ll_expr_lit_str[i : i+1])
+		} else {
+			write(Str("\\"))
+			write(uintToStr(uint64(char), 16, 2, nil))
+		}
+	}
+	write(Str("\""))
+}
+
+func llEmitExprTyped(ll_expr_typed *LLExprTyped) {
+	llEmit(ll_expr_typed.ty)
+	write(Str(" "))
+	llEmit(ll_expr_typed.expr)
+}
+
+func llEmitExprAlloca(ll_expr_alloca *LLExprAlloca) {
+	write(Str("alloca "))
+	llEmit(ll_expr_alloca.ty)
+	write(Str(", "))
+	llEmit(ll_expr_alloca.num_elems)
+}
+
+func llEmitExprLoad(ll_expr_load *LLExprLoad) {
+	write(Str("load "))
+	llEmit(ll_expr_load.ty)
+	write(Str(", "))
+	llEmit(ll_expr_load.ty)
+	write(Str("* "))
+	llEmit(ll_expr_load.expr)
+}
+
+func llEmitExprCall(ll_expr_call *LLExprCall) {
+	write(Str("call "))
+	llEmit(ll_expr_call.callee)
+	write(Str("("))
+	for i := range ll_expr_call.args {
+		if i > 0 {
+			write(Str(", "))
+		}
+		llEmit(ll_expr_call.args[i])
+	}
+	write(Str(")"))
+}
+
+func llEmitExprBinOp(ll_expr_bin_op *LLExprBinOp) {
+	var op_kind string
+	switch ll_expr_bin_op.op_kind {
+	case ll_bin_op_add:
+		op_kind = "add"
+	default:
+		fail(ll_expr_bin_op.op_kind)
+	}
+
+	write(Str(op_kind))
+	write(Str(" "))
+	llEmit(ll_expr_bin_op.ty)
+	write(Str(" "))
+	llEmit(ll_expr_bin_op.lhs)
+	write(Str(", "))
+	llEmit(ll_expr_bin_op.rhs)
+}
+
+func llEmitExprCmpI(ll_expr_cmp_i *LLExprCmpI) {
+	var cmp_kind string
+	switch ll_expr_cmp_i.cmp_kind {
+	case ll_cmp_i_eq:
+		cmp_kind = "eq"
+	case ll_cmp_i_ne:
+		cmp_kind = "ne"
+	case ll_cmp_i_ugt:
+		cmp_kind = "ugt"
+	case ll_cmp_i_uge:
+		cmp_kind = "uge"
+	case ll_cmp_i_ult:
+		cmp_kind = "ult"
+	case ll_cmp_i_ule:
+		cmp_kind = "ule"
+	case ll_cmp_i_sgt:
+		cmp_kind = "sgt"
+	case ll_cmp_i_sge:
+		cmp_kind = "sge"
+	case ll_cmp_i_slt:
+		cmp_kind = "slt"
+	case ll_cmp_i_sle:
+		cmp_kind = "sle"
+	default:
+		fail(ll_expr_cmp_i.cmp_kind)
+	}
+
+	write(Str("icmp "))
+	write(Str(cmp_kind))
+	write(Str(" "))
+	llEmit(ll_expr_cmp_i.ty)
+	write(Str(" "))
+	llEmit(ll_expr_cmp_i.lhs)
+	write(Str(", "))
+	llEmit(ll_expr_cmp_i.rhs)
+}
+
+func llEmitExprPhi(ll_expr_phi *LLExprPhi) {
+
+}
+
+func llEmitExprGep(ll_expr_gep *LLExprGep) {
+
 }
