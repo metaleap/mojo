@@ -7,9 +7,9 @@ type LLModule struct {
 	funcs             []LLFunc
 }
 
-type LLType interface{} // just for doc purposes, no methods
-type LLExpr interface{} // just for doc purposes, no methods
-type LLStmt interface{} // just for doc purposes, no methods
+type LLType interface{} // just for doc purposes: to remain empty with no methods
+type LLExpr interface{} // just for doc purposes: to remain empty with no methods
+type LLStmt interface{} // just for doc purposes: to remain empty with no methods
 
 type LLGlobal struct {
 	name        Str
@@ -20,15 +20,13 @@ type LLGlobal struct {
 }
 
 type LLFunc struct {
-	ty           LLType
-	name         Str
-	params       []LLFuncParam
-	basic_blocks LLBasicBlock
-}
-
-type LLFuncParam struct {
-	name Str
-	ty   LLType
+	ty     LLType
+	name   Str
+	params []struct {
+		name Str
+		ty   LLType
+	}
+	basic_blocks []LLBasicBlock
 }
 
 type LLBasicBlock struct {

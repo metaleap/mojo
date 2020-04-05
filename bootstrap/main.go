@@ -17,6 +17,7 @@ largely LLVM-IR-like (just somewhat more human-readable/writable), hence:
 - no (non-empty) interface type decls, just empty `interface{}` with type switch
   where needed, for later transliterating into low-level tagged-union-ish style
 - no methods or struct-embeds, no point because we won't have them in IR either
+- naming / casing conventions follow WIP target lang rather than Go customs
 
 */
 
