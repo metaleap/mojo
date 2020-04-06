@@ -20,13 +20,15 @@ type LLGlobal struct {
 }
 
 type LLFunc struct {
-	ty     LLType
-	name   Str
-	params []struct {
-		name Str
-		ty   LLType
-	}
+	ty           LLType
+	name         Str
+	params       []LLFuncParam
 	basic_blocks []LLBasicBlock
+}
+
+type LLFuncParam struct {
+	name Str
+	ty   LLType
 }
 
 type LLBasicBlock struct {
@@ -133,8 +135,10 @@ type LLExprGep struct {
 }
 
 type LLTypeInt struct {
-	bit_width int32 // i23 really..
+	bit_width uint32 // u23 really..
 }
+
+type LLTypeVoid struct{}
 
 type LLTypePtr struct {
 	ty LLType

@@ -115,6 +115,46 @@ func astExprIsBuiltin(expr *AstExpr) bool {
 	return false
 }
 
+func astExprFormSlice() {}
+
+func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool, must_rhs bool, ast *Ast) (lhs *AstExpr, rhs *AstExpr) {
+	if !must {
+		assert(!(must_lhs || must_rhs))
+	}
+	idx := -1
+	form := expr.kind.(AstExprForm)
+	for i := range form {
+		switch maybe_ident := form[i].kind.(type) {
+		case AstExprIdent:
+			if strEql(ident_needle, maybe_ident) {
+				idx = i
+				break
+			}
+		}
+	}
+	if idx < 0 && must {
+		fail("expected '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast.src, ast.toks))
+	}
+	if idx == 0 && must_lhs {
+		fail("expected expression before '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast.src, ast.toks))
+	}
+	if idx == len(form)-1 && must_rhs {
+		fail("expected expression after '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast.src, ast.toks))
+	}
+	if idx >= 0 {
+		both := allocˇAstExpr(2)
+		if idx > 0 {
+			// sub_form = form[0:idx]
+			lhs = &both[0]
+		}
+		if idx < len(form)-1 {
+			// sub_form = form[idx+1:]
+			rhs = &both[1]
+		}
+	}
+	return
+}
+
 func astResolveIdents(ast *Ast) {
 	ast.scope.cur = allocˇAstNameRef(len(ast.defs))
 	for i := range ast.defs {

@@ -18,6 +18,8 @@ func llEmit(ll_something Any) {
 		llEmitStmtLet(&ll)
 	case LLStmtSwitch:
 		llEmitStmtSwitch(&ll)
+	case LLTypeVoid:
+		llEmitTypeVoid()
 	case LLTypeInt:
 		llEmitTypeInt(&ll)
 	case LLTypePtr:
@@ -169,6 +171,10 @@ func llEmitStmtSwitch(ll_stmt_switch *LLStmtSwitch) {
 		}
 	}
 	write(Str("]"))
+}
+
+func llEmitTypeVoid() {
+	write(Str("void"))
 }
 
 func llEmitTypeInt(ll_type_int *LLTypeInt) {
