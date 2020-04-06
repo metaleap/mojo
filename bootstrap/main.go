@@ -41,6 +41,7 @@ func main() {
 
 	toks := tokenize(input_src_file_bytes)
 	assert(len(toks) != 0)
+	toksCheckBrackets(toks)
 
 	ast := parse(toks, input_src_file_bytes)
 	assert(len(ast.defs) != 0)

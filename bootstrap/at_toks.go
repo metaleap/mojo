@@ -185,41 +185,94 @@ func toksCountUnnested(toks []Token, full_src Str, tok_kind TokenKind) int {
 			level++
 		} else if tokIsClosing(tok.kind) {
 			level--
-			if level < 0 {
-				fail("brackets mismatch near:\n", toksSrcStr(toks, full_src))
-			}
 		}
 	}
 	return ret_num
 }
 
-func toksIndentBasedChunks(toks []Token) [][]Token {
-	cmp_pos_col := tokPosCol(&toks[0])
+func toksCheckBrackets(toks []Token) {
+	level_bparen, level_bsquare, level_bcurly := 0, 0, 0
 	for i := range toks {
-		tok := &toks[i]
-		if pos_col := tokPosCol(tok); pos_col < cmp_pos_col {
-			cmp_pos_col = pos_col
+		switch toks[i].kind {
+		case tok_kind_sep_bcurly_open:
+			level_bcurly++
+		case tok_kind_sep_bparen_open:
+			level_bparen++
+		case tok_kind_sep_bsquare_open:
+			level_bsquare++
+		case tok_kind_sep_bcurly_close:
+			level_bcurly--
+		case tok_kind_sep_bparen_close:
+			level_bparen--
+		case tok_kind_sep_bsquare_close:
+			level_bsquare--
+		}
+		if level_bparen < 0 {
+			fail("surplus closing parenthesis in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
+		} else if level_bcurly < 0 {
+			fail("surplus closing curly brace in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
+		} else if level_bsquare < 0 {
+			fail("surplus closing square bracket in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
 		}
 	}
+	if level_bparen > 0 {
+		fail("missing closing parenthesis")
+	} else if level_bcurly > 0 {
+		fail("missing closing curly brace")
+	} else if level_bsquare > 0 {
+		fail("missing closing square bracket")
+	}
+}
+
+func toksIndentBasedChunks(toks []Token) [][]Token {
+	cmp_pos_col := tokPosCol(&toks[0])
+	level := 0
+	for i := range toks {
+		tok := &toks[i]
+		if level == 0 {
+			if pos_col := tokPosCol(tok); pos_col < cmp_pos_col {
+				cmp_pos_col = pos_col
+			}
+		}
+		if tokIsOpening(tok.kind) {
+			level++
+		} else if tokIsClosing(tok.kind) {
+			level--
+		}
+	}
+	assert(level == 0)
 
 	var num_chunks int
 	for i := range toks {
-		if i == 0 || tokPosCol(&toks[i]) <= cmp_pos_col {
-			num_chunks++
+		if level == 0 {
+			if i == 0 || tokPosCol(&toks[i]) <= cmp_pos_col {
+				num_chunks++
+			}
+		}
+		if tokIsOpening(toks[i].kind) {
+			level++
+		} else if tokIsClosing(toks[i].kind) {
+			level--
 		}
 	}
+	assert(level == 0)
 
 	ret := allocˇTokens(num_chunks)
 	{
 		start_from, next_idx := -1, 0
 		for i := range toks {
 			tok := &toks[i]
-			if i == 0 || tokPosCol(tok) <= cmp_pos_col {
+			if i == 0 || (level == 0 && tokPosCol(tok) <= cmp_pos_col) {
 				if start_from != -1 {
 					ret[next_idx] = toks[start_from:i]
 					next_idx++
 				}
 				start_from = i
+			}
+			if tokIsOpening(tok.kind) {
+				level++
+			} else if tokIsClosing(tok.kind) {
+				level--
 			}
 		}
 		if start_from != -1 {
@@ -288,9 +341,6 @@ func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
 				level++
 			} else if tokIsClosing(tok.kind) {
 				level--
-				if level < 0 {
-					fail("brackets mismatch near:\n", toksSrcStr(toks, full_src))
-				}
 			}
 		}
 		sub_toks := toks[start_from:]

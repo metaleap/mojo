@@ -1,16 +1,25 @@
 
+libc_stdin  := /extVar "stdin" /P
+libc_stdout := /extVar "stdout" /P
+libc_stderr := /extVar "stderr" /P
 libcFRead   := /extFun "fread" /I64 { buf: /P, size: /I64, count: /I64, stream: /P }
 libcFWrite  := /extFun "fwrite" /I64 { buf: /P, size: /I64, count: /I64, stream: /P }
 libcFError  := /extFun "ferror" /I32 { buf: /P }
-libc_stdout := /extVar "stdout" /P
-libc_stdin  := /extVar "stdin" /P
+libcExit    := /extFun "exit" /V { exit_code: /I16 }
 
 
-intro_msg :=
-  "Well hello there"
+intro_msg := "Well hello there!\010"
 
 
-main :=
-  /defFun /I32 {} {
-      foo: bar,
-    }
+main := /defFun /I32 {} {
+  #print_msg: [
+    /var #n_bytes_written (libcFWrite intro_msg 1 (/len intro_msg) libc_stdout),
+    /var #err_write (libcFError libc_stdout)
+    /switch #err_write #ret_ok {  }
+  ],
+  #ret_err: [ /br #done ],
+  #ret_ok: [ /br #done ],
+  #done: [
+    /ret (/phi { #ret_err: 1, #ret_ok: 0 })
+  ],
+}
