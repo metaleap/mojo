@@ -59,6 +59,10 @@ type LLStmtBr struct {
 	block_name Str
 }
 
+type LLStmtComment struct {
+	comment_text Str
+}
+
 type LLExprIdentLocal Str
 
 type LLExprIdentGlobal Str

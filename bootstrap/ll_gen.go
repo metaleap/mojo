@@ -101,9 +101,30 @@ func llFuncDefFrom(top_def *AstDef, ast *Ast) LLFunc {
 		ret_def.basic_blocks[i].name = llIdentFrom(block_name)
 		stmts := block_stmts.kind.(AstExprLitClip)
 		ret_def.basic_blocks[i].stmts = allocˇLLStmt(len(stmts))
-		ret_def.basic_blocks[i].stmts = ret_def.basic_blocks[i].stmts[0:0]
+		num_stmts := 0
+		for j := range stmts {
+			ll_stmts := llStmtsFrom(&stmts[j], ast)
+			for _, ll_stmt := range ll_stmts {
+				ret_def.basic_blocks[i].stmts[num_stmts] = ll_stmt
+				num_stmts++
+			}
+		}
 	}
 	return ret_def
+}
+
+func llStmtsFrom(expr *AstExpr, ast *Ast) []LLStmt {
+	form := expr.kind.(AstExprForm)
+	ident := form[0].kind.(AstExprIdent)
+	ret_stmt := allocˇLLStmt(8)
+	ret_stmt[0] = LLStmtComment{comment_text: trimAt(astNodeSrcStr(&expr.base, ast.src, ast.toks), '\n')}
+
+	if strEql(ident, Str("/br")) {
+		// 	assert(len(form) == 2)
+		// 	return []LLStmt{LLStmtBr{block_name: llIdentFrom(&form[1])}}
+	}
+
+	return ret_stmt[0:1]
 }
 
 func llTypeFrom(expr *AstExpr) LLType {

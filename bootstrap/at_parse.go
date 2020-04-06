@@ -147,12 +147,21 @@ func parseExprLitStr(lit_src Str) Str {
 }
 
 func parseExprsDelimited(full_src Str, all_toks []Token, toks []Token, all_toks_idx int, tok_kind_sep TokenKind) []AstExpr {
+	if len(toks) == 0 {
+		return nil
+	}
 	per_item_toks := toksSplit(toks, full_src, tok_kind_sep)
 	ret_exprs := allocˇAstExpr(len(per_item_toks))
+	ret_idx := 0
 	toks_idx := all_toks_idx
-	for i, this_item_toks := range per_item_toks {
-		ret_exprs[i] = parseExpr(full_src, all_toks, this_item_toks, toks_idx)
-		toks_idx += len(this_item_toks)
+	for _, this_item_toks := range per_item_toks {
+		if len(this_item_toks) == 0 {
+			toks_idx++ // the 1 for the comma
+		} else {
+			ret_exprs[ret_idx] = parseExpr(full_src, all_toks, this_item_toks, toks_idx)
+			toks_idx += 1 + len(this_item_toks) // the 1 for the comma
+			ret_idx++
+		}
 	}
-	return ret_exprs
+	return ret_exprs[0:ret_idx]
 }

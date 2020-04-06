@@ -10,6 +10,8 @@ func llEmit(ll_something Any) {
 		llEmitFunc(ll)
 	case *LLBasicBlock:
 		llEmitBlock(ll)
+	case LLStmtComment:
+		llEmitStmtComment(&ll)
 	case LLStmtBr:
 		llEmitStmtBr(&ll)
 	case LLStmtRet:
@@ -54,11 +56,15 @@ func llEmit(ll_something Any) {
 		llEmitExprPhi(&ll)
 	case LLExprGep:
 		llEmitExprGep(&ll)
-	case LLType, LLExpr, LLStmt:
-		switch ll_other := ll.(type) {
+	case Any:
+		switch ll_inner := ll.(type) {
+		case nil:
+			unreachable()
 		default:
-			llEmit(ll_other)
+			llEmit(ll_inner)
 		}
+	case nil:
+		unreachable()
 	default:
 		fail(ll)
 	}
@@ -134,9 +140,14 @@ func llEmitBlock(ll_block *LLBasicBlock) {
 	write(Str(":\n"))
 	for i := range ll_block.stmts {
 		write(Str("  "))
-		llEmit(&ll_block.stmts[i])
+		llEmit(ll_block.stmts[i])
 		write(Str("\n"))
 	}
+}
+
+func llEmitStmtComment(ll_stmt_comment *LLStmtComment) {
+	write(Str("; "))
+	write(ll_stmt_comment.comment_text)
 }
 
 func llEmitStmtBr(ll_stmt_br *LLStmtBr) {

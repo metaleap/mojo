@@ -8,5 +8,5 @@ do
 
     bootstrap $file_name_sans_ext.at > $file_name_sans_ext.ll \
         && llc --relocation-model=pic $file_name_sans_ext.ll -o $file_name_sans_ext.s \
-        && gcc $file_name_sans_ext.s -o ~/.local/bin/$file_name_sans_ext
+        && clang $file_name_sans_ext.s -o ~/.local/bin/$file_name_sans_ext
 done;

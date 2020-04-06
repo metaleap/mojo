@@ -23,11 +23,11 @@ const (
 )
 
 type Token struct {
-	idx      int
-	len      int
-	line_nr  int
-	line_idx int
-	kind     TokenKind
+	byte_idx            int
+	len                 int
+	line_nr             int
+	line_start_byte_idx int
+	kind                TokenKind
 }
 
 func tokenize(full_src Str, keep_comment_toks bool) []Token {
@@ -127,11 +127,11 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 			if state != tok_kind_comment || keep_comment_toks {
 				tok_len := (tok_last - tok_start) + 1
 				toks[toks_count] = Token{
-					kind:     state,
-					line_nr:  cur_line_nr,
-					line_idx: cur_line_idx,
-					idx:      tok_start,
-					len:      tok_len,
+					kind:                state,
+					line_nr:             cur_line_nr,
+					line_start_byte_idx: cur_line_idx,
+					byte_idx:            tok_start,
+					len:                 tok_len,
 				}
 				toks_count++
 			}
@@ -150,11 +150,11 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 		} else if state != tok_kind_comment || keep_comment_toks {
 			tok_len := i - tok_start
 			toks[toks_count] = Token{
-				kind:     state,
-				idx:      tok_start,
-				len:      tok_len,
-				line_nr:  cur_line_nr,
-				line_idx: cur_line_idx,
+				kind:                state,
+				byte_idx:            tok_start,
+				len:                 tok_len,
+				line_nr:             cur_line_nr,
+				line_start_byte_idx: cur_line_idx,
 			}
 			toks_count++
 		}
@@ -162,7 +162,7 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 	return toks[0:toks_count]
 }
 
-func tokPosCol(tok *Token) int { return tok.idx - tok.line_idx }
+func tokPosCol(tok *Token) int { return tok.byte_idx - tok.line_start_byte_idx }
 
 func tokIsOpening(tok_kind TokenKind) bool {
 	return tok_kind == tok_kind_sep_bcurly_open || tok_kind == tok_kind_sep_bparen_open || tok_kind == tok_kind_sep_bsquare_open
@@ -332,10 +332,8 @@ func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
 			tok := &toks[i]
 			if tok.kind == tok_kind && level == 0 {
 				sub_toks := toks[start_from:i]
-				if len(sub_toks) != 0 {
-					ret_toks[ret_idx] = sub_toks
-					ret_idx++
-				}
+				ret_toks[ret_idx] = sub_toks
+				ret_idx++
 				start_from = i + 1
 			} else if tokIsOpening(tok.kind) {
 				level++
@@ -344,15 +342,13 @@ func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
 			}
 		}
 		sub_toks := toks[start_from:]
-		if len(sub_toks) != 0 {
-			ret_toks[ret_idx] = sub_toks
-			ret_idx++
-		}
+		ret_toks[ret_idx] = sub_toks
+		ret_idx++
 	}
 	return ret_toks[0:ret_idx]
 }
 
 func toksSrcStr(toks []Token, full_src Str) Str {
 	first, last := &toks[0], &toks[len(toks)-1]
-	return full_src[first.idx : last.idx+last.len]
+	return full_src[first.byte_idx : last.byte_idx+last.len]
 }
