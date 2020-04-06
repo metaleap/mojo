@@ -57,7 +57,11 @@ func astNodeToks(node *AstNode, all_toks []Token) []Token {
 }
 
 func astNodeSrcStr(node *AstNode, full_src Str, all_toks []Token) Str {
-	return toksSrcStr(astNodeToks(node, all_toks), full_src)
+	if node.toks_len == 0 {
+		return nil
+	}
+	node_toks := astNodeToks(node, all_toks)
+	return toksSrcStr(node_toks, full_src)
 }
 
 func astDefName(def *AstDef) Str {

@@ -151,3 +151,6 @@ func allocˇLLFunc(len int) []LLFunc             { return make([]LLFunc, len) }
 func allocˇLLFuncParam(len int) []LLFuncParam   { return make([]LLFuncParam, len) }
 func allocˇLLBasicBlock(len int) []LLBasicBlock { return make([]LLBasicBlock, len) }
 func allocˇLLStmt(len int) []LLStmt             { return make([]LLStmt, len) }
+func allocˇLLType(len int) []LLType             { return make([]LLType, len) }
+func allocˇLLExprTyped(len int) []LLExprTyped   { return make([]LLExprTyped, len) }
+func allocˇLLPhiPred(len int) []LLPhiPred       { return make([]LLPhiPred, len) }

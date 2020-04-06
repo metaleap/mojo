@@ -30,8 +30,8 @@ func llEmit(ll_something Any) {
 		llEmitTypeArr(&ll)
 	case LLTypeStruct:
 		llEmitTypeStruct(&ll)
-	case LLTypeFun:
-		llEmitTypeFun(&ll)
+	case LLTypeFunc:
+		llEmitTypeFunc(&ll)
 	case LLExprIdentLocal:
 		llEmitExprIdentLocal(ll)
 	case LLExprIdentGlobal:
@@ -217,7 +217,7 @@ func llEmitTypeStruct(ll_type_struct *LLTypeStruct) {
 	write(Str("}"))
 }
 
-func llEmitTypeFun(ll_type_fun *LLTypeFun) {
+func llEmitTypeFunc(ll_type_fun *LLTypeFunc) {
 	llEmit(ll_type_fun.ty)
 	write(Str("("))
 	for i := range ll_type_fun.params {

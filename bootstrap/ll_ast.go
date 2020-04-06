@@ -127,10 +127,12 @@ const (
 
 type LLExprPhi struct {
 	ty           LLType
-	predecessors []struct {
-		expr       LLExpr
-		block_name Str
-	}
+	predecessors []LLPhiPred
+}
+
+type LLPhiPred struct {
+	expr       LLExpr
+	block_name Str
 }
 
 type LLExprGep struct {
@@ -151,14 +153,14 @@ type LLTypePtr struct {
 
 type LLTypeArr struct {
 	ty   LLType
-	size int
+	size uint64
 }
 
 type LLTypeStruct struct {
 	fields []LLType
 }
 
-type LLTypeFun struct {
+type LLTypeFunc struct {
 	ty     LLType
 	params []LLType
 }
