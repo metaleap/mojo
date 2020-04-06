@@ -115,7 +115,21 @@ func astExprIsBuiltin(expr *AstExpr) bool {
 	return false
 }
 
-func astExprFormSlice() {}
+func astExprFormExtract(expr_form AstExprForm, idx_start int, idx_end int) AstExpr {
+	sub_form := expr_form[idx_start:idx_end]
+	ret_expr := AstExpr{kind: sub_form}
+	ret_expr.base.toks_idx = expr_form[idx_start].base.toks_idx
+	for i := idx_start; i < idx_end; i++ {
+		ret_expr.base.toks_len += expr_form[i].base.toks_len
+	}
+	if form, is := ret_expr.kind.(AstExprForm); is && 1 == len(form) {
+		ret_expr = form[0]
+	}
+	if form, is := ret_expr.kind.(AstExprForm); is {
+		assert(len(form) > 1)
+	}
+	return ret_expr
+}
 
 func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool, must_rhs bool, ast *Ast) (lhs *AstExpr, rhs *AstExpr) {
 	if !must {
@@ -144,11 +158,11 @@ func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool,
 	if idx >= 0 {
 		both := allocˇAstExpr(2)
 		if idx > 0 {
-			// sub_form = form[0:idx]
+			both[0] = astExprFormExtract(form, 0, idx)
 			lhs = &both[0]
 		}
 		if idx < len(form)-1 {
-			// sub_form = form[idx+1:]
+			both[1] = astExprFormExtract(form, idx+1, len(form))
 			rhs = &both[1]
 		}
 	}

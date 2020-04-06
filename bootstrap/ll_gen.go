@@ -21,10 +21,10 @@ func llModule(ast *Ast) LLModule {
 		case AstExprForm:
 			callee := body[0].kind.(AstExprIdent)
 			if strEql(callee, Str("/extVar")) {
-				ret_mod.globals[num_globals] = llGlobalFromExtVar(&top_def.scope, body)
+				ret_mod.globals[num_globals] = llGlobalFromExtVar(body, &top_def.scope)
 				num_globals++
 			} else if strEql(callee, Str("/extFun")) {
-				ret_mod.funcs[num_funcs] = llFuncDeclFrom(&top_def.scope, body)
+				ret_mod.funcs[num_funcs] = llFuncDeclFrom(body, &top_def.scope, ast)
 				num_funcs++
 			} else if strEql(callee, Str("/defFun")) {
 			} else {
@@ -39,7 +39,7 @@ func llModule(ast *Ast) LLModule {
 	return ret_mod
 }
 
-func llGlobalFromExtVar(scope *AstScopes, form AstExprForm) LLGlobal {
+func llGlobalFromExtVar(form AstExprForm, scope *AstScopes) LLGlobal {
 	assert(len(form) == 3)
 	name := astScopesResolve(scope, form[1].kind.(AstExprIdent), -1).(*AstDef).body.kind.(AstExprLitStr)
 	return LLGlobal{
@@ -58,7 +58,7 @@ func llGlobalFromLitStr(name Str, body AstExprLitStr) LLGlobal {
 	}
 }
 
-func llFuncDeclFrom(scope *AstScopes, form AstExprForm) LLFunc {
+func llFuncDeclFrom(form AstExprForm, scope *AstScopes, ast *Ast) LLFunc {
 	assert(len(form) == 4)
 	name := astScopesResolve(scope, form[1].kind.(AstExprIdent), -1).(*AstDef).body.kind.(AstExprLitStr)
 	lit_curl := form[3].kind.(AstExprLitCurl)
@@ -68,10 +68,9 @@ func llFuncDeclFrom(scope *AstScopes, form AstExprForm) LLFunc {
 		params: allocˇLLFuncParam(len(lit_curl)),
 	}
 	for i := range lit_curl {
-		name_and_expr := lit_curl[i].kind.(AstExprForm)
-		assert(len(name_and_expr) == 3 && strEql(name_and_expr[1].kind.(AstExprIdent), Str(":")))
-		ret_decl.params[i].name = llIdentFrom(&name_and_expr[0])
-		ret_decl.params[i].ty = llTypeFrom(name_and_expr[2].kind.(AstExprIdent))
+		_, ty := astExprFormSplit(&lit_curl[i], Str(":"), true, true, true, ast)
+		ret_decl.params[i].name = nil // llIdentFrom(name)
+		ret_decl.params[i].ty = llTypeFrom(ty.kind.(AstExprIdent))
 	}
 	return ret_decl
 }
