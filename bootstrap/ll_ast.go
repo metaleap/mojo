@@ -20,6 +20,7 @@ type LLGlobal struct {
 }
 
 type LLFunc struct {
+	external     bool
 	ty           LLType
 	name         Str
 	params       []LLFuncParam

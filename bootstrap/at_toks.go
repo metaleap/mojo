@@ -30,7 +30,7 @@ type Token struct {
 	kind     TokenKind
 }
 
-func tokenize(full_src Str) []Token {
+func tokenize(full_src Str, keep_comment_toks bool) []Token {
 	i, cur_line_nr, cur_line_idx, toks_count := 0, 0, 0, 0
 	tok_start, tok_last := -1, -1
 	var state TokenKind = tok_kind_none
@@ -124,7 +124,7 @@ func tokenize(full_src Str) []Token {
 			if state == tok_kind_none || tok_start == -1 {
 				unreachable()
 			}
-			{
+			if state != tok_kind_comment || keep_comment_toks {
 				tok_len := (tok_last - tok_start) + 1
 				toks[toks_count] = Token{
 					kind:     state,
@@ -147,7 +147,7 @@ func tokenize(full_src Str) []Token {
 	if tok_start != -1 {
 		if state == tok_kind_none {
 			unreachable()
-		} else {
+		} else if state != tok_kind_comment || keep_comment_toks {
 			tok_len := i - tok_start
 			toks[toks_count] = Token{
 				kind:     state,

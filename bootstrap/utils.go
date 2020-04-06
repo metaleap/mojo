@@ -130,13 +130,15 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	later want to move from OS heap allocs to a pre-alloc'd fixed-size buffer.
 */
 
-func allocˇu8(len int) Str                    { return make(Str, len) }
-func allocˇToken(len int) []Token             { return make([]Token, len) }
-func allocˇTokens(len int) [][]Token          { return make([][]Token, len) }
-func allocˇAstDef(len int) []AstDef           { return make([]AstDef, len) }
-func allocˇAstExpr(len int) []AstExpr         { return make([]AstExpr, len) }
-func allocˇAstNameRef(len int) []AstNameRef   { return make([]AstNameRef, len) }
-func allocˇStrNamed(len int) []StrNamed       { return make([]StrNamed, len) }
-func allocˇLLGlobal(len int) []LLGlobal       { return make([]LLGlobal, len) }
-func allocˇLLFunc(len int) []LLFunc           { return make([]LLFunc, len) }
-func allocˇLLFuncParam(len int) []LLFuncParam { return make([]LLFuncParam, len) }
+func allocˇu8(len int) Str                      { return make(Str, len) }
+func allocˇToken(len int) []Token               { return make([]Token, len) }
+func allocˇTokens(len int) [][]Token            { return make([][]Token, len) }
+func allocˇAstDef(len int) []AstDef             { return make([]AstDef, len) }
+func allocˇAstExpr(len int) []AstExpr           { return make([]AstExpr, len) }
+func allocˇAstNameRef(len int) []AstNameRef     { return make([]AstNameRef, len) }
+func allocˇStrNamed(len int) []StrNamed         { return make([]StrNamed, len) }
+func allocˇLLGlobal(len int) []LLGlobal         { return make([]LLGlobal, len) }
+func allocˇLLFunc(len int) []LLFunc             { return make([]LLFunc, len) }
+func allocˇLLFuncParam(len int) []LLFuncParam   { return make([]LLFuncParam, len) }
+func allocˇLLBasicBlock(len int) []LLBasicBlock { return make([]LLBasicBlock, len) }
+func allocˇLLStmt(len int) []LLStmt             { return make([]LLStmt, len) }

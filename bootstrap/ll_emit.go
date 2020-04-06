@@ -74,7 +74,7 @@ func llEmitModule(ll_mod *LLModule) {
 		llEmit(&ll_mod.globals[i])
 		write(Str("\n"))
 	}
-	write(Str("\n\n"))
+	write(Str("\n"))
 	for i := range ll_mod.funcs {
 		llEmit(&ll_mod.funcs[i])
 		write(Str("\n"))
@@ -99,10 +99,10 @@ func llEmitGlobal(ll_global *LLGlobal) {
 }
 
 func llEmitFunc(ll_func *LLFunc) {
-	if len(ll_func.basic_blocks) == 0 {
+	if ll_func.external {
 		write(Str("declare "))
 	} else {
-		write(Str("\n\ndefine "))
+		write(Str("\ndefine "))
 	}
 	llEmit(ll_func.ty)
 	write(Str(" @"))
@@ -120,7 +120,7 @@ func llEmitFunc(ll_func *LLFunc) {
 		}
 	}
 	write(Str(")"))
-	if len(ll_func.basic_blocks) != 0 {
+	if !ll_func.external {
 		write(Str(" {\n"))
 		for i := range ll_func.basic_blocks {
 			llEmit(&ll_func.basic_blocks[i])

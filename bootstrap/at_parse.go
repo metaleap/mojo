@@ -101,6 +101,8 @@ func parseExpr(full_src Str, all_toks []Token, expr_toks []Token, all_toks_idx i
 				}
 			}
 			i = idx_close // loop header will increment
+		case tok_kind_comment:
+			unreachable()
 		default:
 			tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
 			acc_ret[acc_len] = AstExpr{

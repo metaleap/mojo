@@ -39,7 +39,7 @@ func main() {
 		panic(err)
 	}
 
-	toks := tokenize(input_src_file_bytes)
+	toks := tokenize(input_src_file_bytes, false)
 	assert(len(toks) != 0)
 	toksCheckBrackets(toks)
 
