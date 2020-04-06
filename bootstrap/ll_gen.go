@@ -11,7 +11,6 @@ func llModule(ast *Ast) LLModule {
 		funcs:             allocˇLLFunc(len(ast.defs)),
 	}
 	num_globals, num_funcs := 0, 0
-
 	for i := range ast.defs {
 		top_def := &ast.defs[i]
 		top_def_name := astDefName(top_def)
@@ -25,6 +24,8 @@ func llModule(ast *Ast) LLModule {
 				ret_mod.globals[num_globals] = llGlobalFromExtVar(&top_def.scope, body)
 				num_globals++
 			} else if strEql(callee, Str("/extFun")) {
+				ret_mod.funcs[num_funcs] = llFuncDeclFrom(&top_def.scope, body)
+				num_funcs++
 			} else if strEql(callee, Str("/defFun")) {
 			} else {
 				fail(callee)
@@ -33,7 +34,6 @@ func llModule(ast *Ast) LLModule {
 			panic(body)
 		}
 	}
-
 	ret_mod.globals = ret_mod.globals[0:num_globals]
 	ret_mod.funcs = ret_mod.funcs[0:num_funcs]
 	return ret_mod
@@ -54,6 +54,10 @@ func llGlobalFromLitStr(name Str, body AstExprLitStr) LLGlobal {
 		ty:          LLTypeArr{size: len(body), ty: LLTypeInt{bit_width: 8}},
 		initializer: LLExprLitStr(body),
 	}
+}
+
+func llFuncDeclFrom(scope *AstScopes, form AstExprForm) LLFunc {
+	panic("TODO")
 }
 
 func llTypeFrom(ident AstExprIdent) LLType {
