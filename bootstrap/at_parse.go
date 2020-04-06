@@ -82,9 +82,7 @@ func parseExpr(full_src Str, all_toks []Token, expr_toks []Token, all_toks_idx i
 			}
 		case tok_kind_sep_bcurly_open, tok_kind_sep_bsquare_open, tok_kind_sep_bparen_open:
 			idx_close := toksIndexOfMatchingBracket(expr_toks[i:])
-			if idx_close < 0 {
-				fail("no matching closing bracket near:", toksSrcStr(expr_toks, full_src))
-			}
+			assert(idx_close > 0)
 			idx_close += i
 			if tok_kind == tok_kind_sep_bparen_open {
 				acc_ret[acc_len] = parseExpr(full_src, all_toks,

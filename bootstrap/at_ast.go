@@ -148,7 +148,7 @@ func astScopesResolve(scope *AstScopes, name Str, only_until_before_idx int) Any
 		if i == only_until_before_idx {
 			break
 		} else if strEql(name, scope.cur[i].name) {
-			return scope.cur[i]
+			return scope.cur[i].refers_to
 		}
 	}
 	if scope.parent != nil {

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-for file_name in $(ls *.at)
+for file_name in $(ls app_*.at)
 do
     # turns foo.at into foo
     file_name_sans_ext=`basename $file_name .at`

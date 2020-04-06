@@ -39,6 +39,16 @@ func fail(msg_parts ...Any) {
 		switch msg_part := msg_parts[i].(type) {
 		case Str:
 			print(string(msg_part))
+		case AstExprIdent:
+			print(string(msg_part))
+		case AstExprLitStr:
+			print(string(msg_part))
+		case LLExprIdentLocal:
+			print(string(msg_part))
+		case LLExprIdentGlobal:
+			print(string(msg_part))
+		case LLExprLitStr:
+			print(string(msg_part))
 		case string: // same-looking as the default case, but need it explicitly for expected output at least in go1.14
 			print(msg_part)
 		default:

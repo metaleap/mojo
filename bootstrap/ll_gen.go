@@ -19,14 +19,32 @@ func llModule(ast *Ast) LLModule {
 		case AstExprLitStr:
 			ret_mod.globals[num_globals] = llGlobalFromLitStr(top_def_name, body)
 			num_globals++
-			// default:
-			// 	panic(body)
+		case AstExprForm:
+			callee := body[0].kind.(AstExprIdent)
+			if strEql(callee, Str("/extVar")) {
+				ret_mod.globals[num_globals] = llGlobalFromExtVar(&top_def.scope, body)
+				num_globals++
+			} else if strEql(callee, Str("/extFun")) {
+			} else if strEql(callee, Str("/defFun")) {
+			} else {
+				fail(callee)
+			}
+		default:
+			panic(body)
 		}
 	}
 
 	ret_mod.globals = ret_mod.globals[0:num_globals]
 	ret_mod.funcs = ret_mod.funcs[0:num_funcs]
 	return ret_mod
+}
+
+func llGlobalFromExtVar(scope *AstScopes, form AstExprForm) LLGlobal {
+	return LLGlobal{
+		name:     astScopesResolve(scope, form[1].kind.(AstExprIdent), -1).(*AstDef).body.kind.(AstExprLitStr),
+		external: true,
+		ty:       llTypeFrom(form[2].kind.(AstExprIdent)),
+	}
 }
 
 func llGlobalFromLitStr(name Str, body AstExprLitStr) LLGlobal {
@@ -36,4 +54,11 @@ func llGlobalFromLitStr(name Str, body AstExprLitStr) LLGlobal {
 		ty:          LLTypeArr{size: len(body), ty: LLTypeInt{bit_width: 8}},
 		initializer: LLExprLitStr(body),
 	}
+}
+
+func llTypeFrom(ident AstExprIdent) LLType {
+	if strEql(ident, Str("/P")) {
+		return LLTypePtr{ty: LLTypeInt{bit_width: 8}}
+	}
+	panic("TODO: llTypeFrom " + string(ident))
 }

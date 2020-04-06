@@ -1,0 +1,25 @@
+
+libc_stdin  := /extVar "stdin" /P
+libc_stdout := /extVar "stdout" /P
+libc_stderr := /extVar "stderr" /P
+libcFRead   := /extFun "fread" /I64 { #buf: /P, #size: /I64, #count: /I64, #stream: /P }
+libcFWrite  := /extFun "fwrite" /I64 { #buf: /P, #size: /I64, #count: /I64, #stream: /P }
+libcFError  := /extFun "ferror" /I32 { #buf: /P }
+libcExit    := /extFun "exit" /V { #exit_code: /I16 }
+
+
+msg := "Hello World!\010"
+
+
+main :=
+  /defFun /I32 {} {             // IL blocks collection: via structish literal
+    #print_msg: [               // IL statements sequence: via arrayish literal
+      /let # (/call libcFWrite {} msg 1 (/len msg) libc_stdout),
+      /switch (/call libcFError {} libc_stdout) { 0: #ret_ok, _: #ret_err }
+    ],
+    #ret_err: [ /br #done ],
+    #ret_ok:  [ /br #done ],
+    #done: [
+      /ret (/phi { #ret_err: 1, #ret_ok: 0 })
+    ],
+  }
