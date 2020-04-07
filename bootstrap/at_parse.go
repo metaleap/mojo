@@ -23,7 +23,7 @@ func parse(all_toks []Token, full_src Str) Ast {
 
 func parseDef(full_src Str, all_toks []Token, dst_def *AstDef) {
 	toks := astNodeToks(&dst_def.base, all_toks)
-	tok_idx_def := toksIndexOfKind(toks, tok_kind_sep_def)
+	tok_idx_def := toksIndexOfIdent(toks, Str(":="), full_src)
 	if tok_idx_def <= 0 || tok_idx_def == len(toks)-1 {
 		fail("expected '<head_expr> := <body_expr>', near:\n", astNodeSrcStr(&dst_def.base, full_src, all_toks))
 	}
@@ -49,48 +49,59 @@ func parseDef(full_src Str, all_toks []Token, dst_def *AstDef) {
 func parseExpr(full_src Str, all_toks []Token, expr_toks []Token, all_toks_idx int) AstExpr {
 	acc_ret := allocˇAstExpr(len(expr_toks))
 	acc_len := 0
+	expr_is_throng := tokThrong(expr_toks, 0, full_src) == len(expr_toks)-1
 	for i := 0; i < len(expr_toks); i++ {
-		switch tok_kind := expr_toks[i].kind; tok_kind {
-		case tok_kind_lit_int:
-			tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
-			acc_ret[acc_len] = AstExpr{
-				base: astNodeFrom(all_toks_idx+i, 1),
-				kind: AstExprLitInt(parseExprLitInt(tok_str)),
-			}
-		case tok_kind_lit_str:
-			tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
-			acc_ret[acc_len] = AstExpr{
-				base: astNodeFrom(all_toks_idx+i, 1),
-				kind: AstExprLitStr(parseExprLitStr(tok_str)),
-			}
-		case tok_kind_sep_bcurly_open, tok_kind_sep_bsquare_open, tok_kind_sep_bparen_open:
-			idx_close := toksIndexOfMatchingBracket(expr_toks[i:])
-			assert(idx_close > 0)
-			idx_close += i
-			if tok_kind == tok_kind_sep_bparen_open {
-				acc_ret[acc_len] = parseExpr(full_src, all_toks,
-					expr_toks[i+1:idx_close], all_toks_idx+i+1)
-			} else {
-				acc_ret[acc_len] = AstExpr{base: astNodeFrom(all_toks_idx+i, 1+(idx_close-i))}
-				bracketed_exprs := parseExprsDelimited(full_src, all_toks,
-					expr_toks[i+1:idx_close], all_toks_idx+i+1, tok_kind_sep_comma)
-				switch tok_kind {
-				case tok_kind_sep_bcurly_open:
-					acc_ret[acc_len].kind = AstExprLitCurl(bracketed_exprs)
-				case tok_kind_sep_bsquare_open:
-					acc_ret[acc_len].kind = AstExprLitClip(bracketed_exprs)
-				default:
-					unreachable()
+		idx_throng_end := i
+		if !expr_is_throng {
+			idx_throng_end = tokThrong(expr_toks, i, full_src)
+		}
+		if idx_throng_end > i {
+			acc_ret[acc_len] = parseExpr(full_src, all_toks,
+				expr_toks[i:idx_throng_end+1], all_toks_idx+i)
+			i = idx_throng_end // loop header will increment
+		} else {
+			switch tok_kind := expr_toks[i].kind; tok_kind {
+			case tok_kind_lit_int:
+				tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+				acc_ret[acc_len] = AstExpr{
+					base: astNodeFrom(all_toks_idx+i, 1),
+					kind: AstExprLitInt(parseExprLitInt(tok_str)),
 				}
-			}
-			i = idx_close // loop header will increment
-		case tok_kind_comment:
-			unreachable()
-		default:
-			tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
-			acc_ret[acc_len] = AstExpr{
-				base: astNodeFrom(all_toks_idx+i, 1),
-				kind: AstExprIdent(tok_str),
+			case tok_kind_lit_str:
+				tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+				acc_ret[acc_len] = AstExpr{
+					base: astNodeFrom(all_toks_idx+i, 1),
+					kind: AstExprLitStr(parseExprLitStr(tok_str)),
+				}
+			case tok_kind_sep_bcurly_open, tok_kind_sep_bsquare_open, tok_kind_sep_bparen_open:
+				idx_close := toksIndexOfMatchingBracket(expr_toks[i:])
+				assert(idx_close > 0)
+				idx_close += i
+				if tok_kind == tok_kind_sep_bparen_open {
+					acc_ret[acc_len] = parseExpr(full_src, all_toks,
+						expr_toks[i+1:idx_close], all_toks_idx+i+1)
+				} else {
+					acc_ret[acc_len] = AstExpr{base: astNodeFrom(all_toks_idx+i, 1+(idx_close-i))}
+					bracketed_exprs := parseExprsDelimited(full_src, all_toks,
+						expr_toks[i+1:idx_close], all_toks_idx+i+1, tok_kind_sep_comma)
+					switch tok_kind {
+					case tok_kind_sep_bcurly_open:
+						acc_ret[acc_len].kind = AstExprLitCurl(bracketed_exprs)
+					case tok_kind_sep_bsquare_open:
+						acc_ret[acc_len].kind = AstExprLitClip(bracketed_exprs)
+					default:
+						unreachable()
+					}
+				}
+				i = idx_close // loop header will increment
+			case tok_kind_comment:
+				unreachable()
+			default:
+				tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+				acc_ret[acc_len] = AstExpr{
+					base: astNodeFrom(all_toks_idx+i, 1),
+					kind: AstExprIdent(tok_str),
+				}
 			}
 		}
 		acc_len++

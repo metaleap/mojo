@@ -49,7 +49,7 @@ main :=
   /define /I32 {} {
     #entry: [
       /let { #msg: /getelementptr /A/13/I8 (/P/A/13/I8 /@/msg) [/I 0, /I 0] },
-      /call {} /V /@/writeOut [/P #msg, /I 13],
+      /call {} /V /@/writeOut [/P #msg, /I 13 ],
       /ret (/I32 0)
     ],
   }

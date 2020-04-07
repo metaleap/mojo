@@ -1,5 +1,8 @@
 package main
 
+const op_chars = "!#$%&*+-;:./<=>?@\\^~|"
+const sep_chars = "[]{}(),"
+
 type TokenKind int
 
 const (
@@ -18,16 +21,32 @@ const (
 	tok_kind_sep_bsquare_open
 	tok_kind_sep_bsquare_close
 	tok_kind_sep_comma
-	tok_kind_sep_colon
-	tok_kind_sep_def
 )
 
 type Token struct {
 	byte_idx            int
-	len                 int
+	num_bytes           int
 	line_nr             int
 	line_start_byte_idx int
 	kind                TokenKind
+}
+
+func isOpChar(char byte) bool {
+	for i := range op_chars {
+		if op_chars[i] == char {
+			return true
+		}
+	}
+	return false
+}
+
+func isSepChar(char byte) bool {
+	for i := range sep_chars {
+		if sep_chars[i] == char {
+			return true
+		}
+	}
+	return false
 }
 
 func tokenize(full_src Str, keep_comment_toks bool) []Token {
@@ -37,6 +56,7 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 	toks := allocˇToken(len(full_src))
 	for i = 0; i < len(full_src); i++ {
 		c := full_src[i]
+
 		if c == '\n' {
 			if state == tok_kind_lit_str {
 				fail("line-break in literal near:\n", full_src[tok_start:i])
@@ -47,7 +67,8 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 		} else {
 			switch state {
 			case tok_kind_lit_int, tok_kind_ident:
-				if c == ' ' || c == '\t' || c == '"' || c == '\'' || c == '[' || c == ']' || c == '{' || c == '}' || c == '(' || c == ')' || c == ',' || c == ':' {
+				if c == ' ' || c == '\t' || c == '"' || c == '\'' || isSepChar(c) ||
+					(isOpChar(c) && !isOpChar(full_src[i-1])) || (isOpChar(full_src[i-1]) && !isOpChar(c)) {
 					i--
 					tok_last = i
 				}
@@ -88,17 +109,6 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 					tok_last = i
 					tok_start = i
 					state = tok_kind_sep_comma
-				case ':':
-					if i < len(full_src)-1 && full_src[i+1] == '=' {
-						tok_last = i + 1
-						tok_start = i
-						state = tok_kind_sep_def
-						i++
-					} else {
-						tok_last = i
-						tok_start = i
-						state = tok_kind_sep_colon
-					}
 				default:
 					if c == '/' && i < len(full_src)-1 && full_src[i+1] == '/' {
 						tok_start = i
@@ -131,7 +141,7 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 					line_nr:             cur_line_nr,
 					line_start_byte_idx: cur_line_idx,
 					byte_idx:            tok_start,
-					len:                 tok_len,
+					num_bytes:           tok_len,
 				}
 				toks_count++
 			}
@@ -152,7 +162,7 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 			toks[toks_count] = Token{
 				kind:                state,
 				byte_idx:            tok_start,
-				len:                 tok_len,
+				num_bytes:           tok_len,
 				line_nr:             cur_line_nr,
 				line_start_byte_idx: cur_line_idx,
 			}
@@ -162,18 +172,35 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 	return toks[0:toks_count]
 }
 
+func tokCanThrong(tok *Token, full_src Str) bool {
+	return tok.kind == tok_kind_lit_int || tok.kind == tok_kind_lit_str || (tok.kind == tok_kind_ident && full_src[tok.byte_idx] != ':' && full_src[tok.byte_idx] != '=')
+}
+
+func tokThrong(toks []Token, idx int, full_src Str) int {
+	if tokCanThrong(&toks[idx], full_src) {
+		for i := idx + 1; i < len(toks); i++ {
+			if toks[i].byte_idx == toks[i-1].byte_idx+toks[i-1].num_bytes && tokCanThrong(&toks[i], full_src) {
+				idx = i
+			} else {
+				break
+			}
+		}
+	}
+	return idx
+}
+
 func tokPosCol(tok *Token) int { return tok.byte_idx - tok.line_start_byte_idx }
 
-func tokIsOpening(tok_kind TokenKind) bool {
+func tokIsOpeningBracket(tok_kind TokenKind) bool {
 	return tok_kind == tok_kind_sep_bcurly_open || tok_kind == tok_kind_sep_bparen_open || tok_kind == tok_kind_sep_bsquare_open
 }
 
-func tokIsClosing(tok_kind TokenKind) bool {
+func tokIsClosingBracket(tok_kind TokenKind) bool {
 	return tok_kind == tok_kind_sep_bcurly_close || tok_kind == tok_kind_sep_bparen_close || tok_kind == tok_kind_sep_bsquare_close
 }
 
 func toksCountUnnested(toks []Token, full_src Str, tok_kind TokenKind) int {
-	assert(!(tokIsOpening(tok_kind) || tokIsClosing(tok_kind)))
+	assert(!(tokIsOpeningBracket(tok_kind) || tokIsClosingBracket(tok_kind)))
 
 	ret_num := 0
 	level := 0
@@ -181,9 +208,9 @@ func toksCountUnnested(toks []Token, full_src Str, tok_kind TokenKind) int {
 		tok := &toks[i]
 		if tok.kind == tok_kind && level == 0 {
 			ret_num++
-		} else if tokIsOpening(tok.kind) {
+		} else if tokIsOpeningBracket(tok.kind) {
 			level++
-		} else if tokIsClosing(tok.kind) {
+		} else if tokIsClosingBracket(tok.kind) {
 			level--
 		}
 	}
@@ -234,9 +261,9 @@ func toksIndentBasedChunks(toks []Token) [][]Token {
 				cmp_pos_col = pos_col
 			}
 		}
-		if tokIsOpening(tok.kind) {
+		if tokIsOpeningBracket(tok.kind) {
 			level++
-		} else if tokIsClosing(tok.kind) {
+		} else if tokIsClosingBracket(tok.kind) {
 			level--
 		}
 	}
@@ -249,9 +276,9 @@ func toksIndentBasedChunks(toks []Token) [][]Token {
 				num_chunks++
 			}
 		}
-		if tokIsOpening(toks[i].kind) {
+		if tokIsOpeningBracket(toks[i].kind) {
 			level++
-		} else if tokIsClosing(toks[i].kind) {
+		} else if tokIsClosingBracket(toks[i].kind) {
 			level--
 		}
 	}
@@ -269,9 +296,9 @@ func toksIndentBasedChunks(toks []Token) [][]Token {
 				}
 				start_from = i
 			}
-			if tokIsOpening(tok.kind) {
+			if tokIsOpeningBracket(tok.kind) {
 				level++
-			} else if tokIsClosing(tok.kind) {
+			} else if tokIsClosingBracket(tok.kind) {
 				level--
 			}
 		}
@@ -284,9 +311,9 @@ func toksIndentBasedChunks(toks []Token) [][]Token {
 	return ret
 }
 
-func toksIndexOfKind(toks []Token, kind TokenKind) int {
+func toksIndexOfIdent(toks []Token, ident Str, full_src Str) int {
 	for i := range toks {
-		if toks[i].kind == kind {
+		if toks[i].kind == tok_kind_ident && strEql(ident, toksSrcStr(toks[i:i+1], full_src)) {
 			return i
 		}
 	}
@@ -321,7 +348,7 @@ func toksIndexOfMatchingBracket(toks []Token) int {
 }
 
 func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
-	assert(!(tokIsOpening(tok_kind) || tokIsClosing(tok_kind)))
+	assert(!(tokIsOpeningBracket(tok_kind) || tokIsClosingBracket(tok_kind)))
 
 	ret_toks := allocˇTokens(1 + toksCountUnnested(toks, full_src, tok_kind))
 	ret_idx := 0
@@ -335,9 +362,9 @@ func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
 				ret_toks[ret_idx] = sub_toks
 				ret_idx++
 				start_from = i + 1
-			} else if tokIsOpening(tok.kind) {
+			} else if tokIsOpeningBracket(tok.kind) {
 				level++
-			} else if tokIsClosing(tok.kind) {
+			} else if tokIsClosingBracket(tok.kind) {
 				level--
 			}
 		}
@@ -350,5 +377,5 @@ func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
 
 func toksSrcStr(toks []Token, full_src Str) Str {
 	first, last := &toks[0], &toks[len(toks)-1]
-	return full_src[first.byte_idx : last.byte_idx+last.len]
+	return full_src[first.byte_idx : last.byte_idx+last.num_bytes]
 }
