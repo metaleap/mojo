@@ -17,7 +17,7 @@ writeTo:                                # @writeTo
 	callq	fwrite@PLT
 	movq	%rbx, %rdi
 	callq	ferror@PLT
-	cmpl	$1, %eax
+	cmpw	$1, %ax
 	jne	.LBB0_2
 # %bb.1:                                # %exit_on_err
 	movl	$1, %edi
@@ -79,7 +79,7 @@ main:                                   # @main
 	.cfi_offset %rbx, -24
 	.cfi_offset %r14, -16
 	movq	str.1@GOTPCREL(%rip), %rdi
-	movl	$26, %esi
+	movl	$40, %esi
 	callq	writeOut@PLT
 	movq	stdin@GOTPCREL(%rip), %rax
 	movq	(%rax), %rbx
@@ -92,7 +92,7 @@ main:                                   # @main
 	movq	%rbx, %rdi
 	callq	ferror@PLT
 	movl	$1, %ebx
-	testl	%eax, %eax
+	testw	%ax, %ax
 	jne	.LBB3_3
 # %bb.1:                                # %output_result
 	movq	stdout@GOTPCREL(%rip), %rax
@@ -123,8 +123,8 @@ main:                                   # @main
 	.globl	str.1
 	.p2align	4
 str.1:
-	.ascii	"I'll echo what you enter. "
-	.size	str.1, 26
+	.ascii	"I'll echo whatever you enter until EOF. "
+	.size	str.1, 40
 
 
 	.section	".note.GNU-stack","",@progbits

@@ -1,26 +1,55 @@
 
-libc_stdin  := /extVar "stdin" /P
-libc_stdout := /extVar "stdout" /P
-libc_stderr := /extVar "stderr" /P
+libc_stdin  := /global /P { #extern: #stdin }
+libc_stdout := /global /P { #extern: #stdout }
+libc_stderr := /global /P { #extern: #stderr }
 
-libcFRead   := /extFun "fread" /I64 { #buf: /P, #size: /I64, #count: /I64, #stream: /P }
-libcFWrite  := /extFun "fwrite" /I64 { #buf: /P, #size: /I64, #count: /I64, #stream: /P }
-libcFError  := /extFun "ferror" /I32 { #buf: /P }
-libcExit    := /extFun "exit" /V { #exit_code: /I16 }
+libcFRead   := /declare #fread /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
+libcFWrite  := /declare #fwrite /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
+libcFError  := /declare #ferror /I16 { #buf: /P }
+libcExit    := /declare #exit /V { #status: /I16 }
 
 
-msg := "Hello World!\010"
+msg := /global /A/13/I8 { #constant: "Hello World!\010" }
 
+
+writeTo :=
+  /define /V { #str_ptr: /P, #str_len: /I, #out_file_ptr: /P/P } {
+    #try_write: [
+      /let { #file: /load /P (/P/P #out_file_ptr) },
+      /call {} /I /@/libcFWrite [/P #str_ptr, /I 1, /I #str_len, /P #file],
+      /let { #err: /call {} /I16 /@/libcFError [/P #file] },
+      /switch (/I16 #err) #done { /I16 1: #exit_on_err },
+    ],
+    #exit_on_err: [
+      /call {} /V /@/libcExit [/I16 1],
+      /ret /V,
+    ],
+    #done: [
+      /ret /V,
+    ],
+  }
+
+writeErr :=
+  /define /V { #str_ptr: /P, #str_len: /I } {
+    #: [
+      /call {} /V /@/writeTo [/P #str_ptr, /I #str_len, /P/P /@/libc_stderr],
+      /ret /V,
+    ],
+  }
+
+writeOut :=
+  /define /V { #str_ptr: /P, #str_len: /I } {
+    #: [
+      /call {} /V /@/writeTo [/P #str_ptr, /I #str_len, /P/P /@/libc_stdout],
+      /ret /V,
+    ],
+  }
 
 main :=
-  /defFun /I32 {} {             // IL blocks collection: via structish literal
-    #print_msg: [               // IL statements sequence: via arrayish literal
-      /let # (/call libcFWrite {} msg 1 (/len msg) libc_stdout),
-      /switch (/call libcFError {} libc_stdout) { 0: #ret_ok, _: #ret_err }
-    ],
-    #ret_err: [ /br #done ],
-    #ret_ok:  [ /br #done ],
-    #done: [
-      /ret (/phi { #ret_err: 1, #ret_ok: 0 })
+  /define /I32 {} {
+    #entry: [
+      /let { #msg: /getelementptr /A/13/I8 (/P/A/13/I8 /@/msg) [/I 0, /I 0] },
+      /call {} /V /@/writeOut [/P #msg, /I 13],
+      /ret (/I32 0)
     ],
   }

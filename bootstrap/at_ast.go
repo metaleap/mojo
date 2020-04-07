@@ -10,9 +10,6 @@ type Ast struct {
 type AstNode struct {
 	toks_idx int
 	toks_len int
-	anns     struct {
-		ll_ty LLType
-	}
 }
 
 type AstDef struct {
@@ -71,57 +68,6 @@ func astDefName(def *AstDef) Str {
 	return def.head.kind.(AstExprIdent)
 }
 
-func astDefGatherAndRewriteLitStrs(def *AstDef, into []StrNamed, idx int) int {
-	if def.is_top_def && astExprIsLitStr(&def.body) {
-		return idx
-	}
-	idx = astExprGatherAndRewriteLitStrs(&def.body, into, idx)
-	for i := range def.defs {
-		idx = astDefGatherAndRewriteLitStrs(&def.defs[i], into, idx)
-	}
-	return idx
-}
-
-func astExprGatherAndRewriteLitStrs(expr *AstExpr, into []StrNamed, idx int) int {
-	switch expr_kind := expr.kind.(type) {
-	case AstExprForm:
-		for i := range expr_kind {
-			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
-		}
-	case AstExprLitCurl:
-		for i := range expr_kind {
-			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
-		}
-	case AstExprLitClip:
-		for i := range expr_kind {
-			idx = astExprGatherAndRewriteLitStrs(&expr_kind[i], into, idx)
-		}
-	case AstExprLitStr:
-		counter++
-		new_name := uintToStr(counter, 10, 1, Str(".str_"))
-		expr.kind = AstExprIdent(new_name)
-		into[idx] = StrNamed{name: new_name, value: expr_kind}
-		idx++
-	}
-	return idx
-}
-
-func astExprIsLitStr(expr *AstExpr) bool {
-	_, ok := expr.kind.(AstExprLitStr)
-	return ok
-}
-
-func astExprIsBuiltin(expr *AstExpr) bool {
-	switch expr_kind := expr.kind.(type) {
-	case AstExprIdent:
-		return expr_kind[0] == '/'
-	case AstExprForm:
-		ident, ok := expr_kind[0].kind.(AstExprIdent)
-		return ok && ident[0] == '/'
-	}
-	return false
-}
-
 func astExprFormExtract(expr_form AstExprForm, idx_start int, idx_end int) AstExpr {
 	sub_form := expr_form[idx_start:idx_end]
 	ret_expr := AstExpr{kind: sub_form}
@@ -176,18 +122,18 @@ func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool,
 	return
 }
 
-func astResolveIdents(ast *Ast) {
+func astPopulateScopes(ast *Ast) {
 	ast.scope.cur = allocˇAstNameRef(len(ast.defs))
 	for i := range ast.defs {
 		def := &ast.defs[i]
 		ast.scope.cur[i] = AstNameRef{name: astDefName(def), refers_to: def}
 	}
 	for i := range ast.defs {
-		astDefResolveIdents(&ast.defs[i], ast, &ast.scope)
+		astDefPopulateScopes(&ast.defs[i], ast, &ast.scope)
 	}
 }
 
-func astDefResolveIdents(def *AstDef, ast *Ast, parent *AstScopes) {
+func astDefPopulateScopes(def *AstDef, ast *Ast, parent *AstScopes) {
 	def.scope.parent = parent
 	def.scope.cur = allocˇAstNameRef(len(def.defs))
 	for i := range def.defs {
@@ -200,7 +146,7 @@ func astDefResolveIdents(def *AstDef, ast *Ast, parent *AstScopes) {
 	}
 	for i := range def.defs {
 		sub_def := &def.defs[i]
-		astDefResolveIdents(sub_def, ast, &def.scope)
+		astDefPopulateScopes(sub_def, ast, &def.scope)
 	}
 }
 

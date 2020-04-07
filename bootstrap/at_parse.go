@@ -5,7 +5,7 @@ func parse(all_toks []Token, full_src Str) Ast {
 	ret_ast := Ast{
 		src:  full_src,
 		toks: all_toks,
-		defs: allocˇAstDef(len(chunks) * 2),
+		defs: allocˇAstDef(len(chunks)),
 	}
 	toks_idx := 0
 	for i, this_chunk_toks := range chunks {
@@ -13,28 +13,11 @@ func parse(all_toks []Token, full_src Str) Ast {
 		ret_ast.defs[i].base.toks_len = len(this_chunk_toks)
 		toks_idx += len(this_chunk_toks)
 	}
-	for i := range ret_ast.defs[0:len(chunks)] {
+	for i := range ret_ast.defs {
 		this_top_def := &ret_ast.defs[i]
 		this_top_def.is_top_def = true
 		parseDef(full_src, all_toks, this_top_def)
 	}
-
-	num_str_lits := 0
-	for i := range ret_ast.defs[0:len(chunks)] {
-		this_top_def := &ret_ast.defs[i]
-		gathered := allocˇStrNamed(32)
-		num := astDefGatherAndRewriteLitStrs(this_top_def, gathered, 0)
-		for j := range gathered[0:num] {
-			ret_ast.defs[len(chunks)+num_str_lits] = AstDef{
-				head:       AstExpr{kind: AstExprIdent(gathered[j].name)},
-				body:       AstExpr{kind: AstExprLitStr(gathered[j].value)},
-				is_top_def: true,
-			}
-			num_str_lits++
-		}
-	}
-
-	ret_ast.defs = ret_ast.defs[0 : len(chunks)+num_str_lits]
 	return ret_ast
 }
 

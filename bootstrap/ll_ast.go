@@ -177,7 +177,7 @@ func llTypeEql(t1 LLType, t2 LLType) bool {
 		}
 	case LLTypePtr:
 		if tr, ok := t2.(LLTypePtr); ok {
-			return (tl.ty == nil && tr.ty == nil) || llTypeEql(tl.ty, tr.ty)
+			return llTypeEql(tl.ty, tr.ty)
 		}
 	case LLTypeArr:
 		if tr, ok := t2.(LLTypeArr); ok {
@@ -203,4 +203,27 @@ func llTypeEql(t1 LLType, t2 LLType) bool {
 		}
 	}
 	return false
+}
+
+func llTypeToStr(ll_ty LLType) Str {
+	switch t := ll_ty.(type) {
+	case LLTypeVoid:
+		return Str("/V")
+	case LLTypeInt:
+		return uintToStr(uint64(t.bit_width), 10, 1, Str("/I"))
+	case LLTypePtr:
+		return strConcat([]Str{Str("/P"), llTypeToStr(t.ty)})
+	case LLTypeArr:
+		return strConcat([]Str{uintToStr(t.size, 10, 1, Str("/A/")), llTypeToStr(t.ty)})
+	case LLTypeFunc:
+		strs := allocˇStr(3 + len(t.params))
+		strs[0] = Str("/F")
+		strs[1] = llTypeToStr(t.ty)
+		strs[2] = uintToStr(uint64(len(t.params)), 10, 1, Str("/"))
+		for i := range t.params {
+			strs[3+i] = llTypeToStr(t.params[i])
+		}
+		return strConcat(strs)
+	}
+	panic(ll_ty)
 }

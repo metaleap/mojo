@@ -30,6 +30,22 @@ func assert(b bool) {
 	}
 }
 
+func strConcat(strs []Str) Str {
+	str_len := 0
+	for _, str := range strs {
+		str_len += len(str)
+	}
+	ret_str := allocˇu8(str_len)
+	idx := 0
+	for _, str := range strs {
+		for i, c := range str {
+			ret_str[idx+i] = c
+		}
+		idx += len(str)
+	}
+	return ret_str
+}
+
 func trimAt(str Str, char byte) Str {
 	for i := range str {
 		if str[i] == char {
@@ -140,6 +156,7 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 */
 
 func allocˇu8(len int) Str                      { return make(Str, len) }
+func allocˇStr(len int) []Str                   { return make([]Str, len) }
 func allocˇToken(len int) []Token               { return make([]Token, len) }
 func allocˇTokens(len int) [][]Token            { return make([][]Token, len) }
 func allocˇAstDef(len int) []AstDef             { return make([]AstDef, len) }

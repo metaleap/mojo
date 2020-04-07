@@ -45,7 +45,7 @@ func main() {
 
 	ast := parse(toks, input_src_file_bytes)
 	assert(len(ast.defs) != 0)
-	astResolveIdents(&ast)
+	astPopulateScopes(&ast)
 
 	ll_mod := llModule(&ast)
 	llEmit(&ll_mod)
