@@ -48,8 +48,9 @@ func llModule(ast *Ast) LLModule {
 				for j := range ret_mod.funcs {
 					dst_def := &ret_mod.funcs[j]
 					if strEql(dst_def.name, top_def_name) {
-						done = true
+						llFuncDefSetAllExprTypes(top_def, dst_def, ast)
 						llFuncDefPopulateBlocks(top_def, dst_def, ast)
+						done = true
 						break
 					}
 				}
@@ -140,17 +141,78 @@ func llFuncDefFrom(top_def *AstDef, ast *Ast) LLFunc {
 	return ret_def
 }
 
+func llFuncDefSetAllExprTypes(top_def *AstDef, dst_def *LLFunc, ast *Ast) {
+	form := top_def.body.kind.(AstExprForm)
+	assert(len(form) == 4)
+	lit_body := form[3].kind.(AstExprLitCurl)
+	for i := range lit_body {
+		_, block_stmts := astExprFormSplit(&lit_body[i], Str(":"), true, true, true, ast)
+		stmt_exprs := block_stmts.kind.(AstExprLitClip)
+		for j := range stmt_exprs {
+			stmt_expr := stmt_exprs[j].kind.(AstExprForm)
+			ident := stmt_expr[0].kind.(AstExprIdent)
+			if strEql(ident, Str("/ret")) {
+				assert(len(stmt_expr) == 2)
+				_ = llExprEnsureTypeAnnotation(&stmt_expr[1], dst_def.ty, top_def, ast)
+			}
+		}
+	}
+}
+
+func llExprEnsureTypeAnnotation(expr *AstExpr, maybe_ty LLType, cur_def *AstDef, ast *Ast) LLType {
+	if expr.base.anns.ll_ty == nil {
+		switch this := expr.kind.(type) {
+		case AstExprForm:
+			ident := this[0].kind.(AstExprIdent)
+			if strEql(ident, Str("/phi")) {
+				assert(len(this) == 2)
+				lit_curl := this[1].kind.(AstExprLitCurl)
+				phi_ty := maybe_ty
+				for i := range lit_curl {
+					_, rhs := astExprFormSplit(&lit_curl[i], Str(":"), true, true, true, ast)
+					if nil != llExprEnsureTypeAnnotation(rhs, phi_ty, cur_def, ast) {
+						if phi_ty == nil {
+							phi_ty = rhs.base.anns.ll_ty
+						} else if !llTypeEql(phi_ty, rhs.base.anns.ll_ty) {
+							fail("type mismatch: got ", phi_ty, " but had ", rhs.base.anns.ll_ty, " in:\n", astNodeSrcStr(&expr.base, ast.src, ast.toks))
+						}
+					}
+				}
+				expr.base.anns.ll_ty = phi_ty
+				for i := range lit_curl {
+					_, rhs := astExprFormSplit(&lit_curl[i], Str(":"), true, true, true, ast)
+					if rhs.base.anns.ll_ty == nil {
+						rhs.base.anns.ll_ty = phi_ty
+					}
+				}
+			} else if strEql(ident, Str("/call")) {
+				// callee := this[1].kind.(AstExprIdent)
+				// ref_def := astScopesResolve(&cur_def.scope, callee, -1).(*AstDef)
+				// func_ty := ref_def.base.anns.ll_ty.(LLTypeFunc)
+			}
+		}
+	}
+
+	if maybe_ty != nil {
+		if expr.base.anns.ll_ty != nil && !llTypeEql(maybe_ty, expr.base.anns.ll_ty) {
+			fail("type mismatch: got ", maybe_ty, " but had ", expr.base.anns.ll_ty, " in:\n", astNodeSrcStr(&expr.base, ast.src, ast.toks))
+		}
+		expr.base.anns.ll_ty = maybe_ty
+	}
+	return expr.base.anns.ll_ty
+}
+
 func llFuncDefPopulateBlocks(top_def *AstDef, dst_def *LLFunc, ast *Ast) {
 	form := top_def.body.kind.(AstExprForm)
 	assert(len(form) == 4)
 	lit_body := form[3].kind.(AstExprLitCurl)
 	for i := range lit_body {
 		_, block_stmts := astExprFormSplit(&lit_body[i], Str(":"), true, true, true, ast)
-		stmts := block_stmts.kind.(AstExprLitClip)
-		dst_def.basic_blocks[i].stmts = allocˇLLStmt(len(stmts) * 2)
+		stmt_exprs := block_stmts.kind.(AstExprLitClip)
+		dst_def.basic_blocks[i].stmts = allocˇLLStmt(len(stmt_exprs) * 2)
 		num_stmts := 0
-		for j := range stmts {
-			ll_stmts := llStmtsFrom(&stmts[j], top_def, ast, true)
+		for j := range stmt_exprs {
+			ll_stmts := llStmtsFrom(&stmt_exprs[j], top_def, dst_def, ast, true)
 			for _, ll_stmt := range ll_stmts {
 				dst_def.basic_blocks[i].stmts[num_stmts] = ll_stmt
 				num_stmts++
@@ -160,54 +222,20 @@ func llFuncDefPopulateBlocks(top_def *AstDef, dst_def *LLFunc, ast *Ast) {
 	}
 }
 
-func llStmtsFrom(expr *AstExpr, cur_def *AstDef, ast *Ast, prepend_comment bool) []LLStmt {
-	form := expr.kind.(AstExprForm)
+func llStmtsFrom(stmt_expr *AstExpr, top_def *AstDef, dst_def *LLFunc, ast *Ast, prepend_comment bool) []LLStmt {
+	form := stmt_expr.kind.(AstExprForm)
 	ident := form[0].kind.(AstExprIdent)
 	ret_stmts := allocˇLLStmt(2)
 	num_stmts := 0
 
 	if prepend_comment {
-		ret_stmts[num_stmts] = LLStmtComment{comment_text: trimAt(astNodeSrcStr(&expr.base, ast.src, ast.toks), '\n')}
+		ret_stmts[num_stmts] = LLStmtComment{comment_text: trimAt(astNodeSrcStr(&stmt_expr.base, ast.src, ast.toks), '\n')}
 		num_stmts++
-	}
-
-	if !strEql(ident, Str("/let")) {
-		for i := 1; i < len(form); i++ {
-			if _, is := form[i].kind.(AstExprForm); is {
-				counter++
-				tmp_name := uintToStr(counter, 10, 1, Str("-$-"))
-				tmp_let := AstExpr{
-					kind: AstExprForm{
-						AstExpr{kind: AstExprIdent("/let")},
-						AstExpr{kind: AstExprIdent(tmp_name)},
-						form[i],
-					},
-					base: form[i].base,
-				}
-				for _, sub_stmt := range llStmtsFrom(&tmp_let, cur_def, ast, false) {
-					ret_stmts[num_stmts] = sub_stmt
-					num_stmts++
-				}
-				form[i].kind = AstExprIdent(tmp_name)
-			}
-		}
 	}
 
 	if strEql(ident, Str("/br")) {
 		assert(len(form) == 2)
 		ret_stmts[num_stmts] = LLStmtBr{block_name: llIdentFrom(&form[1], '#', ast)}
-		num_stmts++
-	} else if strEql(ident, Str("/let")) && false {
-		assert(len(form) == 3)
-		name := llIdentFrom(&form[1], '#', ast)
-		if len(name) == 1 && name[0] == '.' {
-			counter++
-			name = uintToStr(counter, 10, 1, Str(".."))
-		}
-		ret_stmts[num_stmts] = LLStmtLet{
-			name: name,
-			expr: llExprFrom(&form[2], nil, cur_def, ast),
-		}
 		num_stmts++
 	}
 

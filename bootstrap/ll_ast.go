@@ -164,3 +164,43 @@ type LLTypeFunc struct {
 	ty     LLType
 	params []LLType
 }
+
+func llTypeEql(t1 LLType, t2 LLType) bool {
+	assert(t1 != nil && t2 != nil)
+	switch tl := t1.(type) {
+	case LLTypeVoid:
+		_, ok := t2.(LLTypeVoid)
+		return ok
+	case LLTypeInt:
+		if tr, ok := t2.(LLTypeInt); ok {
+			return tl.bit_width == tr.bit_width
+		}
+	case LLTypePtr:
+		if tr, ok := t2.(LLTypePtr); ok {
+			return (tl.ty == nil && tr.ty == nil) || llTypeEql(tl.ty, tr.ty)
+		}
+	case LLTypeArr:
+		if tr, ok := t2.(LLTypeArr); ok {
+			return tl.size == tr.size && llTypeEql(tl.ty, tr.ty)
+		}
+	case LLTypeStruct:
+		if tr, ok := t2.(LLTypeStruct); ok && len(tl.fields) == len(tr.fields) {
+			for i, tl_field_ty := range tl.fields {
+				if !llTypeEql(tl_field_ty, tr.fields[i]) {
+					return false
+				}
+			}
+			return true
+		}
+	case LLTypeFunc:
+		if tr, ok := t2.(LLTypeFunc); ok && len(tl.params) == len(tr.params) && llTypeEql(tl.ty, tr.ty) {
+			for i, tl_param_ty := range tl.params {
+				if !llTypeEql(tl_param_ty, tr.params[i]) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
