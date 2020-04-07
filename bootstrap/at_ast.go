@@ -10,6 +10,9 @@ type Ast struct {
 type AstNode struct {
 	toks_idx int
 	toks_len int
+	anns     struct {
+		ll_ty LLType
+	}
 }
 
 type AstDef struct {
