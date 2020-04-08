@@ -77,7 +77,12 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 				assert(idx_close > 0)
 				idx_close += i
 				if tok_kind == tok_kind_sep_bparen_open {
-					acc_ret[acc_len] = parseExpr(expr_toks[i+1:idx_close], all_toks_idx+i+1, ast)
+					inside_parens_toks := expr_toks[i+1 : idx_close]
+					if len(inside_parens_toks) == 0 {
+						acc_ret[acc_len] = AstExpr{kind: AstExprIdent("()"), base: astNodeFrom(all_toks_idx+i, 2)}
+					} else {
+						acc_ret[acc_len] = parseExpr(inside_parens_toks, all_toks_idx+i+1, ast)
+					}
 				} else {
 					acc_ret[acc_len] = AstExpr{base: astNodeFrom(all_toks_idx+i, 1+(idx_close-i))}
 					bracketed_exprs := parseExprsDelimited(expr_toks[i+1:idx_close], all_toks_idx+i+1, tok_kind_sep_comma, ast)
@@ -139,7 +144,7 @@ func parseExprLitStr(lit_src Str) Str {
 
 func parseExprsDelimited(toks []Token, all_toks_idx int, tok_kind_sep TokenKind, ast *Ast) []AstExpr {
 	if len(toks) == 0 {
-		return nil
+		return allocˇAstExpr(0)
 	}
 	per_item_toks := toksSplit(toks, ast.src, tok_kind_sep)
 	ret_exprs := allocˇAstExpr(len(per_item_toks))

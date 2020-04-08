@@ -84,7 +84,8 @@ func astExprFormExtract(expr_form AstExprForm, idx_start int, idx_end int) AstEx
 	return ret_expr
 }
 
-func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool, must_rhs bool, ast *Ast) (lhs *AstExpr, rhs *AstExpr) {
+func astExprFormSplit(expr *AstExpr, ident string, must bool, must_lhs bool, must_rhs bool, ast *Ast) (lhs *AstExpr, rhs *AstExpr) {
+	ident_needle := Str(ident)
 	if !must {
 		assert(!(must_lhs || must_rhs))
 	}
@@ -98,12 +99,6 @@ func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool,
 					break
 				}
 			}
-		}
-		if idx == 0 && must_lhs {
-			fail("expected expression before '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
-		}
-		if idx == len(form)-1 && must_rhs {
-			fail("expected expression after '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
 		}
 		if idx >= 0 {
 			both := allocˇAstExpr(2)
@@ -119,6 +114,12 @@ func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool,
 	}
 	if idx < 0 && must {
 		fail("expected '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
+	}
+	if lhs == nil && must_lhs {
+		fail("expected expression before '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
+	}
+	if rhs == nil && must_rhs {
+		fail("expected expression after '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
 	}
 	return
 }
@@ -157,7 +158,7 @@ func astExprsFindKeyedValue(exprs []AstExpr, key string, ast *Ast) *AstExpr {
 	str_key := Str(key)
 	for i := range exprs {
 		if form, _ := exprs[i].kind.(AstExprForm); form != nil {
-			lhs, rhs := astExprFormSplit(&exprs[i], Str(":"), true, true, true, ast)
+			lhs, rhs := astExprFormSplit(&exprs[i], ":", true, true, true, ast)
 			if lhs != nil && strEql(astNodeSrcStr(&lhs.base, ast), str_key) {
 				return rhs
 			}

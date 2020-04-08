@@ -5,7 +5,7 @@
 	.type	writeTo,@function
 writeTo:                                # @writeTo
 	.cfi_startproc
-# %bb.0:
+# %bb.0:                                # %begin
 	pushq	%rbx
 	.cfi_def_cfa_offset 16
 	.cfi_offset %rbx, -16
@@ -22,7 +22,7 @@ writeTo:                                # @writeTo
 # %bb.1:                                # %exit_on_err
 	movl	$1, %edi
 	callq	exit@PLT
-.LBB0_2:                                # %return
+.LBB0_2:                                # %end
 	popq	%rbx
 	.cfi_def_cfa_offset 8
 	retq
@@ -69,7 +69,7 @@ writeOut:                               # @writeOut
 	.type	main,@function
 main:                                   # @main
 	.cfi_startproc
-# %bb.0:                                # %output_prompt
+# %bb.0:                                # %begin
 	pushq	%r14
 	.cfi_def_cfa_offset 16
 	pushq	%rbx
@@ -105,7 +105,7 @@ main:                                   # @main
 	jne	.LBB3_3
 # %bb.2:                                # %ret_ok
 	xorl	%ebx, %ebx
-.LBB3_3:                                # %return
+.LBB3_3:                                # %end
 	movl	%ebx, %eax
 	addq	$520, %rsp              # imm = 0x208
 	.cfi_def_cfa_offset 24

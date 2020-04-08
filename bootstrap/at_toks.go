@@ -67,7 +67,7 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 		} else {
 			switch state {
 			case tok_kind_lit_int, tok_kind_ident:
-				if c == ' ' || c == '\t' || c == '"' || c == '\'' || isSepChar(c) ||
+				if c == ' ' || c == '\t' || c == '"' || c == '\'' || isSepChar(c) || c == ':' ||
 					(isOpChar(c) && !isOpChar(full_src[i-1])) || (isOpChar(full_src[i-1]) && !isOpChar(c)) {
 					i--
 					tok_last = i

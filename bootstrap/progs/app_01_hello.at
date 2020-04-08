@@ -3,34 +3,34 @@ libc_stdin  := /global /P { #external: #stdin }
 libc_stdout := /global /P { #external: #stdout }
 libc_stderr := /global /P { #external: #stderr }
 
-libcFRead   := /declare #fread /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
-libcFWrite  := /declare #fwrite /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
-libcFError  := /declare #ferror /I16 { #buf: /P }
-libcExit    := /declare #exit /V { #status: /I16 }
+libcFRead   := /declare #fread {} /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
+libcFWrite  := /declare #fwrite {} /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
+libcFError  := /declare #ferror {} /I16 { #buf: /P }
+libcExit    := /declare #exit {} /V { #status: /I16 }
 
 
 msg := /global /A/13/I8 { #constant: "Hello World!\010" }
 
 
 writeTo :=
-  /define /V { #str_ptr: /P, #str_len: /I, #out_file_ptr: /P/P } {
-    #try_write: [
+  /define {} /V { #str_ptr: /P, #str_len: /I, #out_file_ptr: /P/P } {
+    #begin: [
       /let { #file: /load /P (/P/P #out_file_ptr) },
       /call {} /I /@/libcFWrite [/P #str_ptr, /I 1, /I #str_len, /P #file],
       /let { #err: /call {} /I16 /@/libcFError [/P #file] },
-      /switch (/I16 #err) #done { /I16 1: #exit_on_err },
+      /switch (/I16 #err) #end { /I16 1: #exit_on_err },
     ],
     #exit_on_err: [
       /call {} /V /@/libcExit [/I16 1],
       /ret /V,
     ],
-    #done: [
+    #end: [
       /ret /V,
     ],
   }
 
 writeErr :=
-  /define /V { #str_ptr: /P, #str_len: /I } {
+  /define {} /V { #str_ptr: /P, #str_len: /I } {
     #: [
       /call {} /V /@/writeTo [/P #str_ptr, /I #str_len, /P/P /@/libc_stderr],
       /ret /V,
@@ -38,7 +38,7 @@ writeErr :=
   }
 
 writeOut :=
-  /define /V { #str_ptr: /P, #str_len: /I } {
+  /define {} /V { #str_ptr: /P, #str_len: /I } {
     #: [
       /call {} /V /@/writeTo [/P #str_ptr, /I #str_len, /P/P /@/libc_stdout],
       /ret /V,
@@ -46,10 +46,8 @@ writeOut :=
   }
 
 main :=
-  /define /I32 {} {
-    #entry: [
+  /define {} /I32 {} { #: [
       /let { #msg: /getelementptr /A/13/I8 (/P/A/13/I8 /@/msg) [/I 0, /I 0] },
       /call {} /V /@/writeOut [/P #msg, /I 13 ],
       /ret (/I32 0)
-    ],
-  }
+  ] }

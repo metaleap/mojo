@@ -39,10 +39,10 @@ func llNodeFrom(expr *AstExpr, top_def *AstDef, ast *Ast) Any {
 		if 1 == len(callee) {
 			if astExprIsIdent(callee[0], "global") {
 				return llGlobalFrom(expr, top_def, ast)
-				// } else if astExprIsIdent(callee[0], "declare") {
-				// 	return llFuncDeclFrom(expr, top_def, ast)
-				// } else if astExprIsIdent(callee[0], "define") {
-				// 	return llFuncDefFrom(expr, top_def, ast)
+			} else if astExprIsIdent(callee[0], "declare") {
+				return llFuncDeclFrom(expr, top_def, ast)
+			} else if astExprIsIdent(callee[0], "define") {
+				return llFuncDefFrom(expr, top_def, ast)
 			}
 		}
 		if ident, is_ident := callee[0].kind.(AstExprIdent); is_ident && ident[0] >= 'A' && ident[0] <= 'Z' {
@@ -79,11 +79,71 @@ func llGlobalFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLGlobal {
 }
 
 func llFuncDeclFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLFunc {
-	return LLFunc{name: astDefName(top_def)}
+	expr_form := full_expr.kind.(AstExprForm)
+	lit_curl_opts, _ := expr_form[2].kind.(AstExprLitCurl)
+	assert(lit_curl_opts != nil)
+	lit_curl_params := expr_form[4].kind.(AstExprLitCurl)
+	ret_func := LLFunc{
+		external:     true,
+		ty:           llTypeFrom(astExprSlashed(&expr_form[3]), full_expr, ast),
+		name:         astExprTaggedIdent(&expr_form[1]),
+		params:       allocˇLLFuncParam(len(lit_curl_params)),
+		basic_blocks: nil,
+	}
+	for i := range lit_curl_params {
+		lhs, rhs := astExprFormSplit(&lit_curl_params[i], ":", true, true, true, ast)
+		ret_func.params[i].name = astExprTaggedIdent(lhs)
+		assert(len(ret_func.params[i].name) != 0) // source lang must provide param names for self-doc reasons...
+		ret_func.params[i].name = nil             // ...but destination lang (LLVM-IR) doesn't need them
+		ret_func.params[i].ty = llTypeFrom(astExprSlashed(rhs), rhs, ast)
+	}
+	assert(len(ret_func.name) != 0)
+	return ret_func
 }
 
 func llFuncDefFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLFunc {
-	return LLFunc{name: astDefName(top_def)}
+	expr_form := full_expr.kind.(AstExprForm)
+	assert(len(expr_form) == 5)
+	lit_curl_opts, _ := expr_form[1].kind.(AstExprLitCurl)
+	assert(lit_curl_opts != nil)
+	lit_curl_params := expr_form[3].kind.(AstExprLitCurl)
+	lit_curl_blocks := expr_form[4].kind.(AstExprLitCurl)
+	ret_func := LLFunc{
+		name:         astDefName(top_def),
+		external:     false,
+		ty:           llTypeFrom(astExprSlashed(&expr_form[2]), &expr_form[2], ast),
+		params:       allocˇLLFuncParam(len(lit_curl_params)),
+		basic_blocks: allocˇLLBasicBlock(len(lit_curl_blocks)),
+	}
+	for i := range lit_curl_params {
+		lhs, rhs := astExprFormSplit(&lit_curl_params[i], ":", true, true, true, ast)
+		ret_func.params[i].name = astExprTaggedIdent(lhs)
+		assert(len(ret_func.params[i].name) != 0)
+		ret_func.params[i].ty = llTypeFrom(astExprSlashed(rhs), rhs, ast)
+	}
+	for i := range lit_curl_blocks {
+		ret_func.basic_blocks[i] = llBlockFrom(&lit_curl_blocks[i], ast)
+	}
+	assert(len(ret_func.name) != 0)
+	return ret_func
+}
+
+func llBlockFrom(pair_expr *AstExpr, ast *Ast) LLBasicBlock {
+	lhs, rhs := astExprFormSplit(pair_expr, ":", true, true, true, ast)
+	lit_clip := rhs.kind.(AstExprLitClip)
+	ret_block := LLBasicBlock{name: astExprTaggedIdent(lhs), stmts: allocˇLLStmt(len(lit_clip))}
+	if len(ret_block.name) == 0 {
+		counter++
+		ret_block.name = uintToStr(counter, 10, 1, Str("blk."))
+	}
+	for i := range lit_clip {
+		ret_block.stmts[i] = llStmtFrom(&lit_clip[i], ast)
+	}
+	return ret_block
+}
+
+func llStmtFrom(stmt_expr *AstExpr, ast *Ast) LLStmt {
+	return LLStmtComment{comment_text: astNodeSrcStr(&stmt_expr.base, ast)}
 }
 
 func llTypeFrom(expr_callee_slashed []*AstExpr, full_expr_for_err_msg *AstExpr, ast *Ast) LLType {
@@ -100,6 +160,8 @@ func llTypeFrom(expr_callee_slashed []*AstExpr, full_expr_for_err_msg *AstExpr, 
 			sub_type = LLTypeInt{bit_width: 8}
 		}
 		return LLTypePtr{ty: sub_type}
+	} else if ident[0] == 'V' && len(ident) == 1 {
+		return LLTypeVoid{}
 	} else if ident[0] == 'A' && len(ident) == 1 && len(expr_callee_slashed) >= 3 {
 		sub_type := llTypeFrom(expr_callee_slashed[2:], full_expr_for_err_msg, ast)
 		if sub_type != nil {
@@ -118,6 +180,10 @@ func llTypeFrom(expr_callee_slashed []*AstExpr, full_expr_for_err_msg *AstExpr, 
 }
 
 func llExprFrom(expr *AstExpr, ast *Ast) LLExpr {
+	switch it := expr.kind.(type) {
+	case AstExprLitStr:
+		return LLExprLitStr(it)
+	}
 	return nil
 }
 
