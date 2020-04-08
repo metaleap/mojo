@@ -22,10 +22,10 @@ writeTo :=
     ],
     #exit_on_err: [
       /call {} /V /@/libcExit [/I16 1],
-      /ret /V,
+      /ret (/V #),
     ],
     #end: [
-      /ret /V,
+      /ret (/V #),
     ],
   }
 
@@ -33,7 +33,7 @@ writeErr :=
   /define {} /V { #str_ptr: /P, #str_len: /I } {
     #: [
       /call {} /V /@/writeTo [/P #str_ptr, /I #str_len, /P/P /@/libc_stderr],
-      /ret /V,
+      /ret (/V #),
     ],
   }
 
@@ -41,13 +41,15 @@ writeOut :=
   /define {} /V { #str_ptr: /P, #str_len: /I } {
     #: [
       /call {} /V /@/writeTo [/P #str_ptr, /I #str_len, /P/P /@/libc_stdout],
-      /ret /V,
+      /ret (/V #),
     ],
   }
 
 main :=
-  /define {} /I32 {} { #: [
+  /define {} /I32 {} {
+    #: [
       /let { #msg: /getelementptr /A/13/I8 (/P/A/13/I8 /@/msg) [/I 0, /I 0] },
       /call {} /V /@/writeOut [/P #msg, /I 13 ],
       /ret (/I32 0)
-  ] }
+    ],
+  }

@@ -33,20 +33,26 @@ func llNodeFrom(expr *AstExpr, top_def *AstDef, ast *Ast) Any {
 	switch it := expr.kind.(type) {
 	case AstExprForm:
 		callee := astExprSlashed(&it[0])
-		if len(callee) == 0 {
-			fail("expected some '/...' prim call in:\n", astNodeSrcStr(&expr.base, ast))
+		kwd := callee[0]
+		if ident, is_ident := kwd.kind.(AstExprIdent); is_ident && ident[0] >= 'A' && ident[0] <= 'Z' {
+			return llTypeFrom(callee, expr, ast)
 		}
 		if 1 == len(callee) {
-			if astExprIsIdent(callee[0], "global") {
+			if astExprIsIdent(kwd, "global") {
 				return llGlobalFrom(expr, top_def, ast)
-			} else if astExprIsIdent(callee[0], "declare") {
+			} else if astExprIsIdent(kwd, "declare") {
 				return llFuncDeclFrom(expr, top_def, ast)
-			} else if astExprIsIdent(callee[0], "define") {
+			} else if astExprIsIdent(kwd, "define") {
 				return llFuncDefFrom(expr, top_def, ast)
+			} else if astExprIsIdent(kwd, "let") {
+				return nil
+			} else if astExprIsIdent(kwd, "ret") {
+				assert(len(it) == 2)
+				println("NOW\t", string(astNodeSrcStr(&it[1].base, ast)))
+				return LLStmtRet{expr: llExprFrom(&it[1], ast).(LLExprTyped)}
+			} else if astExprIsIdent(kwd, "switch") {
+				return nil
 			}
-		}
-		if ident, is_ident := callee[0].kind.(AstExprIdent); is_ident && ident[0] >= 'A' && ident[0] <= 'Z' {
-			return llTypeFrom(callee, expr, ast)
 		}
 	}
 	return llExprFrom(expr, ast)
@@ -122,13 +128,13 @@ func llFuncDefFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLFunc {
 		ret_func.params[i].ty = llTypeFrom(astExprSlashed(rhs), rhs, ast)
 	}
 	for i := range lit_curl_blocks {
-		ret_func.basic_blocks[i] = llBlockFrom(&lit_curl_blocks[i], ast)
+		ret_func.basic_blocks[i] = llBlockFrom(&lit_curl_blocks[i], top_def, ast)
 	}
 	assert(len(ret_func.name) != 0)
 	return ret_func
 }
 
-func llBlockFrom(pair_expr *AstExpr, ast *Ast) LLBasicBlock {
+func llBlockFrom(pair_expr *AstExpr, top_def *AstDef, ast *Ast) LLBasicBlock {
 	lhs, rhs := astExprFormSplit(pair_expr, ":", true, true, true, ast)
 	lit_clip := rhs.kind.(AstExprLitClip)
 	ret_block := LLBasicBlock{name: astExprTaggedIdent(lhs), stmts: allocˇLLStmt(len(lit_clip))}
@@ -137,13 +143,12 @@ func llBlockFrom(pair_expr *AstExpr, ast *Ast) LLBasicBlock {
 		ret_block.name = uintToStr(counter, 10, 1, Str("blk."))
 	}
 	for i := range lit_clip {
-		ret_block.stmts[i] = llStmtFrom(&lit_clip[i], ast)
+		ret_block.stmts[i], _ = llNodeFrom(&lit_clip[i], top_def, ast).(LLStmt)
+		if ret_block.stmts[i] == nil {
+			ret_block.stmts[i] = LLStmtComment{comment_text: astNodeSrcStr(&lit_clip[i].base, ast)}
+		}
 	}
 	return ret_block
-}
-
-func llStmtFrom(stmt_expr *AstExpr, ast *Ast) LLStmt {
-	return LLStmtComment{comment_text: astNodeSrcStr(&stmt_expr.base, ast)}
 }
 
 func llTypeFrom(expr_callee_slashed []*AstExpr, full_expr_for_err_msg *AstExpr, ast *Ast) LLType {
@@ -181,9 +186,27 @@ func llTypeFrom(expr_callee_slashed []*AstExpr, full_expr_for_err_msg *AstExpr, 
 
 func llExprFrom(expr *AstExpr, ast *Ast) LLExpr {
 	switch it := expr.kind.(type) {
+	case AstExprLitInt:
+		return LLExprLitInt(it)
 	case AstExprLitStr:
 		return LLExprLitStr(it)
+	case AstExprForm:
+		slashed := astExprSlashed(&it[0])
+		if len(slashed) != 0 {
+			kwd := slashed[0]
+			ident, _ := kwd.kind.(AstExprIdent)
+			if len(ident) != 0 {
+				if len(it) == 2 && ident[0] >= 'A' && ident[0] <= 'Z' {
+					ret_expr := LLExprTyped{ty: llTypeFrom(slashed, expr, ast), expr: llExprFrom(&it[1], ast)}
+					_, is_void := ret_expr.ty.(LLTypeVoid)
+					assert((ret_expr.expr != nil && !is_void) || (is_void && ret_expr.expr == nil))
+					return ret_expr
+				}
+			}
+
+		}
 	}
+	println("TODO Expr:\t", string(astNodeSrcStr(&expr.base, ast)))
 	return nil
 }
 

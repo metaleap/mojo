@@ -67,6 +67,8 @@ type LLExprLitInt uint64
 
 type LLExprLitStr Str
 
+type LLExprLitVoid struct{}
+
 type LLExprTyped struct {
 	ty   LLType
 	expr LLExpr
@@ -248,6 +250,7 @@ func (LLExprCmpI) implementsLLExpr()        {}
 func (LLExprGep) implementsLLExpr()         {}
 func (LLExprIdentGlobal) implementsLLExpr() {}
 func (LLExprIdentLocal) implementsLLExpr()  {}
+func (LLExprLitVoid) implementsLLExpr()     {}
 func (LLExprLitInt) implementsLLExpr()      {}
 func (LLExprLitStr) implementsLLExpr()      {}
 func (LLExprLoad) implementsLLExpr()        {}

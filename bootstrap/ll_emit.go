@@ -258,8 +258,11 @@ func llEmitExprLitStr(ll_expr_lit_str LLExprLitStr) {
 
 func llEmitExprTyped(ll_expr_typed *LLExprTyped) {
 	llEmit(ll_expr_typed.ty)
-	write(Str(" "))
-	llEmit(ll_expr_typed.expr)
+	_, is_void := ll_expr_typed.ty.(LLTypeVoid)
+	if !is_void {
+		write(Str(" "))
+		llEmit(ll_expr_typed.expr)
+	}
 }
 
 func llEmitExprAlloca(ll_expr_alloca *LLExprAlloca) {
