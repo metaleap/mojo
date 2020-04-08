@@ -7,10 +7,6 @@ type LLModule struct {
 	funcs             []LLFunc
 }
 
-type LLType interface{} // just for doc purposes: to remain empty with no methods
-type LLExpr interface{} // just for doc purposes: to remain empty with no methods
-type LLStmt interface{} // just for doc purposes: to remain empty with no methods
-
 type LLGlobal struct {
 	name        Str
 	constant    bool
@@ -227,3 +223,33 @@ func llTypeToStr(ll_ty LLType) Str {
 	}
 	panic(ll_ty)
 }
+
+type LLType interface{ implementsLLType() }
+type LLExpr interface{ implementsLLExpr() }
+type LLStmt interface{ implementsLLStmt() }
+
+func (LLTypeArr) implementsLLType()    {}
+func (LLTypeFunc) implementsLLType()   {}
+func (LLTypeInt) implementsLLType()    {}
+func (LLTypePtr) implementsLLType()    {}
+func (LLTypeStruct) implementsLLType() {}
+func (LLTypeVoid) implementsLLType()   {}
+
+func (LLStmtBr) implementsLLStmt()      {}
+func (LLStmtComment) implementsLLStmt() {}
+func (LLStmtLet) implementsLLStmt()     {}
+func (LLStmtRet) implementsLLStmt()     {}
+func (LLStmtSwitch) implementsLLStmt()  {}
+
+func (LLExprAlloca) implementsLLExpr()      {}
+func (LLExprBinOp) implementsLLExpr()       {}
+func (LLExprCall) implementsLLExpr()        {}
+func (LLExprCmpI) implementsLLExpr()        {}
+func (LLExprGep) implementsLLExpr()         {}
+func (LLExprIdentGlobal) implementsLLExpr() {}
+func (LLExprIdentLocal) implementsLLExpr()  {}
+func (LLExprLitInt) implementsLLExpr()      {}
+func (LLExprLitStr) implementsLLExpr()      {}
+func (LLExprLoad) implementsLLExpr()        {}
+func (LLExprPhi) implementsLLExpr()         {}
+func (LLExprTyped) implementsLLExpr()       {}

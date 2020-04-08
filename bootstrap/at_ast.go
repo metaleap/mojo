@@ -23,7 +23,7 @@ type AstDef struct {
 
 type AstExpr struct {
 	base AstNode
-	kind Any
+	kind AstExprKind
 }
 
 type AstExprLitInt uint64
@@ -122,11 +122,34 @@ func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool,
 	return
 }
 
-func astExprIsIdent(expr *AstExpr, ident Str) bool {
+func astExprIsIdent(expr *AstExpr, ident string) bool {
 	if expr_ident, is_ident := expr.kind.(AstExprIdent); is_ident {
-		return strEql(expr_ident, ident)
+		return strEql(expr_ident, Str(ident))
 	}
 	return false
+}
+
+func astExprSlashed(expr *AstExpr) (ret_parts []*AstExpr) {
+	if form, _ := expr.kind.(AstExprForm); form != nil {
+		num_parts := 0
+		for i := 0; i < len(form); i += 2 {
+			if astExprIsIdent(&form[i], "/") && i != len(form)-1 {
+				num_parts++
+			} else {
+				return
+			}
+		}
+		if num_parts != 0 {
+			ret_parts = allocˇAstExprPtr(num_parts)
+			ret_idx := 0
+			for i := 1; i < len(form); i += 2 {
+				ret_parts[ret_idx] = &form[i]
+				ret_idx++
+			}
+			assert(ret_idx == num_parts)
+		}
+	}
+	return
 }
 
 func astPopulateScopes(ast *Ast) {
@@ -170,3 +193,12 @@ func astScopesResolve(scope *AstScopes, name Str, only_until_before_idx int) Any
 	}
 	return nil
 }
+
+type AstExprKind interface{ implementsAstExprKind() }
+
+func (AstExprForm) implementsAstExprKind()    {}
+func (AstExprIdent) implementsAstExprKind()   {}
+func (AstExprLitClip) implementsAstExprKind() {}
+func (AstExprLitCurl) implementsAstExprKind() {}
+func (AstExprLitInt) implementsAstExprKind()  {}
+func (AstExprLitStr) implementsAstExprKind()  {}

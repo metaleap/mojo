@@ -47,6 +47,6 @@ func main() {
 	assert(len(ast.defs) != 0)
 	astPopulateScopes(&ast)
 
-	ll_mod := llModule(&ast)
+	ll_mod := llGenModule(&ast)
 	llEmit(&ll_mod)
 }
