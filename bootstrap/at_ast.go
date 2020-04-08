@@ -89,42 +89,43 @@ func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool,
 		assert(!(must_lhs || must_rhs))
 	}
 	idx := -1
-	form := expr.kind.(AstExprForm)
-	for i := range form {
-		switch maybe_ident := form[i].kind.(type) {
-		case AstExprIdent:
-			if strEql(ident_needle, maybe_ident) {
-				idx = i
-				break
+	if form, _ := expr.kind.(AstExprForm); len(form) != 0 {
+		for i := range form {
+			switch maybe_ident := form[i].kind.(type) {
+			case AstExprIdent:
+				if strEql(ident_needle, maybe_ident) {
+					idx = i
+					break
+				}
+			}
+		}
+		if idx == 0 && must_lhs {
+			fail("expected expression before '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
+		}
+		if idx == len(form)-1 && must_rhs {
+			fail("expected expression after '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
+		}
+		if idx >= 0 {
+			both := allocˇAstExpr(2)
+			if idx > 0 {
+				both[0] = astExprFormExtract(form, 0, idx)
+				lhs = &both[0]
+			}
+			if idx < len(form)-1 {
+				both[1] = astExprFormExtract(form, idx+1, len(form))
+				rhs = &both[1]
 			}
 		}
 	}
 	if idx < 0 && must {
 		fail("expected '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
 	}
-	if idx == 0 && must_lhs {
-		fail("expected expression before '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
-	}
-	if idx == len(form)-1 && must_rhs {
-		fail("expected expression after '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
-	}
-	if idx >= 0 {
-		both := allocˇAstExpr(2)
-		if idx > 0 {
-			both[0] = astExprFormExtract(form, 0, idx)
-			lhs = &both[0]
-		}
-		if idx < len(form)-1 {
-			both[1] = astExprFormExtract(form, idx+1, len(form))
-			rhs = &both[1]
-		}
-	}
 	return
 }
 
 func astExprIsIdent(expr *AstExpr, ident string) bool {
 	if expr_ident, is_ident := expr.kind.(AstExprIdent); is_ident {
-		return strEql(expr_ident, Str(ident))
+		return len(ident) == 0 || strEql(expr_ident, Str(ident))
 	}
 	return false
 }
@@ -150,6 +151,29 @@ func astExprSlashed(expr *AstExpr) (ret_parts []*AstExpr) {
 		}
 	}
 	return
+}
+
+func astExprsFindKeyedValue(exprs []AstExpr, key string, ast *Ast) *AstExpr {
+	str_key := Str(key)
+	for i := range exprs {
+		if form, _ := exprs[i].kind.(AstExprForm); form != nil {
+			lhs, rhs := astExprFormSplit(&exprs[i], Str(":"), true, true, true, ast)
+			if lhs != nil && strEql(astNodeSrcStr(&lhs.base, ast), str_key) {
+				return rhs
+			}
+		}
+	}
+	return nil
+}
+
+func astExprTaggedIdent(expr *AstExpr) AstExprIdent {
+	if form, _ := expr.kind.(AstExprForm); len(form) == 2 {
+		if ident_op, _ := form[0].kind.(AstExprIdent); len(ident_op) == 1 && ident_op[0] == '#' {
+			ident_ret, _ := form[1].kind.(AstExprIdent)
+			return ident_ret
+		}
+	}
+	return nil
 }
 
 func astPopulateScopes(ast *Ast) {

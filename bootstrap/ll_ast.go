@@ -138,7 +138,7 @@ type LLExprGep struct {
 }
 
 type LLTypeInt struct {
-	bit_width uint32 // u23 really..
+	bit_width uint64 // u23 really.. we save us some casts here
 }
 
 type LLTypeVoid struct{}

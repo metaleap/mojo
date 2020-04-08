@@ -1,7 +1,7 @@
 
-libc_stdin  := /global /P { #extern: #stdin }
-libc_stdout := /global /P { #extern: #stdout }
-libc_stderr := /global /P { #extern: #stderr }
+libc_stdin  := /global /P { #external: #stdin }
+libc_stdout := /global /P { #external: #stdout }
+libc_stderr := /global /P { #external: #stderr }
 
 libcFRead   := /declare #fread /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
 libcFWrite  := /declare #fwrite /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
