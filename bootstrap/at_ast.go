@@ -56,12 +56,12 @@ func astNodeToks(node *AstNode, all_toks []Token) []Token {
 	return all_toks[node.toks_idx : node.toks_idx+node.toks_len]
 }
 
-func astNodeSrcStr(node *AstNode, full_src Str, all_toks []Token) Str {
+func astNodeSrcStr(node *AstNode, ast *Ast) Str {
 	if node.toks_len == 0 {
 		return nil
 	}
-	node_toks := astNodeToks(node, all_toks)
-	return toksSrcStr(node_toks, full_src)
+	node_toks := astNodeToks(node, ast.toks)
+	return toksSrcStr(node_toks, ast.src)
 }
 
 func astDefName(def *AstDef) Str {
@@ -100,13 +100,13 @@ func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool,
 		}
 	}
 	if idx < 0 && must {
-		fail("expected '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast.src, ast.toks))
+		fail("expected '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
 	}
 	if idx == 0 && must_lhs {
-		fail("expected expression before '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast.src, ast.toks))
+		fail("expected expression before '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
 	}
 	if idx == len(form)-1 && must_rhs {
-		fail("expected expression after '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast.src, ast.toks))
+		fail("expected expression after '", ident_needle, "' in:\n", astNodeSrcStr(&expr.base, ast))
 	}
 	if idx >= 0 {
 		both := allocˇAstExpr(2)
@@ -120,6 +120,13 @@ func astExprFormSplit(expr *AstExpr, ident_needle Str, must bool, must_lhs bool,
 		}
 	}
 	return
+}
+
+func astExprIsIdent(expr *AstExpr, ident Str) bool {
+	if expr_ident, is_ident := expr.kind.(AstExprIdent); is_ident {
+		return strEql(expr_ident, ident)
+	}
+	return false
 }
 
 func astPopulateScopes(ast *Ast) {
@@ -140,7 +147,7 @@ func astDefPopulateScopes(def *AstDef, ast *Ast, parent *AstScopes) {
 		sub_def := &def.defs[i]
 		def_name := astDefName(sub_def)
 		if nil != astScopesResolve(&def.scope, def_name, i) {
-			fail("duplicate name '", def_name, "' near:\n", astNodeSrcStr(&def.base, ast.src, ast.toks))
+			fail("duplicate name '", def_name, "' near:\n", astNodeSrcStr(&def.base, ast))
 		}
 		def.scope.cur[i] = AstNameRef{name: def_name, refers_to: sub_def}
 	}

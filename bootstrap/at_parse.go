@@ -16,59 +16,58 @@ func parse(all_toks []Token, full_src Str) Ast {
 	for i := range ret_ast.defs {
 		this_top_def := &ret_ast.defs[i]
 		this_top_def.is_top_def = true
-		parseDef(full_src, all_toks, this_top_def)
+		parseDef(this_top_def, &ret_ast)
 	}
 	return ret_ast
 }
 
-func parseDef(full_src Str, all_toks []Token, dst_def *AstDef) {
-	toks := astNodeToks(&dst_def.base, all_toks)
-	tok_idx_def := toksIndexOfIdent(toks, Str(":="), full_src)
+func parseDef(dst_def *AstDef, dst_ast *Ast) {
+	toks := astNodeToks(&dst_def.base, dst_ast.toks)
+	tok_idx_def := toksIndexOfIdent(toks, Str(":="), dst_ast.src)
 	if tok_idx_def <= 0 || tok_idx_def == len(toks)-1 {
-		fail("expected '<head_expr> := <body_expr>', near:\n", astNodeSrcStr(&dst_def.base, full_src, all_toks))
+		fail("expected '<head_expr> := <body_expr>', near:\n", astNodeSrcStr(&dst_def.base, dst_ast))
 	}
 
-	dst_def.head = parseExpr(full_src, all_toks, toks[0:tok_idx_def], dst_def.base.toks_idx)
+	dst_def.head = parseExpr(toks[0:tok_idx_def], dst_def.base.toks_idx, dst_ast)
 	chunks_body := toksIndentBasedChunks(toks[tok_idx_def+1:])
 	dst_def.defs = allocˇAstDef(len(chunks_body) - 1)
 	toks_idx := dst_def.base.toks_idx + tok_idx_def + 1
 	for i, this_chunk_toks := range chunks_body {
 		if i == 0 {
-			dst_def.body = parseExpr(full_src, all_toks, this_chunk_toks, toks_idx)
+			dst_def.body = parseExpr(this_chunk_toks, toks_idx, dst_ast)
 		} else {
 			sub_def := &dst_def.defs[i-1]
 			sub_def.base.toks_idx = toks_idx
 			sub_def.base.toks_len = len(this_chunk_toks)
 			sub_def.is_top_def = false
-			parseDef(full_src, all_toks, sub_def)
+			parseDef(sub_def, dst_ast)
 		}
 		toks_idx += len(this_chunk_toks)
 	}
 }
 
-func parseExpr(full_src Str, all_toks []Token, expr_toks []Token, all_toks_idx int) AstExpr {
+func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 	acc_ret := allocˇAstExpr(len(expr_toks))
 	acc_len := 0
-	expr_is_throng := tokThrong(expr_toks, 0, full_src) == len(expr_toks)-1
+	expr_is_throng := tokThrong(expr_toks, 0, ast.src) == len(expr_toks)-1
 	for i := 0; i < len(expr_toks); i++ {
 		idx_throng_end := i
 		if !expr_is_throng {
-			idx_throng_end = tokThrong(expr_toks, i, full_src)
+			idx_throng_end = tokThrong(expr_toks, i, ast.src)
 		}
 		if idx_throng_end > i {
-			acc_ret[acc_len] = parseExpr(full_src, all_toks,
-				expr_toks[i:idx_throng_end+1], all_toks_idx+i)
+			acc_ret[acc_len] = parseExpr(expr_toks[i:idx_throng_end+1], all_toks_idx+i, ast)
 			i = idx_throng_end // loop header will increment
 		} else {
 			switch tok_kind := expr_toks[i].kind; tok_kind {
 			case tok_kind_lit_int:
-				tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
 				acc_ret[acc_len] = AstExpr{
 					base: astNodeFrom(all_toks_idx+i, 1),
 					kind: AstExprLitInt(parseExprLitInt(tok_str)),
 				}
 			case tok_kind_lit_str:
-				tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
 				acc_ret[acc_len] = AstExpr{
 					base: astNodeFrom(all_toks_idx+i, 1),
 					kind: AstExprLitStr(parseExprLitStr(tok_str)),
@@ -78,12 +77,10 @@ func parseExpr(full_src Str, all_toks []Token, expr_toks []Token, all_toks_idx i
 				assert(idx_close > 0)
 				idx_close += i
 				if tok_kind == tok_kind_sep_bparen_open {
-					acc_ret[acc_len] = parseExpr(full_src, all_toks,
-						expr_toks[i+1:idx_close], all_toks_idx+i+1)
+					acc_ret[acc_len] = parseExpr(expr_toks[i+1:idx_close], all_toks_idx+i+1, ast)
 				} else {
 					acc_ret[acc_len] = AstExpr{base: astNodeFrom(all_toks_idx+i, 1+(idx_close-i))}
-					bracketed_exprs := parseExprsDelimited(full_src, all_toks,
-						expr_toks[i+1:idx_close], all_toks_idx+i+1, tok_kind_sep_comma)
+					bracketed_exprs := parseExprsDelimited(expr_toks[i+1:idx_close], all_toks_idx+i+1, tok_kind_sep_comma, ast)
 					switch tok_kind {
 					case tok_kind_sep_bcurly_open:
 						acc_ret[acc_len].kind = AstExprLitCurl(bracketed_exprs)
@@ -97,7 +94,7 @@ func parseExpr(full_src Str, all_toks []Token, expr_toks []Token, all_toks_idx i
 			case tok_kind_comment:
 				unreachable()
 			default:
-				tok_str := toksSrcStr(expr_toks[i:i+1], full_src)
+				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
 				acc_ret[acc_len] = AstExpr{
 					base: astNodeFrom(all_toks_idx+i, 1),
 					kind: AstExprIdent(tok_str),
@@ -140,11 +137,11 @@ func parseExprLitStr(lit_src Str) Str {
 	return ret_str[0:ret_len]
 }
 
-func parseExprsDelimited(full_src Str, all_toks []Token, toks []Token, all_toks_idx int, tok_kind_sep TokenKind) []AstExpr {
+func parseExprsDelimited(toks []Token, all_toks_idx int, tok_kind_sep TokenKind, ast *Ast) []AstExpr {
 	if len(toks) == 0 {
 		return nil
 	}
-	per_item_toks := toksSplit(toks, full_src, tok_kind_sep)
+	per_item_toks := toksSplit(toks, ast.src, tok_kind_sep)
 	ret_exprs := allocˇAstExpr(len(per_item_toks))
 	ret_idx := 0
 	toks_idx := all_toks_idx
@@ -152,7 +149,7 @@ func parseExprsDelimited(full_src Str, all_toks []Token, toks []Token, all_toks_
 		if len(this_item_toks) == 0 {
 			toks_idx++ // the 1 for the comma
 		} else {
-			ret_exprs[ret_idx] = parseExpr(full_src, all_toks, this_item_toks, toks_idx)
+			ret_exprs[ret_idx] = parseExpr(this_item_toks, toks_idx, ast)
 			toks_idx += 1 + len(this_item_toks) // the 1 for the comma
 			ret_idx++
 		}

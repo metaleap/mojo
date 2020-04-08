@@ -161,6 +161,7 @@ func allocˇToken(len int) []Token               { return make([]Token, len) }
 func allocˇTokens(len int) [][]Token            { return make([][]Token, len) }
 func allocˇAstDef(len int) []AstDef             { return make([]AstDef, len) }
 func allocˇAstExpr(len int) []AstExpr           { return make([]AstExpr, len) }
+func allocˇAstExprPtr(len int) []*AstExpr       { return make([]*AstExpr, len) }
 func allocˇAstNameRef(len int) []AstNameRef     { return make([]AstNameRef, len) }
 func allocˇStrNamed(len int) []StrNamed         { return make([]StrNamed, len) }
 func allocˇLLGlobal(len int) []LLGlobal         { return make([]LLGlobal, len) }
