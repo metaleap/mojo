@@ -15,7 +15,7 @@ msg := /global /A/13/I8 { #constant: "Hello World!\010" }
 writeTo :=
   /define {} /V { #str_ptr: /P, #str_len: /I, #out_file_ptr: /P/P } {
     #begin: [
-      /let { #file: /load /P (/P/P #out_file_ptr) },
+      /let { #file: /load {} /P (/P/P #out_file_ptr) },
       /call {} /I /@/libcFWrite [/P #str_ptr, /I 1, /I #str_len, /P #file],
       /let { #err: /call {} /I16 /@/libcFError [/P #file] },
       /switch (/I16 #err) #end { /I16 1: #exit_on_err },

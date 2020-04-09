@@ -145,45 +145,6 @@ func llEmitBlock(ll_block *LLBasicBlock) {
 	}
 }
 
-func llEmitInstrComment(ll_instr_comment *LLInstrComment) {
-	write(Str("; "))
-	write(ll_instr_comment.comment_text)
-}
-
-func llEmitInstrBr(ll_instr_br *LLInstrBr) {
-	write(Str("br label %"))
-	write(ll_instr_br.block_name)
-}
-
-func llEmitInstrRet(ll_instr_ret *LLInstrRet) {
-	write(Str("ret "))
-	llEmit(ll_instr_ret.expr)
-}
-
-func llEmitInstrLet(ll_instr_let *LLInstrLet) {
-	write(Str("%"))
-	write(ll_instr_let.name)
-	write(Str(" = "))
-	llEmit(ll_instr_let.instr)
-}
-
-func llEmitInstrSwitch(ll_instr_switch *LLInstrSwitch) {
-	write(Str("switch"))
-	llEmit(ll_instr_switch.comparee)
-	write(Str(", label %"))
-	llEmit(ll_instr_switch.default_block_name)
-	write(Str(" ["))
-	for i := range ll_instr_switch.cases {
-		llEmit(ll_instr_switch.cases[i].expr)
-		write(Str(", label %"))
-		write(ll_instr_switch.cases[i].block_name)
-		if i > 0 {
-			write(Str(",\n    "))
-		}
-	}
-	write(Str("]"))
-}
-
 func llEmitTypeVoid() {
 	write(Str("void"))
 }
@@ -265,56 +226,93 @@ func llEmitExprTyped(ll_expr_typed *LLExprTyped) {
 	}
 }
 
-func llEmitInstrAlloca(ll_expr_alloca *LLInstrAlloca) {
+func llEmitInstrComment(ll_instr_comment *LLInstrComment) {
+	write(Str("; "))
+	write(ll_instr_comment.comment_text)
+}
+
+func llEmitInstrBr(ll_instr_br *LLInstrBr) {
+	write(Str("br label %"))
+	write(ll_instr_br.block_name)
+}
+
+func llEmitInstrRet(ll_instr_ret *LLInstrRet) {
+	write(Str("ret "))
+	llEmit(ll_instr_ret.expr)
+}
+
+func llEmitInstrLet(ll_instr_let *LLInstrLet) {
+	write(Str("%"))
+	write(ll_instr_let.name)
+	write(Str(" = "))
+	llEmit(ll_instr_let.instr)
+}
+
+func llEmitInstrSwitch(ll_instr_switch *LLInstrSwitch) {
+	write(Str("switch "))
+	llEmit(ll_instr_switch.comparee)
+	write(Str(", label %"))
+	write(ll_instr_switch.default_block_name)
+	write(Str(" ["))
+	for i := range ll_instr_switch.cases {
+		llEmit(ll_instr_switch.cases[i].expr)
+		write(Str(", label %"))
+		write(ll_instr_switch.cases[i].block_name)
+		if i > 0 {
+			write(Str(",\n    "))
+		}
+	}
+	write(Str("]"))
+}
+
+func llEmitInstrAlloca(ll_instr_alloca *LLInstrAlloca) {
 	write(Str("alloca "))
-	llEmit(ll_expr_alloca.ty)
+	llEmit(ll_instr_alloca.ty)
 	write(Str(", "))
-	llEmit(ll_expr_alloca.num_elems)
+	llEmit(ll_instr_alloca.num_elems)
 }
 
-func llEmitInstrLoad(ll_expr_load *LLInstrLoad) {
+func llEmitInstrLoad(ll_instr_load *LLInstrLoad) {
 	write(Str("load "))
-	llEmit(ll_expr_load.ty)
+	llEmit(ll_instr_load.ty)
 	write(Str(", "))
-	llEmit(ll_expr_load.ty)
-	write(Str("* "))
-	llEmit(ll_expr_load.expr)
+	llEmit(ll_instr_load.expr)
 }
 
-func llEmitInstrCall(ll_expr_call *LLInstrCall) {
+func llEmitInstrCall(ll_instr_call *LLInstrCall) {
 	write(Str("call "))
-	llEmit(ll_expr_call.callee)
+	llEmit(ll_instr_call.callee)
 	write(Str("("))
-	for i := range ll_expr_call.args {
+	for i := range ll_instr_call.args {
 		if i > 0 {
 			write(Str(", "))
 		}
-		llEmit(ll_expr_call.args[i])
+		llEmit(ll_instr_call.args[i])
 	}
 	write(Str(")"))
 }
 
-func llEmitInstrBinOp(ll_expr_bin_op *LLInstrBinOp) {
+func llEmitInstrBinOp(ll_instr_bin_op *LLInstrBinOp) {
 	var op_kind string
-	switch ll_expr_bin_op.op_kind {
+	switch ll_instr_bin_op.op_kind {
 	case ll_bin_op_add:
 		op_kind = "add"
 	default:
-		fail(ll_expr_bin_op.op_kind)
+		fail(ll_instr_bin_op.op_kind)
 	}
 
 	write(Str(op_kind))
 	write(Str(" "))
-	llEmit(ll_expr_bin_op.ty)
+	llEmit(ll_instr_bin_op.ty)
 	write(Str(" "))
-	llEmit(ll_expr_bin_op.lhs)
+	llEmit(ll_instr_bin_op.lhs)
 	write(Str(", "))
-	llEmit(ll_expr_bin_op.rhs)
+	llEmit(ll_instr_bin_op.rhs)
 }
 
-func llEmitInstrCmpI(ll_expr_cmp_i *LLInstrCmpI) {
+func llEmitInstrCmpI(ll_instr_cmp_i *LLInstrCmpI) {
 	var cmp_kind string
-	switch ll_expr_cmp_i.cmp_kind {
+	switch ll_instr_cmp_i.cmp_kind {
 	case ll_cmp_i_eq:
 		cmp_kind = "eq"
 	case ll_cmp_i_ne:
@@ -336,41 +334,41 @@ func llEmitInstrCmpI(ll_expr_cmp_i *LLInstrCmpI) {
 	case ll_cmp_i_sle:
 		cmp_kind = "sle"
 	default:
-		fail(ll_expr_cmp_i.cmp_kind)
+		fail(ll_instr_cmp_i.cmp_kind)
 	}
 
 	write(Str("icmp "))
 	write(Str(cmp_kind))
 	write(Str(" "))
-	llEmit(ll_expr_cmp_i.ty)
+	llEmit(ll_instr_cmp_i.ty)
 	write(Str(" "))
-	llEmit(ll_expr_cmp_i.lhs)
+	llEmit(ll_instr_cmp_i.lhs)
 	write(Str(", "))
-	llEmit(ll_expr_cmp_i.rhs)
+	llEmit(ll_instr_cmp_i.rhs)
 }
 
-func llEmitInstrPhi(ll_expr_phi *LLInstrPhi) {
+func llEmitInstrPhi(ll_instr_phi *LLInstrPhi) {
 	write(Str("phi "))
-	llEmit(ll_expr_phi.ty)
-	for i := range ll_expr_phi.predecessors {
+	llEmit(ll_instr_phi.ty)
+	for i := range ll_instr_phi.predecessors {
 		if i > 0 {
 			write(Str(","))
 		}
 		write(Str(" ["))
-		llEmit(ll_expr_phi.predecessors[i].expr)
+		llEmit(ll_instr_phi.predecessors[i].expr)
 		write(Str(", %"))
-		write(ll_expr_phi.predecessors[i].block_name)
+		write(ll_instr_phi.predecessors[i].block_name)
 		write(Str("]"))
 	}
 }
 
-func llEmitInstrGep(ll_expr_gep *LLInstrGep) {
+func llEmitInstrGep(ll_instr_gep *LLInstrGep) {
 	write(Str("getelementptr "))
-	llEmit(ll_expr_gep.ty)
+	llEmit(ll_instr_gep.ty)
 	write(Str(", "))
-	llEmit(ll_expr_gep.base_ptr)
-	for i := range ll_expr_gep.indices {
+	llEmit(ll_instr_gep.base_ptr)
+	for i := range ll_instr_gep.indices {
 		write(Str(", "))
-		llEmit(ll_expr_gep.indices[i])
+		llEmit(ll_instr_gep.indices[i])
 	}
 }

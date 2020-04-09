@@ -155,8 +155,28 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast) LLInstr {
 					name:  astExprTaggedIdent(lhs),
 					instr: llInstrFrom(rhs, top_def, ast),
 				}
+			} else if astExprIsIdent(kwd, "load") {
+				assert(len(it) == 4)
+				_ = it[1].kind.(AstExprLitCurl)
+				ret_load := LLInstrLoad{
+					ty:   llTypeFrom(astExprSlashed(&it[2]), expr, ast),
+					expr: llExprFrom(&it[3], ast).(LLExprTyped),
+				}
+				return ret_load
 			} else if astExprIsIdent(kwd, "switch") {
-
+				assert(len(it) == 4)
+				lit_curl := it[3].kind.(AstExprLitCurl)
+				ret_switch := LLInstrSwitch{
+					comparee:           llExprFrom(&it[1], ast).(LLExprTyped),
+					default_block_name: astExprTaggedIdent(&it[2]),
+					cases:              allocˇLLSwitchCase(len(lit_curl)),
+				}
+				for i := range lit_curl {
+					lhs, rhs := astExprFormSplit(&lit_curl[i], ":", true, true, true, ast)
+					ret_switch.cases[i].expr = llExprFrom(lhs, ast).(LLExprTyped)
+					ret_switch.cases[i].block_name = astExprTaggedIdent(rhs)
+				}
+				return ret_switch
 			}
 		}
 	}
@@ -215,7 +235,11 @@ func llExprFrom(expr *AstExpr, ast *Ast) LLExpr {
 					return ret_expr
 				}
 			}
+		}
 
+		tag_lit := astExprTaggedIdent(expr)
+		if tag_lit != nil {
+			return LLExprIdentLocal(tag_lit)
 		}
 	}
 	println("TODO Expr:\t", string(astNodeSrcStr(&expr.base, ast)))

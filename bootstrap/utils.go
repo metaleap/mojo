@@ -172,3 +172,4 @@ func allocˇLLInstr(len int) []LLInstr           { return make([]LLInstr, len) }
 func allocˇLLType(len int) []LLType             { return make([]LLType, len) }
 func allocˇLLExprTyped(len int) []LLExprTyped   { return make([]LLExprTyped, len) }
 func allocˇLLPhiPred(len int) []LLPhiPred       { return make([]LLPhiPred, len) }
+func allocˇLLSwitchCase(len int) []LLSwitchCase { return make([]LLSwitchCase, len) }
