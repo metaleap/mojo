@@ -5,9 +5,9 @@ import (
 )
 
 type (
-	Any      = interface{}
-	Str      = []byte
-	StrNamed struct {
+	Any     = interface{}
+	Str     = []byte
+	StrPair struct {
 		name  Str
 		value Str
 	}
@@ -163,7 +163,7 @@ func allocˇAstDef(len int) []AstDef             { return make([]AstDef, len) }
 func allocˇAstExpr(len int) []AstExpr           { return make([]AstExpr, len) }
 func allocˇAstExprPtr(len int) []*AstExpr       { return make([]*AstExpr, len) }
 func allocˇAstNameRef(len int) []AstNameRef     { return make([]AstNameRef, len) }
-func allocˇStrNamed(len int) []StrNamed         { return make([]StrNamed, len) }
+func allocˇStrPair(len int) []StrPair           { return make([]StrPair, len) }
 func allocˇLLGlobal(len int) []LLGlobal         { return make([]LLGlobal, len) }
 func allocˇLLFunc(len int) []LLFunc             { return make([]LLFunc, len) }
 func allocˇLLFuncParam(len int) []LLFuncParam   { return make([]LLFuncParam, len) }

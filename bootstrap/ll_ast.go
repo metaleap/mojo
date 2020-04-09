@@ -12,19 +12,21 @@ type LLModule struct {
 }
 
 type LLGlobal struct {
-	name        Str
-	constant    bool
-	external    bool
-	ty          LLType
-	initializer LLExpr
+	orig_ast_top_def *AstDef
+	name             Str
+	constant         bool
+	external         bool
+	ty               LLType
+	initializer      LLExpr
 }
 
 type LLFunc struct {
-	external     bool
-	ty           LLType
-	name         Str
-	params       []LLFuncParam
-	basic_blocks []LLBasicBlock
+	orig_ast_top_def *AstDef
+	external         bool
+	ty               LLType
+	name             Str
+	params           []LLFuncParam
+	basic_blocks     []LLBasicBlock
 }
 
 type LLFuncParam struct {
