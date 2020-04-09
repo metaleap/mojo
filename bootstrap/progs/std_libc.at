@@ -1,0 +1,9 @@
+
+libc_stdin  := /global /P { #external: #stdin }
+libc_stdout := /global /P { #external: #stdout }
+libc_stderr := /global /P { #external: #stderr }
+
+libcFRead   := /declare #fread {} /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
+libcFWrite  := /declare #fwrite {} /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
+libcFError  := /declare #ferror {} /I16 { #buf: /P }
+libcExit    := /declare #exit {} /V { #status: /I16 } // TODO noreturn annotation

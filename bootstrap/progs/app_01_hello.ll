@@ -7,10 +7,6 @@ target triple = "x86_64-unknown-linux-gnu"
 @stderr = external global i8*
 @msg = constant [11 x i8] c"Hola Welt.\0A"
 
-declare i64 @fread(i8*, i64, i64, i8*)
-declare i64 @fwrite(i8*, i64, i64, i8*)
-declare i16 @ferror(i8*)
-declare void @exit(i16)
 
 define i16 @writeTo(i8* %str_ptr, i64 %str_len, i8* %out_file) {
 b.1:
@@ -46,6 +42,10 @@ b.3:
   ret void
 }
 
+declare i64 @fread(i8*, i64, i64, i8*)
+declare i64 @fwrite(i8*, i64, i64, i8*)
+declare i16 @ferror(i8*)
+declare void @exit(i16)
 
 define i32 @main() {
 b.4:

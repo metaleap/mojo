@@ -1,57 +1,5 @@
 
-libc_stdin  := /global /P { #external: #stdin }
-libc_stdout := /global /P { #external: #stdout }
-libc_stderr := /global /P { #external: #stderr }
-
-libcFRead   := /declare #fread {} /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
-libcFWrite  := /declare #fwrite {} /I { #buf: /P, #size: /I, #count: /I, #stream: /P }
-libcFError  := /declare #ferror {} /I16 { #buf: /P }
-libcExit    := /declare #exit {} /V { #status: /I16 } // TODO noreturn annotation
-
-
 msg := /global /A/11/I8 { #constant: "Hola Welt.\010" }
-
-
-writeTo := /define {} /I16 { #str_ptr: /P, #str_len: /I, #out_file: /P } {
-  #: [
-    /call {} /@libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #out_file],
-    /let { #err: /call {} /@libcFError /I16 [/P #out_file] },
-    /ret (/I16 #err),
-  ],
-}
-
-
-writeToStd := /define {} /V { #str_ptr: /P, #str_len: /I, #std_file: /P/P } {
-  #begin: [
-    /let { #out_file: /load {} /P (/P/P #std_file) },
-    /let { #err: /call {} /@writeTo /I16 [/P #str_ptr, /I #str_len, /P #out_file] },
-    /switch (/I16 #err) #end { /I16 1: #exit_on_err },
-  ],
-  #exit_on_err: [
-    /call {} /@libcExit /V [/I16 1], // TODO noreturn annotation
-    /unreachable,
-  ],
-  #end: [
-    /ret (/V #),
-  ],
-}
-
-
-writeErr := /define {} /V { #str_ptr: /P, #str_len: /I } {
-  #: [
-    /call {} /@writeToStd /V [/P #str_ptr, /I #str_len, /P/P /@libc_stderr],
-    /ret (/V #),
-  ],
-}
-
-
-writeOut := /define {} /V { #str_ptr: /P, #str_len: /I } {
-  #: [
-    /call {} /@writeToStd /V [/P #str_ptr, /I #str_len, /P/P /@libc_stdout],
-    /ret (/V #),
-  ],
-}
-
 
 main := /define {} /I32 {} {
   #: [

@@ -1,0 +1,40 @@
+
+writeTo := /define {} /I16 { #str_ptr: /P, #str_len: /I, #out_file: /P } {
+  #: [
+    /call {} /@libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #out_file],
+    /let { #err: /call {} /@libcFError /I16 [/P #out_file] },
+    /ret (/I16 #err),
+  ],
+}
+
+
+writeToStd := /define {} /V { #str_ptr: /P, #str_len: /I, #std_file: /P/P } {
+  #begin: [
+    /let { #out_file: /load {} /P (/P/P #std_file) },
+    /let { #err: /call {} /@writeTo /I16 [/P #str_ptr, /I #str_len, /P #out_file] },
+    /switch (/I16 #err) #end { /I16 1: #exit_on_err },
+  ],
+  #exit_on_err: [
+    /call {} /@libcExit /V [/I16 1], // TODO noreturn annotation
+    /unreachable,
+  ],
+  #end: [
+    /ret (/V #),
+  ],
+}
+
+
+writeErr := /define {} /V { #str_ptr: /P, #str_len: /I } {
+  #: [
+    /call {} /@writeToStd /V [/P #str_ptr, /I #str_len, /P/P /@libc_stderr],
+    /ret (/V #),
+  ],
+}
+
+
+writeOut := /define {} /V { #str_ptr: /P, #str_len: /I } {
+  #: [
+    /call {} /@writeToStd /V [/P #str_ptr, /I #str_len, /P/P /@libc_stdout],
+    /ret (/V #),
+  ],
+}

@@ -33,8 +33,7 @@ func main() {
 	debug.SetGCPercent(-1)
 	runtime.GOMAXPROCS(1)
 
-	input_src_file_name := os.Args[1]
-	input_src_file_bytes, err := ioutil.ReadFile(input_src_file_name)
+	input_src_file_bytes, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
 		panic(err)
 	}
