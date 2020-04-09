@@ -16,6 +16,8 @@ func llEmit(ll_something Any) {
 		llEmitInstrBr(&ll)
 	case LLInstrRet:
 		llEmitInstrRet(&ll)
+	case LLInstrUnreachable:
+		llEmitInstrUnreachable()
 	case LLInstrLet:
 		llEmitInstrLet(&ll)
 	case LLInstrSwitch:
@@ -239,6 +241,10 @@ func llEmitInstrBr(ll_instr_br *LLInstrBr) {
 func llEmitInstrRet(ll_instr_ret *LLInstrRet) {
 	write(Str("ret "))
 	llEmit(ll_instr_ret.expr)
+}
+
+func llEmitInstrUnreachable() {
+	write(Str("unreachable"))
 }
 
 func llEmitInstrLet(ll_instr_let *LLInstrLet) {

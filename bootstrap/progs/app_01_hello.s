@@ -5,24 +5,17 @@
 	.type	writeTo,@function
 writeTo:                                # @writeTo
 	.cfi_startproc
-# %bb.0:                                # %begin
+# %bb.0:                                # %b.1
 	pushq	%rbx
 	.cfi_def_cfa_offset 16
 	.cfi_offset %rbx, -16
-	movq	%rsi, %rax
-	movq	(%rdx), %rbx
+	movq	%rdx, %rbx
+	movq	%rsi, %rdx
 	movl	$1, %esi
-	movq	%rax, %rdx
 	movq	%rbx, %rcx
 	callq	fwrite@PLT
 	movq	%rbx, %rdi
 	callq	ferror@PLT
-	cmpw	$1, %ax
-	jne	.LBB0_2
-# %bb.1:                                # %exit_on_err
-	movl	$1, %edi
-	callq	exit@PLT
-.LBB0_2:                                # %end
 	popq	%rbx
 	.cfi_def_cfa_offset 8
 	retq
@@ -30,21 +23,45 @@ writeTo:                                # @writeTo
 	.size	writeTo, .Lfunc_end0-writeTo
 	.cfi_endproc
                                         # -- End function
+	.globl	writeToStd              # -- Begin function writeToStd
+	.p2align	4, 0x90
+	.type	writeToStd,@function
+writeToStd:                             # @writeToStd
+	.cfi_startproc
+# %bb.0:                                # %begin
+	pushq	%rax
+	.cfi_def_cfa_offset 16
+	movq	(%rdx), %rdx
+	callq	writeTo@PLT
+	cmpw	$1, %ax
+	je	.LBB1_2
+# %bb.1:                                # %end
+	popq	%rax
+	.cfi_def_cfa_offset 8
+	retq
+.LBB1_2:                                # %exit_on_err
+	.cfi_def_cfa_offset 16
+	movl	$1, %edi
+	callq	exit@PLT
+.Lfunc_end1:
+	.size	writeToStd, .Lfunc_end1-writeToStd
+	.cfi_endproc
+                                        # -- End function
 	.globl	writeErr                # -- Begin function writeErr
 	.p2align	4, 0x90
 	.type	writeErr,@function
 writeErr:                               # @writeErr
 	.cfi_startproc
-# %bb.0:                                # %b.1
+# %bb.0:                                # %b.2
 	pushq	%rax
 	.cfi_def_cfa_offset 16
 	movq	stderr@GOTPCREL(%rip), %rdx
-	callq	writeTo@PLT
+	callq	writeToStd@PLT
 	popq	%rax
 	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end1:
-	.size	writeErr, .Lfunc_end1-writeErr
+.Lfunc_end2:
+	.size	writeErr, .Lfunc_end2-writeErr
 	.cfi_endproc
                                         # -- End function
 	.globl	writeOut                # -- Begin function writeOut
@@ -52,16 +69,16 @@ writeErr:                               # @writeErr
 	.type	writeOut,@function
 writeOut:                               # @writeOut
 	.cfi_startproc
-# %bb.0:                                # %b.2
+# %bb.0:                                # %b.3
 	pushq	%rax
 	.cfi_def_cfa_offset 16
 	movq	stdout@GOTPCREL(%rip), %rdx
-	callq	writeTo@PLT
+	callq	writeToStd@PLT
 	popq	%rax
 	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end2:
-	.size	writeOut, .Lfunc_end2-writeOut
+.Lfunc_end3:
+	.size	writeOut, .Lfunc_end3-writeOut
 	.cfi_endproc
                                         # -- End function
 	.globl	main                    # -- Begin function main
@@ -69,7 +86,7 @@ writeOut:                               # @writeOut
 	.type	main,@function
 main:                                   # @main
 	.cfi_startproc
-# %bb.0:                                # %b.3
+# %bb.0:                                # %b.4
 	pushq	%rax
 	.cfi_def_cfa_offset 16
 	movq	msg@GOTPCREL(%rip), %rdi
@@ -79,8 +96,8 @@ main:                                   # @main
 	popq	%rcx
 	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end3:
-	.size	main, .Lfunc_end3-main
+.Lfunc_end4:
+	.size	main, .Lfunc_end4-main
 	.cfi_endproc
                                         # -- End function
 	.type	msg,@object             # @msg

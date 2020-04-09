@@ -48,6 +48,8 @@ type LLInstrRet struct {
 	expr LLExprTyped
 }
 
+type LLInstrUnreachable struct{}
+
 type LLInstrSwitch struct {
 	comparee           LLExprTyped
 	default_block_name Str
@@ -229,15 +231,16 @@ func (LLExprLitStr) implementsLLExpr()      {}
 func (LLExprLitVoid) implementsLLExpr()     {}
 func (LLExprTyped) implementsLLExpr()       {}
 
-func (LLInstrAlloca) implementsLLInstr()  {}
-func (LLInstrBinOp) implementsLLInstr()   {}
-func (LLInstrCall) implementsLLInstr()    {}
-func (LLInstrCmpI) implementsLLInstr()    {}
-func (LLInstrGep) implementsLLInstr()     {}
-func (LLInstrLoad) implementsLLInstr()    {}
-func (LLInstrPhi) implementsLLInstr()     {}
-func (LLInstrBr) implementsLLInstr()      {}
-func (LLInstrComment) implementsLLInstr() {}
-func (LLInstrLet) implementsLLInstr()     {}
-func (LLInstrRet) implementsLLInstr()     {}
-func (LLInstrSwitch) implementsLLInstr()  {}
+func (LLInstrAlloca) implementsLLInstr()      {}
+func (LLInstrBinOp) implementsLLInstr()       {}
+func (LLInstrCall) implementsLLInstr()        {}
+func (LLInstrCmpI) implementsLLInstr()        {}
+func (LLInstrGep) implementsLLInstr()         {}
+func (LLInstrLoad) implementsLLInstr()        {}
+func (LLInstrPhi) implementsLLInstr()         {}
+func (LLInstrBr) implementsLLInstr()          {}
+func (LLInstrComment) implementsLLInstr()     {}
+func (LLInstrLet) implementsLLInstr()         {}
+func (LLInstrRet) implementsLLInstr()         {}
+func (LLInstrSwitch) implementsLLInstr()      {}
+func (LLInstrUnreachable) implementsLLInstr() {}

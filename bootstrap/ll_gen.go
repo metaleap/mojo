@@ -147,9 +147,16 @@ func llBlockFrom(pair_expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule
 func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLInstr {
 	switch it := expr.kind.(type) {
 	case AstExprForm:
-		callee := astExprSlashed(&it[0])
-		kwd := callee[0]
+		callee := astExprSlashed(expr)
 		if 1 == len(callee) {
+			kwd := callee[0]
+			if astExprIsIdent(kwd, "unreachable") {
+				return LLInstrUnreachable{}
+			}
+		}
+		callee = astExprSlashed(&it[0])
+		if 1 == len(callee) {
+			kwd := callee[0]
 			if astExprIsIdent(kwd, "ret") {
 				assert(len(it) == 2)
 				return LLInstrRet{expr: llExprFrom(&it[1], ast, ll_mod).(LLExprTyped)}
@@ -212,7 +219,7 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 			}
 		}
 	}
-	return LLInstrComment{comment_text: astNodeSrcStr(&expr.base, ast)}
+	panic(string(astNodeSrcStr(&expr.base, ast)))
 }
 
 func llTypeFrom(expr_callee_slashed []*AstExpr, full_expr_for_err_msg *AstExpr, ast *Ast) LLType {
@@ -258,6 +265,7 @@ func llExprFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLExpr {
 		if len(it) == 1 && it[0] == '#' {
 			return LLExprLitVoid{}
 		}
+		panic(string(it))
 	case AstExprForm:
 		slashed := astExprSlashed(&it[0])
 		if len(slashed) != 0 {
