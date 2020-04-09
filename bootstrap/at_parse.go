@@ -82,6 +82,9 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 						acc_ret[acc_len] = AstExpr{kind: AstExprIdent("()"), base: astNodeFrom(all_toks_idx+i, 2)}
 					} else {
 						acc_ret[acc_len] = parseExpr(inside_parens_toks, all_toks_idx+i+1, ast)
+						// still want the paren toks captured in node base:
+						acc_ret[acc_len].base.toks_idx = all_toks_idx + i
+						acc_ret[acc_len].base.toks_len += 2
 					}
 				} else {
 					acc_ret[acc_len] = AstExpr{base: astNodeFrom(all_toks_idx+i, 1+(idx_close-i))}

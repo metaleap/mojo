@@ -1,5 +1,9 @@
 package main
 
+type LLType interface{ implementsLLType() }
+type LLExpr interface{ implementsLLExpr() }
+type LLInstr interface{ implementsLLInstr() }
+
 type LLModule struct {
 	target_datalayout Str
 	target_triple     Str
@@ -29,20 +33,20 @@ type LLFuncParam struct {
 }
 
 type LLBasicBlock struct {
+	name   Str
+	instrs []LLInstr
+}
+
+type LLInstrLet struct {
 	name  Str
-	stmts []LLStmt
+	instr LLInstr
 }
 
-type LLStmtLet struct {
-	name Str
-	expr LLExpr
-}
-
-type LLStmtRet struct {
+type LLInstrRet struct {
 	expr LLExprTyped
 }
 
-type LLStmtSwitch struct {
+type LLInstrSwitch struct {
 	comparee           LLExprTyped
 	default_block_name Str
 	cases              []struct {
@@ -51,11 +55,11 @@ type LLStmtSwitch struct {
 	}
 }
 
-type LLStmtBr struct {
+type LLInstrBr struct {
 	block_name Str
 }
 
-type LLStmtComment struct {
+type LLInstrComment struct {
 	comment_text Str
 }
 
@@ -74,43 +78,43 @@ type LLExprTyped struct {
 	expr LLExpr
 }
 
-type LLExprAlloca struct {
+type LLInstrAlloca struct {
 	ty        LLType
 	num_elems LLExprTyped
 }
 
-type LLExprLoad LLExprTyped
+type LLInstrLoad LLExprTyped
 
-type LLExprCall struct {
+type LLInstrCall struct {
 	callee LLExprTyped
 	args   []LLExprTyped
 }
 
-type LLExprBinOp struct {
+type LLInstrBinOp struct {
 	ty      LLType
 	lhs     LLExpr
 	rhs     LLExpr
-	op_kind LLExprBinOpKind
+	op_kind LLBinOpKind
 }
 
-type LLExprBinOpKind int
+type LLBinOpKind int
 
 const (
-	_ LLExprBinOpKind = iota
+	_ LLBinOpKind = iota
 	ll_bin_op_add
 )
 
-type LLExprCmpI struct {
+type LLInstrCmpI struct {
 	ty       LLType
 	lhs      LLExpr
 	rhs      LLExpr
-	cmp_kind LLExprCmpIKind
+	cmp_kind LLCmpIKind
 }
 
-type LLExprCmpIKind int
+type LLCmpIKind int
 
 const (
-	_ LLExprCmpIKind = iota
+	_ LLCmpIKind = iota
 	ll_cmp_i_eq
 	ll_cmp_i_ne
 	ll_cmp_i_ugt
@@ -123,7 +127,7 @@ const (
 	ll_cmp_i_sle
 )
 
-type LLExprPhi struct {
+type LLInstrPhi struct {
 	ty           LLType
 	predecessors []LLPhiPred
 }
@@ -133,7 +137,7 @@ type LLPhiPred struct {
 	block_name Str
 }
 
-type LLExprGep struct {
+type LLInstrGep struct {
 	ty       LLType
 	base_ptr LLExprTyped
 	indices  []LLExprTyped
@@ -226,10 +230,6 @@ func llTypeToStr(ll_ty LLType) Str {
 	panic(ll_ty)
 }
 
-type LLType interface{ implementsLLType() }
-type LLExpr interface{ implementsLLExpr() }
-type LLStmt interface{ implementsLLStmt() }
-
 func (LLTypeArr) implementsLLType()    {}
 func (LLTypeFunc) implementsLLType()   {}
 func (LLTypeInt) implementsLLType()    {}
@@ -237,22 +237,21 @@ func (LLTypePtr) implementsLLType()    {}
 func (LLTypeStruct) implementsLLType() {}
 func (LLTypeVoid) implementsLLType()   {}
 
-func (LLStmtBr) implementsLLStmt()      {}
-func (LLStmtComment) implementsLLStmt() {}
-func (LLStmtLet) implementsLLStmt()     {}
-func (LLStmtRet) implementsLLStmt()     {}
-func (LLStmtSwitch) implementsLLStmt()  {}
-
-func (LLExprAlloca) implementsLLExpr()      {}
-func (LLExprBinOp) implementsLLExpr()       {}
-func (LLExprCall) implementsLLExpr()        {}
-func (LLExprCmpI) implementsLLExpr()        {}
-func (LLExprGep) implementsLLExpr()         {}
 func (LLExprIdentGlobal) implementsLLExpr() {}
 func (LLExprIdentLocal) implementsLLExpr()  {}
-func (LLExprLitVoid) implementsLLExpr()     {}
 func (LLExprLitInt) implementsLLExpr()      {}
 func (LLExprLitStr) implementsLLExpr()      {}
-func (LLExprLoad) implementsLLExpr()        {}
-func (LLExprPhi) implementsLLExpr()         {}
 func (LLExprTyped) implementsLLExpr()       {}
+
+func (LLInstrAlloca) implementsLLInstr()  {}
+func (LLInstrBinOp) implementsLLInstr()   {}
+func (LLInstrCall) implementsLLInstr()    {}
+func (LLInstrCmpI) implementsLLInstr()    {}
+func (LLInstrGep) implementsLLInstr()     {}
+func (LLInstrLoad) implementsLLInstr()    {}
+func (LLInstrPhi) implementsLLInstr()     {}
+func (LLInstrBr) implementsLLInstr()      {}
+func (LLInstrComment) implementsLLInstr() {}
+func (LLInstrLet) implementsLLInstr()     {}
+func (LLInstrRet) implementsLLInstr()     {}
+func (LLInstrSwitch) implementsLLInstr()  {}

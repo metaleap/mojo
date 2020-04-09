@@ -10,16 +10,16 @@ func llEmit(ll_something Any) {
 		llEmitFunc(ll)
 	case *LLBasicBlock:
 		llEmitBlock(ll)
-	case LLStmtComment:
-		llEmitStmtComment(&ll)
-	case LLStmtBr:
-		llEmitStmtBr(&ll)
-	case LLStmtRet:
-		llEmitStmtRet(&ll)
-	case LLStmtLet:
-		llEmitStmtLet(&ll)
-	case LLStmtSwitch:
-		llEmitStmtSwitch(&ll)
+	case LLInstrComment:
+		llEmitInstrComment(&ll)
+	case LLInstrBr:
+		llEmitInstrBr(&ll)
+	case LLInstrRet:
+		llEmitInstrRet(&ll)
+	case LLInstrLet:
+		llEmitInstrLet(&ll)
+	case LLInstrSwitch:
+		llEmitInstrSwitch(&ll)
 	case LLTypeVoid:
 		llEmitTypeVoid()
 	case LLTypeInt:
@@ -42,20 +42,20 @@ func llEmit(ll_something Any) {
 		llEmitExprLitStr(ll)
 	case LLExprTyped:
 		llEmitExprTyped(&ll)
-	case LLExprAlloca:
-		llEmitExprAlloca(&ll)
-	case LLExprLoad:
-		llEmitExprLoad(&ll)
-	case LLExprCall:
-		llEmitExprCall(&ll)
-	case LLExprBinOp:
-		llEmitExprBinOp(&ll)
-	case LLExprCmpI:
-		llEmitExprCmpI(&ll)
-	case LLExprPhi:
-		llEmitExprPhi(&ll)
-	case LLExprGep:
-		llEmitExprGep(&ll)
+	case LLInstrAlloca:
+		llEmitInstrAlloca(&ll)
+	case LLInstrLoad:
+		llEmitInstrLoad(&ll)
+	case LLInstrCall:
+		llEmitInstrCall(&ll)
+	case LLInstrBinOp:
+		llEmitInstrBinOp(&ll)
+	case LLInstrCmpI:
+		llEmitInstrCmpI(&ll)
+	case LLInstrPhi:
+		llEmitInstrPhi(&ll)
+	case LLInstrGep:
+		llEmitInstrGep(&ll)
 	case Any:
 		switch ll_inner := ll.(type) {
 		case nil:
@@ -138,45 +138,45 @@ func llEmitFunc(ll_func *LLFunc) {
 func llEmitBlock(ll_block *LLBasicBlock) {
 	write(ll_block.name)
 	write(Str(":\n"))
-	for i := range ll_block.stmts {
+	for i := range ll_block.instrs {
 		write(Str("  "))
-		llEmit(ll_block.stmts[i])
+		llEmit(ll_block.instrs[i])
 		write(Str("\n"))
 	}
 }
 
-func llEmitStmtComment(ll_stmt_comment *LLStmtComment) {
+func llEmitInstrComment(ll_instr_comment *LLInstrComment) {
 	write(Str("; "))
-	write(ll_stmt_comment.comment_text)
+	write(ll_instr_comment.comment_text)
 }
 
-func llEmitStmtBr(ll_stmt_br *LLStmtBr) {
+func llEmitInstrBr(ll_instr_br *LLInstrBr) {
 	write(Str("br label %"))
-	write(ll_stmt_br.block_name)
+	write(ll_instr_br.block_name)
 }
 
-func llEmitStmtRet(ll_stmt_ret *LLStmtRet) {
+func llEmitInstrRet(ll_instr_ret *LLInstrRet) {
 	write(Str("ret "))
-	llEmit(ll_stmt_ret.expr)
+	llEmit(ll_instr_ret.expr)
 }
 
-func llEmitStmtLet(ll_stmt_let *LLStmtLet) {
+func llEmitInstrLet(ll_instr_let *LLInstrLet) {
 	write(Str("%"))
-	write(ll_stmt_let.name)
+	write(ll_instr_let.name)
 	write(Str(" = "))
-	llEmit(ll_stmt_let.expr)
+	llEmit(ll_instr_let.instr)
 }
 
-func llEmitStmtSwitch(ll_stmt_switch *LLStmtSwitch) {
+func llEmitInstrSwitch(ll_instr_switch *LLInstrSwitch) {
 	write(Str("switch"))
-	llEmit(ll_stmt_switch.comparee)
+	llEmit(ll_instr_switch.comparee)
 	write(Str(", label %"))
-	llEmit(ll_stmt_switch.default_block_name)
+	llEmit(ll_instr_switch.default_block_name)
 	write(Str(" ["))
-	for i := range ll_stmt_switch.cases {
-		llEmit(ll_stmt_switch.cases[i].expr)
+	for i := range ll_instr_switch.cases {
+		llEmit(ll_instr_switch.cases[i].expr)
 		write(Str(", label %"))
-		write(ll_stmt_switch.cases[i].block_name)
+		write(ll_instr_switch.cases[i].block_name)
 		if i > 0 {
 			write(Str(",\n    "))
 		}
@@ -265,14 +265,14 @@ func llEmitExprTyped(ll_expr_typed *LLExprTyped) {
 	}
 }
 
-func llEmitExprAlloca(ll_expr_alloca *LLExprAlloca) {
+func llEmitInstrAlloca(ll_expr_alloca *LLInstrAlloca) {
 	write(Str("alloca "))
 	llEmit(ll_expr_alloca.ty)
 	write(Str(", "))
 	llEmit(ll_expr_alloca.num_elems)
 }
 
-func llEmitExprLoad(ll_expr_load *LLExprLoad) {
+func llEmitInstrLoad(ll_expr_load *LLInstrLoad) {
 	write(Str("load "))
 	llEmit(ll_expr_load.ty)
 	write(Str(", "))
@@ -281,7 +281,7 @@ func llEmitExprLoad(ll_expr_load *LLExprLoad) {
 	llEmit(ll_expr_load.expr)
 }
 
-func llEmitExprCall(ll_expr_call *LLExprCall) {
+func llEmitInstrCall(ll_expr_call *LLInstrCall) {
 	write(Str("call "))
 	llEmit(ll_expr_call.callee)
 	write(Str("("))
@@ -294,7 +294,7 @@ func llEmitExprCall(ll_expr_call *LLExprCall) {
 	write(Str(")"))
 }
 
-func llEmitExprBinOp(ll_expr_bin_op *LLExprBinOp) {
+func llEmitInstrBinOp(ll_expr_bin_op *LLInstrBinOp) {
 	var op_kind string
 	switch ll_expr_bin_op.op_kind {
 	case ll_bin_op_add:
@@ -312,7 +312,7 @@ func llEmitExprBinOp(ll_expr_bin_op *LLExprBinOp) {
 	llEmit(ll_expr_bin_op.rhs)
 }
 
-func llEmitExprCmpI(ll_expr_cmp_i *LLExprCmpI) {
+func llEmitInstrCmpI(ll_expr_cmp_i *LLInstrCmpI) {
 	var cmp_kind string
 	switch ll_expr_cmp_i.cmp_kind {
 	case ll_cmp_i_eq:
@@ -349,7 +349,7 @@ func llEmitExprCmpI(ll_expr_cmp_i *LLExprCmpI) {
 	llEmit(ll_expr_cmp_i.rhs)
 }
 
-func llEmitExprPhi(ll_expr_phi *LLExprPhi) {
+func llEmitInstrPhi(ll_expr_phi *LLInstrPhi) {
 	write(Str("phi "))
 	llEmit(ll_expr_phi.ty)
 	for i := range ll_expr_phi.predecessors {
@@ -364,7 +364,7 @@ func llEmitExprPhi(ll_expr_phi *LLExprPhi) {
 	}
 }
 
-func llEmitExprGep(ll_expr_gep *LLExprGep) {
+func llEmitInstrGep(ll_expr_gep *LLInstrGep) {
 	write(Str("getelementptr "))
 	llEmit(ll_expr_gep.ty)
 	write(Str(", "))
