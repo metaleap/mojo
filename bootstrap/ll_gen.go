@@ -62,9 +62,9 @@ func llTopLevelFrom(expr *AstExpr, top_def *AstDef, ast *Ast) Any {
 func llGlobalFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLGlobal {
 	expr_form := full_expr.kind.(AstExprForm)
 	assert(len(expr_form) == 3)
-	lit_curl := expr_form[2].kind.(AstExprLitCurl)
-	maybe_constant := astExprsFindKeyedValue(lit_curl, "#constant", ast)
-	maybe_external := astExprsFindKeyedValue(lit_curl, "#external", ast)
+	lit_curl_opts := expr_form[2].kind.(AstExprLitCurl)
+	maybe_constant := astExprsFindKeyedValue(lit_curl_opts, "#constant", ast)
+	maybe_external := astExprsFindKeyedValue(lit_curl_opts, "#external", ast)
 	assert(maybe_constant != nil || maybe_external != nil)
 	assert(!(maybe_constant != nil && maybe_external != nil))
 
@@ -132,14 +132,14 @@ func llFuncDefFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLFunc {
 
 func llBlockFrom(pair_expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLBasicBlock {
 	lhs, rhs := astExprFormSplit(pair_expr, ":", true, true, true, ast)
-	lit_clip := rhs.kind.(AstExprLitClip)
-	ret_block := LLBasicBlock{name: astExprTaggedIdent(lhs), instrs: allocˇLLInstr(len(lit_clip))}
+	lit_clip_instrs := rhs.kind.(AstExprLitClip)
+	ret_block := LLBasicBlock{name: astExprTaggedIdent(lhs), instrs: allocˇLLInstr(len(lit_clip_instrs))}
 	if len(ret_block.name) == 0 {
 		counter++
 		ret_block.name = uintToStr(counter, 10, 1, Str("b."))
 	}
-	for i := range lit_clip {
-		ret_block.instrs[i] = llInstrFrom(&lit_clip[i], top_def, ast, ll_mod)
+	for i := range lit_clip_instrs {
+		ret_block.instrs[i] = llInstrFrom(&lit_clip_instrs[i], top_def, ast, ll_mod)
 	}
 	return ret_block
 }
@@ -155,9 +155,9 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 				return LLInstrRet{expr: llExprFrom(&it[1], ast, ll_mod).(LLExprTyped)}
 			} else if astExprIsIdent(kwd, "let") {
 				assert(len(it) == 2)
-				lit_curl := it[1].kind.(AstExprLitCurl)
-				assert(len(lit_curl) == 1)
-				lhs, rhs := astExprFormSplit(&lit_curl[0], ":", true, true, true, ast)
+				lit_curl_pair := it[1].kind.(AstExprLitCurl)
+				assert(len(lit_curl_pair) == 1)
+				lhs, rhs := astExprFormSplit(&lit_curl_pair[0], ":", true, true, true, ast)
 				return LLInstrLet{
 					name:  astExprTaggedIdent(lhs),
 					instr: llInstrFrom(rhs, top_def, ast, ll_mod),
@@ -185,18 +185,30 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 				return ret_call
 			} else if astExprIsIdent(kwd, "switch") {
 				assert(len(it) == 4)
-				lit_curl := it[3].kind.(AstExprLitCurl)
+				lit_curl_cases := it[3].kind.(AstExprLitCurl)
 				ret_switch := LLInstrSwitch{
 					comparee:           llExprFrom(&it[1], ast, ll_mod).(LLExprTyped),
 					default_block_name: astExprTaggedIdent(&it[2]),
-					cases:              allocˇLLSwitchCase(len(lit_curl)),
+					cases:              allocˇLLSwitchCase(len(lit_curl_cases)),
 				}
-				for i := range lit_curl {
-					lhs, rhs := astExprFormSplit(&lit_curl[i], ":", true, true, true, ast)
+				for i := range lit_curl_cases {
+					lhs, rhs := astExprFormSplit(&lit_curl_cases[i], ":", true, true, true, ast)
 					ret_switch.cases[i].expr = llExprFrom(lhs, ast, ll_mod).(LLExprTyped)
 					ret_switch.cases[i].block_name = astExprTaggedIdent(rhs)
 				}
 				return ret_switch
+			} else if astExprIsIdent(kwd, "getelementptr") {
+				assert(len(it) == 4)
+				lit_clip_idxs := it[3].kind.(AstExprLitClip)
+				ret_gep := LLInstrGep{
+					ty:       llTypeFrom(astExprSlashed(&it[1]), expr, ast),
+					base_ptr: llExprFrom(&it[2], ast, ll_mod).(LLExprTyped),
+					indices:  allocˇLLExprTyped(len(lit_clip_idxs)),
+				}
+				for i := range lit_clip_idxs {
+					ret_gep.indices[i] = llExprFrom(&lit_clip_idxs[i], ast, ll_mod).(LLExprTyped)
+				}
+				return ret_gep
 			}
 		}
 	}
@@ -242,6 +254,10 @@ func llExprFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLExpr {
 		return LLExprLitInt(it)
 	case AstExprLitStr:
 		return LLExprLitStr(it)
+	case AstExprIdent:
+		if len(it) == 1 && it[0] == '#' {
+			return LLExprLitVoid{}
+		}
 	case AstExprForm:
 		slashed := astExprSlashed(&it[0])
 		if len(slashed) != 0 {
@@ -250,14 +266,12 @@ func llExprFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLExpr {
 			if len(ident) != 0 {
 				if len(it) == 2 && ident[0] >= 'A' && ident[0] <= 'Z' {
 					ret_expr := LLExprTyped{ty: llTypeFrom(slashed, expr, ast), expr: llExprFrom(&it[1], ast, ll_mod)}
-					_, is_void := ret_expr.ty.(LLTypeVoid)
-					assert((ret_expr.expr != nil && !is_void) || (is_void && ret_expr.expr == nil))
 					return ret_expr
 				}
 			}
 		}
 
-		if strEql(astNodeSrcStr(&it[0].base, ast), Str("/@/")) {
+		if strEql(astNodeSrcStr(&it[0].base, ast), Str("/@")) {
 			assert(len(it) == 2)
 			name := it[1].kind.(AstExprIdent) // the usual / default case
 			if ll_mod != nil {                // check whether referenced def is external
@@ -285,6 +299,5 @@ func llExprFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLExpr {
 			return LLExprIdentLocal(tag_lit)
 		}
 	}
-	println("TODO Expr:\t", string(astNodeSrcStr(&expr.base, ast)))
-	return nil
+	panic(expr.kind)
 }

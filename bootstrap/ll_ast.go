@@ -226,6 +226,7 @@ func (LLExprIdentGlobal) implementsLLExpr() {}
 func (LLExprIdentLocal) implementsLLExpr()  {}
 func (LLExprLitInt) implementsLLExpr()      {}
 func (LLExprLitStr) implementsLLExpr()      {}
+func (LLExprLitVoid) implementsLLExpr()     {}
 func (LLExprTyped) implementsLLExpr()       {}
 
 func (LLInstrAlloca) implementsLLInstr()  {}

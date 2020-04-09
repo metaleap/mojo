@@ -9,47 +9,43 @@ libcFError  := /declare #ferror {} /I16 { #buf: /P }
 libcExit    := /declare #exit {} /V { #status: /I16 }
 
 
-msg := /global /A/13/I8 { #constant: "Hello World!\010" }
+msg := /global /A/11/I8 { #constant: "Hola Welt.\010" }
 
 
-writeTo :=
-  /define {} /V { #str_ptr: /P, #str_len: /I, #out_file_ptr: /P/P } {
-    #begin: [
-      /let { #file: /load {} /P (/P/P #out_file_ptr) },
-      /call {} /@/libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #file],
-      /let { #err: /call {} /@/libcFError /I16 [/P #file] },
-      /switch (/I16 #err) #end { /I16 1: #exit_on_err },
-    ],
-    #exit_on_err: [
-      /call {} /@/libcExit /V [/I16 1],
-      /ret (/V #),
-    ],
-    #end: [
-      /ret (/V #),
-    ],
-  }
+writeTo := /define {} /V { #str_ptr: /P, #str_len: /I, #out_file_ptr: /P/P } {
+  #begin: [
+    /let { #file: /load {} /P (/P/P #out_file_ptr) },
+    /call {} /@libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #file],
+    /let { #err: /call {} /@libcFError /I16 [/P #file] },
+    /switch (/I16 #err) #end { /I16 1: #exit_on_err },
+  ],
+  #exit_on_err: [
+    /call {} /@libcExit /V [/I16 1],
+    /ret (/V #),
+  ],
+  #end: [
+    /ret (/V #),
+  ],
+}
 
-writeErr :=
-  /define {} /V { #str_ptr: /P, #str_len: /I } {
-    #: [
-      /call {} /@/writeTo /V [/P #str_ptr, /I #str_len, /P/P /@/libc_stderr],
-      /ret (/V #),
-    ],
-  }
+writeErr := /define {} /V { #str_ptr: /P, #str_len: /I } {
+  #: [
+    /call {} /@writeTo /V [/P #str_ptr, /I #str_len, /P/P /@libc_stderr],
+    /ret (/V #),
+  ],
+}
 
-writeOut :=
-  /define {} /V { #str_ptr: /P, #str_len: /I } {
-    #: [
-      /call {} /@/writeTo /V [/P #str_ptr, /I #str_len, /P/P /@/libc_stdout],
-      /ret (/V #),
-    ],
-  }
+writeOut := /define {} /V { #str_ptr: /P, #str_len: /I } {
+  #: [
+    /call {} /@writeTo /V [/P #str_ptr, /I #str_len, /P/P /@libc_stdout],
+    /ret (/V #),
+  ],
+}
 
-main :=
-  /define {} /I32 {} {
-    #: [
-      /let { #msg: /getelementptr /A/13/I8 (/P/A/13/I8 /@/msg) [/I 0, /I 0] },
-      /call {} /@/writeOut /V [/P #msg, /I 13 ],
-      /ret (/I32 0)
-    ],
-  }
+main := /define {} /I32 {} {
+  #: [
+    /let { #msg: /getelementptr /A/11/I8 (/P/A/11/I8 /@msg) [/I 0, /I 0] },
+    /call {} /@writeOut /V [/P #msg, /I 11 ],
+    /ret (/I32 0)
+  ],
+}
