@@ -245,6 +245,13 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 					assert(len(ret_phi.predecessors[i].block_name) != 0)
 				}
 				return ret_phi
+			} else if astExprIsIdent(kwd, "alloca") {
+				assert(len(it) == 3)
+				ret_alloca := LLInstrAlloca{
+					ty:        llTypeFrom(astExprSlashed(&it[1]), expr, ast),
+					num_elems: llExprFrom(&it[2], ast, ll_mod).(LLExprTyped),
+				}
+				return ret_alloca
 			} else if astExprIsIdent(kwd, "icmp") {
 				assert(len(it) == 5)
 				ret_cmp := LLInstrCmpI{

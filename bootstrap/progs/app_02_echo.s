@@ -100,16 +100,91 @@ writeOut:                               # @writeOut
 	.size	writeOut, .Lfunc_end3-writeOut
 	.cfi_endproc
                                         # -- End function
+	.globl	readFrom                # -- Begin function readFrom
+	.p2align	4, 0x90
+	.type	readFrom,@function
+readFrom:                               # @readFrom
+	.cfi_startproc
+# %bb.0:                                # %b.3
+	pushq	%rax
+	.cfi_def_cfa_offset 16
+	movq	%rdx, %rcx
+	movq	%rsi, %rdx
+	movl	$1, %esi
+	callq	fread@PLT
+	popq	%rcx
+	.cfi_def_cfa_offset 8
+	retq
+.Lfunc_end4:
+	.size	readFrom, .Lfunc_end4-readFrom
+	.cfi_endproc
+                                        # -- End function
+	.globl	readInOrDie             # -- Begin function readInOrDie
+	.p2align	4, 0x90
+	.type	readInOrDie,@function
+readInOrDie:                            # @readInOrDie
+	.cfi_startproc
+# %bb.0:                                # %begin
+	pushq	%r14
+	.cfi_def_cfa_offset 16
+	pushq	%rbx
+	.cfi_def_cfa_offset 24
+	pushq	%rax
+	.cfi_def_cfa_offset 32
+	.cfi_offset %rbx, -24
+	.cfi_offset %r14, -16
+	movq	stdin@GOTPCREL(%rip), %rax
+	movq	(%rax), %rbx
+	movq	%rbx, %rdx
+	callq	readFrom@PLT
+	movq	%rax, %r14
+	movq	%rbx, %rdi
+	callq	ferror@PLT
+	testw	%ax, %ax
+	jne	.LBB5_2
+# %bb.1:                                # %end
+	movq	%r14, %rax
+	addq	$8, %rsp
+	.cfi_def_cfa_offset 24
+	popq	%rbx
+	.cfi_def_cfa_offset 16
+	popq	%r14
+	.cfi_def_cfa_offset 8
+	retq
+.LBB5_2:                                # %die
+	.cfi_def_cfa_offset 32
+	movl	$1, %edi
+	callq	exit@PLT
+.Lfunc_end5:
+	.size	readInOrDie, .Lfunc_end5-readInOrDie
+	.cfi_endproc
+                                        # -- End function
 	.globl	main                    # -- Begin function main
 	.p2align	4, 0x90
 	.type	main,@function
 main:                                   # @main
 	.cfi_startproc
-# %bb.0:                                # %begin
+# %bb.0:                                # %b.4
+	pushq	%rbx
+	.cfi_def_cfa_offset 16
+	subq	$1024, %rsp             # imm = 0x400
+	.cfi_def_cfa_offset 1040
+	.cfi_offset %rbx, -16
+	movq	%rsp, %rbx
+	movl	$1024, %esi             # imm = 0x400
+	movq	%rbx, %rdi
+	callq	readInOrDie@PLT
+	movq	%rbx, %rdi
+	movq	%rax, %rsi
+	callq	writeOut@PLT
 	xorl	%eax, %eax
+	addq	$1024, %rsp             # imm = 0x400
+	.cfi_def_cfa_offset 16
+	popq	%rbx
+	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end4:
-	.size	main, .Lfunc_end4-main
+.Lfunc_end6:
+	.size	main, .Lfunc_end6-main
 	.cfi_endproc
                                         # -- End function
 

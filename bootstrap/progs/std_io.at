@@ -46,3 +46,28 @@ writeOut := /define {} /V { #str_ptr: /P, #str_len: /I } {
     /ret (/V #),
   ],
 }
+
+readFrom := /define {} /I { #buf_ptr: /P, #buf_len: /I, #in_file: /P } {
+  #: [
+    /let { #n: /call {} /@libcFRead /I [/P #buf_ptr, /I 1, /I #buf_len, /P #in_file] },
+    /ret (/I #n),
+  ],
+}
+
+readInOrDie := /define {} /I { #buf_ptr: /P, #buf_len: /I } {
+  #begin: [
+    /let { #in_file: /load {} /P (/P/P /@libc_stdin) },
+    /let { #n: /call {} /@readFrom /I [/P #buf_ptr, /I #buf_len, /P #in_file] },
+    /let { #err: /call {} /@libcFError /I16 [/P #in_file] },
+    /let { #ok: /icmp #eq /I16 #err 0 },
+    /brIf #ok #end #die,
+  ],
+  #die: [
+    /call {} /@libcExit /V [/I16 1], // TODO noreturn annotation
+    /unreachable,
+  ],
+  #end: [
+    /let { #n_ok: /phi {} /I { #begin: #n } },
+    /ret (/I #n_ok),
+  ],
+}
