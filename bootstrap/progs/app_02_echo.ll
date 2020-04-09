@@ -5,7 +5,6 @@ target triple = "x86_64-unknown-linux-gnu"
 @stdin = external global i8*
 @stdout = external global i8*
 @stderr = external global i8*
-@msg = constant [11 x i8] c"Hola Welt.\0A"
 
 
 define i16 @writeTo(i8* %str_ptr, i64 %str_len, i8* %out_file) {
@@ -54,9 +53,9 @@ declare i16 @ferror(i8*)
 declare void @exit(i16)
 
 define i32 @main() {
-b.3:
-  %msg = getelementptr [11 x i8], [11 x i8]* @msg, i64 0, i64 0
-  call void @writeOut(i8* %msg, i64 11)
+begin:
+  br label %end
+end:
   ret i32 0
 }
 

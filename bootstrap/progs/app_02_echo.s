@@ -1,5 +1,5 @@
 	.text
-	.file	"app_01_hello.ll"
+	.file	"app_02_echo.ll"
 	.globl	writeTo                 # -- Begin function writeTo
 	.p2align	4, 0x90
 	.type	writeTo,@function
@@ -105,26 +105,12 @@ writeOut:                               # @writeOut
 	.type	main,@function
 main:                                   # @main
 	.cfi_startproc
-# %bb.0:                                # %b.3
-	pushq	%rax
-	.cfi_def_cfa_offset 16
-	movq	msg@GOTPCREL(%rip), %rdi
-	movl	$11, %esi
-	callq	writeOut@PLT
+# %bb.0:                                # %begin
 	xorl	%eax, %eax
-	popq	%rcx
-	.cfi_def_cfa_offset 8
 	retq
 .Lfunc_end4:
 	.size	main, .Lfunc_end4-main
 	.cfi_endproc
                                         # -- End function
-	.type	msg,@object             # @msg
-	.section	.rodata,"a",@progbits
-	.globl	msg
-msg:
-	.ascii	"Hola Welt.\n"
-	.size	msg, 11
-
 
 	.section	".note.GNU-stack","",@progbits

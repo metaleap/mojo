@@ -174,6 +174,7 @@ func astExprTaggedIdent(expr *AstExpr) AstExprIdent {
 			return ident_ret
 		}
 	}
+	assert(expr.kind.(AstExprIdent)[0] == '#')
 	return nil
 }
 

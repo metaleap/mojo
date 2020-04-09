@@ -204,7 +204,7 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 					ret_switch.cases[i].block_name = astExprTaggedIdent(rhs)
 				}
 				return ret_switch
-			} else if astExprIsIdent(kwd, "getelementptr") {
+			} else if astExprIsIdent(kwd, "gep") {
 				assert(len(it) == 4)
 				lit_clip_idxs := it[3].kind.(AstExprLitClip)
 				ret_gep := LLInstrGep{
@@ -216,6 +216,66 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 					ret_gep.indices[i] = llExprFrom(&lit_clip_idxs[i], ast, ll_mod).(LLExprTyped)
 				}
 				return ret_gep
+			} else if astExprIsIdent(kwd, "brTo") {
+				assert(len(it) == 2)
+				return LLInstrBrTo{
+					block_name: astExprTaggedIdent(&it[1]),
+				}
+			} else if astExprIsIdent(kwd, "brIf") {
+				assert(len(it) == 4)
+				return LLInstrBrIf{
+					cond:                llExprFrom(&it[1], ast, ll_mod),
+					block_name_if_true:  astExprTaggedIdent(&it[2]),
+					block_name_if_false: astExprTaggedIdent(&it[3]),
+				}
+			} else if astExprIsIdent(kwd, "phi") {
+				assert(len(it) == 4)
+				_ = it[1].kind.(AstExprLitCurl)
+				lit_curl_preds := it[3].kind.(AstExprLitCurl)
+				ret_phi := LLInstrPhi{
+					ty:           llTypeFrom(astExprSlashed(&it[2]), expr, ast),
+					predecessors: allocˇLLPhiPred(len(lit_curl_preds)),
+				}
+				for i := range lit_curl_preds {
+					lhs, rhs := astExprFormSplit(&lit_curl_preds[i], ":", true, true, true, ast)
+					ret_phi.predecessors[i] = LLPhiPred{
+						block_name: astExprTaggedIdent(lhs),
+						expr:       llExprFrom(rhs, ast, ll_mod),
+					}
+					assert(len(ret_phi.predecessors[i].block_name) != 0)
+				}
+				return ret_phi
+			} else if astExprIsIdent(kwd, "icmp") {
+				assert(len(it) == 5)
+				ret_cmp := LLInstrCmpI{
+					ty:  llTypeFrom(astExprSlashed(&it[2]), expr, ast),
+					lhs: llExprFrom(&it[3], ast, ll_mod),
+					rhs: llExprFrom(&it[4], ast, ll_mod),
+				}
+				cmp_kind := astExprTaggedIdent(&it[1])
+				if strEql(cmp_kind, Str("eq")) {
+					ret_cmp.cmp_kind = ll_cmp_i_eq
+				} else if strEql(cmp_kind, Str("ne")) {
+					ret_cmp.cmp_kind = ll_cmp_i_ne
+				} else if strEql(cmp_kind, Str("ugt")) {
+					ret_cmp.cmp_kind = ll_cmp_i_ugt
+				} else if strEql(cmp_kind, Str("uge")) {
+					ret_cmp.cmp_kind = ll_cmp_i_uge
+				} else if strEql(cmp_kind, Str("ult")) {
+					ret_cmp.cmp_kind = ll_cmp_i_ult
+				} else if strEql(cmp_kind, Str("ule")) {
+					ret_cmp.cmp_kind = ll_cmp_i_ule
+				} else if strEql(cmp_kind, Str("sgt")) {
+					ret_cmp.cmp_kind = ll_cmp_i_sgt
+				} else if strEql(cmp_kind, Str("sge")) {
+					ret_cmp.cmp_kind = ll_cmp_i_sge
+				} else if strEql(cmp_kind, Str("slt")) {
+					ret_cmp.cmp_kind = ll_cmp_i_slt
+				} else if strEql(cmp_kind, Str("sle")) {
+					ret_cmp.cmp_kind = ll_cmp_i_sle
+				}
+				assert(ret_cmp.cmp_kind != 0)
+				return ret_cmp
 			}
 		}
 	}

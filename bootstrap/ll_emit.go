@@ -12,8 +12,10 @@ func llEmit(ll_something Any) {
 		llEmitBlock(ll)
 	case LLInstrComment:
 		llEmitInstrComment(&ll)
-	case LLInstrBr:
-		llEmitInstrBr(&ll)
+	case LLInstrBrTo:
+		llEmitInstrBrTo(&ll)
+	case LLInstrBrIf:
+		llEmitInstrBrIf(&ll)
 	case LLInstrRet:
 		llEmitInstrRet(&ll)
 	case LLInstrUnreachable:
@@ -233,9 +235,18 @@ func llEmitInstrComment(ll_instr_comment *LLInstrComment) {
 	write(ll_instr_comment.comment_text)
 }
 
-func llEmitInstrBr(ll_instr_br *LLInstrBr) {
+func llEmitInstrBrIf(ll_instr_br_if *LLInstrBrIf) {
+	write(Str("br i1 "))
+	llEmit(ll_instr_br_if.cond)
+	write(Str(", label %"))
+	write(ll_instr_br_if.block_name_if_true)
+	write(Str(", label %"))
+	write(ll_instr_br_if.block_name_if_false)
+}
+
+func llEmitInstrBrTo(ll_instr_br_to *LLInstrBrTo) {
 	write(Str("br label %"))
-	write(ll_instr_br.block_name)
+	write(ll_instr_br_to.block_name)
 }
 
 func llEmitInstrRet(ll_instr_ret *LLInstrRet) {

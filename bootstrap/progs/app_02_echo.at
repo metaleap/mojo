@@ -1,0 +1,9 @@
+
+main := /define {} /I32 {} {
+  #begin: [
+    /brTo #end,
+  ],
+  #end: [
+    /ret (/I32 0),
+  ],
+}

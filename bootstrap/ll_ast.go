@@ -61,8 +61,14 @@ type LLSwitchCase struct {
 	block_name Str
 }
 
-type LLInstrBr struct {
+type LLInstrBrTo struct {
 	block_name Str
+}
+
+type LLInstrBrIf struct {
+	cond                LLExpr
+	block_name_if_true  Str
+	block_name_if_false Str
 }
 
 type LLInstrComment struct {
@@ -143,8 +149,8 @@ type LLInstrPhi struct {
 }
 
 type LLPhiPred struct {
-	expr       LLExpr
 	block_name Str
+	expr       LLExpr
 }
 
 type LLInstrGep struct {
@@ -238,7 +244,8 @@ func (LLInstrCmpI) implementsLLInstr()        {}
 func (LLInstrGep) implementsLLInstr()         {}
 func (LLInstrLoad) implementsLLInstr()        {}
 func (LLInstrPhi) implementsLLInstr()         {}
-func (LLInstrBr) implementsLLInstr()          {}
+func (LLInstrBrIf) implementsLLInstr()        {}
+func (LLInstrBrTo) implementsLLInstr()        {}
 func (LLInstrComment) implementsLLInstr()     {}
 func (LLInstrLet) implementsLLInstr()         {}
 func (LLInstrRet) implementsLLInstr()         {}

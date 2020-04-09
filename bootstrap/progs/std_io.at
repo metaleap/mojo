@@ -1,10 +1,18 @@
 
 writeTo := /define {} /I16 { #str_ptr: /P, #str_len: /I, #out_file: /P } {
-  #: [
-    /call {} /@libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #out_file],
-    /let { #err: /call {} /@libcFError /I16 [/P #out_file] },
-    /ret (/I16 #err),
+  #begin: [
+    /let { #n : /call {} /@libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #out_file] },
+    /let { #ok: /icmp #eq /I #n #str_len },
+    /brIf #ok #end #err_case,
   ],
+  #err_case: [
+      /let { #err_code: /call {} /@libcFError /I16 [/P #out_file] },
+      /brTo #end,
+  ],
+  #end: [
+    /let { #ret_val: /phi {} /I16 { #begin: 0, #err_case: #err_code } },
+    /ret (/I16 #ret_val),
+  ]
 }
 
 
