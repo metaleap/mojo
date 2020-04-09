@@ -45,6 +45,7 @@ func llTopLevelFrom(expr *AstExpr, top_def *AstDef, ast *Ast) Any {
 	switch it := expr.kind.(type) {
 	case AstExprForm:
 		callee := astExprSlashed(&it[0])
+		assert(len(callee) != 0) // "expected /..."
 		kwd := callee[0]
 		if 1 == len(callee) {
 			if astExprIsIdent(kwd, "global") {
@@ -165,9 +166,27 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 				lit_curl_pair := it[1].kind.(AstExprLitCurl)
 				assert(len(lit_curl_pair) == 1)
 				lhs, rhs := astExprFormSplit(&lit_curl_pair[0], ":", true, true, true, ast)
+
+				var instr LLInstr
+				if maybe_form, _ := rhs.kind.(AstExprForm); len(maybe_form) == 2 {
+					if slashed := astExprSlashed(&maybe_form[0]); len(slashed) == 1 {
+						if ident, _ := slashed[0].kind.(AstExprIdent); len(ident) != 0 && ident[0] == 'I' {
+							expr_ty := llExprFrom(rhs, ast, ll_mod).(LLExprTyped)
+							instr = LLInstrBinOp{
+								ty:      expr_ty.ty,
+								lhs:     expr_ty.expr,
+								rhs:     LLExprLitInt(0),
+								op_kind: ll_bin_op_add,
+							}
+						}
+					}
+				}
+				if instr == nil {
+					instr = llInstrFrom(rhs, top_def, ast, ll_mod)
+				}
 				return LLInstrLet{
 					name:  astExprTaggedIdent(lhs),
-					instr: llInstrFrom(rhs, top_def, ast, ll_mod),
+					instr: instr,
 				}
 			} else if astExprIsIdent(kwd, "load") {
 				assert(len(it) == 4)
