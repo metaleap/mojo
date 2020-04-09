@@ -281,6 +281,8 @@ func llEmitInstrLoad(ll_instr_load *LLInstrLoad) {
 
 func llEmitInstrCall(ll_instr_call *LLInstrCall) {
 	write(Str("call "))
+	llEmit(ll_instr_call.ty)
+	write(Str(" "))
 	llEmit(ll_instr_call.callee)
 	write(Str("("))
 	for i := range ll_instr_call.args {

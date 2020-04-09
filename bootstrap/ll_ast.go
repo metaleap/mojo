@@ -91,7 +91,8 @@ type LLInstrLoad struct {
 }
 
 type LLInstrCall struct {
-	callee LLExprTyped
+	ty     LLType
+	callee LLExpr
 	args   []LLExprTyped
 }
 

@@ -17,9 +17,11 @@ func llModuleFrom(ast *Ast) LLModule {
 		case LLGlobal:
 			ret_mod.globals[num_globals] = ll_sth
 			num_globals++
+			println(string(astDefName(top_def)), "\tVS\t", string(ll_sth.name))
 		case LLFunc:
 			ret_mod.funcs[num_funcs] = ll_sth
 			num_funcs++
+			println(string(astDefName(top_def)), "\tVS\t", string(ll_sth.name))
 		default:
 			fail(string(astDefName(top_def)))
 		}
@@ -129,7 +131,7 @@ func llBlockFrom(pair_expr *AstExpr, top_def *AstDef, ast *Ast) LLBasicBlock {
 	ret_block := LLBasicBlock{name: astExprTaggedIdent(lhs), instrs: allocˇLLInstr(len(lit_clip))}
 	if len(ret_block.name) == 0 {
 		counter++
-		ret_block.name = uintToStr(counter, 10, 1, Str("blk."))
+		ret_block.name = uintToStr(counter, 10, 1, Str("b."))
 	}
 	for i := range lit_clip {
 		ret_block.instrs[i] = llInstrFrom(&lit_clip[i], top_def, ast)
@@ -163,6 +165,19 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast) LLInstr {
 					expr: llExprFrom(&it[3], ast).(LLExprTyped),
 				}
 				return ret_load
+			} else if astExprIsIdent(kwd, "call") {
+				assert(len(it) == 5)
+				_ = it[1].kind.(AstExprLitCurl)
+				lit_clip_args := it[4].kind.(AstExprLitClip)
+				ret_call := LLInstrCall{
+					ty:     llTypeFrom(astExprSlashed(&it[3]), expr, ast),
+					callee: llExprFrom(&it[2], ast),
+					args:   allocˇLLExprTyped(len(lit_clip_args)),
+				}
+				for i := range lit_clip_args {
+					ret_call.args[i] = llExprFrom(&lit_clip_args[i], ast).(LLExprTyped)
+				}
+				return ret_call
 			} else if astExprIsIdent(kwd, "switch") {
 				assert(len(it) == 4)
 				lit_curl := it[3].kind.(AstExprLitCurl)
@@ -235,6 +250,11 @@ func llExprFrom(expr *AstExpr, ast *Ast) LLExpr {
 					return ret_expr
 				}
 			}
+		}
+
+		if strEql(astNodeSrcStr(&it[0].base, ast), Str("/@/")) {
+			assert(len(it) == 2)
+			return LLExprIdentGlobal(it[1].kind.(AstExprIdent))
 		}
 
 		tag_lit := astExprTaggedIdent(expr)

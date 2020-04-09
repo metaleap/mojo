@@ -16,12 +16,12 @@ writeTo :=
   /define {} /V { #str_ptr: /P, #str_len: /I, #out_file_ptr: /P/P } {
     #begin: [
       /let { #file: /load {} /P (/P/P #out_file_ptr) },
-      /call {} /I /@/libcFWrite [/P #str_ptr, /I 1, /I #str_len, /P #file],
-      /let { #err: /call {} /I16 /@/libcFError [/P #file] },
+      /call {} /@/libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #file],
+      /let { #err: /call {} /@/libcFError /I16 [/P #file] },
       /switch (/I16 #err) #end { /I16 1: #exit_on_err },
     ],
     #exit_on_err: [
-      /call {} /V /@/libcExit [/I16 1],
+      /call {} /@/libcExit /V [/I16 1],
       /ret (/V #),
     ],
     #end: [
@@ -32,7 +32,7 @@ writeTo :=
 writeErr :=
   /define {} /V { #str_ptr: /P, #str_len: /I } {
     #: [
-      /call {} /V /@/writeTo [/P #str_ptr, /I #str_len, /P/P /@/libc_stderr],
+      /call {} /@/writeTo /V [/P #str_ptr, /I #str_len, /P/P /@/libc_stderr],
       /ret (/V #),
     ],
   }
@@ -40,7 +40,7 @@ writeErr :=
 writeOut :=
   /define {} /V { #str_ptr: /P, #str_len: /I } {
     #: [
-      /call {} /V /@/writeTo [/P #str_ptr, /I #str_len, /P/P /@/libc_stdout],
+      /call {} /@/writeTo /V [/P #str_ptr, /I #str_len, /P/P /@/libc_stdout],
       /ret (/V #),
     ],
   }
@@ -49,7 +49,7 @@ main :=
   /define {} /I32 {} {
     #: [
       /let { #msg: /getelementptr /A/13/I8 (/P/A/13/I8 /@/msg) [/I 0, /I 0] },
-      /call {} /V /@/writeOut [/P #msg, /I 13 ],
+      /call {} /@/writeOut /V [/P #msg, /I 13 ],
       /ret (/I32 0)
     ],
   }
