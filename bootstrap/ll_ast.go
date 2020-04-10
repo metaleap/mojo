@@ -171,7 +171,7 @@ type LLExprIdentLocal Str
 
 type LLExprIdentGlobal Str
 
-type LLExprLitInt uint64
+type LLExprLitInt int64
 
 type LLExprLitStr Str
 

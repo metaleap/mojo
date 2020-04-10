@@ -26,7 +26,7 @@ type AstExpr struct {
 	kind AstExprKind
 }
 
-type AstExprLitInt uint64
+type AstExprLitInt int64
 
 type AstExprLitStr Str
 

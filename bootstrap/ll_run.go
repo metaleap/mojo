@@ -65,6 +65,7 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 				break
 			}
 		}
+		assert(eval_result != nil)
 
 	case LLInstrBrIf:
 		expr_bool := llEvalExpr(ctx, instr.cond).(LLExprLitInt)
@@ -81,6 +82,7 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 				break
 			}
 		}
+		assert(eval_result != nil)
 
 	case LLInstrRet:
 		eval_result = llEvalExpr(ctx, instr.expr)
@@ -90,11 +92,11 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 		ctx.locals[string(instr.name)], _, _ = llEvalInstr(ctx, instr.instr)
 
 	case LLInstrSwitch:
-		comparee := llEvalExpr(ctx, instr.comparee.expr).(LLExprLitInt)
+		comparee := llEvalExpr(ctx, instr.comparee).(LLExprLitInt)
 		block_name := instr.default_block_name
 		for i := range instr.cases {
 			this_case := &instr.cases[i]
-			case_value := llEvalExpr(ctx, this_case.expr.expr).(LLExprLitInt)
+			case_value := llEvalExpr(ctx, this_case.expr).(LLExprLitInt)
 			if case_value == comparee {
 				block_name = this_case.block_name
 				break
@@ -107,12 +109,75 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 				break
 			}
 		}
-
-	case LLInstrPhi:
+		assert(eval_result != nil)
 
 	case LLInstrBinOp:
+		lhs := llEvalExpr(ctx, instr.lhs).(LLExprLitInt)
+		rhs := llEvalExpr(ctx, instr.rhs).(LLExprLitInt)
+		switch instr.op_kind {
+		case ll_bin_op_add:
+			eval_result = lhs + rhs
+		case ll_bin_op_mul:
+			eval_result = lhs * rhs
+		case ll_bin_op_sub:
+			eval_result = lhs - rhs
+		case ll_bin_op_udiv:
+			eval_result = uint64(lhs) / uint64(rhs)
+		default:
+			panic(instr.op_kind)
+		}
 
 	case LLInstrCmpI:
+		expr_bool := LLExprLitInt(0)
+		lhs := llEvalExpr(ctx, instr.lhs).(LLExprLitInt)
+		rhs := llEvalExpr(ctx, instr.rhs).(LLExprLitInt)
+		switch instr.cmp_kind {
+		case ll_cmp_i_eq:
+			if lhs == rhs {
+				expr_bool = 1
+			}
+		case ll_cmp_i_ne:
+			if lhs != rhs {
+				expr_bool = 1
+			}
+		case ll_cmp_i_ugt:
+			if uint64(lhs) > uint64(rhs) {
+				expr_bool = 1
+			}
+		case ll_cmp_i_uge:
+			if uint64(lhs) >= uint64(rhs) {
+				expr_bool = 1
+			}
+		case ll_cmp_i_ult:
+			if uint64(lhs) < uint64(rhs) {
+				expr_bool = 1
+			}
+		case ll_cmp_i_ule:
+			if uint64(lhs) <= uint64(rhs) {
+				expr_bool = 1
+			}
+		case ll_cmp_i_sgt:
+			if lhs > rhs {
+				expr_bool = 1
+			}
+		case ll_cmp_i_sge:
+			if lhs >= rhs {
+				expr_bool = 1
+			}
+		case ll_cmp_i_slt:
+			if lhs < rhs {
+				expr_bool = 1
+			}
+		case ll_cmp_i_sle:
+			if lhs <= rhs {
+				expr_bool = 1
+			}
+		default:
+			panic(instr.cmp_kind)
+		}
+		eval_result = expr_bool
+
+	case LLInstrPhi:
 
 	case LLInstrCall:
 
@@ -136,5 +201,16 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 }
 
 func llEvalExpr(ctx *LLCtxRun, ll_expr LLExpr) Any {
-	return nil
+	switch expr := ll_expr.(type) {
+	case LLExprLitInt:
+		return expr
+	case LLExprLitVoid:
+		return expr
+	case LLExprIdentLocal:
+		return ctx.locals[string(expr)]
+	case LLExprTyped:
+		return llEvalExpr(ctx, expr.expr)
+	default:
+		panic(expr)
+	}
 }
