@@ -3,19 +3,28 @@ reverse := /define {} /V { #buf: /P, #len: /I } {
     #begin: [
       /let { #is0: /icmp #eq /I #len 0 },
       /let { #len_half: /op2 #udiv /I #len 2 },
+      /let { #i_last: /op2 #sub /I #len 1 },
       /brIf #is0 #end #loop,
     ],
     #loop: [
       /let { #i: /phi {} /I { #begin: 0, #loop: #i_incr } },
-      /let { #i_max: /phi {} /I { #begin: #len_half, #loop: #i_max } },
+      /let { #i_swap: /op2 #sub /I #i_last #i },
 
-      /let { #tmp1: /convert {} /I (/P #buf) },
-      /let { #tmp2: /op2 #add /I #i #tmp1 },
-      /let { #tmp3: /convert {} /P (/I #tmp2) },
-      /call {} /@writeOut /V [/P #tmp3, /I 1],
+      /let { #tmp_l1: /convert {} /I (/P #buf) },
+      /let { #tmp_l2: /op2 #add /I #i #tmp_l1 },
+      /let { #tmp_l3: /convert {} /P (/I #tmp_l2) },
+
+      /let { #tmp_r1: /convert {} /I (/P #buf) },
+      /let { #tmp_r2: /op2 #add /I #i_swap #tmp_r1 },
+      /let { #tmp_r3: /convert {} /P (/I #tmp_r2) },
+
+      /let { #tmpl: /load {} /I8 (/P/I8 #tmp_l3) },
+      /let { #tmpr: /load {} /I8 (/P/I8 #tmp_r3) },
+      /store #tmp_l3 (/I8 #tmpr),
+      /store #tmp_r3 (/I8 #tmpl),
 
       /let { #i_incr: /op2 #add /I #i 1 },
-      /let { #loop_again: /icmp #ult /I #i_incr #i_max },
+      /let { #loop_again: /icmp #ult /I #i_incr #len_half },
       /brIf #loop_again #loop #end,
     ],
     #end: [
@@ -28,7 +37,7 @@ main := /define {} /I32 {} {
     /let { #buf: /alloca {} /I8 (/I32 1024) },
     /let { #n: /call {} /@readInOrDie /I [/P #buf, /I 1024] },
     /call {} /@reverse /V [/P #buf, /I #n],
-    // /call {} /@writeOut /V [/P #buf, /I #n],
+    /call {} /@writeOut /V [/P #buf, /I #n],
     /ret (/I32 0),
   ],
 }

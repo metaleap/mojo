@@ -197,11 +197,19 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 			} else if astExprIsIdent(kwd, "load") {
 				assert(len(it) == 4)
 				_ = it[1].kind.(AstExprLitCurl)
-				ret_load := LLInstrLoad{
+				return LLInstrLoad{
 					ty:   llTypeFrom(astExprSlashed(&it[2]), expr, ast),
 					expr: llExprFrom(&it[3], ast, ll_mod).(LLExprTyped),
 				}
-				return ret_load
+			} else if astExprIsIdent(kwd, "store") {
+				assert(len(it) == 3)
+				dst_expr := llExprFrom(&it[1], ast, ll_mod)
+				ret_store := LLInstrStore{
+					dst:  LLExprTyped{expr: dst_expr},
+					expr: llExprFrom(&it[2], ast, ll_mod).(LLExprTyped),
+				}
+				ret_store.dst.ty = LLTypePtr{ty: ret_store.expr.ty}
+				return ret_store
 			} else if astExprIsIdent(kwd, "call") {
 				assert(len(it) == 5)
 				_ = it[1].kind.(AstExprLitCurl)
@@ -339,6 +347,8 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 				op_kind := astExprTaggedIdent(&it[1])
 				if strEql(op_kind, Str("add")) {
 					ret_op2.op_kind = ll_bin_op_add
+				} else if strEql(op_kind, Str("sub")) {
+					ret_op2.op_kind = ll_bin_op_sub
 				} else if strEql(op_kind, Str("udiv")) {
 					ret_op2.op_kind = ll_bin_op_udiv
 				}

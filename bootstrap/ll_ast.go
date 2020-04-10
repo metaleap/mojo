@@ -115,6 +115,11 @@ type LLInstrLoad struct {
 	expr LLExprTyped
 }
 
+type LLInstrStore struct {
+	dst  LLExprTyped
+	expr LLExprTyped
+}
+
 type LLInstrCall struct {
 	ty     LLType
 	callee LLExpr
@@ -133,6 +138,7 @@ type LLBinOpKind int
 const (
 	_ LLBinOpKind = iota
 	ll_bin_op_add
+	ll_bin_op_sub
 	ll_bin_op_udiv
 )
 
@@ -259,6 +265,7 @@ func (LLInstrCall) implementsLLInstr()        {}
 func (LLInstrCmpI) implementsLLInstr()        {}
 func (LLInstrGep) implementsLLInstr()         {}
 func (LLInstrLoad) implementsLLInstr()        {}
+func (LLInstrStore) implementsLLInstr()       {}
 func (LLInstrPhi) implementsLLInstr()         {}
 func (LLInstrBrIf) implementsLLInstr()        {}
 func (LLInstrBrTo) implementsLLInstr()        {}

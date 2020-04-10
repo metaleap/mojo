@@ -52,6 +52,8 @@ func llEmit(ll_something Any) {
 		llEmitInstrAlloca(&ll)
 	case LLInstrLoad:
 		llEmitInstrLoad(&ll)
+	case LLInstrStore:
+		llEmitInstrStore(&ll)
 	case LLInstrCall:
 		llEmitInstrCall(&ll)
 	case LLInstrBinOp:
@@ -298,6 +300,13 @@ func llEmitInstrAlloca(ll_instr_alloca *LLInstrAlloca) {
 	llEmit(ll_instr_alloca.num_elems)
 }
 
+func llEmitInstrStore(ll_instr_store *LLInstrStore) {
+	write(Str("store "))
+	llEmit(ll_instr_store.expr)
+	write(Str(", "))
+	llEmit(ll_instr_store.dst)
+}
+
 func llEmitInstrLoad(ll_instr_load *LLInstrLoad) {
 	write(Str("load "))
 	llEmit(ll_instr_load.ty)
@@ -341,6 +350,8 @@ func llEmitInstrBinOp(ll_instr_bin_op *LLInstrBinOp) {
 	switch ll_instr_bin_op.op_kind {
 	case ll_bin_op_add:
 		op_kind = "add"
+	case ll_bin_op_sub:
+		op_kind = "sub"
 	case ll_bin_op_udiv:
 		op_kind = "udiv"
 	default:
