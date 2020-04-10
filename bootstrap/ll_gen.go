@@ -247,6 +247,12 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 					block_name_if_true:  astExprTaggedIdent(&it[2]),
 					block_name_if_false: astExprTaggedIdent(&it[3]),
 				}
+			} else if astExprIsIdent(kwd, "intToPtr") {
+				assert(len(it) == 4)
+				return LLInstrIntToPtr{
+					ty:   llTypeFrom(astExprSlashed(&it[2]), expr, ast),
+					expr: llExprFrom(&it[3], ast, ll_mod).(LLExprTyped),
+				}
 			} else if astExprIsIdent(kwd, "phi") {
 				assert(len(it) == 4)
 				_ = it[1].kind.(AstExprLitCurl)
@@ -265,10 +271,10 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 				}
 				return ret_phi
 			} else if astExprIsIdent(kwd, "alloca") {
-				assert(len(it) == 3)
+				assert(len(it) == 4)
 				ret_alloca := LLInstrAlloca{
-					ty:        llTypeFrom(astExprSlashed(&it[1]), expr, ast),
-					num_elems: llExprFrom(&it[2], ast, ll_mod).(LLExprTyped),
+					ty:        llTypeFrom(astExprSlashed(&it[2]), expr, ast),
+					num_elems: llExprFrom(&it[3], ast, ll_mod).(LLExprTyped),
 				}
 				return ret_alloca
 			} else if astExprIsIdent(kwd, "icmp") {
@@ -302,6 +308,21 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 				}
 				assert(ret_cmp.cmp_kind != 0)
 				return ret_cmp
+			} else if astExprIsIdent(kwd, "op2") {
+				assert(len(it) == 5)
+				ret_op2 := LLInstrBinOp{
+					ty:  llTypeFrom(astExprSlashed(&it[2]), expr, ast),
+					lhs: llExprFrom(&it[3], ast, ll_mod),
+					rhs: llExprFrom(&it[4], ast, ll_mod),
+				}
+				op_kind := astExprTaggedIdent(&it[1])
+				if strEql(op_kind, Str("add")) {
+					ret_op2.op_kind = ll_bin_op_add
+				} else if strEql(op_kind, Str("udiv")) {
+					ret_op2.op_kind = ll_bin_op_udiv
+				}
+				assert(ret_op2.op_kind != 0)
+				return ret_op2
 			}
 		}
 	}

@@ -164,7 +164,39 @@ readInOrDie:                            # @readInOrDie
 	.type	reverse,@function
 reverse:                                # @reverse
 	.cfi_startproc
-# %bb.0:                                # %b.4
+# %bb.0:                                # %begin
+	pushq	%r15
+	.cfi_def_cfa_offset 16
+	pushq	%r14
+	.cfi_def_cfa_offset 24
+	pushq	%rbx
+	.cfi_def_cfa_offset 32
+	.cfi_offset %rbx, -32
+	.cfi_offset %r14, -24
+	.cfi_offset %r15, -16
+	testq	%rsi, %rsi
+	je	.LBB6_3
+# %bb.1:                                # %loop.preheader
+	movq	%rsi, %r15
+	movq	%rdi, %r14
+	shrq	%r15
+	xorl	%ebx, %ebx
+	.p2align	4, 0x90
+.LBB6_2:                                # %loop
+                                        # =>This Inner Loop Header: Depth=1
+	movq	%r14, %rdi
+	movq	%rbx, %rsi
+	callq	writeOut@PLT
+	incq	%rbx
+	cmpq	%r15, %rbx
+	jb	.LBB6_2
+.LBB6_3:                                # %end
+	popq	%rbx
+	.cfi_def_cfa_offset 24
+	popq	%r14
+	.cfi_def_cfa_offset 16
+	popq	%r15
+	.cfi_def_cfa_offset 8
 	retq
 .Lfunc_end6:
 	.size	reverse, .Lfunc_end6-reverse
@@ -175,32 +207,23 @@ reverse:                                # @reverse
 	.type	main,@function
 main:                                   # @main
 	.cfi_startproc
-# %bb.0:                                # %b.5
-	pushq	%r14
-	.cfi_def_cfa_offset 16
+# %bb.0:                                # %b.4
 	pushq	%rbx
-	.cfi_def_cfa_offset 24
-	subq	$1032, %rsp             # imm = 0x408
-	.cfi_def_cfa_offset 1056
-	.cfi_offset %rbx, -24
-	.cfi_offset %r14, -16
-	leaq	8(%rsp), %r14
+	.cfi_def_cfa_offset 16
+	subq	$1024, %rsp             # imm = 0x400
+	.cfi_def_cfa_offset 1040
+	.cfi_offset %rbx, -16
+	movq	%rsp, %rbx
 	movl	$1024, %esi             # imm = 0x400
-	movq	%r14, %rdi
+	movq	%rbx, %rdi
 	callq	readInOrDie@PLT
-	movq	%rax, %rbx
-	movq	%r14, %rdi
+	movq	%rbx, %rdi
 	movq	%rax, %rsi
 	callq	reverse@PLT
-	movq	%r14, %rdi
-	movq	%rbx, %rsi
-	callq	writeOut@PLT
 	xorl	%eax, %eax
-	addq	$1032, %rsp             # imm = 0x408
-	.cfi_def_cfa_offset 24
-	popq	%rbx
+	addq	$1024, %rsp             # imm = 0x400
 	.cfi_def_cfa_offset 16
-	popq	%r14
+	popq	%rbx
 	.cfi_def_cfa_offset 8
 	retq
 .Lfunc_end7:

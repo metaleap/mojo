@@ -71,6 +71,11 @@ type LLInstrBrIf struct {
 	block_name_if_false Str
 }
 
+type LLInstrIntToPtr struct {
+	ty   LLType
+	expr LLExprTyped
+}
+
 type LLInstrComment struct {
 	comment_text Str
 }
@@ -118,6 +123,7 @@ type LLBinOpKind int
 const (
 	_ LLBinOpKind = iota
 	ll_bin_op_add
+	ll_bin_op_udiv
 )
 
 type LLInstrCmpI struct {
@@ -251,3 +257,4 @@ func (LLInstrLet) implementsLLInstr()         {}
 func (LLInstrRet) implementsLLInstr()         {}
 func (LLInstrSwitch) implementsLLInstr()      {}
 func (LLInstrUnreachable) implementsLLInstr() {}
+func (LLInstrIntToPtr) implementsLLInstr()    {}

@@ -51,15 +51,15 @@ b.2:
 
 define i64 @readFrom(i8* %buf_ptr, i64 %buf_len, i8* %in_file) {
 b.3:
-  %n = call i64 @fread(i8* %buf_ptr, i64 1, i64 %buf_len, i8* %in_file)
-  ret i64 %n
+  %num_bytes_read = call i64 @fread(i8* %buf_ptr, i64 1, i64 %buf_len, i8* %in_file)
+  ret i64 %num_bytes_read
 }
 
 
 define i64 @readInOrDie(i8* %buf_ptr, i64 %buf_len) {
 begin:
   %in_file = load i8*, i8** @stdin
-  %n = call i64 @readFrom(i8* %buf_ptr, i64 %buf_len, i8* %in_file)
+  %num_bytes_read = call i64 @readFrom(i8* %buf_ptr, i64 %buf_len, i8* %in_file)
   %err = call i16 @ferror(i8* %in_file)
   %ok = icmp eq i16 %err, 0
   br i1 %ok, label %end, label %die
@@ -67,7 +67,7 @@ die:
   call void @exit(i16 1)
   unreachable
 end:
-  %n_ok = phi i64 [%n, %begin]
+  %n_ok = phi i64 [%num_bytes_read, %begin]
   ret i64 %n_ok
 }
 
