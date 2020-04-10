@@ -5,9 +5,12 @@ import (
 )
 
 type LLCtxRun struct {
-	ll_mod *LLModule
-	fn     *LLFunc
-	locals map[string]Any
+	ll_mod    *LLModule
+	cur_frame struct {
+		fn              *LLFunc
+		locals          []LLExpr
+		pred_block_name Str
+	}
 }
 
 func llRun(ll_mod *LLModule) {
@@ -25,7 +28,7 @@ func llRun(ll_mod *LLModule) {
 		panic("no main func")
 	}
 
-	ctx := LLCtxRun{}
+	ctx := LLCtxRun{ll_mod: ll_mod}
 	switch exit_code := llCall(&ctx, main_func, nil).(type) {
 	case LLExprLitInt:
 		os.Exit(int(exit_code))
@@ -35,18 +38,18 @@ func llRun(ll_mod *LLModule) {
 }
 
 func llCall(ctx *LLCtxRun, fn *LLFunc, args []LLExpr) Any {
-	old_fn := ctx.fn
-	ctx.fn = fn
-	old_locals := ctx.locals
-	ctx.locals = make(map[string]Any, 8)
+	ctx_old := *ctx
+	ctx.cur_frame.fn = fn
+	ctx.cur_frame.locals = allocˇLLExpr(len(fn.anns.local_temporaries_names))
+	ctx.cur_frame.pred_block_name = nil
 
 	for idx_block, idx_instr := 0, 0; true; idx_instr++ {
 		eval_result, is_ret, is_jump := llEvalInstr(ctx, fn.basic_blocks[idx_block].instrs[idx_instr])
 		if is_ret {
-			ctx.fn = old_fn
-			ctx.locals = old_locals
+			*ctx = ctx_old
 			return eval_result
 		} else if is_jump {
+			ctx.cur_frame.pred_block_name = fn.basic_blocks[idx_block].name
 			idx_instr = -1
 			idx_block = eval_result.(int)
 		}
@@ -58,8 +61,8 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 	switch instr := ll_instr.(type) {
 
 	case LLInstrBrTo:
-		for i := range ctx.fn.basic_blocks {
-			if strEql(instr.block_name, ctx.fn.basic_blocks[i].name) {
+		for i := range ctx.cur_frame.fn.basic_blocks {
+			if strEql(instr.block_name, ctx.cur_frame.fn.basic_blocks[i].name) {
 				is_jump = true
 				eval_result = i
 				break
@@ -75,8 +78,8 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 		} else if expr_bool == 1 {
 			block_name = instr.block_name_if_false
 		}
-		for i := range ctx.fn.basic_blocks {
-			if strEql(block_name, ctx.fn.basic_blocks[i].name) {
+		for i := range ctx.cur_frame.fn.basic_blocks {
+			if strEql(block_name, ctx.cur_frame.fn.basic_blocks[i].name) {
 				is_jump = true
 				eval_result = i
 				break
@@ -89,7 +92,17 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 		is_ret = true
 
 	case LLInstrLet:
-		ctx.locals[string(instr.name)], _, _ = llEvalInstr(ctx, instr.instr)
+		for i, name := range ctx.cur_frame.fn.anns.local_temporaries_names {
+			if strEql(name, instr.name) {
+				instr_result, _, _ := llEvalInstr(ctx, instr.instr)
+				if expr, _ := instr_result.(LLExpr); expr != nil {
+					ctx.cur_frame.locals[i] = expr
+				} else {
+					panic(instr.instr)
+				}
+				break
+			}
+		}
 
 	case LLInstrSwitch:
 		comparee := llEvalExpr(ctx, instr.comparee).(LLExprLitInt)
@@ -102,8 +115,8 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 				break
 			}
 		}
-		for i := range ctx.fn.basic_blocks {
-			if strEql(block_name, ctx.fn.basic_blocks[i].name) {
+		for i := range ctx.cur_frame.fn.basic_blocks {
+			if strEql(block_name, ctx.cur_frame.fn.basic_blocks[i].name) {
 				is_jump = true
 				eval_result = i
 				break
@@ -178,8 +191,21 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 		eval_result = expr_bool
 
 	case LLInstrPhi:
+		for i := range instr.predecessors {
+			if strEql(ctx.cur_frame.pred_block_name, instr.predecessors[i].block_name) {
+				eval_result = llEvalExpr(ctx, instr.predecessors[i].expr)
+				break
+			}
+		}
+		assert(eval_result != nil)
 
 	case LLInstrCall:
+		callee := llEvalExpr(ctx, instr.callee).(*LLFunc)
+		args := allocˇLLExpr(len(instr.args))
+		for i, arg := range instr.args {
+			args[i] = llEvalExpr(ctx, arg).(LLExpr)
+		}
+		eval_result = llCall(ctx, callee, args)
 
 	case LLInstrConvert:
 
@@ -207,9 +233,26 @@ func llEvalExpr(ctx *LLCtxRun, ll_expr LLExpr) Any {
 	case LLExprLitVoid:
 		return expr
 	case LLExprIdentLocal:
-		return ctx.locals[string(expr)]
+		for i, name := range ctx.cur_frame.fn.anns.local_temporaries_names {
+			if strEql(name, expr) {
+				return ctx.cur_frame.locals[i]
+			}
+		}
+		panic(expr)
 	case LLExprTyped:
 		return llEvalExpr(ctx, expr.expr)
+	case LLExprIdentGlobal:
+		for i := range ctx.ll_mod.funcs {
+			if strEql(ctx.ll_mod.funcs[i].name, expr) {
+				return &ctx.ll_mod.funcs[i]
+			}
+		}
+		for i := range ctx.ll_mod.globals {
+			if strEql(ctx.ll_mod.globals[i].name, expr) {
+				return &ctx.ll_mod.globals[i]
+			}
+		}
+		panic(expr)
 	default:
 		panic(expr)
 	}

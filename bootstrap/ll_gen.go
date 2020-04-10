@@ -37,6 +37,24 @@ func llModuleFrom(ast *Ast) LLModule {
 			for i := range lit_curl_blocks {
 				fn_def.basic_blocks[i] = llBlockFrom(&lit_curl_blocks[i], fn_def.orig_ast_top_def, ast, &ret_mod)
 			}
+			n_locals := 0
+			for i_block := range fn_def.basic_blocks {
+				for i_instr := range fn_def.basic_blocks[i_block].instrs {
+					if _, is_let := fn_def.basic_blocks[i_block].instrs[i_instr].(LLInstrLet); is_let {
+						n_locals++
+					}
+				}
+			}
+			fn_def.anns.local_temporaries_names = allocˇStr(n_locals)
+			n_locals = 0
+			for i_block := range fn_def.basic_blocks {
+				for i_instr := range fn_def.basic_blocks[i_block].instrs {
+					if instr_let, is_let := fn_def.basic_blocks[i_block].instrs[i_instr].(LLInstrLet); is_let {
+						fn_def.anns.local_temporaries_names[n_locals] = instr_let.name
+						n_locals++
+					}
+				}
+			}
 		}
 	}
 	return ret_mod

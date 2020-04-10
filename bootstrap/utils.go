@@ -157,6 +157,7 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 
 func allocˇu8(len int) Str                      { return make(Str, len) }
 func allocˇStr(len int) []Str                   { return make([]Str, len) }
+func allocˇAny(len int) []Any                   { return make([]Any, len) }
 func allocˇToken(len int) []Token               { return make([]Token, len) }
 func allocˇTokens(len int) [][]Token            { return make([][]Token, len) }
 func allocˇAstDef(len int) []AstDef             { return make([]AstDef, len) }
@@ -170,6 +171,7 @@ func allocˇLLFuncParam(len int) []LLFuncParam   { return make([]LLFuncParam, le
 func allocˇLLBasicBlock(len int) []LLBasicBlock { return make([]LLBasicBlock, len) }
 func allocˇLLInstr(len int) []LLInstr           { return make([]LLInstr, len) }
 func allocˇLLType(len int) []LLType             { return make([]LLType, len) }
+func allocˇLLExpr(len int) []LLExpr             { return make([]LLExpr, len) }
 func allocˇLLExprTyped(len int) []LLExprTyped   { return make([]LLExprTyped, len) }
 func allocˇLLPhiPred(len int) []LLPhiPred       { return make([]LLPhiPred, len) }
 func allocˇLLSwitchCase(len int) []LLSwitchCase { return make([]LLSwitchCase, len) }

@@ -27,6 +27,9 @@ type LLFunc struct {
 	name             Str
 	params           []LLFuncParam
 	basic_blocks     []LLBasicBlock
+	anns             struct {
+		local_temporaries_names []Str
+	}
 }
 
 type LLFuncParam struct {
