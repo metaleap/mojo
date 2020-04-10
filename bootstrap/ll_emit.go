@@ -128,7 +128,7 @@ func llEmitFunc(ll_func *LLFunc) {
 			write(Str(", "))
 		}
 		llEmit(param.ty)
-		if len(param.name) != 0 {
+		if len(param.name) != 0 && !ll_func.external {
 			write(Str(" %"))
 			write(param.name)
 		}

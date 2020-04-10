@@ -90,21 +90,6 @@ type LLInstrComment struct {
 	comment_text Str
 }
 
-type LLExprIdentLocal Str
-
-type LLExprIdentGlobal Str
-
-type LLExprLitInt uint64
-
-type LLExprLitStr Str
-
-type LLExprLitVoid struct{}
-
-type LLExprTyped struct {
-	ty   LLType
-	expr LLExpr
-}
-
 type LLInstrAlloca struct {
 	ty        LLType
 	num_elems LLExprTyped
@@ -180,6 +165,21 @@ type LLInstrGep struct {
 	ty       LLType
 	base_ptr LLExprTyped
 	indices  []LLExprTyped
+}
+
+type LLExprIdentLocal Str
+
+type LLExprIdentGlobal Str
+
+type LLExprLitInt uint64
+
+type LLExprLitStr Str
+
+type LLExprLitVoid struct{}
+
+type LLExprTyped struct {
+	ty   LLType
+	expr LLExpr
 }
 
 type LLTypeInt struct {

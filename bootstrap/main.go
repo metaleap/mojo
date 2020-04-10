@@ -47,5 +47,9 @@ func main() {
 	astPopulateScopes(&ast)
 
 	ll_mod := llModuleFrom(&ast)
-	llEmit(&ll_mod)
+	if len(os.Args) > 1 && os.Args[1] == "--run" {
+		llRun(&ll_mod)
+	} else {
+		llEmit(&ll_mod)
+	}
 }

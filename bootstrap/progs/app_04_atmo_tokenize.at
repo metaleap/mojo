@@ -11,13 +11,13 @@ tok_kind_sep_bsquare_open := /global /A/16/I8 { #constant: "sep_bsquare_open" }
 tok_kind_sep_bsquare_close := /global /A/17/I8 { #constant: "sep_bsquare_close" }
 tok_kind_sep_comma := /global /A/9/I8 { #constant: "sep_comma" }
 
-Token := /S {
-  byte_idx: /I,
-  num_bytes: /I,
-  line_nr: /I,
-  line_start_byte_idx: /I,
-  kind: /P,
-}
+// Token := /S {
+//   byte_idx: /I,
+//   num_bytes: /I,
+//   line_nr: /I,
+//   line_start_byte_idx: /I,
+//   kind: /P,
+// }
 
 main := /define {} /I32 {} {
   #: [

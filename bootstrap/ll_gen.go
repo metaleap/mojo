@@ -101,8 +101,7 @@ func llFuncDeclFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLFunc {
 	for i := range lit_curl_params {
 		lhs, rhs := astExprFormSplit(&lit_curl_params[i], ":", true, true, true, ast)
 		ret_func.params[i].name = astExprTaggedIdent(lhs)
-		assert(len(ret_func.params[i].name) != 0) // source lang must provide param names for self-doc reasons...
-		ret_func.params[i].name = nil             // ...but destination lang (LLVM-IR) doesn't need them
+		assert(len(ret_func.params[i].name) != 0)
 		ret_func.params[i].ty = llTypeFrom(astExprSlashed(rhs), rhs, ast)
 	}
 	assert(len(ret_func.name) != 0)
