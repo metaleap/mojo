@@ -23,7 +23,8 @@ func llModuleFrom(ast *Ast) LLModule {
 			ret_mod.funcs[num_funcs] = ll_sth
 			num_funcs++
 		default:
-			fail(string(astDefName(top_def)))
+			println(string(astDefName(top_def)))
+			panic(ll_sth)
 		}
 		num_exts++
 	}
@@ -336,7 +337,7 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 				}
 				assert(ret_cmp.cmp_kind != 0)
 				return ret_cmp
-			} else if astExprIsIdent(kwd, "op2") {
+			} else if astExprIsIdent(kwd, "op") {
 				assert(len(it) == 5)
 				ret_op2 := LLInstrBinOp{
 					ty:  llTypeFrom(astExprSlashed(&it[2]), expr, ast),
@@ -346,6 +347,8 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 				op_kind := astExprTaggedIdent(&it[1])
 				if strEql(op_kind, Str("add")) {
 					ret_op2.op_kind = ll_bin_op_add
+				} else if strEql(op_kind, Str("mul")) {
+					ret_op2.op_kind = ll_bin_op_mul
 				} else if strEql(op_kind, Str("sub")) {
 					ret_op2.op_kind = ll_bin_op_sub
 				} else if strEql(op_kind, Str("udiv")) {

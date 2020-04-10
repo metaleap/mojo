@@ -75,22 +75,32 @@ declare i64 @fwrite(i8*, i64, i64, i8*)
 declare i16 @ferror(i8*)
 declare void @exit(i16)
 
-define i8* @ptrIncr(i8* %ptr, i64 %incr_by) {
+define i8* @ptrIncr(i8* %ptr, i64 %incr_by_bytes) {
 b.4:
   %ptr_as_int = ptrtoint i8* %ptr to i64
-  %ptr_int_incr = add i64 %incr_by, %ptr_as_int
+  %ptr_int_incr = add i64 %incr_by_bytes, %ptr_as_int
   %int_as_ptr = inttoptr i64 %ptr_int_incr to i8*
   ret i8* %int_as_ptr
 }
 
 
-define void @swapByte(i8* %ptr_l, i8* %ptr_r) {
+define void @swapBytes(i8* %ptr_l, i8* %ptr_r) {
 b.5:
   %byte_l = load i8, i8* %ptr_l
   %byte_r = load i8, i8* %ptr_r
   store i8 %byte_r, i8* %ptr_l
   store i8 %byte_l, i8* %ptr_r
   ret void
+}
+
+
+define i32 @main() {
+b.6:
+  %buf = alloca i8, i32 1024
+  %n = call i64 @readInOrDie(i8* %buf, i64 1024)
+  call void @reverse(i8* %buf, i64 %n)
+  call void @writeOut(i8* %buf, i64 %n)
+  ret i32 0
 }
 
 
@@ -105,21 +115,11 @@ loop:
   %i_swap = sub i64 %i_last, %i
   %ptr_l = call i8* @ptrIncr(i8* %buf, i64 %i)
   %ptr_r = call i8* @ptrIncr(i8* %buf, i64 %i_swap)
-  call void @swapByte(i8* %ptr_l, i8* %ptr_r)
+  call void @swapBytes(i8* %ptr_l, i8* %ptr_r)
   %i_next = add i64 %i, 1
   %loop_again = icmp ult i64 %i_next, %len_half
   br i1 %loop_again, label %loop, label %end
 end:
   ret void
-}
-
-
-define i32 @main() {
-b.6:
-  %buf = alloca i8, i32 1024
-  %n = call i64 @readInOrDie(i8* %buf, i64 1024)
-  call void @reverse(i8* %buf, i64 %n)
-  call void @writeOut(i8* %buf, i64 %n)
-  ret i32 0
 }
 

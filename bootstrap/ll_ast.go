@@ -138,6 +138,7 @@ type LLBinOpKind int
 const (
 	_ LLBinOpKind = iota
 	ll_bin_op_add
+	ll_bin_op_mul
 	ll_bin_op_sub
 	ll_bin_op_udiv
 )

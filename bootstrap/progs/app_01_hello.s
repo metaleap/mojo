@@ -159,12 +159,39 @@ readInOrDie:                            # @readInOrDie
 	.size	readInOrDie, .Lfunc_end5-readInOrDie
 	.cfi_endproc
                                         # -- End function
+	.globl	ptrIncr                 # -- Begin function ptrIncr
+	.p2align	4, 0x90
+	.type	ptrIncr,@function
+ptrIncr:                                # @ptrIncr
+	.cfi_startproc
+# %bb.0:                                # %b.4
+	leaq	(%rdi,%rsi), %rax
+	retq
+.Lfunc_end6:
+	.size	ptrIncr, .Lfunc_end6-ptrIncr
+	.cfi_endproc
+                                        # -- End function
+	.globl	swapBytes               # -- Begin function swapBytes
+	.p2align	4, 0x90
+	.type	swapBytes,@function
+swapBytes:                              # @swapBytes
+	.cfi_startproc
+# %bb.0:                                # %b.5
+	movb	(%rdi), %al
+	movb	(%rsi), %cl
+	movb	%cl, (%rdi)
+	movb	%al, (%rsi)
+	retq
+.Lfunc_end7:
+	.size	swapBytes, .Lfunc_end7-swapBytes
+	.cfi_endproc
+                                        # -- End function
 	.globl	main                    # -- Begin function main
 	.p2align	4, 0x90
 	.type	main,@function
 main:                                   # @main
 	.cfi_startproc
-# %bb.0:                                # %b.4
+# %bb.0:                                # %b.6
 	pushq	%rax
 	.cfi_def_cfa_offset 16
 	movq	msg@GOTPCREL(%rip), %rdi
@@ -174,8 +201,8 @@ main:                                   # @main
 	popq	%rcx
 	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end6:
-	.size	main, .Lfunc_end6-main
+.Lfunc_end8:
+	.size	main, .Lfunc_end8-main
 	.cfi_endproc
                                         # -- End function
 	.type	msg,@object             # @msg

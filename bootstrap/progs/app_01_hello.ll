@@ -76,8 +76,27 @@ declare i64 @fwrite(i8*, i64, i64, i8*)
 declare i16 @ferror(i8*)
 declare void @exit(i16)
 
-define i32 @main() {
+define i8* @ptrIncr(i8* %ptr, i64 %incr_by_bytes) {
 b.4:
+  %ptr_as_int = ptrtoint i8* %ptr to i64
+  %ptr_int_incr = add i64 %incr_by_bytes, %ptr_as_int
+  %int_as_ptr = inttoptr i64 %ptr_int_incr to i8*
+  ret i8* %int_as_ptr
+}
+
+
+define void @swapBytes(i8* %ptr_l, i8* %ptr_r) {
+b.5:
+  %byte_l = load i8, i8* %ptr_l
+  %byte_r = load i8, i8* %ptr_r
+  store i8 %byte_r, i8* %ptr_l
+  store i8 %byte_l, i8* %ptr_r
+  ret void
+}
+
+
+define i32 @main() {
+b.6:
   %msg = getelementptr [11 x i8], [11 x i8]* @msg, i64 0, i64 0
   call void @writeOut(i8* %msg, i64 11)
   ret i32 0

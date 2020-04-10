@@ -1,5 +1,5 @@
 	.text
-	.file	"app_03_reverse.ll"
+	.file	"app_04_atmo_tokenize.ll"
 	.globl	writeTo                 # -- Begin function writeTo
 	.p2align	4, 0x90
 	.type	writeTo,@function
@@ -192,98 +192,92 @@ swapBytes:                              # @swapBytes
 main:                                   # @main
 	.cfi_startproc
 # %bb.0:                                # %b.6
-	pushq	%r14
+	pushq	%rbp
 	.cfi_def_cfa_offset 16
-	pushq	%rbx
-	.cfi_def_cfa_offset 24
-	subq	$1032, %rsp             # imm = 0x408
-	.cfi_def_cfa_offset 1056
-	.cfi_offset %rbx, -24
-	.cfi_offset %r14, -16
-	leaq	8(%rsp), %r14
-	movl	$1024, %esi             # imm = 0x400
-	movq	%r14, %rdi
+	.cfi_offset %rbp, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register %rbp
+	movq	%rsp, %rdi
+	addq	$-1073674240, %rdi      # imm = 0xC0010800
+	movq	%rdi, %rsp
+	movl	$1073674240, %esi       # imm = 0x3FFEF800
 	callq	readInOrDie@PLT
-	movq	%rax, %rbx
-	movq	%r14, %rdi
-	movq	%rax, %rsi
-	callq	reverse@PLT
-	movq	%r14, %rdi
-	movq	%rbx, %rsi
-	callq	writeOut@PLT
 	xorl	%eax, %eax
-	addq	$1032, %rsp             # imm = 0x408
-	.cfi_def_cfa_offset 24
-	popq	%rbx
-	.cfi_def_cfa_offset 16
-	popq	%r14
-	.cfi_def_cfa_offset 8
+	movq	%rbp, %rsp
+	popq	%rbp
+	.cfi_def_cfa %rsp, 8
 	retq
 .Lfunc_end8:
 	.size	main, .Lfunc_end8-main
 	.cfi_endproc
                                         # -- End function
-	.globl	reverse                 # -- Begin function reverse
-	.p2align	4, 0x90
-	.type	reverse,@function
-reverse:                                # @reverse
-	.cfi_startproc
-# %bb.0:                                # %begin
-	pushq	%r15
-	.cfi_def_cfa_offset 16
-	pushq	%r14
-	.cfi_def_cfa_offset 24
-	pushq	%r13
-	.cfi_def_cfa_offset 32
-	pushq	%r12
-	.cfi_def_cfa_offset 40
-	pushq	%rbx
-	.cfi_def_cfa_offset 48
-	.cfi_offset %rbx, -48
-	.cfi_offset %r12, -40
-	.cfi_offset %r13, -32
-	.cfi_offset %r14, -24
-	.cfi_offset %r15, -16
-	movq	%rsi, %r12
-	subq	$1, %r12
-	jb	.LBB9_3
-# %bb.1:                                # %loop.preheader
-	movq	%rsi, %r14
-	movq	%rdi, %r15
-	shrq	%r14
-	xorl	%ebx, %ebx
-	.p2align	4, 0x90
-.LBB9_2:                                # %loop
-                                        # =>This Inner Loop Header: Depth=1
-	movq	%r15, %rdi
-	movq	%rbx, %rsi
-	callq	ptrIncr@PLT
-	movq	%rax, %r13
-	movq	%r15, %rdi
-	movq	%r12, %rsi
-	callq	ptrIncr@PLT
-	movq	%r13, %rdi
-	movq	%rax, %rsi
-	callq	swapBytes@PLT
-	incq	%rbx
-	decq	%r12
-	cmpq	%r14, %rbx
-	jb	.LBB9_2
-.LBB9_3:                                # %end
-	popq	%rbx
-	.cfi_def_cfa_offset 40
-	popq	%r12
-	.cfi_def_cfa_offset 32
-	popq	%r13
-	.cfi_def_cfa_offset 24
-	popq	%r14
-	.cfi_def_cfa_offset 16
-	popq	%r15
-	.cfi_def_cfa_offset 8
-	retq
-.Lfunc_end9:
-	.size	reverse, .Lfunc_end9-reverse
-	.cfi_endproc
-                                        # -- End function
+	.type	tok_kind_comment,@object # @tok_kind_comment
+	.section	.rodata,"a",@progbits
+	.globl	tok_kind_comment
+tok_kind_comment:
+	.ascii	"comment"
+	.size	tok_kind_comment, 7
+
+	.type	tok_kind_ident,@object  # @tok_kind_ident
+	.globl	tok_kind_ident
+tok_kind_ident:
+	.ascii	"ident"
+	.size	tok_kind_ident, 5
+
+	.type	tok_kind_lit_int,@object # @tok_kind_lit_int
+	.globl	tok_kind_lit_int
+tok_kind_lit_int:
+	.ascii	"lit_int"
+	.size	tok_kind_lit_int, 7
+
+	.type	tok_kind_lit_str,@object # @tok_kind_lit_str
+	.globl	tok_kind_lit_str
+tok_kind_lit_str:
+	.ascii	"lit_str"
+	.size	tok_kind_lit_str, 7
+
+	.type	tok_kind_sep_bparen_open,@object # @tok_kind_sep_bparen_open
+	.globl	tok_kind_sep_bparen_open
+tok_kind_sep_bparen_open:
+	.ascii	"sep_bparen_open"
+	.size	tok_kind_sep_bparen_open, 15
+
+	.type	tok_kind_sep_bparen_close,@object # @tok_kind_sep_bparen_close
+	.globl	tok_kind_sep_bparen_close
+tok_kind_sep_bparen_close:
+	.ascii	"sep_bparen_close"
+	.size	tok_kind_sep_bparen_close, 16
+
+	.type	tok_kind_sep_bcurly_open,@object # @tok_kind_sep_bcurly_open
+	.globl	tok_kind_sep_bcurly_open
+tok_kind_sep_bcurly_open:
+	.ascii	"sep_bcurly_open"
+	.size	tok_kind_sep_bcurly_open, 15
+
+	.type	tok_kind_sep_bcurly_close,@object # @tok_kind_sep_bcurly_close
+	.globl	tok_kind_sep_bcurly_close
+tok_kind_sep_bcurly_close:
+	.ascii	"sep_bcurly_close"
+	.size	tok_kind_sep_bcurly_close, 16
+
+	.type	tok_kind_sep_bsquare_open,@object # @tok_kind_sep_bsquare_open
+	.globl	tok_kind_sep_bsquare_open
+tok_kind_sep_bsquare_open:
+	.ascii	"sep_bsquare_open"
+	.size	tok_kind_sep_bsquare_open, 16
+
+	.type	tok_kind_sep_bsquare_close,@object # @tok_kind_sep_bsquare_close
+	.globl	tok_kind_sep_bsquare_close
+	.p2align	4
+tok_kind_sep_bsquare_close:
+	.ascii	"sep_bsquare_close"
+	.size	tok_kind_sep_bsquare_close, 17
+
+	.type	tok_kind_sep_comma,@object # @tok_kind_sep_comma
+	.globl	tok_kind_sep_comma
+tok_kind_sep_comma:
+	.ascii	"sep_comma"
+	.size	tok_kind_sep_comma, 9
+
 
 	.section	".note.GNU-stack","",@progbits

@@ -350,6 +350,8 @@ func llEmitInstrBinOp(ll_instr_bin_op *LLInstrBinOp) {
 	switch ll_instr_bin_op.op_kind {
 	case ll_bin_op_add:
 		op_kind = "add"
+	case ll_bin_op_mul:
+		op_kind = "mul"
 	case ll_bin_op_sub:
 		op_kind = "sub"
 	case ll_bin_op_udiv:

@@ -47,12 +47,14 @@ writeOut := /define {} /V { #str_ptr: /P, #str_len: /I } {
   ],
 }
 
+
 readFrom := /define {} /I { #buf_ptr: /P, #buf_len: /I, #in_file: /P } {
   #: [
     /let { #num_bytes_read: /call /@libcFRead /I [/P #buf_ptr, /I 1, /I #buf_len, /P #in_file] },
     /ret (/I #num_bytes_read),
   ],
 }
+
 
 readInOrDie := /define {} /I { #buf_ptr: /P, #buf_len: /I } {
   #begin: [
