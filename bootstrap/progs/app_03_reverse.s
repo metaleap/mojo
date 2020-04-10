@@ -159,33 +159,93 @@ readInOrDie:                            # @readInOrDie
 	.size	readInOrDie, .Lfunc_end5-readInOrDie
 	.cfi_endproc
                                         # -- End function
+	.globl	ptrIncr                 # -- Begin function ptrIncr
+	.p2align	4, 0x90
+	.type	ptrIncr,@function
+ptrIncr:                                # @ptrIncr
+	.cfi_startproc
+# %bb.0:                                # %b.4
+	leaq	(%rdi,%rsi), %rax
+	retq
+.Lfunc_end6:
+	.size	ptrIncr, .Lfunc_end6-ptrIncr
+	.cfi_endproc
+                                        # -- End function
+	.globl	swapByte                # -- Begin function swapByte
+	.p2align	4, 0x90
+	.type	swapByte,@function
+swapByte:                               # @swapByte
+	.cfi_startproc
+# %bb.0:                                # %b.5
+	movb	(%rdi), %al
+	movb	(%rsi), %cl
+	movb	%cl, (%rdi)
+	movb	%al, (%rsi)
+	retq
+.Lfunc_end7:
+	.size	swapByte, .Lfunc_end7-swapByte
+	.cfi_endproc
+                                        # -- End function
 	.globl	reverse                 # -- Begin function reverse
 	.p2align	4, 0x90
 	.type	reverse,@function
 reverse:                                # @reverse
 	.cfi_startproc
 # %bb.0:                                # %begin
-	movq	%rsi, %rax
-	subq	$1, %rax
-	jb	.LBB6_3
+	pushq	%r15
+	.cfi_def_cfa_offset 16
+	pushq	%r14
+	.cfi_def_cfa_offset 24
+	pushq	%r13
+	.cfi_def_cfa_offset 32
+	pushq	%r12
+	.cfi_def_cfa_offset 40
+	pushq	%rbx
+	.cfi_def_cfa_offset 48
+	.cfi_offset %rbx, -48
+	.cfi_offset %r12, -40
+	.cfi_offset %r13, -32
+	.cfi_offset %r14, -24
+	.cfi_offset %r15, -16
+	movq	%rsi, %r12
+	subq	$1, %r12
+	jb	.LBB8_3
 # %bb.1:                                # %loop.preheader
-	shrq	%rsi
-	xorl	%ecx, %ecx
+	movq	%rsi, %r14
+	movq	%rdi, %r15
+	shrq	%r14
+	xorl	%ebx, %ebx
 	.p2align	4, 0x90
-.LBB6_2:                                # %loop
+.LBB8_2:                                # %loop
                                         # =>This Inner Loop Header: Depth=1
-	movzbl	(%rcx,%rdi), %r8d
-	movzbl	(%rax,%rdi), %edx
-	movb	%dl, (%rcx,%rdi)
-	movb	%r8b, (%rax,%rdi)
-	incq	%rcx
-	decq	%rax
-	cmpq	%rsi, %rcx
-	jb	.LBB6_2
-.LBB6_3:                                # %end
+	movq	%r15, %rdi
+	movq	%rbx, %rsi
+	callq	ptrIncr@PLT
+	movq	%rax, %r13
+	movq	%r15, %rdi
+	movq	%r12, %rsi
+	callq	ptrIncr@PLT
+	movq	%r13, %rdi
+	movq	%rax, %rsi
+	callq	swapByte@PLT
+	incq	%rbx
+	decq	%r12
+	cmpq	%r14, %rbx
+	jb	.LBB8_2
+.LBB8_3:                                # %end
+	popq	%rbx
+	.cfi_def_cfa_offset 40
+	popq	%r12
+	.cfi_def_cfa_offset 32
+	popq	%r13
+	.cfi_def_cfa_offset 24
+	popq	%r14
+	.cfi_def_cfa_offset 16
+	popq	%r15
+	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end6:
-	.size	reverse, .Lfunc_end6-reverse
+.Lfunc_end8:
+	.size	reverse, .Lfunc_end8-reverse
 	.cfi_endproc
                                         # -- End function
 	.globl	main                    # -- Begin function main
@@ -193,7 +253,7 @@ reverse:                                # @reverse
 	.type	main,@function
 main:                                   # @main
 	.cfi_startproc
-# %bb.0:                                # %b.4
+# %bb.0:                                # %b.6
 	pushq	%r14
 	.cfi_def_cfa_offset 16
 	pushq	%rbx
@@ -221,8 +281,8 @@ main:                                   # @main
 	popq	%r14
 	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end7:
-	.size	main, .Lfunc_end7-main
+.Lfunc_end9:
+	.size	main, .Lfunc_end9-main
 	.cfi_endproc
                                         # -- End function
 

@@ -156,6 +156,8 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 			kwd := callee[0]
 			if astExprIsIdent(kwd, "unreachable") {
 				return LLInstrUnreachable{}
+			} else if astExprIsIdent(kwd, "ret") {
+				return LLInstrRet{expr: LLExprTyped{ty: LLTypeVoid{}, expr: LLExprLitVoid{}}}
 			}
 		}
 		callee = astExprSlashed(&it[0])
@@ -195,12 +197,11 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 					instr: instr,
 				}
 			} else if astExprIsIdent(kwd, "load") {
-				assert(len(it) == 4)
-				_ = it[1].kind.(AstExprLitCurl)
-				return LLInstrLoad{
-					ty:   llTypeFrom(astExprSlashed(&it[2]), expr, ast),
-					expr: llExprFrom(&it[3], ast, ll_mod).(LLExprTyped),
-				}
+				assert(len(it) == 3)
+				load_expr := llExprFrom(&it[2], ast, ll_mod)
+				ret_load := LLInstrLoad{ty: llTypeFrom(astExprSlashed(&it[1]), expr, ast)}
+				ret_load.expr = LLExprTyped{expr: load_expr, ty: LLTypePtr{ty: ret_load.ty}}
+				return ret_load
 			} else if astExprIsIdent(kwd, "store") {
 				assert(len(it) == 3)
 				dst_expr := llExprFrom(&it[1], ast, ll_mod)
@@ -211,12 +212,11 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 				ret_store.dst.ty = LLTypePtr{ty: ret_store.expr.ty}
 				return ret_store
 			} else if astExprIsIdent(kwd, "call") {
-				assert(len(it) == 5)
-				_ = it[1].kind.(AstExprLitCurl)
-				lit_clip_args := it[4].kind.(AstExprLitClip)
+				assert(len(it) == 4)
+				lit_clip_args := it[3].kind.(AstExprLitClip)
 				ret_call := LLInstrCall{
-					ty:     llTypeFrom(astExprSlashed(&it[3]), expr, ast),
-					callee: llExprFrom(&it[2], ast, ll_mod),
+					ty:     llTypeFrom(astExprSlashed(&it[2]), expr, ast),
+					callee: llExprFrom(&it[1], ast, ll_mod),
 					args:   allocˇLLExprTyped(len(lit_clip_args)),
 				}
 				for i := range lit_clip_args {
@@ -262,10 +262,10 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 					block_name_if_false: astExprTaggedIdent(&it[3]),
 				}
 			} else if astExprIsIdent(kwd, "convert") {
-				assert(len(it) == 4)
+				assert(len(it) == 3)
 				ret_conv := LLInstrConvert{
-					ty:   llTypeFrom(astExprSlashed(&it[2]), expr, ast),
-					expr: llExprFrom(&it[3], ast, ll_mod).(LLExprTyped),
+					ty:   llTypeFrom(astExprSlashed(&it[1]), expr, ast),
+					expr: llExprFrom(&it[2], ast, ll_mod).(LLExprTyped),
 				}
 				src_ty := ret_conv.expr.ty
 				switch dst_ty := ret_conv.ty.(type) {
@@ -283,11 +283,10 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 				assert(ret_conv.convert_kind != 0)
 				return ret_conv
 			} else if astExprIsIdent(kwd, "phi") {
-				assert(len(it) == 4)
-				_ = it[1].kind.(AstExprLitCurl)
-				lit_curl_preds := it[3].kind.(AstExprLitCurl)
+				assert(len(it) == 3)
+				lit_curl_preds := it[2].kind.(AstExprLitCurl)
 				ret_phi := LLInstrPhi{
-					ty:           llTypeFrom(astExprSlashed(&it[2]), expr, ast),
+					ty:           llTypeFrom(astExprSlashed(&it[1]), expr, ast),
 					predecessors: allocˇLLPhiPred(len(lit_curl_preds)),
 				}
 				for i := range lit_curl_preds {
@@ -300,10 +299,10 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 				}
 				return ret_phi
 			} else if astExprIsIdent(kwd, "alloca") {
-				assert(len(it) == 4)
+				assert(len(it) == 3)
 				ret_alloca := LLInstrAlloca{
-					ty:        llTypeFrom(astExprSlashed(&it[2]), expr, ast),
-					num_elems: llExprFrom(&it[3], ast, ll_mod).(LLExprTyped),
+					ty:        llTypeFrom(astExprSlashed(&it[1]), expr, ast),
+					num_elems: llExprFrom(&it[2], ast, ll_mod).(LLExprTyped),
 				}
 				return ret_alloca
 			} else if astExprIsIdent(kwd, "icmp") {
