@@ -9,7 +9,10 @@ reverse := /define {} /V { #buf: /P, #len: /I } {
       /let { #i: /phi {} /I { #begin: 0, #loop: #i_incr } },
       /let { #i_max: /phi {} /I { #begin: #len_half, #loop: #i_max } },
 
-      /call {} /@writeOut /V [/P #buf, /I #i],
+      /let { #tmp1: /convert {} /I (/P #buf) },
+      /let { #tmp2: /op2 #add /I #i #tmp1 },
+      /let { #tmp3: /convert {} /P (/I #tmp2) },
+      /call {} /@writeOut /V [/P #tmp3, /I 1],
 
       /let { #i_incr: /op2 #add /I #i 1 },
       /let { #loop_again: /icmp #ult /I #i_incr #i_max },
@@ -24,8 +27,8 @@ main := /define {} /I32 {} {
   #: [
     /let { #buf: /alloca {} /I8 (/I32 1024) },
     /let { #n: /call {} /@readInOrDie /I [/P #buf, /I 1024] },
-    // /call {} /@reverse /V [/P #buf, /I #n],
+    /call {} /@reverse /V [/P #buf, /I #n],
     // /call {} /@writeOut /V [/P #buf, /I #n],
-    /ret (/I32 (/convert {} /I32 (/I #n))),
+    /ret (/I32 0),
   ],
 }

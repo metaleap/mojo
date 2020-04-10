@@ -140,12 +140,15 @@ func llBlockFrom(pair_expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule
 		ret_block.name = uintToStr(counter, 10, 1, Str("b."))
 	}
 	for i := range lit_clip_instrs {
-		ret_block.instrs[i] = llInstrFrom(&lit_clip_instrs[i], top_def, ast, ll_mod)
+		ret_block.instrs[i] = llInstrFrom(&lit_clip_instrs[i], ast, ll_mod)
+		if ret_block.instrs[i] == nil {
+			panic(string(astNodeSrcStr(&lit_clip_instrs[i].base, ast)))
+		}
 	}
 	return ret_block
 }
 
-func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLInstr {
+func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 	switch it := expr.kind.(type) {
 	case AstExprForm:
 		callee := astExprSlashed(expr)
@@ -182,7 +185,10 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 					}
 				}
 				if instr == nil {
-					instr = llInstrFrom(rhs, top_def, ast, ll_mod)
+					instr = llInstrFrom(rhs, ast, ll_mod)
+				}
+				if instr == nil {
+					panic(string(astNodeSrcStr(&rhs.base, ast)))
 				}
 				return LLInstrLet{
 					name:  astExprTaggedIdent(lhs),
@@ -258,10 +264,12 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 				case LLTypePtr:
 					ret_conv.convert_kind = ll_convert_int_to_ptr
 				case LLTypeInt:
-					if src_ty_int, ok := src_ty.(LLTypeInt); ok {
+					if src_ty_int, is_src_ty_int := src_ty.(LLTypeInt); is_src_ty_int {
 						if src_ty_int.bit_width > dst_ty.bit_width {
 							ret_conv.convert_kind = ll_convert_trunc
 						}
+					} else if _, is_src_ty_ptr := src_ty.(LLTypePtr); is_src_ty_ptr {
+						ret_conv.convert_kind = ll_convert_ptr_to_int
 					}
 				}
 				assert(ret_conv.convert_kind != 0)
@@ -339,7 +347,7 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 			}
 		}
 	}
-	panic(string(astNodeSrcStr(&expr.base, ast)))
+	return nil
 }
 
 func llTypeFrom(expr_callee_slashed []*AstExpr, full_expr_for_err_msg *AstExpr, ast *Ast) LLType {
@@ -425,6 +433,11 @@ func llExprFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLExpr {
 		tag_lit := astExprTaggedIdent(expr)
 		if tag_lit != nil {
 			return LLExprIdentLocal(tag_lit)
+		}
+	}
+	if ret_instr := llInstrFrom(expr, ast, ll_mod); ret_instr != nil {
+		if ret_expr, _ := ret_instr.(LLExpr); ret_expr != nil {
+			return ret_expr
 		}
 	}
 	panic(string(astNodeSrcStr(&expr.base, ast)))

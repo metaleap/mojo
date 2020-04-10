@@ -82,6 +82,7 @@ type LLConvertKind int
 const (
 	_ LLConvertKind = iota
 	ll_convert_int_to_ptr
+	ll_convert_ptr_to_int
 	ll_convert_trunc
 )
 
@@ -267,3 +268,10 @@ func (LLInstrRet) implementsLLInstr()         {}
 func (LLInstrSwitch) implementsLLInstr()      {}
 func (LLInstrUnreachable) implementsLLInstr() {}
 func (LLInstrConvert) implementsLLInstr()     {}
+
+// func (LLInstrSelect) implementsLLExpr()  {}
+// func (LLInstrCmpF) implementsLLExpr()    {}
+func (LLInstrConvert) implementsLLExpr() {}
+func (LLInstrGep) implementsLLExpr()     {}
+func (LLInstrCmpI) implementsLLExpr()    {}
+func (LLInstrBinOp) implementsLLExpr()   {}

@@ -184,8 +184,8 @@ reverse:                                # @reverse
 	.p2align	4, 0x90
 .LBB6_2:                                # %loop
                                         # =>This Inner Loop Header: Depth=1
-	movq	%r14, %rdi
-	movq	%rbx, %rsi
+	leaq	(%rbx,%r14), %rdi
+	movl	$1, %esi
 	callq	writeOut@PLT
 	incq	%rbx
 	cmpq	%r15, %rbx
@@ -208,13 +208,22 @@ reverse:                                # @reverse
 main:                                   # @main
 	.cfi_startproc
 # %bb.0:                                # %b.4
-	subq	$1032, %rsp             # imm = 0x408
+	pushq	%rbx
+	.cfi_def_cfa_offset 16
+	subq	$1024, %rsp             # imm = 0x400
 	.cfi_def_cfa_offset 1040
-	leaq	8(%rsp), %rdi
+	.cfi_offset %rbx, -16
+	movq	%rsp, %rbx
 	movl	$1024, %esi             # imm = 0x400
+	movq	%rbx, %rdi
 	callq	readInOrDie@PLT
-                                        # kill: def $eax killed $eax killed $rax
-	addq	$1032, %rsp             # imm = 0x408
+	movq	%rbx, %rdi
+	movq	%rax, %rsi
+	callq	reverse@PLT
+	xorl	%eax, %eax
+	addq	$1024, %rsp             # imm = 0x400
+	.cfi_def_cfa_offset 16
+	popq	%rbx
 	.cfi_def_cfa_offset 8
 	retq
 .Lfunc_end7:

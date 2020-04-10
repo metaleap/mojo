@@ -228,7 +228,14 @@ func llEmitExprTyped(ll_expr_typed *LLExprTyped) {
 	_, is_void := ll_expr_typed.ty.(LLTypeVoid)
 	if !is_void {
 		write(Str(" "))
+		_, is_instr := ll_expr_typed.expr.(LLInstr)
+		if is_instr {
+			write(Str("("))
+		}
 		llEmit(ll_expr_typed.expr)
+		if is_instr {
+			write(Str(")"))
+		}
 	}
 }
 
@@ -317,6 +324,8 @@ func llEmitInstrConvert(ll_instr_convert *LLInstrConvert) {
 	switch ll_instr_convert.convert_kind {
 	case ll_convert_int_to_ptr:
 		write(Str("inttoptr "))
+	case ll_convert_ptr_to_int:
+		write(Str("ptrtoint "))
 	case ll_convert_trunc:
 		write(Str("trunc "))
 	default:
