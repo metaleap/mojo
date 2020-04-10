@@ -247,12 +247,25 @@ func llInstrFrom(expr *AstExpr, top_def *AstDef, ast *Ast, ll_mod *LLModule) LLI
 					block_name_if_true:  astExprTaggedIdent(&it[2]),
 					block_name_if_false: astExprTaggedIdent(&it[3]),
 				}
-			} else if astExprIsIdent(kwd, "intToPtr") {
+			} else if astExprIsIdent(kwd, "convert") {
 				assert(len(it) == 4)
-				return LLInstrIntToPtr{
+				ret_conv := LLInstrConvert{
 					ty:   llTypeFrom(astExprSlashed(&it[2]), expr, ast),
 					expr: llExprFrom(&it[3], ast, ll_mod).(LLExprTyped),
 				}
+				src_ty := ret_conv.expr.ty
+				switch dst_ty := ret_conv.ty.(type) {
+				case LLTypePtr:
+					ret_conv.convert_kind = ll_convert_int_to_ptr
+				case LLTypeInt:
+					if src_ty_int, ok := src_ty.(LLTypeInt); ok {
+						if src_ty_int.bit_width > dst_ty.bit_width {
+							ret_conv.convert_kind = ll_convert_trunc
+						}
+					}
+				}
+				assert(ret_conv.convert_kind != 0)
+				return ret_conv
 			} else if astExprIsIdent(kwd, "phi") {
 				assert(len(it) == 4)
 				_ = it[1].kind.(AstExprLitCurl)
@@ -414,5 +427,5 @@ func llExprFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLExpr {
 			return LLExprIdentLocal(tag_lit)
 		}
 	}
-	panic(expr.kind)
+	panic(string(astNodeSrcStr(&expr.base, ast)))
 }

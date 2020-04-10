@@ -24,8 +24,8 @@ func llEmit(ll_something Any) {
 		llEmitInstrLet(&ll)
 	case LLInstrSwitch:
 		llEmitInstrSwitch(&ll)
-	case LLInstrIntToPtr:
-		llEmitInstrIntToPtr(&ll)
+	case LLInstrConvert:
+		llEmitInstrConvert(&ll)
 	case LLTypeVoid:
 		llEmitTypeVoid()
 	case LLTypeInt:
@@ -313,11 +313,18 @@ func llEmitInstrCall(ll_instr_call *LLInstrCall) {
 	write(Str(")"))
 }
 
-func llEmitInstrIntToPtr(ll_instr_int_to_ptr *LLInstrIntToPtr) {
-	write(Str("inttoptr "))
-	llEmit(ll_instr_int_to_ptr.expr)
+func llEmitInstrConvert(ll_instr_convert *LLInstrConvert) {
+	switch ll_instr_convert.convert_kind {
+	case ll_convert_int_to_ptr:
+		write(Str("inttoptr "))
+	case ll_convert_trunc:
+		write(Str("trunc "))
+	default:
+		panic(ll_instr_convert.convert_kind)
+	}
+	llEmit(ll_instr_convert.expr)
 	write(Str(" to "))
-	llEmit(ll_instr_int_to_ptr.ty)
+	llEmit(ll_instr_convert.ty)
 }
 
 func llEmitInstrBinOp(ll_instr_bin_op *LLInstrBinOp) {

@@ -24,8 +24,8 @@ main := /define {} /I32 {} {
   #: [
     /let { #buf: /alloca {} /I8 (/I32 1024) },
     /let { #n: /call {} /@readInOrDie /I [/P #buf, /I 1024] },
-    /call {} /@reverse /V [/P #buf, /I #n],
+    // /call {} /@reverse /V [/P #buf, /I #n],
     // /call {} /@writeOut /V [/P #buf, /I #n],
-    /ret (/I32 0),
+    /ret (/I32 (/convert {} /I32 (/I #n))),
   ],
 }

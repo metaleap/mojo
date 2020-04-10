@@ -71,10 +71,19 @@ type LLInstrBrIf struct {
 	block_name_if_false Str
 }
 
-type LLInstrIntToPtr struct {
-	ty   LLType
-	expr LLExprTyped
+type LLInstrConvert struct {
+	ty           LLType
+	expr         LLExprTyped
+	convert_kind LLConvertKind
 }
+
+type LLConvertKind int
+
+const (
+	_ LLConvertKind = iota
+	ll_convert_int_to_ptr
+	ll_convert_trunc
+)
 
 type LLInstrComment struct {
 	comment_text Str
@@ -257,4 +266,4 @@ func (LLInstrLet) implementsLLInstr()         {}
 func (LLInstrRet) implementsLLInstr()         {}
 func (LLInstrSwitch) implementsLLInstr()      {}
 func (LLInstrUnreachable) implementsLLInstr() {}
-func (LLInstrIntToPtr) implementsLLInstr()    {}
+func (LLInstrConvert) implementsLLInstr()     {}

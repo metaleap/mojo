@@ -168,13 +168,14 @@ func astExprsFindKeyedValue(exprs []AstExpr, key string, ast *Ast) *AstExpr {
 }
 
 func astExprTaggedIdent(expr *AstExpr) AstExprIdent {
-	if form, _ := expr.kind.(AstExprForm); len(form) == 2 {
+	if form, is_form := expr.kind.(AstExprForm); len(form) == 2 {
 		if ident_op, _ := form[0].kind.(AstExprIdent); len(ident_op) == 1 && ident_op[0] == '#' {
 			ident_ret, _ := form[1].kind.(AstExprIdent)
 			return ident_ret
 		}
+	} else if !is_form {
+		assert(expr.kind.(AstExprIdent)[0] == '#')
 	}
-	assert(expr.kind.(AstExprIdent)[0] == '#')
 	return nil
 }
 

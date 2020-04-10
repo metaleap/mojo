@@ -208,22 +208,13 @@ reverse:                                # @reverse
 main:                                   # @main
 	.cfi_startproc
 # %bb.0:                                # %b.4
-	pushq	%rbx
-	.cfi_def_cfa_offset 16
-	subq	$1024, %rsp             # imm = 0x400
+	subq	$1032, %rsp             # imm = 0x408
 	.cfi_def_cfa_offset 1040
-	.cfi_offset %rbx, -16
-	movq	%rsp, %rbx
+	leaq	8(%rsp), %rdi
 	movl	$1024, %esi             # imm = 0x400
-	movq	%rbx, %rdi
 	callq	readInOrDie@PLT
-	movq	%rbx, %rdi
-	movq	%rax, %rsi
-	callq	reverse@PLT
-	xorl	%eax, %eax
-	addq	$1024, %rsp             # imm = 0x400
-	.cfi_def_cfa_offset 16
-	popq	%rbx
+                                        # kill: def $eax killed $eax killed $rax
+	addq	$1032, %rsp             # imm = 0x408
 	.cfi_def_cfa_offset 8
 	retq
 .Lfunc_end7:
