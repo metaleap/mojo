@@ -46,11 +46,7 @@ func main() {
 	assert(len(ast.defs) != 0)
 	astPopulateScopes(&ast)
 
-	ll_mod := llModuleFrom(&ast)
-	if len(os.Args) > 1 && os.Args[1] == "--run" {
-		ctx := llEvalCtx(&ll_mod, 1*1024*1024)
-		llEvalRunMain(&ctx)
-	} else {
-		llEmit(&ll_mod)
-	}
+	// ll_mod := llModuleFrom(&ast)
+	ll_mod := llModuleFromAst(&ast)
+	llEmit(&ll_mod)
 }
