@@ -2,13 +2,15 @@ package main
 
 import (
 	"os"
+	"unsafe"
 )
 
 type LLCtxEval struct {
-	ll_mod  *LLModule
-	globals struct {
-		memory  []byte
-		indices []int
+	ll_mod *LLModule
+	mem    struct {
+		bytes         []byte
+		globals_addrs []int
+		stack_addr    int
 	}
 	cur_frame struct {
 		fn              *LLFunc
@@ -17,20 +19,36 @@ type LLCtxEval struct {
 	}
 }
 
-func llEvalCtx(ll_mod *LLModule) LLCtxEval {
+func llEvalCtx(ll_mod *LLModule, stack_size int) LLCtxEval {
 	ret_ctx := LLCtxEval{ll_mod: ll_mod}
-	ret_ctx.globals.indices = allocˇint(len(ll_mod.anns.global_names))
-	for i := range ret_ctx.globals.indices {
-		ret_ctx.globals.indices[i] = -1
+	ret_ctx.mem.globals_addrs = allocˇint(len(ll_mod.anns.global_names))
+	for i := range ret_ctx.mem.globals_addrs {
+		ret_ctx.mem.globals_addrs[i] = -1
 	}
+	prep := allocˇStr(len(ll_mod.anns.global_names))
+	global_mem_size := 0
 	for i := range ll_mod.globals {
 		the_global := &ll_mod.globals[i]
 		if !the_global.external {
 			switch ty := the_global.ty.(type) {
+			case LLTypeArr:
+				ty_int := ty.ty.(LLTypeInt)
+				assert(ty_int.bit_width == 8)
+				prep[i] = the_global.initializer.(LLExprLitStr)
+				global_mem_size += len(prep[i])
 			default:
 				panic(ty)
 			}
 		}
+	}
+	ret_ctx.mem.bytes = allocˇbyte(global_mem_size + stack_size)
+	ret_ctx.mem.stack_addr = 0
+	for i, bytes := range prep {
+		ret_ctx.mem.globals_addrs[i] = ret_ctx.mem.stack_addr
+		for i_mem := range bytes {
+			ret_ctx.mem.bytes[ret_ctx.mem.stack_addr+i_mem] = bytes[i_mem]
+		}
+		ret_ctx.mem.stack_addr += len(bytes)
 	}
 	return ret_ctx
 }
@@ -228,10 +246,17 @@ func llEvalInstr(ctx *LLCtxEval, ll_instr LLInstr) (eval_result Any, is_ret bool
 		}
 		eval_result = llEvalCall(ctx, callee, args)
 
-	case LLInstrConvert:
-
 	case LLInstrGep:
-		panic(instr)
+		switch base_ptr := llEvalExpr(ctx, instr.base_ptr).(type) {
+		case *LLGlobal:
+			addr := ctx.mem.globals_addrs[base_ptr.anns.idx]
+			eval_result = uintptr(unsafe.Pointer(&ctx.mem.bytes[addr]))
+			panic(instr.ty)
+		default:
+			panic(base_ptr)
+		}
+
+	case LLInstrConvert:
 
 	case LLInstrStore:
 

@@ -21,6 +21,9 @@ type LLGlobal struct {
 	external         bool
 	ty               LLType
 	initializer      LLExpr
+	anns             struct {
+		idx int
+	}
 }
 
 type LLFunc struct {

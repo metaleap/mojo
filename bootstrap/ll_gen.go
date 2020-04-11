@@ -39,6 +39,7 @@ func llModuleFrom(ast *Ast) LLModule {
 			}
 		}
 		ret_mod.anns.global_names[i] = this_global_name
+		ret_mod.globals[i].anns.idx = i
 	}
 	for i := range ret_mod.funcs {
 		if fn_def := &ret_mod.funcs[i]; !fn_def.external {
