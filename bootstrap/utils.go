@@ -35,7 +35,7 @@ func strConcat(strs []Str) Str {
 	for _, str := range strs {
 		str_len += len(str)
 	}
-	ret_str := allocˇu8(str_len)
+	ret_str := allocˇbyte(str_len)
 	idx := 0
 	for _, str := range strs {
 		for i, c := range str {
@@ -121,7 +121,7 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	if padding {
 		num_digits = min_len
 	}
-	ret_str := allocˇu8(len(prefix) + int(num_digits))
+	ret_str := allocˇbyte(len(prefix) + int(num_digits))
 	for i := range ret_str {
 		ret_str[i] = '0'
 	}
@@ -155,7 +155,8 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	later want to move from OS heap allocs to a pre-alloc'd fixed-size buffer.
 */
 
-func allocˇu8(len int) Str                      { return make(Str, len) }
+func allocˇint(len int) []int                   { return make([]int, len) }
+func allocˇbyte(len int) Str                    { return make(Str, len) }
 func allocˇStr(len int) []Str                   { return make([]Str, len) }
 func allocˇAny(len int) []Any                   { return make([]Any, len) }
 func allocˇToken(len int) []Token               { return make([]Token, len) }

@@ -4,8 +4,12 @@ import (
 	"os"
 )
 
-type LLCtxRun struct {
-	ll_mod    *LLModule
+type LLCtxEval struct {
+	ll_mod  *LLModule
+	globals struct {
+		memory  []byte
+		indices []int
+	}
 	cur_frame struct {
 		fn              *LLFunc
 		locals          []LLExpr
@@ -13,10 +17,28 @@ type LLCtxRun struct {
 	}
 }
 
-func llRun(ll_mod *LLModule) {
+func llEvalCtx(ll_mod *LLModule) LLCtxEval {
+	ret_ctx := LLCtxEval{ll_mod: ll_mod}
+	ret_ctx.globals.indices = allocˇint(len(ll_mod.anns.global_names))
+	for i := range ret_ctx.globals.indices {
+		ret_ctx.globals.indices[i] = -1
+	}
+	for i := range ll_mod.globals {
+		the_global := &ll_mod.globals[i]
+		if !the_global.external {
+			switch ty := the_global.ty.(type) {
+			default:
+				panic(ty)
+			}
+		}
+	}
+	return ret_ctx
+}
+
+func llEvalRunMain(ctx *LLCtxEval) {
 	var main_func *LLFunc
-	for i := range ll_mod.funcs {
-		this_func := &ll_mod.funcs[i]
+	for i := range ctx.ll_mod.funcs {
+		this_func := &ctx.ll_mod.funcs[i]
 		if !this_func.external {
 			if strEql(this_func.name, Str("main")) {
 				main_func = this_func
@@ -28,8 +50,7 @@ func llRun(ll_mod *LLModule) {
 		panic("no main func")
 	}
 
-	ctx := LLCtxRun{ll_mod: ll_mod}
-	switch exit_code := llCall(&ctx, main_func, nil).(type) {
+	switch exit_code := llEvalCall(ctx, main_func, nil).(type) {
 	case LLExprLitInt:
 		os.Exit(int(exit_code))
 	default:
@@ -37,7 +58,7 @@ func llRun(ll_mod *LLModule) {
 	}
 }
 
-func llCall(ctx *LLCtxRun, fn *LLFunc, args []LLExpr) Any {
+func llEvalCall(ctx *LLCtxEval, fn *LLFunc, args []LLExpr) Any {
 	ctx_old := *ctx
 	ctx.cur_frame.fn = fn
 	ctx.cur_frame.locals = allocˇLLExpr(len(fn.anns.local_temporaries_names))
@@ -57,7 +78,7 @@ func llCall(ctx *LLCtxRun, fn *LLFunc, args []LLExpr) Any {
 	panic("unreachable")
 }
 
-func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool, is_jump bool) {
+func llEvalInstr(ctx *LLCtxEval, ll_instr LLInstr) (eval_result Any, is_ret bool, is_jump bool) {
 	switch instr := ll_instr.(type) {
 
 	case LLInstrBrTo:
@@ -205,11 +226,12 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 		for i, arg := range instr.args {
 			args[i] = llEvalExpr(ctx, arg).(LLExpr)
 		}
-		eval_result = llCall(ctx, callee, args)
+		eval_result = llEvalCall(ctx, callee, args)
 
 	case LLInstrConvert:
 
 	case LLInstrGep:
+		panic(instr)
 
 	case LLInstrStore:
 
@@ -226,7 +248,7 @@ func llEvalInstr(ctx *LLCtxRun, ll_instr LLInstr) (eval_result Any, is_ret bool,
 	return
 }
 
-func llEvalExpr(ctx *LLCtxRun, ll_expr LLExpr) Any {
+func llEvalExpr(ctx *LLCtxEval, ll_expr LLExpr) Any {
 	switch expr := ll_expr.(type) {
 	case LLExprLitInt:
 		return expr

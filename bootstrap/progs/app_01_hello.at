@@ -3,7 +3,10 @@ msg := /global /A/11/I8 { #constant: "Hola Welt.\010" }
 
 main := /define {} /I32 {} {
   #: [
-    /let { #msg: /gep /A/11/I8 (/P/A/11/I8 /@msg) [/I 0, /I 0] },
+    /let { #msg: /gep /A/11/I8 (/P/A/11/I8 /@msg) [
+      /I 0, // the /P/A/11/I8
+      /I 0, // the /P/I8
+    ] },
     /call /@writeOut /V [/P #msg, /I 11 ],
     /ret (/I32 0)
   ],

@@ -128,7 +128,7 @@ func parseExprLitInt(lit_src Str) uint64 {
 
 func parseExprLitStr(lit_src Str) Str {
 	assert(len(lit_src) >= 2 && lit_src[0] == '"' && lit_src[len(lit_src)-1] == '"')
-	ret_str := allocˇu8(len(lit_src) - 2)
+	ret_str := allocˇbyte(len(lit_src) - 2)
 	ret_len := 0
 	for i := 1; i < len(lit_src)-1; i++ {
 		if lit_src[i] != '\\' {

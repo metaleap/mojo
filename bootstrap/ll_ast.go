@@ -9,6 +9,9 @@ type LLModule struct {
 	target_triple     Str
 	globals           []LLGlobal
 	funcs             []LLFunc
+	anns              struct {
+		global_names []Str
+	}
 }
 
 type LLGlobal struct {

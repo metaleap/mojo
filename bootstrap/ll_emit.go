@@ -230,14 +230,7 @@ func llEmitExprTyped(ll_expr_typed *LLExprTyped) {
 	_, is_void := ll_expr_typed.ty.(LLTypeVoid)
 	if !is_void {
 		write(Str(" "))
-		_, is_instr := ll_expr_typed.expr.(LLInstr)
-		if is_instr {
-			write(Str("("))
-		}
 		llEmit(ll_expr_typed.expr)
-		if is_instr {
-			write(Str(")"))
-		}
 	}
 }
 

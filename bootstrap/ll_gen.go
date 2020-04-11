@@ -30,6 +30,16 @@ func llModuleFrom(ast *Ast) LLModule {
 	}
 	ret_mod.globals = ret_mod.globals[0:num_globals]
 	ret_mod.funcs = ret_mod.funcs[0:num_funcs]
+	ret_mod.anns.global_names = allocˇStr(num_globals)
+	for i := range ret_mod.globals {
+		this_global_name := ret_mod.globals[i].name
+		for _, global_name := range ret_mod.anns.global_names[0:i] {
+			if strEql(this_global_name, global_name) {
+				fail("duplicate global name '", global_name, "'")
+			}
+		}
+		ret_mod.anns.global_names[i] = this_global_name
+	}
 	for i := range ret_mod.funcs {
 		if fn_def := &ret_mod.funcs[i]; !fn_def.external {
 			lit_curl_blocks := fn_def.orig_ast_top_def.body.kind.(AstExprForm)[4].kind.(AstExprLitCurl)
@@ -50,6 +60,11 @@ func llModuleFrom(ast *Ast) LLModule {
 			for i_block := range fn_def.basic_blocks {
 				for i_instr := range fn_def.basic_blocks[i_block].instrs {
 					if instr_let, is_let := fn_def.basic_blocks[i_block].instrs[i_instr].(LLInstrLet); is_let {
+						for _, name := range fn_def.anns.local_temporaries_names[0:n_locals] {
+							if strEql(name, instr_let.name) {
+								fail("duplicate local name '", name, "' in '", fn_def.name, "'")
+							}
+						}
 						fn_def.anns.local_temporaries_names[n_locals] = instr_let.name
 						n_locals++
 					}

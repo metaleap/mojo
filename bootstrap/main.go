@@ -48,7 +48,8 @@ func main() {
 
 	ll_mod := llModuleFrom(&ast)
 	if len(os.Args) > 1 && os.Args[1] == "--run" {
-		llRun(&ll_mod)
+		ctx := llEvalCtx(&ll_mod)
+		llEvalRunMain(&ctx)
 	} else {
 		llEmit(&ll_mod)
 	}
