@@ -1,12 +1,5 @@
 package main
 
-type CtxAstToIr struct {
-	scope    *AstScopes
-	dst      *Ir
-	cur_def  []*AstDef
-	num_defs int
-}
-
 type Ir struct {
 	origin_ast *Ast
 	defs       []IrDef
@@ -24,7 +17,7 @@ type IrExprLitInt int64
 
 type IrExprLitStr Str
 
-type IrExprDefRef struct{ *IrDef }
+type IrExprDefRef int
 
 type IrExprIdent Str
 
@@ -54,10 +47,18 @@ func (IrExprArr) implementsIrExpr()         {}
 func (IrExprObj) implementsIrExpr()         {}
 func (IrExprPair) implementsIrExpr()        {}
 
+type CtxAstToIr struct {
+	scope    *AstScopes
+	dst      *Ir
+	cur_def  []*AstDef
+	num_defs int
+}
+
 func irFromAst(ast *Ast, expr *AstExpr) Ir {
-	ret_ir := Ir{origin_ast: ast}
+	ret_ir := Ir{origin_ast: ast, defs: allocˇIrDef(2 * len(ast.defs))}
 	ctx := CtxAstToIr{scope: &ast.scope, dst: &ret_ir, cur_def: nil, num_defs: 0}
 	_ = irFromExpr(&ctx, expr).(IrExprDefRef)
+	ret_ir.defs = ret_ir.defs[0:ctx.num_defs]
 	return ret_ir
 }
 

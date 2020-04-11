@@ -180,4 +180,5 @@ func allocˇLLExpr(len int) []LLExpr             { return make([]LLExpr, len) }
 func allocˇLLExprTyped(len int) []LLExprTyped   { return make([]LLExprTyped, len) }
 func allocˇLLPhiPred(len int) []LLPhiPred       { return make([]LLPhiPred, len) }
 func allocˇLLSwitchCase(len int) []LLSwitchCase { return make([]LLSwitchCase, len) }
+func allocˇIrDef(len int) []IrDef               { return make([]IrDef, len) }
 func allocˇIrExpr(len int) []IrExpr             { return make([]IrExpr, len) }
