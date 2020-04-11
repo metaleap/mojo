@@ -23,7 +23,7 @@ func llModuleFrom(ast *Ast) LLModule {
 			ret_mod.funcs[num_funcs] = ll_sth
 			num_funcs++
 		default:
-			println(string(astDefName(top_def)))
+			println(string(top_def.anns.name))
 			panic(ll_sth)
 		}
 		num_exts++
@@ -107,7 +107,7 @@ func llGlobalFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLGlobal {
 	ret_global := LLGlobal{
 		external: maybe_external != nil,
 		constant: maybe_constant != nil,
-		name:     astDefName(top_def),
+		name:     top_def.anns.name,
 		ty:       llTypeFrom(astExprSlashed(&expr_form[1]), full_expr, ast),
 	}
 	if maybe_external != nil {
@@ -149,7 +149,7 @@ func llFuncDefFrom(full_expr *AstExpr, top_def *AstDef, ast *Ast) LLFunc {
 	lit_curl_params := expr_form[3].kind.(AstExprLitCurl)
 	_ = expr_form[4].kind.(AstExprLitCurl)
 	ret_func := LLFunc{
-		name:         astDefName(top_def),
+		name:         top_def.anns.name,
 		external:     false,
 		ty:           llTypeFrom(astExprSlashed(&expr_form[2]), &expr_form[2], ast),
 		params:       allocˇLLFuncParam(len(lit_curl_params)),
@@ -459,14 +459,14 @@ func llExprFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLExpr {
 				found := false
 				for i := 0; i < len(ll_mod.funcs) && !found; i++ {
 					llf := &ll_mod.funcs[i]
-					if llf.external && strEql(astDefName(llf.orig_ast_top_def), name) {
+					if llf.external && strEql(llf.orig_ast_top_def.anns.name, name) {
 						name = llf.name
 						found = true
 					}
 				}
 				for i := 0; i < len(ll_mod.globals) && !found; i++ {
 					llg := &ll_mod.globals[i]
-					if llg.external && strEql(astDefName(llg.orig_ast_top_def), name) {
+					if llg.external && strEql(llg.orig_ast_top_def.anns.name, name) {
 						name = llg.name
 						break
 					}

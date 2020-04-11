@@ -15,7 +15,7 @@ func parse(all_toks []Token, full_src Str) Ast {
 	}
 	for i := range ret_ast.defs {
 		this_top_def := &ret_ast.defs[i]
-		this_top_def.is_top_def = true
+		this_top_def.anns.is_top_def = true
 		parseDef(this_top_def, &ret_ast)
 	}
 	return ret_ast
@@ -29,6 +29,16 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 	}
 
 	dst_def.head = parseExpr(toks[0:tok_idx_def], dst_def.base.toks_idx, dst_ast)
+	{
+		switch head_expr := dst_def.head.kind.(type) {
+		case AstExprIdent:
+			dst_def.anns.name = head_expr
+		case AstExprForm:
+			dst_def.anns.name = head_expr[0].kind.(AstExprIdent)
+		default:
+			fail(astNodeSrcStr(&dst_def.head.base, dst_ast))
+		}
+	}
 	chunks_body := toksIndentBasedChunks(toks[tok_idx_def+1:])
 	dst_def.defs = allocˇAstDef(len(chunks_body) - 1)
 	toks_idx := dst_def.base.toks_idx + tok_idx_def + 1
@@ -39,7 +49,7 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 			sub_def := &dst_def.defs[i-1]
 			sub_def.base.toks_idx = toks_idx
 			sub_def.base.toks_len = len(this_chunk_toks)
-			sub_def.is_top_def = false
+			sub_def.anns.is_top_def = false
 			parseDef(sub_def, dst_ast)
 		}
 		toks_idx += len(this_chunk_toks)

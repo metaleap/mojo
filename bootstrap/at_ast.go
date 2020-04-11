@@ -13,12 +13,15 @@ type AstNode struct {
 }
 
 type AstDef struct {
-	base       AstNode
-	head       AstExpr
-	body       AstExpr
-	defs       []AstDef
-	scope      AstScopes
-	is_top_def bool
+	base  AstNode
+	head  AstExpr
+	body  AstExpr
+	defs  []AstDef
+	scope AstScopes
+	anns  struct {
+		is_top_def bool
+		name       Str
+	}
 }
 
 type AstExpr struct {
@@ -62,10 +65,6 @@ func astNodeSrcStr(node *AstNode, ast *Ast) Str {
 	}
 	node_toks := astNodeToks(node, ast.toks)
 	return toksSrcStr(node_toks, ast.src)
-}
-
-func astDefName(def *AstDef) Str {
-	return def.head.kind.(AstExprIdent)
 }
 
 func astExprFormExtract(expr_form AstExprForm, idx_start int, idx_end int) AstExpr {
@@ -183,7 +182,7 @@ func astPopulateScopes(ast *Ast) {
 	ast.scope.cur = allocˇAstNameRef(len(ast.defs))
 	for i := range ast.defs {
 		def := &ast.defs[i]
-		ast.scope.cur[i] = AstNameRef{name: astDefName(def), refers_to: def}
+		ast.scope.cur[i] = AstNameRef{name: def.anns.name, refers_to: def}
 	}
 	for i := range ast.defs {
 		astDefPopulateScopes(&ast.defs[i], ast, &ast.scope)
@@ -191,15 +190,30 @@ func astPopulateScopes(ast *Ast) {
 }
 
 func astDefPopulateScopes(def *AstDef, ast *Ast, parent *AstScopes) {
+	num_args := 0
+	head_form, _ := def.head.kind.(AstExprForm)
+	if head_form != nil {
+		num_args = len(head_form) - 1
+	}
+
 	def.scope.parent = parent
-	def.scope.cur = allocˇAstNameRef(len(def.defs))
+	def.scope.cur = allocˇAstNameRef(len(def.defs) + num_args)
 	for i := range def.defs {
 		sub_def := &def.defs[i]
-		def_name := astDefName(sub_def)
-		if nil != astScopesResolve(&def.scope, def_name, i) {
-			fail("duplicate name '", def_name, "' near:\n", astNodeSrcStr(&def.base, ast))
+		if nil != astScopesResolve(&def.scope, sub_def.anns.name, i) {
+			fail("shadowing of identifier '", sub_def.anns.name, "' near:\n", astNodeSrcStr(&sub_def.base, ast))
 		}
-		def.scope.cur[i] = AstNameRef{name: def_name, refers_to: sub_def}
+		def.scope.cur[i] = AstNameRef{name: sub_def.anns.name, refers_to: sub_def}
+	}
+	if head_form != nil {
+		for i := 1; i < len(head_form); i++ {
+			param_idx := len(def.defs) + (i - 1)
+			param_name := head_form[i].kind.(AstExprIdent)
+			if nil != astScopesResolve(&def.scope, param_name, param_idx) {
+				fail("shadowing of identifier '", param_name, "' near:\n", astNodeSrcStr(&def.head.base, ast))
+			}
+			def.scope.cur[param_idx] = AstNameRef{name: param_name, refers_to: i - 1}
+		}
 	}
 	for i := range def.defs {
 		sub_def := &def.defs[i]

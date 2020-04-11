@@ -1,12 +1,12 @@
 
 writeTo := /define {} /I16 { #str_ptr: /P, #str_len: /I, #out_file: /P } {
   #begin: [
-    /let { #n : /call /@libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #out_file] },
+    /let { #n : /call libcFWrite /I [/P #str_ptr, /I 1, /I #str_len, /P #out_file] },
     /let { #ok: /icmp #eq /I #n #str_len },
     /brIf #ok #end #err_case,
   ],
   #err_case: [
-      /let { #err_code: /call /@libcFError /I16 [/P #out_file] },
+      /let { #err_code: /call libcFError /I16 [/P #out_file] },
       /brTo #end,
   ],
   #end: [
@@ -19,11 +19,11 @@ writeTo := /define {} /I16 { #str_ptr: /P, #str_len: /I, #out_file: /P } {
 writeToStd := /define {} /V { #str_ptr: /P, #str_len: /I, #std_file: /P/P } {
   #begin: [
     /let { #out_file: /load /P #std_file },
-    /let { #err: /call /@writeTo /I16 [/P #str_ptr, /I #str_len, /P #out_file] },
+    /let { #err: /call writeTo /I16 [/P #str_ptr, /I #str_len, /P #out_file] },
     /switch (/I16 #err) #end { /I16 1: #exit_on_err },
   ],
   #exit_on_err: [
-    /call /@libcExit /V [/I16 1], // TODO noreturn annotation
+    /call libcExit /V [/I16 1], // TODO noreturn annotation
     /unreachable,
   ],
   #end: [
@@ -34,7 +34,7 @@ writeToStd := /define {} /V { #str_ptr: /P, #str_len: /I, #std_file: /P/P } {
 
 writeErr := /define {} /V { #str_ptr: /P, #str_len: /I } {
   #: [
-    /call /@writeToStd /V [/P #str_ptr, /I #str_len, /P/P /@libc_stderr],
+    /call writeToStd /V [/P #str_ptr, /I #str_len, /P/P libc_stderr],
     /ret,
   ],
 }
@@ -42,7 +42,7 @@ writeErr := /define {} /V { #str_ptr: /P, #str_len: /I } {
 
 writeOut := /define {} /V { #str_ptr: /P, #str_len: /I } {
   #: [
-    /call /@writeToStd /V [/P #str_ptr, /I #str_len, /P/P /@libc_stdout],
+    /call writeToStd /V [/P #str_ptr, /I #str_len, /P/P libc_stdout],
     /ret,
   ],
 }
@@ -50,7 +50,7 @@ writeOut := /define {} /V { #str_ptr: /P, #str_len: /I } {
 
 readFrom := /define {} /I { #buf_ptr: /P, #buf_len: /I, #in_file: /P } {
   #: [
-    /let { #num_bytes_read: /call /@libcFRead /I [/P #buf_ptr, /I 1, /I #buf_len, /P #in_file] },
+    /let { #num_bytes_read: /call libcFRead /I [/P #buf_ptr, /I 1, /I #buf_len, /P #in_file] },
     /ret (/I #num_bytes_read),
   ],
 }
@@ -58,14 +58,14 @@ readFrom := /define {} /I { #buf_ptr: /P, #buf_len: /I, #in_file: /P } {
 
 readInOrDie := /define {} /I { #buf_ptr: /P, #buf_len: /I } {
   #begin: [
-    /let { #in_file: /load /P /@libc_stdin },
-    /let { #num_bytes_read: /call /@readFrom /I [/P #buf_ptr, /I #buf_len, /P #in_file] },
-    /let { #err: /call /@libcFError /I16 [/P #in_file] },
+    /let { #in_file: /load /P libc_stdin },
+    /let { #num_bytes_read: /call readFrom /I [/P #buf_ptr, /I #buf_len, /P #in_file] },
+    /let { #err: /call libcFError /I16 [/P #in_file] },
     /let { #ok: /icmp #eq /I16 #err 0 },
     /brIf #ok #end #die,
   ],
   #die: [
-    /call /@libcExit /V [/I16 1], // TODO noreturn annotation
+    /call libcExit /V [/I16 1], // TODO noreturn annotation
     /unreachable,
   ],
   #end: [
