@@ -46,7 +46,9 @@ func main() {
 	assert(len(ast.defs) != 0)
 	astPopulateScopes(&ast)
 
+	_ = irFromAst(&ast, &AstExpr{kind: AstExprIdent("main")})
+
 	// ll_mod := llModuleFrom(&ast)
-	ll_mod := llModuleFromAst(&ast)
-	llEmit(&ll_mod)
+	// ll_mod := llModuleFromAst(&ast)
+	// llEmit(&ll_mod)
 }
