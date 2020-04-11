@@ -125,7 +125,7 @@ func astExprFormSplit(expr *AstExpr, ident string, must bool, must_lhs bool, mus
 
 func astExprIsIdent(expr *AstExpr, ident string) bool {
 	if expr_ident, is_ident := expr.kind.(AstExprIdent); is_ident {
-		return len(ident) == 0 || strEql(expr_ident, Str(ident))
+		return len(ident) == 0 || strEq(expr_ident, ident)
 	}
 	return false
 }
@@ -154,11 +154,10 @@ func astExprSlashed(expr *AstExpr) (ret_parts []*AstExpr) {
 }
 
 func astExprsFindKeyedValue(exprs []AstExpr, key string, ast *Ast) *AstExpr {
-	str_key := Str(key)
 	for i := range exprs {
 		if form, _ := exprs[i].kind.(AstExprForm); form != nil {
 			lhs, rhs := astExprFormSplit(&exprs[i], ":", true, true, true, ast)
-			if lhs != nil && strEql(astNodeSrcStr(&lhs.base, ast), str_key) {
+			if lhs != nil && strEq(astNodeSrcStr(&lhs.base, ast), key) {
 				return rhs
 			}
 		}

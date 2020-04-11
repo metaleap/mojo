@@ -84,6 +84,10 @@ func fail(msg_parts ...Any) {
 	panic("\n__________\nBACKTRACE:")
 }
 
+func strEq(one Str, two string) bool {
+	return strEql(one, Str(two))
+}
+
 func strEql(one Str, two Str) bool {
 	if len(one) == len(two) {
 		for i := range one {

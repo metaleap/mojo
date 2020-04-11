@@ -58,7 +58,7 @@ func llEvalRunMain(ctx *LLCtxEval) {
 	for i := range ctx.ll_mod.funcs {
 		this_func := &ctx.ll_mod.funcs[i]
 		if !this_func.external {
-			if strEql(this_func.name, Str("main")) {
+			if strEq(this_func.name, "main") {
 				main_func = this_func
 				break
 			}

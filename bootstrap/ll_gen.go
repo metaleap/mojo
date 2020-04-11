@@ -15,11 +15,11 @@ func llModuleFrom(ast *Ast) LLModule {
 		top_def := &ast.defs[i]
 		switch ll_sth := llTopLevelFrom(&top_def.body, top_def, ast).(type) {
 		case LLGlobal:
-			ll_sth.orig_ast_top_def = top_def
+			ll_sth.anns.orig_ast_top_def = top_def
 			ret_mod.globals[num_globals] = ll_sth
 			num_globals++
 		case LLFunc:
-			ll_sth.orig_ast_top_def = top_def
+			ll_sth.anns.orig_ast_top_def = top_def
 			ret_mod.funcs[num_funcs] = ll_sth
 			num_funcs++
 		default:
@@ -43,10 +43,10 @@ func llModuleFrom(ast *Ast) LLModule {
 	}
 	for i := range ret_mod.funcs {
 		if fn_def := &ret_mod.funcs[i]; !fn_def.external {
-			lit_curl_blocks := fn_def.orig_ast_top_def.body.kind.(AstExprForm)[4].kind.(AstExprLitCurl)
+			lit_curl_blocks := fn_def.anns.orig_ast_top_def.body.kind.(AstExprForm)[4].kind.(AstExprLitCurl)
 			fn_def.basic_blocks = allocˇLLBasicBlock(len(lit_curl_blocks))
 			for i := range lit_curl_blocks {
-				fn_def.basic_blocks[i] = llBlockFrom(&lit_curl_blocks[i], fn_def.orig_ast_top_def, ast, &ret_mod)
+				fn_def.basic_blocks[i] = llBlockFrom(&lit_curl_blocks[i], fn_def.anns.orig_ast_top_def, ast, &ret_mod)
 			}
 			n_locals := 0
 			for i_block := range fn_def.basic_blocks {
@@ -347,25 +347,25 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 					rhs: llExprFrom(&it[4], ast, ll_mod),
 				}
 				cmp_kind := astExprTaggedIdent(&it[1])
-				if strEql(cmp_kind, Str("eq")) {
+				if strEq(cmp_kind, "eq") {
 					ret_cmp.cmp_kind = ll_cmp_i_eq
-				} else if strEql(cmp_kind, Str("ne")) {
+				} else if strEq(cmp_kind, "ne") {
 					ret_cmp.cmp_kind = ll_cmp_i_ne
-				} else if strEql(cmp_kind, Str("ugt")) {
+				} else if strEq(cmp_kind, "ugt") {
 					ret_cmp.cmp_kind = ll_cmp_i_ugt
-				} else if strEql(cmp_kind, Str("uge")) {
+				} else if strEq(cmp_kind, "uge") {
 					ret_cmp.cmp_kind = ll_cmp_i_uge
-				} else if strEql(cmp_kind, Str("ult")) {
+				} else if strEq(cmp_kind, "ult") {
 					ret_cmp.cmp_kind = ll_cmp_i_ult
-				} else if strEql(cmp_kind, Str("ule")) {
+				} else if strEq(cmp_kind, "ule") {
 					ret_cmp.cmp_kind = ll_cmp_i_ule
-				} else if strEql(cmp_kind, Str("sgt")) {
+				} else if strEq(cmp_kind, "sgt") {
 					ret_cmp.cmp_kind = ll_cmp_i_sgt
-				} else if strEql(cmp_kind, Str("sge")) {
+				} else if strEq(cmp_kind, "sge") {
 					ret_cmp.cmp_kind = ll_cmp_i_sge
-				} else if strEql(cmp_kind, Str("slt")) {
+				} else if strEq(cmp_kind, "slt") {
 					ret_cmp.cmp_kind = ll_cmp_i_slt
-				} else if strEql(cmp_kind, Str("sle")) {
+				} else if strEq(cmp_kind, "sle") {
 					ret_cmp.cmp_kind = ll_cmp_i_sle
 				}
 				assert(ret_cmp.cmp_kind != 0)
@@ -378,13 +378,13 @@ func llInstrFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLInstr {
 					rhs: llExprFrom(&it[4], ast, ll_mod),
 				}
 				op_kind := astExprTaggedIdent(&it[1])
-				if strEql(op_kind, Str("add")) {
+				if strEq(op_kind, "add") {
 					ret_op2.op_kind = ll_bin_op_add
-				} else if strEql(op_kind, Str("mul")) {
+				} else if strEq(op_kind, "mul") {
 					ret_op2.op_kind = ll_bin_op_mul
-				} else if strEql(op_kind, Str("sub")) {
+				} else if strEq(op_kind, "sub") {
 					ret_op2.op_kind = ll_bin_op_sub
-				} else if strEql(op_kind, Str("udiv")) {
+				} else if strEq(op_kind, "udiv") {
 					ret_op2.op_kind = ll_bin_op_udiv
 				}
 				assert(ret_op2.op_kind != 0)
@@ -452,21 +452,21 @@ func llExprFrom(expr *AstExpr, ast *Ast, ll_mod *LLModule) LLExpr {
 			}
 		}
 
-		if strEql(astNodeSrcStr(&it[0].base, ast), Str("/@")) {
+		if strEq(astNodeSrcStr(&it[0].base, ast), "/@") {
 			assert(len(it) == 2)
 			name := it[1].kind.(AstExprIdent) // the usual / default case
 			if ll_mod != nil {                // check whether referenced def is external
 				found := false
 				for i := 0; i < len(ll_mod.funcs) && !found; i++ {
 					llf := &ll_mod.funcs[i]
-					if llf.external && strEql(llf.orig_ast_top_def.anns.name, name) {
+					if llf.external && strEql(llf.anns.orig_ast_top_def.anns.name, name) {
 						name = llf.name
 						found = true
 					}
 				}
 				for i := 0; i < len(ll_mod.globals) && !found; i++ {
 					llg := &ll_mod.globals[i]
-					if llg.external && strEql(llg.orig_ast_top_def.anns.name, name) {
+					if llg.external && strEql(llg.anns.orig_ast_top_def.anns.name, name) {
 						name = llg.name
 						break
 					}

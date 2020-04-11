@@ -15,25 +15,25 @@ type LLModule struct {
 }
 
 type LLGlobal struct {
-	orig_ast_top_def *AstDef
-	name             Str
-	constant         bool
-	external         bool
-	ty               LLType
-	initializer      LLExpr
-	anns             struct {
-		idx int
+	name        Str
+	constant    bool
+	external    bool
+	ty          LLType
+	initializer LLExpr
+	anns        struct {
+		orig_ast_top_def *AstDef
+		idx              int
 	}
 }
 
 type LLFunc struct {
-	orig_ast_top_def *AstDef
-	external         bool
-	ty               LLType
-	name             Str
-	params           []LLFuncParam
-	basic_blocks     []LLBasicBlock
-	anns             struct {
+	external     bool
+	ty           LLType
+	name         Str
+	params       []LLFuncParam
+	basic_blocks []LLBasicBlock
+	anns         struct {
+		orig_ast_top_def        *AstDef
 		local_temporaries_names []Str
 	}
 }
@@ -213,6 +213,26 @@ type LLTypeStruct struct {
 type LLTypeFunc struct {
 	ty     LLType
 	params []LLType
+}
+
+func llModuleFindFunc(ll_mod *LLModule, name Str, orig *AstDef, up_until_idx int) *LLFunc {
+	for i := range ll_mod.funcs[0:up_until_idx] {
+		the_func := &ll_mod.funcs[i]
+		if (orig != nil && the_func.anns.orig_ast_top_def == orig) || (name != nil && strEql(the_func.name, name)) {
+			return the_func
+		}
+	}
+	return nil
+}
+
+func llModuleFindGlobal(ll_mod *LLModule, name Str, orig *AstDef, up_until_idx int) *LLGlobal {
+	for i := range ll_mod.globals[0:up_until_idx] {
+		the_global := &ll_mod.globals[i]
+		if (orig != nil && the_global.anns.orig_ast_top_def == orig) || (name != nil && strEql(the_global.name, name)) {
+			return the_global
+		}
+	}
+	return nil
 }
 
 func llTypeEql(t1 LLType, t2 LLType) bool {
