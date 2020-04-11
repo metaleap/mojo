@@ -3,18 +3,19 @@ package main
 type CtxAstToIr struct {
 	scope    *AstScopes
 	dst      *Ir
-	cur_def  *AstDef
+	cur_def  []*AstDef
 	num_defs int
 }
 
 type Ir struct {
-	ast  *Ast
-	defs []IrDef
+	origin_ast *Ast
+	defs       []IrDef
 }
 
 type IrDef struct {
-	name Str
-	body []IrExpr
+	origin []*AstDef
+	name   Str
+	body   []IrExpr
 }
 
 type IrExpr interface{ implementsIrExpr() }
@@ -54,7 +55,7 @@ func (IrExprObj) implementsIrExpr()         {}
 func (IrExprPair) implementsIrExpr()        {}
 
 func irFromAst(ast *Ast, expr *AstExpr) Ir {
-	ret_ir := Ir{ast: ast}
+	ret_ir := Ir{origin_ast: ast}
 	ctx := CtxAstToIr{scope: &ast.scope, dst: &ret_ir, cur_def: nil, num_defs: 0}
 	_ = irFromExpr(&ctx, expr).(IrExprDefRef)
 	return ret_ir
@@ -84,10 +85,13 @@ func irFromExpr(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 		return IrExprObj(ret_obj)
 
 	case AstExprIdent:
+		if resolved := astScopesResolve(ctx.scope, expr, -1); resolved != nil {
+
+		}
 		panic("IDENT\t" + string(expr))
 
 	case AstExprForm:
-		if lhs, rhs := astExprFormSplit(ast_expr, ":", false, false, false, ctx.dst.ast); lhs != nil && rhs != nil {
+		if lhs, rhs := astExprFormSplit(ast_expr, ":", false, false, false, ctx.dst.origin_ast); lhs != nil && rhs != nil {
 			return IrExprPair{
 				lhs: irFromExpr(ctx, lhs),
 				rhs: irFromExpr(ctx, rhs),
@@ -104,7 +108,7 @@ func irFromExpr(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 			return ret_slashed
 		}
 
-		panic("FORM\t" + string(astNodeSrcStr(&ast_expr.base, ctx.dst.ast)))
+		panic("FORM\t" + string(astNodeSrcStr(&ast_expr.base, ctx.dst.origin_ast)))
 	default:
 		panic(expr)
 	}

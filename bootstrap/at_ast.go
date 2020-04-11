@@ -48,7 +48,9 @@ type AstScopes struct {
 
 type AstNameRef struct {
 	name      Str
-	refers_to Any
+	ref_def   *AstDef
+	top_def   *AstDef
+	param_idx int
 }
 
 func astNodeFrom(toks_idx int, toks_len int) AstNode {
@@ -181,51 +183,56 @@ func astPopulateScopes(ast *Ast) {
 	ast.scope.cur = allocˇAstNameRef(len(ast.defs))
 	for i := range ast.defs {
 		def := &ast.defs[i]
-		ast.scope.cur[i] = AstNameRef{name: def.anns.name, refers_to: def}
+		ast.scope.cur[i] = AstNameRef{name: def.anns.name, param_idx: -1, top_def: def, ref_def: def}
 	}
 	for i := range ast.defs {
-		astDefPopulateScopes(&ast.defs[i], ast, &ast.scope)
+		astDefPopulateScopes(&ast.defs[i], &ast.defs[i], ast, &ast.scope)
 	}
 }
 
-func astDefPopulateScopes(def *AstDef, ast *Ast, parent *AstScopes) {
+func astDefPopulateScopes(top_def *AstDef, cur_def *AstDef, ast *Ast, parent *AstScopes) {
 	num_args := 0
-	head_form, _ := def.head.kind.(AstExprForm)
+	head_form, _ := cur_def.head.kind.(AstExprForm)
 	if head_form != nil {
 		num_args = len(head_form) - 1
 	}
 
-	def.scope.parent = parent
-	def.scope.cur = allocˇAstNameRef(len(def.defs) + num_args)
-	for i := range def.defs {
-		sub_def := &def.defs[i]
-		if nil != astScopesResolve(&def.scope, sub_def.anns.name, i) {
+	cur_def.scope.parent = parent
+	cur_def.scope.cur = allocˇAstNameRef(len(cur_def.defs) + num_args)
+	for i := range cur_def.defs {
+		sub_def := &cur_def.defs[i]
+		if nil != astScopesResolve(&cur_def.scope, sub_def.anns.name, i) {
 			fail("shadowing of identifier '", sub_def.anns.name, "' near:\n", astNodeSrcStr(&sub_def.base, ast))
 		}
-		def.scope.cur[i] = AstNameRef{name: sub_def.anns.name, refers_to: sub_def}
+		cur_def.scope.cur[i] = AstNameRef{name: sub_def.anns.name, param_idx: -1, top_def: top_def, ref_def: sub_def}
 	}
 	if head_form != nil {
 		for i := 1; i < len(head_form); i++ {
-			param_idx := len(def.defs) + (i - 1)
+			param_idx := len(cur_def.defs) + (i - 1)
 			param_name := head_form[i].kind.(AstExprIdent)
-			if nil != astScopesResolve(&def.scope, param_name, param_idx) {
-				fail("shadowing of identifier '", param_name, "' near:\n", astNodeSrcStr(&def.head.base, ast))
+			if nil != astScopesResolve(&cur_def.scope, param_name, param_idx) {
+				fail("shadowing of identifier '", param_name, "' near:\n", astNodeSrcStr(&cur_def.head.base, ast))
 			}
-			def.scope.cur[param_idx] = AstNameRef{name: param_name, refers_to: i - 1}
+			cur_def.scope.cur[param_idx] = AstNameRef{
+				name:      param_name,
+				param_idx: i - 1,
+				top_def:   top_def,
+				ref_def:   cur_def,
+			}
 		}
 	}
-	for i := range def.defs {
-		sub_def := &def.defs[i]
-		astDefPopulateScopes(sub_def, ast, &def.scope)
+	for i := range cur_def.defs {
+		sub_def := &cur_def.defs[i]
+		astDefPopulateScopes(top_def, sub_def, ast, &cur_def.scope)
 	}
 }
 
-func astScopesResolve(scope *AstScopes, name Str, only_until_before_idx int) Any {
+func astScopesResolve(scope *AstScopes, name Str, only_until_before_idx int) *AstNameRef {
 	for i := range scope.cur {
 		if i == only_until_before_idx {
 			break
 		} else if strEql(name, scope.cur[i].name) {
-			return scope.cur[i].refers_to
+			return &scope.cur[i]
 		}
 	}
 	if scope.parent != nil {

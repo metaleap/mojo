@@ -52,17 +52,16 @@ func lowerToLL(ctx *CtxLowerToLL, ast_expr *AstExpr) Any {
 	case AstExprLitCurl:
 		return expr
 	case AstExprIdent:
-		switch resolved := astScopesResolve(ctx.scope, expr, -1).(type) {
-		case *AstDef:
-			if found_global := llModuleFindGlobal(ctx.ll_mod, nil, resolved, ctx.num_globals); found_global != nil {
+		if resolved := astScopesResolve(ctx.scope, expr, -1); resolved != nil {
+			if found_global := llModuleFindGlobal(ctx.ll_mod, nil, resolved.ref_def, ctx.num_globals); found_global != nil {
 				return found_global
 			}
-			if found_func := llModuleFindFunc(ctx.ll_mod, nil, resolved, ctx.num_funcs); found_func != nil {
+			if found_func := llModuleFindFunc(ctx.ll_mod, nil, resolved.ref_def, ctx.num_funcs); found_func != nil {
 				return found_func
 			}
 			old_scope, old_def := ctx.scope, ctx.cur_def
-			ctx.scope, ctx.cur_def = &resolved.scope, resolved
-			evald := lowerToLL(ctx, &resolved.body)
+			ctx.scope, ctx.cur_def = &resolved.ref_def.scope, resolved.ref_def
+			evald := lowerToLL(ctx, &resolved.ref_def.body)
 			ctx.scope, ctx.cur_def = old_scope, old_def
 			switch it := evald.(type) {
 			case LLGlobal:
@@ -86,8 +85,6 @@ func lowerToLL(ctx *CtxLowerToLL, ast_expr *AstExpr) Any {
 				ctx.num_funcs++
 				return &ctx.ll_mod.funcs[ctx.num_funcs-1]
 			}
-		default:
-			panic(resolved)
 		}
 	case AstExprForm:
 		args_exprs := expr[1:]
