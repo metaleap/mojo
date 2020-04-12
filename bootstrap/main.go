@@ -44,13 +44,9 @@ func main() {
 
 	ast := parse(toks, input_src_file_bytes)
 	assert(len(ast.defs) != 0)
-	astPopulateScopes(&ast)
 	astHoistLocalDefsToTopDefs(&ast, Str("main"))
-	for i := range ast.defs {
-		println(i, string(ast.defs[i].anns.name), "\t", string(astNodeSrcStr(&ast.defs[i].head.base, &ast)))
-	}
 
-	// _ = irFromAst(&ast, &AstExpr{kind: AstExprIdent("main")})
+	_ = irFromAst(&ast, &AstExpr{kind: AstExprIdent("main")})
 
 	// ll_mod := llModuleFrom(&ast)
 	// ll_mod := llModuleFromAst(&ast)

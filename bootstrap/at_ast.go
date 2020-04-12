@@ -209,6 +209,7 @@ func astDefCountAllSubDefs(def *AstDef) int {
 }
 
 func astHoistLocalDefsToTopDefs(ast *Ast, top_def_name Str) {
+	astPopulateScopes(ast)
 	top_defs_len := len(ast.defs)
 	for i := range ast.defs {
 		top_defs_len += astDefCountAllSubDefs(&ast.defs[i])
@@ -221,7 +222,6 @@ func astHoistLocalDefsToTopDefs(ast *Ast, top_def_name Str) {
 			break
 		}
 	}
-
 	ast.defs = top_defs[0:top_defs_len]
 	astPopulateScopes(ast)
 }
