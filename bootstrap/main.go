@@ -46,7 +46,8 @@ func main() {
 	assert(len(ast.defs) != 0)
 	astHoistLocalDefsToTopDefs(&ast, Str("main"))
 
-	_ = irFromAst(&ast, &AstExpr{kind: AstExprIdent("main")})
+	ir := irFromAst(&ast, &AstExpr{kind: AstExprIdent("main")})
+	irReduceDefs(&ir)
 
 	// ll_mod := llModuleFrom(&ast)
 	// ll_mod := llModuleFromAst(&ast)

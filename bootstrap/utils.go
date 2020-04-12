@@ -159,6 +159,7 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	later want to move from OS heap allocs to a pre-alloc'd fixed-size buffer.
 */
 
+func allocˇbool(len int) []bool                 { return make([]bool, len) }
 func allocˇint(len int) []int                   { return make([]int, len) }
 func allocˇbyte(len int) Str                    { return make(Str, len) }
 func allocˇStr(len int) []Str                   { return make([]Str, len) }
