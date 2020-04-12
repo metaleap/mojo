@@ -31,9 +31,10 @@ type IrExprArr []IrExpr
 
 type IrExprObj []IrExpr
 
-type IrExprPair struct {
-	lhs IrExpr
-	rhs IrExpr
+type IrExprInfix struct {
+	kind Str
+	lhs  IrExpr
+	rhs  IrExpr
 }
 
 func (IrExprLitInt) implementsIrExpr()      {}
@@ -45,7 +46,7 @@ func (IrExprSlashed) implementsIrExpr()     {}
 func (IrExprForm) implementsIrExpr()        {}
 func (IrExprArr) implementsIrExpr()         {}
 func (IrExprObj) implementsIrExpr()         {}
-func (IrExprPair) implementsIrExpr()        {}
+func (IrExprInfix) implementsIrExpr()       {}
 
 type CtxAstToIr struct {
 	scope    *AstScopes
@@ -87,15 +88,20 @@ func irFromExpr(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 
 	case AstExprIdent:
 		if resolved := astScopesResolve(ctx.scope, expr, -1); resolved != nil {
+			if resolved.top_def == resolved.ref_def {
 
+			}
 		}
 		panic("IDENT\t" + string(expr))
 
 	case AstExprForm:
-		if lhs, rhs := astExprFormSplit(ast_expr, ":", false, false, false, ctx.dst.origin_ast); lhs != nil && rhs != nil {
-			return IrExprPair{
-				lhs: irFromExpr(ctx, lhs),
-				rhs: irFromExpr(ctx, rhs),
+		for _, supported_infix := range []string{":"} {
+			if lhs, rhs := astExprFormSplit(ast_expr, supported_infix, false, false, false, ctx.dst.origin_ast); lhs != nil && rhs != nil {
+				return IrExprInfix{
+					kind: Str(supported_infix),
+					lhs:  irFromExpr(ctx, lhs),
+					rhs:  irFromExpr(ctx, rhs),
+				}
 			}
 		}
 		// TODO: tweak astExprTaggedIdent and astExprSlashed to accept AstExprForm instead of *AstExpr

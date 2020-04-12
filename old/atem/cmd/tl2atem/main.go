@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	. "github.com/metaleap/atmo/atem"
+	. "github.com/metaleap/atmo/old/atem"
 	tl "github.com/metaleap/go-machines/toylam"
 )
 

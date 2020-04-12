@@ -1,7 +1,7 @@
 package main
 
 import (
-	. "github.com/metaleap/atmo/atem"
+	. "github.com/metaleap/atmo/old/atem"
 )
 
 // inliners or other optimizers may result in now-unused func-defs, here's a single routine that'll remove them.

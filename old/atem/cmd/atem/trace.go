@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	. "github.com/metaleap/atmo/atem"
+	. "github.com/metaleap/atmo/old/atem"
 )
 
 const trace = false

@@ -179,6 +179,37 @@ func astExprTaggedIdent(expr *AstExpr) AstExprIdent {
 	return nil
 }
 
+func astDefCountAllSubDefs(def *AstDef) int {
+	num_sub_defs := len(def.defs)
+	for i := range def.defs {
+		num_sub_defs += astDefCountAllSubDefs(&def.defs[i])
+	}
+	return num_sub_defs
+}
+
+func astHoistLocalDefsToTopDefs(ast *Ast, top_def_name Str) {
+	top_defs_len := len(ast.defs)
+	for i := range ast.defs {
+		top_defs_len += astDefCountAllSubDefs(&ast.defs[i])
+	}
+	top_defs := allocˇAstDef(top_defs_len)
+	top_defs_len = 0
+	for i := range ast.defs {
+		if strEql(ast.defs[i].anns.name, top_def_name) {
+			top_defs_len = astDefHoistLocalDefsToTopDefs(ast, &ast.defs[i], &ast.defs[i], top_defs, top_defs_len)
+			break
+		}
+	}
+
+	ast.defs = top_defs[0:top_defs_len]
+	astPopulateScopes(ast)
+}
+
+func astDefHoistLocalDefsToTopDefs(ast *Ast, top_def *AstDef, cur_def *AstDef, top_defs []AstDef, top_defs_len int) int {
+
+	return top_defs_len
+}
+
 func astPopulateScopes(ast *Ast) {
 	ast.scope.cur = allocˇAstNameRef(len(ast.defs))
 	for i := range ast.defs {

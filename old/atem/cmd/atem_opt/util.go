@@ -1,7 +1,7 @@
 package main
 
 import (
-	. "github.com/metaleap/atmo/atem"
+	. "github.com/metaleap/atmo/old/atem"
 )
 
 var exprNever = exprTmp(123456789)

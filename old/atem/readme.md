@@ -1,6 +1,6 @@
 # atem
 --
-    import "github.com/metaleap/atmo/atem"
+    import "github.com/metaleap/atmo/old/atem"
 
 _atem_ is both a minimal and low-level interpreted functional programming
 language IR (_intermediate representation_, ie. not to be hand-written) and its
