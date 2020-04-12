@@ -179,6 +179,27 @@ func astExprTaggedIdent(expr *AstExpr) AstExprIdent {
 	return nil
 }
 
+func astExprGatherDefRefs(scope *AstScopes, ast_expr *AstExpr, gathered map[*AstDef][]*AstExpr) {
+	switch expr := ast_expr.kind.(type) {
+	case AstExprForm:
+		for i := range expr {
+			astExprGatherDefRefs(scope, &expr[i], gathered)
+		}
+	case AstExprLitClip:
+		for i := range expr {
+			astExprGatherDefRefs(scope, &expr[i], gathered)
+		}
+	case AstExprLitCurl:
+		for i := range expr {
+			astExprGatherDefRefs(scope, &expr[i], gathered)
+		}
+	case AstExprIdent:
+		if ref := astScopesResolve(scope, expr, -1); ref != nil && ref.param_idx == -1 {
+			gathered[ref.ref_def] = append(gathered[ref.ref_def], ast_expr)
+		}
+	}
+}
+
 func astDefCountAllSubDefs(def *AstDef) int {
 	num_sub_defs := len(def.defs)
 	for i := range def.defs {
@@ -196,7 +217,7 @@ func astHoistLocalDefsToTopDefs(ast *Ast, top_def_name Str) {
 	top_defs_len = 0
 	for i := range ast.defs {
 		if strEql(ast.defs[i].anns.name, top_def_name) {
-			top_defs_len = astDefHoistLocalDefsToTopDefs(ast, &ast.defs[i], &ast.defs[i], top_defs, top_defs_len)
+			top_defs_len = astDefHoistLocalDefsToTopDefs(ast, &ast.defs[i], top_defs, top_defs_len, nil, false)
 			break
 		}
 	}
@@ -205,8 +226,37 @@ func astHoistLocalDefsToTopDefs(ast *Ast, top_def_name Str) {
 	astPopulateScopes(ast)
 }
 
-func astDefHoistLocalDefsToTopDefs(ast *Ast, top_def *AstDef, cur_def *AstDef, top_defs []AstDef, top_defs_len int) int {
-
+func astDefHoistLocalDefsToTopDefs(ast *Ast, cur_def *AstDef, top_defs []AstDef, top_defs_len int, name_pref Str, will_add bool) int {
+	name_pref = strConcat([]Str{name_pref, cur_def.anns.name, Str(".")})
+	gathered := make(map[*AstDef][]*AstExpr)
+	astExprGatherDefRefs(&cur_def.scope, &cur_def.body, gathered)
+	for refd_def, ast_exprs := range gathered {
+		if refd_def.anns.is_top_def {
+			top_defs_len = astDefHoistLocalDefsToTopDefs(ast, refd_def, top_defs, top_defs_len, nil, false)
+		} else {
+			new_name := strConcat([]Str{name_pref, refd_def.anns.name})
+			for i := range ast_exprs {
+				ast_exprs[i].kind = AstExprIdent(new_name)
+			}
+			already_hoisted := false
+			for i := range top_defs[0:top_defs_len] {
+				if strEql(top_defs[i].anns.name, new_name) {
+					already_hoisted = true
+					break
+				}
+			}
+			if !already_hoisted {
+				top_defs[top_defs_len] = *refd_def
+				top_defs[top_defs_len].anns.name = new_name
+				top_defs_len++
+				top_defs_len = astDefHoistLocalDefsToTopDefs(ast, refd_def, top_defs, top_defs_len, name_pref, true)
+			}
+		}
+	}
+	if !will_add {
+		top_defs[top_defs_len] = *cur_def
+		top_defs_len++
+	}
 	return top_defs_len
 }
 

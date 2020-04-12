@@ -47,7 +47,7 @@ func main() {
 	astPopulateScopes(&ast)
 	astHoistLocalDefsToTopDefs(&ast, Str("main"))
 	for i := range ast.defs {
-		println(string(astNodeSrcStr(&ast.defs[i].head.base, &ast)))
+		println(i, string(ast.defs[i].anns.name), "\t", string(astNodeSrcStr(&ast.defs[i].head.base, &ast)))
 	}
 
 	// _ = irFromAst(&ast, &AstExpr{kind: AstExprIdent("main")})
