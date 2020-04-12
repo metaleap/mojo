@@ -59,12 +59,12 @@ type CtxAstToIr struct {
 func irFromAst(ast *Ast, expr *AstExpr) Ir {
 	ret_ir := Ir{origin_ast: ast, defs: allocˇIrDef(len(ast.defs))}
 	ctx := CtxAstToIr{scope: &ast.scope, dst: &ret_ir, num_defs: 0}
-	_ = irFromExpr(&ctx, expr).(IrExprDefRef)
+	_ = irExprFrom(&ctx, expr).(IrExprDefRef)
 	ret_ir.defs = ret_ir.defs[0:ctx.num_defs]
 	return ret_ir
 }
 
-func irFromExpr(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
+func irExprFrom(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 	switch expr := ast_expr.kind.(type) {
 
 	case AstExprLitInt:
@@ -76,20 +76,20 @@ func irFromExpr(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 	case AstExprLitClip:
 		ret_arr := allocˇIrExpr(len(expr))
 		for i := range expr {
-			ret_arr[i] = irFromExpr(ctx, &expr[i])
+			ret_arr[i] = irExprFrom(ctx, &expr[i])
 		}
 		return IrExprArr(ret_arr)
 
 	case AstExprLitCurl:
 		ret_obj := allocˇIrExpr(len(expr))
 		for i := range expr {
-			ret_obj[i] = irFromExpr(ctx, &expr[i])
+			ret_obj[i] = irExprFrom(ctx, &expr[i])
 		}
 		return IrExprObj(ret_obj)
 
 	case AstExprIdent:
 		if resolved := astScopesResolve(ctx.scope, expr, -1); resolved == nil {
-			fail("unresolved identifier '", expr, "' near:\n", astNodeSrcStr(&ast_expr.base, ctx.dst.origin_ast))
+			return IrExprIdent(expr)
 		} else if resolved.param_idx >= 0 {
 			panic("TODO ARG\t" + string(expr))
 		} else {
@@ -110,25 +110,26 @@ func irFromExpr(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 				if head_form, _ := resolved.ref_def.head.kind.(AstExprForm); head_form != nil {
 					ir_def.params = allocˇStr(len(head_form) - 1)
 					for i := range head_form {
-						ir_def.params[i] = Str(head_form[i].kind.(AstExprIdent))
+						if i != 0 {
+							ir_def.params[i-1] = Str(head_form[i].kind.(AstExprIdent))
+						}
 					}
 				}
 				ir_def_idx = ctx.num_defs
-				ctx.dst.defs[ctx.num_defs] = ir_def
 				ctx.num_defs++
-				ctx.dst.defs[ctx.num_defs].body = irFromExpr(ctx, &resolved.ref_def.body)
+				ctx.dst.defs[ir_def_idx] = ir_def
+				ctx.dst.defs[ir_def_idx].body = irExprFrom(ctx, &resolved.ref_def.body)
 			}
 			return IrExprDefRef(ir_def_idx)
 		}
-		panic("unreachable")
 
 	case AstExprForm:
 		for _, supported_infix := range []string{":"} {
 			if lhs, rhs := astExprFormSplit(ast_expr, supported_infix, false, false, false, ctx.dst.origin_ast); lhs != nil && rhs != nil {
 				return IrExprInfix{
 					kind: Str(supported_infix),
-					lhs:  irFromExpr(ctx, lhs),
-					rhs:  irFromExpr(ctx, rhs),
+					lhs:  irExprFrom(ctx, lhs),
+					rhs:  irExprFrom(ctx, rhs),
 				}
 			}
 		}
@@ -138,12 +139,17 @@ func irFromExpr(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 		} else if slashed := astExprSlashed(ast_expr); slashed != nil {
 			ret_slashed := IrExprSlashed(allocˇIrExpr(len(slashed)))
 			for i, sub_expr := range slashed {
-				ret_slashed[i] = irFromExpr(ctx, sub_expr)
+				ret_slashed[i] = irExprFrom(ctx, sub_expr)
 			}
 			return ret_slashed
 		}
 
-		panic("FORM\t" + string(astNodeSrcStr(&ast_expr.base, ctx.dst.origin_ast)))
+		ir_form := allocˇIrExpr(len(expr))
+		for i := range expr {
+			ir_form[i] = irExprFrom(ctx, &expr[i])
+		}
+		return IrExprForm(ir_form)
+
 	default:
 		panic(expr)
 	}
