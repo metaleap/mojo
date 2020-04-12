@@ -33,6 +33,7 @@ func main() {
 	debug.SetGCPercent(-1)
 	runtime.GOMAXPROCS(1)
 
+	name_main := Str("main")
 	input_src_file_bytes, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
 		panic(err)
@@ -44,12 +45,9 @@ func main() {
 
 	ast := parse(toks, input_src_file_bytes)
 	assert(len(ast.defs) != 0)
-	astHoistLocalDefsToTopDefs(&ast, Str("main"))
+	astHoistLocalDefsToTopDefs(&ast, name_main)
 
-	ir := irFromAst(&ast, &AstExpr{kind: AstExprIdent("main")})
-	irReduceDefs(&ir)
-
-	// ll_mod := llModuleFrom(&ast)
-	// ll_mod := llModuleFromAst(&ast)
-	// llEmit(&ll_mod)
+	ir := irFromAst(&ast, &AstExpr{kind: AstExprIdent(name_main)})
+	ll_mod := llModuleFrom(&ir, name_main)
+	llEmit(&ll_mod)
 }

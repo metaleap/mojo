@@ -21,8 +21,9 @@ type LLGlobal struct {
 	ty          LLType
 	initializer LLExpr
 	anns        struct {
-		orig_ast_top_def *AstDef
-		idx              int
+		orig_ir_def          *IrDef
+		OLD_orig_ast_top_def *AstDef
+		idx                  int
 	}
 }
 
@@ -33,7 +34,8 @@ type LLFunc struct {
 	params       []LLFuncParam
 	basic_blocks []LLBasicBlock
 	anns         struct {
-		orig_ast_top_def        *AstDef
+		orig_ir_def             *IrDef
+		OLD_orig_ast_top_def    *AstDef
 		local_temporaries_names []Str
 	}
 }
@@ -215,21 +217,15 @@ type LLTypeFunc struct {
 	params []LLType
 }
 
-func llModuleFindFunc(ll_mod *LLModule, name Str, orig *AstDef, up_until_idx int) *LLFunc {
-	for i := range ll_mod.funcs[0:up_until_idx] {
-		the_func := &ll_mod.funcs[i]
-		if (orig != nil && the_func.anns.orig_ast_top_def == orig) || (name != nil && strEql(the_func.name, name)) {
-			return the_func
+func llTopLevelNameFrom(ll_mod *LLModule, ir_def *IrDef, num_globals int, num_funcs int) LLExprIdentGlobal {
+	for i := range ll_mod.globals[0:num_globals] {
+		if ll_mod.globals[i].anns.orig_ir_def == ir_def {
+			return LLExprIdentGlobal(ll_mod.globals[i].name)
 		}
 	}
-	return nil
-}
-
-func llModuleFindGlobal(ll_mod *LLModule, name Str, orig *AstDef, up_until_idx int) *LLGlobal {
-	for i := range ll_mod.globals[0:up_until_idx] {
-		the_global := &ll_mod.globals[i]
-		if (orig != nil && the_global.anns.orig_ast_top_def == orig) || (name != nil && strEql(the_global.name, name)) {
-			return the_global
+	for i := range ll_mod.funcs[0:num_funcs] {
+		if ll_mod.funcs[i].anns.orig_ir_def == ir_def {
+			return LLExprIdentGlobal(ll_mod.funcs[i].name)
 		}
 	}
 	return nil

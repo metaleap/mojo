@@ -24,7 +24,7 @@ type IrExprArgRef int
 
 type IrExprIdent Str
 
-type IrExprIdentTagged Str
+type IrExprTag Str
 
 type IrExprSlashed []IrExpr
 
@@ -40,17 +40,17 @@ type IrExprInfix struct {
 	rhs  IrExpr
 }
 
-func (IrExprLitInt) implementsIrExpr()      {}
-func (IrExprLitStr) implementsIrExpr()      {}
-func (IrExprDefRef) implementsIrExpr()      {}
-func (IrExprArgRef) implementsIrExpr()      {}
-func (IrExprIdent) implementsIrExpr()       {}
-func (IrExprIdentTagged) implementsIrExpr() {}
-func (IrExprSlashed) implementsIrExpr()     {}
-func (IrExprForm) implementsIrExpr()        {}
-func (IrExprArr) implementsIrExpr()         {}
-func (IrExprObj) implementsIrExpr()         {}
-func (IrExprInfix) implementsIrExpr()       {}
+func (IrExprLitInt) implementsIrExpr()  {}
+func (IrExprLitStr) implementsIrExpr()  {}
+func (IrExprDefRef) implementsIrExpr()  {}
+func (IrExprArgRef) implementsIrExpr()  {}
+func (IrExprIdent) implementsIrExpr()   {}
+func (IrExprTag) implementsIrExpr()     {}
+func (IrExprSlashed) implementsIrExpr() {}
+func (IrExprForm) implementsIrExpr()    {}
+func (IrExprArr) implementsIrExpr()     {}
+func (IrExprObj) implementsIrExpr()     {}
+func (IrExprInfix) implementsIrExpr()   {}
 
 type CtxAstToIr struct {
 	scope    *AstScopes
@@ -91,6 +91,9 @@ func irExprFrom(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 
 	case AstExprIdent:
 		if resolved := astScopesResolve(ctx.scope, expr, -1); resolved == nil {
+			if len(expr) == 1 && expr[0] == '#' {
+				return IrExprTag("")
+			}
 			return IrExprIdent(expr)
 		} else if resolved.param_idx >= 0 {
 			return IrExprArgRef(resolved.param_idx)
@@ -132,7 +135,7 @@ func irExprFrom(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 		}
 		// TODO: tweak astExprTaggedIdent and astExprSlashed to accept AstExprForm instead of *AstExpr
 		if tagged_ident := astExprTaggedIdent(ast_expr); tagged_ident != nil {
-			return IrExprIdentTagged(tagged_ident)
+			return IrExprTag(tagged_ident)
 		} else if slashed := astExprSlashed(ast_expr); slashed != nil {
 			ret_slashed := IrExprSlashed(allocˇIrExpr(len(slashed)))
 			for i, sub_expr := range slashed {
@@ -150,6 +153,71 @@ func irExprFrom(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 	default:
 		panic(expr)
 	}
+}
+
+func irExprEquiv(lhs IrExpr, rhs IrExpr) bool {
+	if lhs != nil && rhs != nil {
+		switch l := lhs.(type) {
+		case IrExprLitInt:
+			r, ok := rhs.(IrExprLitInt)
+			return ok && l == r
+		case IrExprLitStr:
+			r, ok := rhs.(IrExprLitStr)
+			return ok && strEql(l, r)
+		case IrExprDefRef:
+			r, ok := rhs.(IrExprDefRef)
+			return ok && l == r
+		case IrExprArgRef:
+			r, ok := rhs.(IrExprArgRef)
+			return ok && l == r
+		case IrExprIdent:
+			r, ok := rhs.(IrExprIdent)
+			return ok && strEql(l, r)
+		case IrExprTag:
+			r, ok := rhs.(IrExprTag)
+			return ok && strEql(l, r)
+		case IrExprSlashed:
+			r, ok := rhs.(IrExprSlashed)
+			return ok && irExprsEquiv(l, r)
+		case IrExprForm:
+			r, ok := rhs.(IrExprForm)
+			return ok && irExprsEquiv(l, r)
+		case IrExprArr:
+			r, ok := rhs.(IrExprArr)
+			return ok && irExprsEquiv(l, r)
+		case IrExprObj:
+			r, ok := rhs.(IrExprObj)
+			return ok && irExprsEquiv(l, r)
+		case IrExprInfix:
+			r, ok := rhs.(IrExprInfix)
+			return ok && irExprEquiv(l.lhs, r.lhs) && irExprEquiv(l.rhs, r.rhs) && strEql(l.kind, r.kind)
+		}
+	}
+	return (lhs == nil && rhs == nil)
+}
+
+func irExprsEquiv(lhs []IrExpr, rhs []IrExpr) bool {
+	if len(lhs) == len(rhs) {
+		for i := range lhs {
+			if !irExprEquiv(lhs[i], rhs[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func irExprsFindKeyedValue(exprs []IrExpr, infix_kind string, key IrExpr) IrExpr {
+	kind := Str(infix_kind)
+	for i := range exprs {
+		if expr_infix, ok := exprs[i].(IrExprInfix); ok && strEql(expr_infix.kind, kind) {
+			if irExprEquiv(expr_infix.lhs, key) {
+				return expr_infix.rhs
+			}
+		}
+	}
+	return nil
 }
 
 func irReduceDefs(ir *Ir) {
@@ -184,7 +252,7 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 		for i := range expr {
 			ret_arr[i] = irReduceExpr(ctx, expr[i])
 		}
-		return IrExprObj(ret_arr)
+		return IrExprArr(ret_arr)
 	case IrExprObj:
 		ret_obj := allocˇIrExpr(len(expr))
 		for i := range expr {
