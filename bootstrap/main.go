@@ -48,6 +48,8 @@ func main() {
 	astHoistLocalDefsToTopDefs(&ast, name_main)
 
 	ir := irFromAst(&ast, &AstExpr{kind: AstExprIdent(name_main)})
-	ll_mod := llModuleFrom(&ir, name_main)
-	llEmit(&ll_mod)
+	irReduceDefs(&ir)
+	// irDbgPrint(&ir)
+	// ll_mod := llModuleFrom(&ir, name_main)
+	// llEmit(&ll_mod)
 }

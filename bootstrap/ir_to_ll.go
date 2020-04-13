@@ -11,8 +11,6 @@ type CtxIrToLL struct {
 }
 
 func llModuleFrom(ir *Ir, def_name Str) LLModule {
-	irReduceDefs(ir)
-
 	ret_mod := LLModule{
 		target_datalayout: Str(llmodule_default_target_datalayout),
 		target_triple:     Str(llmodule_default_target_triple),

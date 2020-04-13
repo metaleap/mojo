@@ -220,6 +220,12 @@ func irExprsFindKeyedValue(exprs []IrExpr, infix_kind string, key IrExpr) IrExpr
 	return nil
 }
 
+type CtxReduce struct {
+	ir   *Ir
+	args []IrExpr
+	done []bool
+}
+
 func irReduceDefs(ir *Ir) {
 	ctx := CtxReduce{ir: ir, done: allocˇbool(len(ir.defs))}
 	for i := range ir.defs {
@@ -240,44 +246,45 @@ func irReduceDef(ctx *CtxReduce, def_idx int) {
 }
 
 func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
+	ret_expr := ir_expr
 	switch expr := ir_expr.(type) {
 	case IrExprSlashed:
 		ret_slashed := allocˇIrExpr(len(expr))
 		for i := range expr {
 			ret_slashed[i] = irReduceExpr(ctx, expr[i])
 		}
-		return IrExprSlashed(ret_slashed)
+		ret_expr = IrExprSlashed(ret_slashed)
 	case IrExprArr:
 		ret_arr := allocˇIrExpr(len(expr))
 		for i := range expr {
 			ret_arr[i] = irReduceExpr(ctx, expr[i])
 		}
-		return IrExprArr(ret_arr)
+		ret_expr = IrExprArr(ret_arr)
 	case IrExprObj:
 		ret_obj := allocˇIrExpr(len(expr))
 		for i := range expr {
 			ret_obj[i] = irReduceExpr(ctx, expr[i])
 		}
-		return IrExprObj(ret_obj)
+		ret_expr = IrExprObj(ret_obj)
 	case IrExprInfix:
-		return IrExprInfix{
+		ret_expr = IrExprInfix{
 			kind: expr.kind,
 			lhs:  irReduceExpr(ctx, expr.lhs),
 			rhs:  irReduceExpr(ctx, expr.rhs),
 		}
 	case IrExprArgRef:
 		if ctx.args != nil {
-			return ctx.args[expr]
+			ret_expr = ctx.args[expr]
 		}
 	case IrExprDefRef:
 		irReduceDef(ctx, int(expr))
 		ref_def := &ctx.ir.defs[expr]
 		if ref_def.num_params == 0 {
-			return ref_def.body
+			ret_expr = ref_def.body
 		}
 	case IrExprForm:
 		ret_form := allocˇIrExpr(len(expr))
-		var ret_expr IrExpr = IrExprForm(ret_form)
+		ret_expr = IrExprForm(ret_form)
 		for i := range expr {
 			ret_form[i] = irReduceExpr(ctx, expr[i])
 		}
@@ -290,13 +297,96 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 			ret_expr = irReduceExpr(ctx, ref_def.body)
 			ctx.args = old_args
 		}
-		return ret_expr
 	}
-	return ir_expr
+
+	if !irExprEquiv(ir_expr, ret_expr) {
+		print("\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n// EVAL'D:\n  ")
+		irExprDbgPrint(ctx.ir, ir_expr, 2)
+		print("\n// TO:\n  ")
+		irExprDbgPrint(ctx.ir, ret_expr, 2)
+	}
+
+	return ret_expr
 }
 
-type CtxReduce struct {
-	ir   *Ir
-	args []IrExpr
-	done []bool
+func irDbgPrint(ir *Ir) {
+	for i := range ir.defs {
+		irDefDbgPrint(ir, &ir.defs[i])
+	}
+}
+
+func irDefDbgPrint(ir *Ir, def *IrDef) {
+	print(string(def.name))
+	print(" :=\n  ")
+	irExprDbgPrint(ir, def.body, 2)
+	println("\n")
+}
+
+func irExprDbgPrint(ir *Ir, expr IrExpr, ind int) {
+	switch it := expr.(type) {
+	case IrExprLitInt:
+		print(it)
+	case IrExprLitStr:
+		print("\"" + string(it) + "\"")
+	case IrExprDefRef:
+		assert(it >= 0)
+		print(string(ir.defs[it].name))
+	case IrExprArgRef:
+		assert(it >= 0)
+		print("@" + string(uintToStr(uint64(it), 10, 1, nil)))
+	case IrExprIdent:
+		print(string(it))
+	case IrExprTag:
+		print("#" + string(it))
+	case IrExprSlashed:
+		for i := range it {
+			print("/")
+			irExprDbgPrint(ir, it[i], ind)
+		}
+	case IrExprForm:
+		print("(")
+		for i := range it {
+			if i > 0 {
+				print(" ")
+			}
+			irExprDbgPrint(ir, it[i], ind)
+		}
+		print(")")
+	case IrExprInfix:
+		irExprDbgPrint(ir, it.lhs, ind)
+		print(" " + string(it.kind) + " ")
+		irExprDbgPrint(ir, it.rhs, ind)
+	case IrExprArr:
+		print("[")
+		irExprsDbgPrint(ir, it, ind, len(it) > 2)
+		print("]")
+	case IrExprObj:
+		print("{")
+		irExprsDbgPrint(ir, it, ind, len(it) > 2)
+		print("}")
+	}
+}
+
+func irExprsDbgPrint(ir *Ir, exprs []IrExpr, ind int, multiple_lines bool) {
+	if multiple_lines {
+		println()
+	}
+	for i := range exprs {
+		if multiple_lines {
+			for j := 0; j < ind; j++ {
+				print(" ")
+			}
+		}
+		irExprDbgPrint(ir, exprs[i], ind+2)
+		if multiple_lines {
+			print(",\n")
+		} else {
+			print(", ")
+		}
+	}
+	if multiple_lines {
+		for j := 0; j < ind; j++ {
+			print(" ")
+		}
+	}
 }
