@@ -51,5 +51,6 @@ func main() {
 	irReduceDefs(&ir)
 
 	ll_mod := llModuleFrom(&ir, name_main)
+	llPopulateAutoTypes(&ll_mod)
 	llEmit(&ll_mod)
 }

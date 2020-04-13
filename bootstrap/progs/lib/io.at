@@ -11,7 +11,7 @@ writeTo := /define {} /I16 { #str_ptr: /P, #str_len: /I, #out_file: /P } {
   ],
   #end: [
     /let #ret_val = /phi /I16 { #begin: 0, #err_case: #err_code },
-    /ret (/I16 #ret_val),
+    /ret (/_ #ret_val),
   ]
 }
 
@@ -51,7 +51,7 @@ writeOut := /define {} /V { #str_ptr: /P, #str_len: /I } {
 readFrom := /define {} /I { #buf_ptr: /P, #buf_len: /I, #in_file: /P } {
   #: [
     /let #num_bytes_read = /call /@libcFRead /I [/P #buf_ptr, /I 1, /I #buf_len, /P #in_file],
-    /ret (/I #num_bytes_read),
+    /ret (/_ #num_bytes_read),
   ],
 }
 
@@ -70,6 +70,6 @@ readInOrDie := /define {} /I { #buf_ptr: /P, #buf_len: /I } {
   ],
   #end: [
     /let #n_ok = /phi /I { #begin: #num_bytes_read },
-    /ret (/I #n_ok),
+    /ret (/_ #n_ok),
   ],
 }

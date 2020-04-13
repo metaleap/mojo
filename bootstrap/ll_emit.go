@@ -26,28 +26,6 @@ func llEmit(ll_something Any) {
 		llEmitInstrSwitch(&ll)
 	case LLInstrConvert:
 		llEmitInstrConvert(&ll)
-	case LLTypeVoid:
-		llEmitTypeVoid()
-	case LLTypeInt:
-		llEmitTypeInt(&ll)
-	case LLTypePtr:
-		llEmitTypePtr(&ll)
-	case LLTypeArr:
-		llEmitTypeArr(&ll)
-	case LLTypeStruct:
-		llEmitTypeStruct(&ll)
-	case LLTypeFunc:
-		llEmitTypeFunc(&ll)
-	case LLExprIdentLocal:
-		llEmitExprIdentLocal(ll)
-	case LLExprIdentGlobal:
-		llEmitExprIdentGlobal(ll)
-	case LLExprLitInt:
-		llEmitExprLitInt(ll)
-	case LLExprLitStr:
-		llEmitExprLitStr(ll)
-	case LLExprTyped:
-		llEmitExprTyped(&ll)
 	case LLInstrAlloca:
 		llEmitInstrAlloca(&ll)
 	case LLInstrLoad:
@@ -64,6 +42,30 @@ func llEmit(ll_something Any) {
 		llEmitInstrPhi(&ll)
 	case LLInstrGep:
 		llEmitInstrGep(&ll)
+	case LLExprIdentLocal:
+		llEmitExprIdentLocal(ll)
+	case LLExprIdentGlobal:
+		llEmitExprIdentGlobal(ll)
+	case LLExprLitInt:
+		llEmitExprLitInt(ll)
+	case LLExprLitStr:
+		llEmitExprLitStr(ll)
+	case LLExprTyped:
+		llEmitExprTyped(&ll)
+	case LLTypeAuto:
+		fail("BUG: auto-type made it to llEmit()")
+	case LLTypeVoid:
+		llEmitTypeVoid()
+	case LLTypeInt:
+		llEmitTypeInt(&ll)
+	case LLTypePtr:
+		llEmitTypePtr(&ll)
+	case LLTypeArr:
+		llEmitTypeArr(&ll)
+	case LLTypeStruct:
+		llEmitTypeStruct(&ll)
+	case LLTypeFunc:
+		llEmitTypeFunc(&ll)
 	case Any:
 		switch ll_inner := ll.(type) {
 		case nil:

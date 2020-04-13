@@ -197,13 +197,15 @@ type LLTypeInt struct {
 
 type LLTypeVoid struct{}
 
+type LLTypeAuto struct{}
+
 type LLTypePtr struct {
 	ty LLType
 }
 
 type LLTypeArr struct {
 	ty   LLType
-	size uint64
+	size int
 }
 
 type LLTypeStruct struct {
@@ -236,26 +238,140 @@ func llExprToTyped(expr LLExpr, ty_fallback LLType) LLExprTyped {
 	return LLExprTyped{ty: ty_fallback, expr: expr}
 }
 
-func llTypeEql(t1 LLType, t2 LLType) bool {
-	assert(t1 != nil && t2 != nil)
-	switch tl := t1.(type) {
+func llPopulateAutoTypes(ll_mod *LLModule) {
+	for i := range ll_mod.globals {
+		llPopulateAutoTypesInGlobal(ll_mod, &ll_mod.globals[i])
+	}
+	for i := range ll_mod.funcs {
+		llPopulateAutoTypesInFunc(ll_mod, &ll_mod.funcs[i])
+	}
+}
+
+func llPopulateAutoTypesInGlobal(ll_mod *LLModule, ll_global *LLGlobal) {
+	if !llTypeIsOrHasAuto(ll_global.ty) {
+		return
+	}
+	switch initer := ll_global.initializer.(type) {
+	case LLExprLitStr:
+		ll_global.ty = LLTypeArr{size: len(initer), ty: LLTypeInt{bit_width: 8}}
+	default:
+		panic(initer)
+	}
+}
+
+func llPopulateAutoTypesInFunc(ll_mod *LLModule, ll_func *LLFunc) {
+	for i := range ll_func.basic_blocks {
+		for j, instr := range ll_func.basic_blocks[i].instrs {
+			ll_func.basic_blocks[i].instrs[j] = llPopulateAutoTypesInInstr(ll_mod, ll_func, instr)
+		}
+	}
+}
+
+func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, ll_instr LLInstr) LLInstr {
+	switch instr := ll_instr.(type) {
+	case LLInstrAlloca:
+		if llTypeIsAuto(instr.num_elems.ty) {
+			instr.num_elems.ty = LLTypeInt{bit_width: ll_target_word_bit_width}
+		}
+		ll_instr = instr
+	case LLInstrBinOp:
+		ll_instr = instr
+	case LLInstrCall:
+		ll_instr = instr
+	case LLInstrCmpI:
+		ll_instr = instr
+	case LLInstrGep:
+		ll_instr = instr
+	case LLInstrLoad:
+		ll_instr = instr
+	case LLInstrStore:
+		ll_instr = instr
+	case LLInstrPhi:
+		ll_instr = instr
+	case LLInstrBrIf:
+		ll_instr = instr
+	case LLInstrBrTo:
+		ll_instr = instr
+	case LLInstrComment:
+		ll_instr = instr
+	case LLInstrLet:
+		ll_instr = instr
+	case LLInstrRet:
+		if llTypeIsAuto(instr.expr.ty) {
+			instr.expr.ty = ll_func.ty
+		}
+		ll_instr = instr
+	case LLInstrSwitch:
+		ll_instr = instr
+	case LLInstrUnreachable:
+		ll_instr = instr
+	case LLInstrConvert:
+		ll_instr = instr
+	default:
+		panic(instr)
+	}
+	return ll_instr
+}
+
+func llExprUnAutoTyped(ll_mod *LLModule, ll_func *LLFunc, ll_expr LLExpr) LLExpr {
+	// switch expr:=ll_expr
+	return ll_expr
+}
+
+func llTypeIsAuto(ll_type LLType) bool {
+	_, is := ll_type.(LLTypeAuto)
+	return is
+}
+
+func llTypeIsOrHasAuto(ll_type LLType) bool {
+	switch ty := ll_type.(type) {
+	case LLTypeVoid, LLTypeInt:
+		return false
+	case LLTypeAuto:
+		return true
+	case LLTypeArr:
+		return llTypeIsOrHasAuto(ty.ty)
+	case LLTypeFunc:
+		for i := range ty.params {
+			if llTypeIsOrHasAuto(ty.params[i]) {
+				return true
+			}
+		}
+		return llTypeIsOrHasAuto(ty.ty)
+	case LLTypePtr:
+		return llTypeIsOrHasAuto(ty.ty)
+	case LLTypeStruct:
+		for i := range ty.fields {
+			if llTypeIsOrHasAuto(ty.fields[i]) {
+				return true
+			}
+		}
+	default:
+		panic(ty)
+	}
+	return false
+}
+
+func llTypeEql(ty1 LLType, ty2 LLType) bool {
+	assert(ty1 != nil && ty2 != nil)
+	switch tl := ty1.(type) {
 	case LLTypeVoid:
-		_, ok := t2.(LLTypeVoid)
+		_, ok := ty2.(LLTypeVoid)
 		return ok
 	case LLTypeInt:
-		if tr, ok := t2.(LLTypeInt); ok {
+		if tr, ok := ty2.(LLTypeInt); ok {
 			return tl.bit_width == tr.bit_width
 		}
 	case LLTypePtr:
-		if tr, ok := t2.(LLTypePtr); ok {
+		if tr, ok := ty2.(LLTypePtr); ok {
 			return llTypeEql(tl.ty, tr.ty)
 		}
 	case LLTypeArr:
-		if tr, ok := t2.(LLTypeArr); ok {
+		if tr, ok := ty2.(LLTypeArr); ok {
 			return tl.size == tr.size && llTypeEql(tl.ty, tr.ty)
 		}
 	case LLTypeStruct:
-		if tr, ok := t2.(LLTypeStruct); ok && len(tl.fields) == len(tr.fields) {
+		if tr, ok := ty2.(LLTypeStruct); ok && len(tl.fields) == len(tr.fields) {
 			for i, tl_field_ty := range tl.fields {
 				if !llTypeEql(tl_field_ty, tr.fields[i]) {
 					return false
@@ -264,7 +380,7 @@ func llTypeEql(t1 LLType, t2 LLType) bool {
 			return true
 		}
 	case LLTypeFunc:
-		if tr, ok := t2.(LLTypeFunc); ok && len(tl.params) == len(tr.params) && llTypeEql(tl.ty, tr.ty) {
+		if tr, ok := ty2.(LLTypeFunc); ok && len(tl.params) == len(tr.params) && llTypeEql(tl.ty, tr.ty) {
 			for i, tl_param_ty := range tl.params {
 				if !llTypeEql(tl_param_ty, tr.params[i]) {
 					return false
@@ -282,6 +398,7 @@ func (LLTypeInt) implementsLLType()    {}
 func (LLTypePtr) implementsLLType()    {}
 func (LLTypeStruct) implementsLLType() {}
 func (LLTypeVoid) implementsLLType()   {}
+func (LLTypeAuto) implementsLLType()   {}
 
 func (LLExprIdentGlobal) implementsLLExpr() {}
 func (LLExprIdentLocal) implementsLLExpr()  {}
@@ -307,8 +424,8 @@ func (LLInstrSwitch) implementsLLInstr()      {}
 func (LLInstrUnreachable) implementsLLInstr() {}
 func (LLInstrConvert) implementsLLInstr()     {}
 
-// func (LLInstrSelect) implementsLLExpr()  {}
-// func (LLInstrCmpF) implementsLLExpr()    {}
+// instrs that can be LLVM-IR "constant-expressions":
+
 func (LLInstrConvert) implementsLLExpr() {}
 func (LLInstrGep) implementsLLExpr()     {}
 func (LLInstrCmpI) implementsLLExpr()    {}

@@ -126,7 +126,7 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 		}
 	case IrExprSlashed:
 		kwd := expr[0].(IrExprIdent)
-		if kwd[0] >= 'A' && kwd[0] <= 'Z' {
+		if kwd[0] >= 'A' && kwd[0] <= 'Z' || (kwd[0] == '_' && len(kwd) == 1) {
 			return irToLLType(ctx, expr)
 		} else if strEq(kwd, "unreachable") {
 			return LLInstrUnreachable{}
@@ -144,27 +144,31 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 
 func irToLLType(ctx *CtxIrToLL, expr IrExprSlashed) LLType {
 	kwd := expr[0].(IrExprIdent)
-	if kwd[0] == 'V' {
-		return LLTypeVoid{}
-	} else if kwd[0] == 'I' {
-		assert(len(expr) == 1)
-		if len(kwd) == 1 {
-			return LLTypeInt{bit_width: ll_target_word_bit_width}
+	if len(kwd) == 1 || kwd[0] == 'I' {
+		if kwd[0] == 'V' {
+			return LLTypeVoid{}
+		} else if kwd[0] == '_' {
+			return LLTypeAuto{}
+		} else if kwd[0] == 'I' {
+			assert(len(expr) == 1)
+			if len(kwd) == 1 {
+				return LLTypeInt{bit_width: ll_target_word_bit_width}
+			}
+			return LLTypeInt{bit_width: uintFromStr(kwd[1:])}
+		} else if kwd[0] == 'A' {
+			assert(len(expr) == 3)
+			size := expr[1].(IrExprLitInt)
+			assert(size > 0)
+			return LLTypeArr{size: int(size), ty: irToLL(ctx, IrExprSlashed(expr[2:])).(LLType)}
+		} else if kwd[0] == 'P' {
+			ret_ty := LLTypePtr{}
+			if len(expr) > 1 {
+				ret_ty.ty = irToLL(ctx, IrExprSlashed(expr[1:])).(LLType)
+			} else {
+				ret_ty.ty = LLTypeInt{bit_width: 8}
+			}
+			return ret_ty
 		}
-		return LLTypeInt{bit_width: uintFromStr(kwd[1:])}
-	} else if kwd[0] == 'A' {
-		assert(len(expr) == 3)
-		size := expr[1].(IrExprLitInt)
-		assert(size > 0)
-		return LLTypeArr{size: uint64(size), ty: irToLL(ctx, IrExprSlashed(expr[2:])).(LLType)}
-	} else if kwd[0] == 'P' {
-		ret_ty := LLTypePtr{}
-		if len(expr) > 1 {
-			ret_ty.ty = irToLL(ctx, IrExprSlashed(expr[1:])).(LLType)
-		} else {
-			ret_ty.ty = LLTypeInt{bit_width: 8}
-		}
-		return ret_ty
 	}
 	panic("Ty-KWD\t" + string(kwd))
 }

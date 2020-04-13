@@ -5,7 +5,7 @@ main := /define {} /I32 {} {
     /let #n = /call /@readInOrDie /I [/P #buf, /I 1024],
     /call /@reverseBytes /V [/P #buf, /I #n],
     /call /@writeOut /V [/P #buf, /I #n],
-    /ret (/I32 0),
+    /ret (/_ 0),
   ],
 }
 
