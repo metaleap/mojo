@@ -1,17 +1,17 @@
 
 ptrIncr := /define {} /P { #ptr: /P, #incr_by_bytes: /I } {
   #: [
-    /let { #ptr_as_int: /as /I (/P #ptr) },
-    /let { #ptr_int_incr: /op #add /I #incr_by_bytes #ptr_as_int },
-    /let { #int_as_ptr: /as /P (/I #ptr_int_incr) },
+    /let #ptr_as_int = /as /I (/P #ptr),
+    /let #ptr_int_incr = /op #add /I #incr_by_bytes #ptr_as_int,
+    /let #int_as_ptr = /as /P (/I #ptr_int_incr),
     /ret (/P #int_as_ptr),
   ],
 }
 
 swapBytes := /define {} /V { #ptr_l: /P, #ptr_r: /P } {
   #: [
-    /let { #byte_l: /load /I8 #ptr_l },
-    /let { #byte_r: /load /I8 #ptr_r },
+    /let #byte_l = /load /I8 #ptr_l,
+    /let #byte_r = /load /I8 #ptr_r,
     /store #ptr_l (/I8 #byte_r),
     /store #ptr_r (/I8 #byte_l),
     /ret,

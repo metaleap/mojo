@@ -441,14 +441,11 @@ func irToLLInstrGep(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrGep {
 }
 
 func irToLLInstrLet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrLet {
-	assert(len(expr_form) == 2)
-	lit_obj_pair := expr_form[1].(IrExprObj)
-	assert(len(lit_obj_pair) == 1)
-	pair := lit_obj_pair[0].(IrExprInfix)
-	assert(strEq(pair.kind, ":"))
+	assert(len(expr_form) >= 4)
+	assert(strEq(expr_form[2].(IrExprIdent), "="))
 
 	var instr LLInstr
-	ll_sth := irToLL(ctx, pair.rhs)
+	ll_sth := irToLL(ctx, IrExprForm(expr_form[3:]))
 	if instr, _ = ll_sth.(LLInstr); instr == nil {
 		expr_ty := ll_sth.(LLExprTyped)
 		instr = LLInstrBinOp{
@@ -459,7 +456,7 @@ func irToLLInstrLet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrLet {
 		}
 	}
 	return LLInstrLet{
-		name:  pair.lhs.(IrExprTag),
+		name:  expr_form[1].(IrExprTag),
 		instr: instr,
 	}
 }
