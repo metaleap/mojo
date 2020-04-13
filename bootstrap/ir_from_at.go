@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 type Ir struct {
 	origin_ast *Ast
 	defs       []IrDef
@@ -289,20 +291,33 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 		ret_expr = IrExprForm(ret_form)
 		switch callee := ret_form[0].(type) {
 		case IrExprDefRef:
-			ref_def := &ctx.ir.defs[callee]
-			irReduceDef(ctx, int(callee))
+			def_ref := callee
+			for {
+				ref_def := &ctx.ir.defs[def_ref]
+				irReduceDef(ctx, int(def_ref))
+
+				println("GOT ", string(ref_def.name), ref_def.num_params, fmt.Sprintf("%T", ref_def.body))
+
+				if ref_def.num_params != 0 {
+					break
+				} else if alias, is := ref_def.body.(IrExprDefRef); is {
+					def_ref = alias
+				} else {
+					break
+				}
+			}
 			old_args := ctx.args
 			ctx.args = ret_form[1:]
-			ret_expr = irReduceExpr(ctx, ref_def.body)
+			ret_expr = irReduceExpr(ctx, ctx.ir.defs[def_ref].body)
 			ctx.args = old_args
 		}
 	}
-	// if !irExprEquiv(ir_expr, ret_expr) {
-	// 	print("\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n// EVAL'D:\n  ")
-	// 	irExprDbgPrint(ctx.ir, ir_expr, 2)
-	// 	print("\n// TO:\n  ")
-	// 	irExprDbgPrint(ctx.ir, ret_expr, 2)
-	// }
+	if !irExprEquiv(ir_expr, ret_expr) {
+		print("\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n// EVAL'D:\n  ")
+		irExprDbgPrint(ctx.ir, ir_expr, 2)
+		print("\n// TO:\n  ")
+		irExprDbgPrint(ctx.ir, ret_expr, 2)
+	}
 	return ret_expr
 }
 
