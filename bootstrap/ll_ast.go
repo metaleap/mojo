@@ -231,6 +231,13 @@ func llTopLevelNameFrom(ll_mod *LLModule, ir_def *IrDef, num_globals int, num_fu
 	return nil
 }
 
+func llExprToTyped(expr LLExpr, ty_fallback LLType) LLExprTyped {
+	if expr_typed, is := expr.(LLExprTyped); is {
+		return expr_typed
+	}
+	return LLExprTyped{ty: ty_fallback, expr: expr}
+}
+
 func llTypeEql(t1 LLType, t2 LLType) bool {
 	assert(t1 != nil && t2 != nil)
 	switch tl := t1.(type) {

@@ -246,10 +246,10 @@ func astDefHoistLocalDefsToTopDefs(ast *Ast, cur_def *AstDef, top_defs []AstDef,
 				}
 			}
 			if !already_hoisted {
+				top_defs_len = astDefHoistLocalDefsToTopDefs(ast, refd_def, top_defs, top_defs_len, name_pref, true)
 				top_defs[top_defs_len] = *refd_def
 				top_defs[top_defs_len].anns.name = new_name
 				top_defs_len++
-				top_defs_len = astDefHoistLocalDefsToTopDefs(ast, refd_def, top_defs, top_defs_len, name_pref, true)
 			}
 		}
 	}

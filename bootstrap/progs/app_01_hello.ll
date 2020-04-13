@@ -45,8 +45,8 @@ b.2:
 
 define i32 @main() {
 b.1:
-  %msg = getelementptr [11 x i8], [11 x i8]* @msg, i64 0, i64 0
-  call void @writeOut(i8* %msg, i64 11)
+  %msg = getelementptr [13 x i8], [13 x i8]* @msg, i64 0, i64 0
+  call void @writeOut(i8* %msg, i64 13)
   ret i32 0
 }
 

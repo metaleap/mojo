@@ -49,6 +49,7 @@ func main() {
 
 	ir := irFromAst(&ast, &AstExpr{kind: AstExprIdent(name_main)})
 	irReduceDefs(&ir)
-	// ll_mod := llModuleFrom(&ir, name_main)
-	// llEmit(&ll_mod)
+
+	ll_mod := llModuleFrom(&ir, name_main)
+	llEmit(&ll_mod)
 }

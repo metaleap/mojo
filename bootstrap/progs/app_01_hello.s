@@ -66,23 +66,6 @@ writeToStd:                             # @writeToStd
 	.size	writeToStd, .Lfunc_end1-writeToStd
 	.cfi_endproc
                                         # -- End function
-	.globl	writeErr                # -- Begin function writeErr
-	.p2align	4, 0x90
-	.type	writeErr,@function
-writeErr:                               # @writeErr
-	.cfi_startproc
-# %bb.0:                                # %b.1
-	pushq	%rax
-	.cfi_def_cfa_offset 16
-	movq	stderr@GOTPCREL(%rip), %rdx
-	callq	writeToStd@PLT
-	popq	%rax
-	.cfi_def_cfa_offset 8
-	retq
-.Lfunc_end2:
-	.size	writeErr, .Lfunc_end2-writeErr
-	.cfi_endproc
-                                        # -- End function
 	.globl	writeOut                # -- Begin function writeOut
 	.p2align	4, 0x90
 	.type	writeOut,@function
@@ -96,94 +79,8 @@ writeOut:                               # @writeOut
 	popq	%rax
 	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end3:
-	.size	writeOut, .Lfunc_end3-writeOut
-	.cfi_endproc
-                                        # -- End function
-	.globl	readFrom                # -- Begin function readFrom
-	.p2align	4, 0x90
-	.type	readFrom,@function
-readFrom:                               # @readFrom
-	.cfi_startproc
-# %bb.0:                                # %b.3
-	pushq	%rax
-	.cfi_def_cfa_offset 16
-	movq	%rdx, %rcx
-	movq	%rsi, %rdx
-	movl	$1, %esi
-	callq	fread@PLT
-	popq	%rcx
-	.cfi_def_cfa_offset 8
-	retq
-.Lfunc_end4:
-	.size	readFrom, .Lfunc_end4-readFrom
-	.cfi_endproc
-                                        # -- End function
-	.globl	readInOrDie             # -- Begin function readInOrDie
-	.p2align	4, 0x90
-	.type	readInOrDie,@function
-readInOrDie:                            # @readInOrDie
-	.cfi_startproc
-# %bb.0:                                # %begin
-	pushq	%r14
-	.cfi_def_cfa_offset 16
-	pushq	%rbx
-	.cfi_def_cfa_offset 24
-	pushq	%rax
-	.cfi_def_cfa_offset 32
-	.cfi_offset %rbx, -24
-	.cfi_offset %r14, -16
-	movq	stdin@GOTPCREL(%rip), %rax
-	movq	(%rax), %rbx
-	movq	%rbx, %rdx
-	callq	readFrom@PLT
-	movq	%rax, %r14
-	movq	%rbx, %rdi
-	callq	ferror@PLT
-	testw	%ax, %ax
-	jne	.LBB5_2
-# %bb.1:                                # %end
-	movq	%r14, %rax
-	addq	$8, %rsp
-	.cfi_def_cfa_offset 24
-	popq	%rbx
-	.cfi_def_cfa_offset 16
-	popq	%r14
-	.cfi_def_cfa_offset 8
-	retq
-.LBB5_2:                                # %die
-	.cfi_def_cfa_offset 32
-	movl	$1, %edi
-	callq	exit@PLT
-.Lfunc_end5:
-	.size	readInOrDie, .Lfunc_end5-readInOrDie
-	.cfi_endproc
-                                        # -- End function
-	.globl	ptrIncr                 # -- Begin function ptrIncr
-	.p2align	4, 0x90
-	.type	ptrIncr,@function
-ptrIncr:                                # @ptrIncr
-	.cfi_startproc
-# %bb.0:                                # %b.4
-	leaq	(%rdi,%rsi), %rax
-	retq
-.Lfunc_end6:
-	.size	ptrIncr, .Lfunc_end6-ptrIncr
-	.cfi_endproc
-                                        # -- End function
-	.globl	swapBytes               # -- Begin function swapBytes
-	.p2align	4, 0x90
-	.type	swapBytes,@function
-swapBytes:                              # @swapBytes
-	.cfi_startproc
-# %bb.0:                                # %b.5
-	movb	(%rdi), %al
-	movb	(%rsi), %cl
-	movb	%cl, (%rdi)
-	movb	%al, (%rsi)
-	retq
-.Lfunc_end7:
-	.size	swapBytes, .Lfunc_end7-swapBytes
+.Lfunc_end2:
+	.size	writeOut, .Lfunc_end2-writeOut
 	.cfi_endproc
                                         # -- End function
 	.globl	main                    # -- Begin function main
@@ -191,26 +88,26 @@ swapBytes:                              # @swapBytes
 	.type	main,@function
 main:                                   # @main
 	.cfi_startproc
-# %bb.0:                                # %b.6
+# %bb.0:                                # %b.1
 	pushq	%rax
 	.cfi_def_cfa_offset 16
 	movq	msg@GOTPCREL(%rip), %rdi
-	movl	$11, %esi
+	movl	$13, %esi
 	callq	writeOut@PLT
 	xorl	%eax, %eax
 	popq	%rcx
 	.cfi_def_cfa_offset 8
 	retq
-.Lfunc_end8:
-	.size	main, .Lfunc_end8-main
+.Lfunc_end3:
+	.size	main, .Lfunc_end3-main
 	.cfi_endproc
                                         # -- End function
 	.type	msg,@object             # @msg
 	.section	.rodata,"a",@progbits
 	.globl	msg
 msg:
-	.ascii	"Hola Welt.\n"
-	.size	msg, 11
+	.ascii	"Hello World.\n"
+	.size	msg, 13
 
 
 	.section	".note.GNU-stack","",@progbits

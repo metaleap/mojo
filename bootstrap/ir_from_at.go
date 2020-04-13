@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 type Ir struct {
 	origin_ast *Ast
 	defs       []IrDef
@@ -100,30 +98,41 @@ func irExprFrom(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 		} else if resolved.param_idx >= 0 {
 			return IrExprArgRef(resolved.param_idx)
 		} else {
-			assert(resolved.top_def == resolved.ref_def)
+			ref_def := resolved.ref_def
+			assert(resolved.top_def == ref_def)
 			ir_def_idx := -1
 			for i := range ctx.dst.defs[0:ctx.num_defs] {
-				if ctx.dst.defs[i].origin_def == resolved.ref_def {
+				if ctx.dst.defs[i].origin_def == ref_def {
 					ir_def_idx = i
 					break
 				}
 			}
 			if ir_def_idx < 0 {
 				ir_def := IrDef{
-					origin_def: resolved.ref_def,
-					name:       resolved.ref_def.anns.name,
+					origin_def: ref_def,
+					name:       ref_def.anns.name,
 					num_params: 0,
 				}
-				if head_form, _ := resolved.ref_def.head.kind.(AstExprForm); head_form != nil {
+				if head_form, _ := ref_def.head.kind.(AstExprForm); head_form != nil {
 					ir_def.num_params = len(head_form) - 1
 				}
 				ir_def_idx = ctx.num_defs
 				ctx.num_defs++
 				ctx.dst.defs[ir_def_idx] = ir_def
 				old_scope := ctx.scope
-				ctx.scope = &resolved.ref_def.scope
-				ctx.dst.defs[ir_def_idx].body = irExprFrom(ctx, &resolved.ref_def.body)
+				ctx.scope = &ref_def.scope
+				ctx.dst.defs[ir_def_idx].body = irExprFrom(ctx, &ref_def.body)
 				ctx.scope = old_scope
+			}
+			for {
+				def := ctx.dst.defs[ir_def_idx]
+				if def.num_params != 0 {
+					break
+				} else if alias, is := def.body.(IrExprDefRef); is {
+					ir_def_idx = int(alias)
+				} else {
+					break
+				}
 			}
 			return IrExprDefRef(ir_def_idx)
 		}
@@ -295,9 +304,6 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 			for {
 				ref_def := &ctx.ir.defs[def_ref]
 				irReduceDef(ctx, int(def_ref))
-
-				println("GOT ", string(ref_def.name), ref_def.num_params, fmt.Sprintf("%T", ref_def.body))
-
 				if ref_def.num_params != 0 {
 					break
 				} else if alias, is := ref_def.body.(IrExprDefRef); is {

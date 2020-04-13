@@ -59,6 +59,7 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 			if 0 == len(ll_top_level_item.name) {
 				ll_top_level_item.name = ref_def.name
 			}
+			println(string(ll_top_level_item.name), ctx.num_funcs, len(ctx.ll_mod.funcs))
 			ctx.ll_mod.funcs[ctx.num_funcs] = ll_top_level_item
 			ctx.num_funcs++
 			return LLExprIdentGlobal(ll_top_level_item.name)
@@ -90,6 +91,8 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 					return irToLLInstrCall(ctx, expr)
 				} else if strEq(kwd, "load") {
 					return irToLLInstrLoad(ctx, expr)
+				} else if strEq(kwd, "store") {
+					return irToLLInstrStore(ctx, expr)
 				} else if strEq(kwd, "op") {
 					return irToLLInstrBinOp(ctx, expr)
 				} else if strEq(kwd, "icmp") {
@@ -98,6 +101,10 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 					return irToLLInstrBrIf(ctx, expr)
 				} else if strEq(kwd, "brTo") {
 					return irToLLInstrBrTo(ctx, expr)
+				} else if strEq(kwd, "as") {
+					return irToLLInstrConvert(ctx, expr)
+				} else if strEq(kwd, "alloca") {
+					return irToLLInstrAlloca(ctx, expr)
 				}
 			}
 			switch ll_sth := irToLL(ctx, callee).(type) {
@@ -235,6 +242,11 @@ func irToLLFuncDef(ctx *CtxIrToLL, expr_form IrExprForm) LLFunc {
 	return ret_func
 }
 
+func irToLLInstrRet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrRet {
+	assert(len(expr_form) == 2)
+	return LLInstrRet{expr: irToLL(ctx, expr_form[1]).(LLExprTyped)}
+}
+
 func irToLLInstrBrTo(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrBrTo {
 	assert(len(expr_form) == 2)
 	ret_br := LLInstrBrTo{
@@ -253,9 +265,37 @@ func irToLLInstrBrIf(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrBrIf {
 	return ret_br
 }
 
-func irToLLInstrRet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrRet {
-	assert(len(expr_form) == 2)
-	return LLInstrRet{expr: irToLL(ctx, expr_form[1]).(LLExprTyped)}
+func irToLLInstrAlloca(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrAlloca {
+	assert(len(expr_form) == 3)
+	ret_alloca := LLInstrAlloca{
+		ty:        irToLL(ctx, expr_form[1]).(LLType),
+		num_elems: irToLL(ctx, expr_form[2]).(LLExprTyped),
+	}
+	return ret_alloca
+}
+
+func irToLLInstrConvert(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrConvert {
+	assert(len(expr_form) == 3)
+	ret_conv := LLInstrConvert{
+		convert_kind: 0,
+		ty:           irToLL(ctx, expr_form[1]).(LLType),
+		expr:         irToLL(ctx, expr_form[2]).(LLExprTyped),
+	}
+	ty_src := ret_conv.expr.ty
+	switch ty_dst := ret_conv.ty.(type) {
+	case LLTypePtr:
+		ret_conv.convert_kind = ll_convert_int_to_ptr
+	case LLTypeInt:
+		if ty_src_int, is_ty_src_int := ty_src.(LLTypeInt); is_ty_src_int {
+			if ty_src_int.bit_width > ty_dst.bit_width {
+				ret_conv.convert_kind = ll_convert_trunc
+			}
+		} else if _, is_ty_src_ptr := ty_src.(LLTypePtr); is_ty_src_ptr {
+			ret_conv.convert_kind = ll_convert_ptr_to_int
+		}
+	}
+	assert(ret_conv.convert_kind != 0)
+	return ret_conv
 }
 
 func irToLLInstrBinOp(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrBinOp {
@@ -314,16 +354,22 @@ func irToLLInstrCmpI(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrCmpI {
 	return ret_cmp
 }
 
+func irToLLInstrStore(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrStore {
+	assert(len(expr_form) == 3)
+	expr := irToLL(ctx, expr_form[2]).(LLExprTyped)
+	ret_store := LLInstrStore{
+		expr: expr,
+		dst:  llExprToTyped(irToLL(ctx, expr_form[1]).(LLExpr), expr.ty),
+	}
+	return ret_store
+}
+
 func irToLLInstrLoad(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrLoad {
 	assert(len(expr_form) == 3)
+	ty := irToLL(ctx, expr_form[1]).(LLType)
 	ret_load := LLInstrLoad{
-		ty:   irToLL(ctx, expr_form[1]).(LLType),
-		expr: LLExprTyped{expr: irToLL(ctx, expr_form[2]).(LLExpr)},
-	}
-	if expr_ty, is_expr_ty := ret_load.expr.expr.(LLExprTyped); is_expr_ty {
-		ret_load.expr = expr_ty
-	} else {
-		ret_load.expr.ty = LLTypePtr{ty: ret_load.ty}
+		ty:   ty,
+		expr: llExprToTyped(irToLL(ctx, expr_form[2]).(LLExpr), LLTypePtr{ty: ty}),
 	}
 	return ret_load
 }
