@@ -15,7 +15,7 @@ main := /define {} /I32 {} {
       /I 0, // the /P/A/13/I8
       /I 0, // the /P/I8
     ],
-    /call /@writeOut /_ [/P #msg, /I 13 ],
+    /call /@writeOut [/P #msg, /I 13 ],
     /ret 0,
   ],
 }

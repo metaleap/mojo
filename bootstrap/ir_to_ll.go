@@ -380,11 +380,11 @@ func irToLLInstrLoad(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrLoad {
 }
 
 func irToLLInstrCall(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrCall {
-	assert(len(expr_form) == 4)
-	lit_arr_args := expr_form[3].(IrExprArr)
+	assert(len(expr_form) == 3)
+	lit_arr_args := expr_form[2].(IrExprArr)
 	ret_call := LLInstrCall{
 		callee: irToLL(ctx, expr_form[1]).(LLExprIdentGlobal),
-		ty:     irToLL(ctx, expr_form[2]).(LLType),
+		ty:     LLTypeAuto{},
 		args:   allocˇLLExprTyped(len(lit_arr_args)),
 	}
 	for i := range lit_arr_args {
