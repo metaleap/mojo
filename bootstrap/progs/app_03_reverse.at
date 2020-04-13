@@ -2,30 +2,30 @@
 main := /define {} /I32 {} {
   #: [
     /let #buf = /alloca /I8 (/I32 1024),
-    /let #n = /call /@readInOrDie [/P #buf, /I 1024],
-    /call /@reverseBytes [/P #buf, /I #n],
-    /call /@writeOut [/P #buf, /I #n],
+    /let #n = /call /@readInOrDie [#buf, 1024],
+    /call /@reverseBytes [#buf, #n],
+    /call /@writeOut [#buf, #n],
     /ret 0,
   ],
 }
 
 reverseBytes := /define {} /V { #buf: /P, #len: /I } {
     #begin: [
-      /let #len_leq_1 = /icmp #ule /I #len 1, // len_leq_1 := (len <= 1)
+      /let #len_leq_1 = /icmp #ule /_ #len 1, // len_leq_1 := (len <= 1)
       /brIf #len_leq_1 #end #prep,            // if len_leq_1 end else loop
     ],
     #prep: [
-      /let #len_half = /op #udiv /I #len 2, // len_half := len / 2
-      /let #i_last = /op #sub /I #len 1,    // i_last := len - 1
+      /let #len_half = /op #udiv /_ #len 2, // len_half := len / 2
+      /let #i_last = /op #sub /_ #len 1,    // i_last := len - 1
       /brTo #loop,
     ],
     #loop: [
       /let #i = /phi /I { #prep: 0, #loop: #i_next },         // i := from {prep: 0, loop: i_next}
       /let #i_swap = /op #sub /I #i_last #i,                  // i_swap := i_last - i
 
-      /let #ptr_l = /call /@ptrIncr [/P #buf, /I #i],      // ptr_l := buf + i
-      /let #ptr_r = /call /@ptrIncr [/P #buf, /I #i_swap], // ptr_r := buf + i_swap
-      /call /@swapBytes [/P #ptr_l, /P #ptr_r],            // swapBytes ptr_l ptr_r
+      /let #ptr_l = /call /@ptrIncr [#buf, #i],      // ptr_l := buf + i
+      /let #ptr_r = /call /@ptrIncr [#buf, #i_swap], // ptr_r := buf + i_swap
+      /call /@swapBytes [#ptr_l, #ptr_r],            // swapBytes ptr_l ptr_r
 
       /let #i_next = /op #add /I #i 1,                        // i_next := i + 1
       /let #loop_again = /icmp #ult /I #i_next #len_half,     // loop_again := i_next < len_half

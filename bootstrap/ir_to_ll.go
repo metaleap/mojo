@@ -388,7 +388,7 @@ func irToLLInstrCall(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrCall {
 		args:   allocˇLLExprTyped(len(lit_arr_args)),
 	}
 	for i := range lit_arr_args {
-		ret_call.args[i] = irToLL(ctx, lit_arr_args[i]).(LLExprTyped)
+		ret_call.args[i] = llExprToTyped(irToLL(ctx, lit_arr_args[i]).(LLExpr), LLTypeAuto{})
 	}
 	return ret_call
 }

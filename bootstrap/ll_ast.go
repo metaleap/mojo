@@ -290,15 +290,7 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 		}
 		instr.num_elems.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.num_elems.expr)
 		ll_instr = instr
-	case LLInstrBinOp:
-		instr.lhs = llExprUnAutoTyped(ll_mod, ll_func, instr.lhs)
-		instr.rhs = llExprUnAutoTyped(ll_mod, ll_func, instr.rhs)
-		ll_instr = instr
 	case LLInstrCall:
-		instr.callee = llExprUnAutoTyped(ll_mod, ll_func, instr.callee)
-		for i, arg := range instr.args {
-			instr.args[i] = llExprUnAutoTyped(ll_mod, ll_func, arg).(LLExprTyped)
-		}
 		callee, is_ident_global := instr.callee.(LLExprIdentGlobal)
 		if is_ident_global {
 			switch found := llTopLevelNameFind(ll_mod, callee).(type) {
@@ -306,10 +298,42 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 				if llTypeIsAuto(instr.ty) {
 					instr.ty = found.ty
 				}
+				for i, arg := range instr.args {
+					if llTypeIsAuto(arg.ty) {
+						arg.ty = found.params[i].ty
+						instr.args[i] = arg
+					}
+				}
 			}
 		}
+		instr.callee = llExprUnAutoTyped(ll_mod, ll_func, instr.callee)
+		for i, arg := range instr.args {
+			instr.args[i] = llExprUnAutoTyped(ll_mod, ll_func, arg).(LLExprTyped)
+		}
+		ll_instr = instr
+	case LLInstrBinOp:
+		if llTypeIsAuto(instr.ty) {
+			ty := llExprTypeIfIdentLocalReferringToFuncParam(ll_func, instr.lhs)
+			if ty == nil {
+				ty = llExprTypeIfIdentLocalReferringToFuncParam(ll_func, instr.rhs)
+			}
+			if ty != nil {
+				instr.ty = ty
+			}
+		}
+		instr.lhs = llExprUnAutoTyped(ll_mod, ll_func, instr.lhs)
+		instr.rhs = llExprUnAutoTyped(ll_mod, ll_func, instr.rhs)
 		ll_instr = instr
 	case LLInstrCmpI:
+		if llTypeIsAuto(instr.ty) {
+			ty := llExprTypeIfIdentLocalReferringToFuncParam(ll_func, instr.lhs)
+			if ty == nil {
+				ty = llExprTypeIfIdentLocalReferringToFuncParam(ll_func, instr.rhs)
+			}
+			if ty != nil {
+				instr.ty = ty
+			}
+		}
 		instr.lhs = llExprUnAutoTyped(ll_mod, ll_func, instr.lhs)
 		instr.rhs = llExprUnAutoTyped(ll_mod, ll_func, instr.rhs)
 		ll_instr = instr
@@ -357,6 +381,17 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 		panic(instr)
 	}
 	return ll_instr
+}
+
+func llExprTypeIfIdentLocalReferringToFuncParam(ll_func *LLFunc, ll_expr LLExpr) LLType {
+	if ident, _ := ll_expr.(LLExprIdentLocal); ident != nil {
+		for i := range ll_func.params {
+			if strEql(ident, ll_func.params[i].name) {
+				return ll_func.params[i].ty
+			}
+		}
+	}
+	return nil
 }
 
 func llExprUnAutoTyped(ll_mod *LLModule, ll_func *LLFunc, ll_expr LLExpr) LLExpr {

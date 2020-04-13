@@ -2,7 +2,7 @@
 ptrIncr := /define {} /P { #ptr: /P, #incr_by_bytes: /I } {
   #: [
     /let #ptr_as_int = /as /I (/P #ptr),
-    /let #ptr_int_incr = /op #add /I #incr_by_bytes #ptr_as_int,
+    /let #ptr_int_incr = /op #add /_ #incr_by_bytes #ptr_as_int,
     /let #int_as_ptr = /as /P (/I #ptr_int_incr),
     /ret #int_as_ptr,
   ],

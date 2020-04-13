@@ -1,12 +1,12 @@
 
 writeTo := /define {} /I16 { #str_ptr: /P, #str_len: /I, #out_file: /P } {
   #begin: [
-    /let #n = /call /@libcFWrite [/P #str_ptr, /I 1, /I #str_len, /P #out_file],
+    /let #n = /call /@libcFWrite [#str_ptr, 1, #str_len, #out_file],
     /let #ok = /icmp #eq /I #n #str_len,
     /brIf #ok #end #err_case,
   ],
   #err_case: [
-      /let #err_code = /call /@libcFError [/P #out_file],
+      /let #err_code = /call /@libcFError [#out_file],
       /brTo #end,
   ],
   #end: [
@@ -19,11 +19,11 @@ writeTo := /define {} /I16 { #str_ptr: /P, #str_len: /I, #out_file: /P } {
 writeToStd := /define {} /V { #str_ptr: /P, #str_len: /I, #std_file: /P/P } {
   #begin: [
     /let #out_file = /load /P #std_file,
-    /let #err = /call /@writeTo [/P #str_ptr, /I #str_len, /P #out_file],
+    /let #err = /call /@writeTo [#str_ptr, #str_len, #out_file],
     /switch (/I16 #err) #end { /I16 1: #exit_on_err },
   ],
   #exit_on_err: [
-    /call /@libcExit [/I16 1], // TODO noreturn annotation
+    /call /@libcExit [1], // TODO noreturn annotation
     /unreachable,
   ],
   #end: [
