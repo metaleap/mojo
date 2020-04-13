@@ -49,6 +49,7 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 		}
 		switch ll_top_level_item := irToLL(ctx, ref_def.body).(type) {
 		case LLGlobal:
+			ll_top_level_item.anns.orig_ir_def = ref_def
 			if 0 == len(ll_top_level_item.name) {
 				ll_top_level_item.name = ref_def.name
 			}
@@ -56,10 +57,10 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 			ctx.num_globals++
 			return LLExprIdentGlobal(ll_top_level_item.name)
 		case LLFunc:
+			ll_top_level_item.anns.orig_ir_def = ref_def
 			if 0 == len(ll_top_level_item.name) {
 				ll_top_level_item.name = ref_def.name
 			}
-			println(string(ll_top_level_item.name), ctx.num_funcs, len(ctx.ll_mod.funcs))
 			ctx.ll_mod.funcs[ctx.num_funcs] = ll_top_level_item
 			ctx.num_funcs++
 			return LLExprIdentGlobal(ll_top_level_item.name)
@@ -359,7 +360,7 @@ func irToLLInstrStore(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrStore {
 	expr := irToLL(ctx, expr_form[2]).(LLExprTyped)
 	ret_store := LLInstrStore{
 		expr: expr,
-		dst:  llExprToTyped(irToLL(ctx, expr_form[1]).(LLExpr), expr.ty),
+		dst:  llExprToTyped(irToLL(ctx, expr_form[1]).(LLExpr), LLTypePtr{ty: expr.ty}),
 	}
 	return ret_store
 }

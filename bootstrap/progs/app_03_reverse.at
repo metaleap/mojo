@@ -17,6 +17,7 @@ reverseBytes := /define {} /V { #buf: /P, #len: /I } {
     #prep: [
       /let { #len_half: /op #udiv /I #len 2 },  // len_half := len / 2
       /let { #i_last: /op #sub /I #len 1 },     // i_last := len - 1
+      /brTo #loop,
     ],
     #loop: [
       /let { #i: /phi /I { #prep: 0, #loop: #i_next } },         // i := from {prep: 0, loop: i_next}

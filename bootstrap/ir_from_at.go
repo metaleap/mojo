@@ -318,12 +318,12 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 			ctx.args = old_args
 		}
 	}
-	if !irExprEquiv(ir_expr, ret_expr) {
-		print("\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n// EVAL'D:\n  ")
-		irExprDbgPrint(ctx.ir, ir_expr, 2)
-		print("\n// TO:\n  ")
-		irExprDbgPrint(ctx.ir, ret_expr, 2)
-	}
+	// if !irExprEquiv(ir_expr, ret_expr) {
+	// 	print("\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n// EVAL'D:\n  ")
+	// 	irExprDbgPrint(ctx.ir, ir_expr, 2)
+	// 	print("\n// TO:\n  ")
+	// 	irExprDbgPrint(ctx.ir, ret_expr, 2)
+	// }
 	return ret_expr
 }
 

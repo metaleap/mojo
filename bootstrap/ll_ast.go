@@ -21,9 +21,8 @@ type LLGlobal struct {
 	ty          LLType
 	initializer LLExpr
 	anns        struct {
-		orig_ir_def          *IrDef
-		OLD_orig_ast_top_def *AstDef
-		idx                  int
+		orig_ir_def *IrDef
+		idx         int
 	}
 }
 
@@ -35,7 +34,6 @@ type LLFunc struct {
 	basic_blocks []LLBasicBlock
 	anns         struct {
 		orig_ir_def             *IrDef
-		OLD_orig_ast_top_def    *AstDef
 		local_temporaries_names []Str
 	}
 }
