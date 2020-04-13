@@ -38,6 +38,10 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 	switch expr := ir_expr.(type) {
 	case IrExprLitInt:
 		return LLExprLitInt(expr)
+	case IrExprLitStr:
+		return LLExprLitStr(expr)
+	case IrExprTag:
+		return LLExprIdentLocal(expr)
 	case IrExprDefRef:
 		ref_def := &ctx.ir.defs[expr]
 		if ident := llTopLevelNameFrom(ctx.ll_mod, ref_def, ctx.num_globals, ctx.num_funcs); ident != nil {
@@ -65,39 +69,48 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 		switch callee := expr[0].(type) {
 		case IrExprSlashed:
 			kwd := callee[0].(IrExprIdent)
-			if strEq(kwd, "define") {
-				assert(len(callee) == 1)
-				return irToLLFuncDef(ctx, expr)
-			} else if strEq(kwd, "declare") {
-				assert(len(callee) == 1)
-				return irToLLFuncDecl(ctx, expr)
-			} else if strEq(kwd, "global") {
-				assert(len(callee) == 1)
-				return irToLLGlobal(ctx, expr)
-			} else if strEq(kwd, "let") {
-				assert(len(callee) == 1)
-				return irToLLInstrLet(ctx, expr)
-			} else if strEq(kwd, "ret") {
-				assert(len(callee) == 1)
-				return irToLLInstrRet(ctx, expr)
-			} else if strEq(kwd, "gep") {
-				assert(len(callee) == 1)
-				return irToLLInstrGep(ctx, expr)
-				// }else
-			} else {
-				switch ll_sth := irToLL(ctx, callee).(type) {
-				case LLType:
-					assert(len(expr) == 2)
-					return LLExprTyped{ty: ll_sth, expr: irToLL(ctx, expr[1]).(LLExpr)}
-				default:
-					panic(ll_sth)
+			if len(callee) == 1 {
+				if strEq(kwd, "define") {
+					return irToLLFuncDef(ctx, expr)
+				} else if strEq(kwd, "declare") {
+					return irToLLFuncDecl(ctx, expr)
+				} else if strEq(kwd, "global") {
+					return irToLLGlobal(ctx, expr)
+				} else if strEq(kwd, "let") {
+					return irToLLInstrLet(ctx, expr)
+				} else if strEq(kwd, "ret") {
+					return irToLLInstrRet(ctx, expr)
+				} else if strEq(kwd, "gep") {
+					return irToLLInstrGep(ctx, expr)
+				} else if strEq(kwd, "phi") {
+					return irToLLInstrPhi(ctx, expr)
+				} else if strEq(kwd, "switch") {
+					return irToLLInstrSwitch(ctx, expr)
+				} else if strEq(kwd, "call") {
+					return irToLLInstrCall(ctx, expr)
+				} else if strEq(kwd, "load") {
+					return irToLLInstrLoad(ctx, expr)
+				} else if strEq(kwd, "op") {
+					return irToLLInstrBinOp(ctx, expr)
+				} else if strEq(kwd, "icmp") {
+					return irToLLInstrCmpI(ctx, expr)
+				} else if strEq(kwd, "brIf") {
+					return irToLLInstrBrIf(ctx, expr)
+				} else if strEq(kwd, "brTo") {
+					return irToLLInstrBrTo(ctx, expr)
 				}
+			}
+			switch ll_sth := irToLL(ctx, callee).(type) {
+			case LLType:
+				assert(len(expr) == 2)
+				return LLExprTyped{ty: ll_sth, expr: irToLL(ctx, expr[1]).(LLExpr)}
+			default:
+				panic(ll_sth)
 			}
 		case IrExprIdent:
 			if strEq(callee, "/@") {
 				assert(len(expr) == 2)
-				ref_def := &ctx.ir.defs[expr[1].(IrExprDefRef)]
-				return LLExprIdentGlobal(ref_def.name)
+				return irToLL(ctx, expr[1].(IrExprDefRef)).(LLExprIdentGlobal)
 			}
 			panic("CALLEE-Ident\t" + string(callee))
 		default:
@@ -107,6 +120,10 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 		kwd := expr[0].(IrExprIdent)
 		if kwd[0] >= 'A' && kwd[0] <= 'Z' {
 			return irToLLType(ctx, expr)
+		} else if strEq(kwd, "unreachable") {
+			return LLInstrUnreachable{}
+		} else if strEq(kwd, "ret") {
+			return LLInstrRet{expr: LLExprTyped{ty: LLTypeVoid{}, expr: LLExprLitVoid{}}}
 		}
 		panic("KWD\t/" + string(kwd))
 	case IrExprIdent:
@@ -114,12 +131,14 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 	default:
 		panic(expr)
 	}
-	return nil
+	panic(ir_expr)
 }
 
 func irToLLType(ctx *CtxIrToLL, expr IrExprSlashed) LLType {
 	kwd := expr[0].(IrExprIdent)
-	if kwd[0] == 'I' {
+	if kwd[0] == 'V' {
+		return LLTypeVoid{}
+	} else if kwd[0] == 'I' {
 		assert(len(expr) == 1)
 		if len(kwd) == 1 {
 			return LLTypeInt{bit_width: ll_target_word_bit_width}
@@ -134,6 +153,8 @@ func irToLLType(ctx *CtxIrToLL, expr IrExprSlashed) LLType {
 		ret_ty := LLTypePtr{}
 		if len(expr) > 1 {
 			ret_ty.ty = irToLL(ctx, IrExprSlashed(expr[1:])).(LLType)
+		} else {
+			ret_ty.ty = LLTypeInt{bit_width: 8}
 		}
 		return ret_ty
 	}
@@ -214,6 +235,150 @@ func irToLLFuncDef(ctx *CtxIrToLL, expr_form IrExprForm) LLFunc {
 	return ret_func
 }
 
+func irToLLInstrBrTo(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrBrTo {
+	assert(len(expr_form) == 2)
+	ret_br := LLInstrBrTo{
+		block_name: irToLL(ctx, expr_form[1]).(LLExprIdentLocal),
+	}
+	return ret_br
+}
+
+func irToLLInstrBrIf(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrBrIf {
+	assert(len(expr_form) == 4)
+	ret_br := LLInstrBrIf{
+		cond:                irToLL(ctx, expr_form[1]).(LLExpr),
+		block_name_if_true:  irToLL(ctx, expr_form[2]).(LLExprIdentLocal),
+		block_name_if_false: irToLL(ctx, expr_form[3]).(LLExprIdentLocal),
+	}
+	return ret_br
+}
+
+func irToLLInstrRet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrRet {
+	assert(len(expr_form) == 2)
+	return LLInstrRet{expr: irToLL(ctx, expr_form[1]).(LLExprTyped)}
+}
+
+func irToLLInstrBinOp(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrBinOp {
+	assert(len(expr_form) == 5)
+	ret_op2 := LLInstrBinOp{
+		op_kind: 0,
+		ty:      irToLL(ctx, expr_form[2]).(LLType),
+		lhs:     irToLL(ctx, expr_form[3]).(LLExpr),
+		rhs:     irToLL(ctx, expr_form[4]).(LLExpr),
+	}
+	kind_tag := expr_form[1].(IrExprTag)
+	if strEq(kind_tag, "add") {
+		ret_op2.op_kind = ll_bin_op_add
+	} else if strEq(kind_tag, "mul") {
+		ret_op2.op_kind = ll_bin_op_mul
+	} else if strEq(kind_tag, "sub") {
+		ret_op2.op_kind = ll_bin_op_sub
+	} else if strEq(kind_tag, "udiv") {
+		ret_op2.op_kind = ll_bin_op_udiv
+	}
+	assert(ret_op2.op_kind != 0)
+	return ret_op2
+}
+
+func irToLLInstrCmpI(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrCmpI {
+	assert(len(expr_form) == 5)
+	ret_cmp := LLInstrCmpI{
+		cmp_kind: 0,
+		ty:       irToLL(ctx, expr_form[2]).(LLType),
+		lhs:      irToLL(ctx, expr_form[3]).(LLExpr),
+		rhs:      irToLL(ctx, expr_form[4]).(LLExpr),
+	}
+	kind_tag := expr_form[1].(IrExprTag)
+	if strEq(kind_tag, "eq") {
+		ret_cmp.cmp_kind = ll_cmp_i_eq
+	} else if strEq(kind_tag, "ne") {
+		ret_cmp.cmp_kind = ll_cmp_i_ne
+	} else if strEq(kind_tag, "ugt") {
+		ret_cmp.cmp_kind = ll_cmp_i_ugt
+	} else if strEq(kind_tag, "uge") {
+		ret_cmp.cmp_kind = ll_cmp_i_uge
+	} else if strEq(kind_tag, "ult") {
+		ret_cmp.cmp_kind = ll_cmp_i_ult
+	} else if strEq(kind_tag, "ule") {
+		ret_cmp.cmp_kind = ll_cmp_i_ule
+	} else if strEq(kind_tag, "sgt") {
+		ret_cmp.cmp_kind = ll_cmp_i_sgt
+	} else if strEq(kind_tag, "sge") {
+		ret_cmp.cmp_kind = ll_cmp_i_sge
+	} else if strEq(kind_tag, "slt") {
+		ret_cmp.cmp_kind = ll_cmp_i_slt
+	} else if strEq(kind_tag, "sle") {
+		ret_cmp.cmp_kind = ll_cmp_i_sle
+	}
+	assert(ret_cmp.cmp_kind != 0)
+	return ret_cmp
+}
+
+func irToLLInstrLoad(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrLoad {
+	assert(len(expr_form) == 3)
+	ret_load := LLInstrLoad{
+		ty:   irToLL(ctx, expr_form[1]).(LLType),
+		expr: LLExprTyped{expr: irToLL(ctx, expr_form[2]).(LLExpr)},
+	}
+	if expr_ty, is_expr_ty := ret_load.expr.expr.(LLExprTyped); is_expr_ty {
+		ret_load.expr = expr_ty
+	} else {
+		ret_load.expr.ty = LLTypePtr{ty: ret_load.ty}
+	}
+	return ret_load
+}
+
+func irToLLInstrCall(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrCall {
+	assert(len(expr_form) == 4)
+	lit_arr_args := expr_form[3].(IrExprArr)
+	ret_call := LLInstrCall{
+		callee: irToLL(ctx, expr_form[1]).(LLExprIdentGlobal),
+		ty:     irToLL(ctx, expr_form[2]).(LLType),
+		args:   allocˇLLExprTyped(len(lit_arr_args)),
+	}
+	for i := range lit_arr_args {
+		ret_call.args[i] = irToLL(ctx, lit_arr_args[i]).(LLExprTyped)
+	}
+	return ret_call
+}
+
+func irToLLInstrSwitch(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrSwitch {
+	assert(len(expr_form) == 4)
+	lit_obj_cases := expr_form[3].(IrExprObj)
+	ret_switch := LLInstrSwitch{
+		comparee:           irToLL(ctx, expr_form[1]).(LLExprTyped),
+		default_block_name: expr_form[2].(IrExprTag),
+		cases:              allocˇLLSwitchCase(len(lit_obj_cases)),
+	}
+	for i := range lit_obj_cases {
+		pair := lit_obj_cases[i].(IrExprInfix)
+		assert(strEq(pair.kind, ":"))
+		ret_switch.cases[i] = LLSwitchCase{
+			block_name: pair.rhs.(IrExprTag),
+			expr:       irToLL(ctx, pair.lhs).(LLExprTyped),
+		}
+	}
+	return ret_switch
+}
+
+func irToLLInstrPhi(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrPhi {
+	assert(len(expr_form) == 3)
+	lit_obj_preds := expr_form[2].(IrExprObj)
+	ret_phi := LLInstrPhi{
+		ty:           irToLL(ctx, expr_form[1]).(LLType),
+		predecessors: allocˇLLPhiPred(len(lit_obj_preds)),
+	}
+	for i := range lit_obj_preds {
+		pair := lit_obj_preds[i].(IrExprInfix)
+		assert(strEq(pair.kind, ":"))
+		ret_phi.predecessors[i] = LLPhiPred{
+			block_name: pair.lhs.(IrExprTag),
+			expr:       irToLL(ctx, pair.rhs).(LLExpr),
+		}
+	}
+	return ret_phi
+}
+
 func irToLLInstrGep(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrGep {
 	assert(len(expr_form) == 4)
 	lit_arr_idxs := expr_form[3].(IrExprArr)
@@ -226,11 +391,6 @@ func irToLLInstrGep(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrGep {
 		ret_gep.indices[i] = irToLL(ctx, lit_arr_idxs[i]).(LLExprTyped)
 	}
 	return ret_gep
-}
-
-func irToLLInstrRet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrRet {
-	assert(len(expr_form) == 2)
-	return LLInstrRet{expr: irToLL(ctx, expr_form[1]).(LLExprTyped)}
 }
 
 func irToLLInstrLet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrLet {

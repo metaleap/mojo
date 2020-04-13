@@ -2,9 +2,9 @@
 true a b := a
 false a b := b
 
-msg := true (/global /A/13/I8 { #constant: "Hello World.\010" })
+msg := engl (/global /A/13/I8 { #constant: "Hello World.\010" })
             (/global /A/11/I8 { #constant: "Hola Welt.\010" })
-  // engl := true
+  engl := true
 
 
 

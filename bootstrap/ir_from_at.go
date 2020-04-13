@@ -281,10 +281,6 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 		}
 	case IrExprDefRef:
 		irReduceDef(ctx, int(expr))
-		// ref_def := &ctx.ir.defs[expr]
-		// if ref_def.num_params == 0 {
-		// 	ret_expr = ref_def.body
-		// }
 	case IrExprForm:
 		ret_form := allocˇIrExpr(len(expr))
 		for i := range expr {
@@ -301,14 +297,12 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 			ctx.args = old_args
 		}
 	}
-
-	if !irExprEquiv(ir_expr, ret_expr) {
-		print("\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n// EVAL'D:\n  ")
-		irExprDbgPrint(ctx.ir, ir_expr, 2)
-		print("\n// TO:\n  ")
-		irExprDbgPrint(ctx.ir, ret_expr, 2)
-	}
-
+	// if !irExprEquiv(ir_expr, ret_expr) {
+	// 	print("\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n// EVAL'D:\n  ")
+	// 	irExprDbgPrint(ctx.ir, ir_expr, 2)
+	// 	print("\n// TO:\n  ")
+	// 	irExprDbgPrint(ctx.ir, ret_expr, 2)
+	// }
 	return ret_expr
 }
 
