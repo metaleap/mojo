@@ -118,7 +118,10 @@ func irExprFrom(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 				ir_def_idx = ctx.num_defs
 				ctx.num_defs++
 				ctx.dst.defs[ir_def_idx] = ir_def
+				old_scope := ctx.scope
+				ctx.scope = &resolved.ref_def.scope
 				ctx.dst.defs[ir_def_idx].body = irExprFrom(ctx, &resolved.ref_def.body)
+				ctx.scope = old_scope
 			}
 			return IrExprDefRef(ir_def_idx)
 		}
@@ -227,7 +230,7 @@ type CtxReduce struct {
 }
 
 func irReduceDefs(ir *Ir) {
-	ctx := CtxReduce{ir: ir, done: allocˇbool(len(ir.defs))}
+	ctx := CtxReduce{ir: ir, done: allocˇbool(len(ir.defs)), args: nil}
 	for i := range ir.defs {
 		irReduceDef(&ctx, i)
 	}
@@ -278,16 +281,16 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 		}
 	case IrExprDefRef:
 		irReduceDef(ctx, int(expr))
-		ref_def := &ctx.ir.defs[expr]
-		if ref_def.num_params == 0 {
-			ret_expr = ref_def.body
-		}
+		// ref_def := &ctx.ir.defs[expr]
+		// if ref_def.num_params == 0 {
+		// 	ret_expr = ref_def.body
+		// }
 	case IrExprForm:
 		ret_form := allocˇIrExpr(len(expr))
-		ret_expr = IrExprForm(ret_form)
 		for i := range expr {
 			ret_form[i] = irReduceExpr(ctx, expr[i])
 		}
+		ret_expr = IrExprForm(ret_form)
 		switch callee := ret_form[0].(type) {
 		case IrExprDefRef:
 			ref_def := &ctx.ir.defs[callee]
@@ -317,6 +320,9 @@ func irDbgPrint(ir *Ir) {
 
 func irDefDbgPrint(ir *Ir, def *IrDef) {
 	print(string(def.name))
+	for i := 0; i < def.num_params; i++ {
+		print(string(uintToStr(uint64(i), 10, 1, Str(" @"))))
+	}
 	print(" :=\n  ")
 	irExprDbgPrint(ir, def.body, 2)
 	println("\n")

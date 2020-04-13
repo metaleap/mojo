@@ -2,19 +2,19 @@
 true a b := a
 false a b := b
 
-msg := engl (/global /A/13/I8 { #constant: "Hello World.\010" })
+msg := true (/global /A/13/I8 { #constant: "Hello World.\010" })
             (/global /A/11/I8 { #constant: "Hola Welt.\010" })
-  engl := true
+  // engl := true
 
 
 
 main := /define {} /I32 {} {
   #: [
-    /let { #msg: /gep /A/11/I8 (/P/A/11/I8 msg) [
+    /let { #msg: /gep /A/11/I8 (/P/A/11/I8 /@msg) [
       /I 0, // the /P/A/11/I8
       /I 0, // the /P/I8
     ] },
-    /call writeOut /V [/P #msg, /I 11 ],
+    /call /@writeOut /V [/P #msg, /I 11 ],
     /ret (/I32 0)
   ],
 }

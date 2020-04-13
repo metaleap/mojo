@@ -2,6 +2,7 @@ package main
 
 const llmodule_default_target_datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 const llmodule_default_target_triple = "x86_64-unknown-linux-gnu"
+const ll_target_word_bit_width = 64
 
 type CtxIrToLL struct {
 	ir          *Ir
@@ -35,6 +36,8 @@ func llModuleFrom(ir *Ir, def_name Str) LLModule {
 
 func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 	switch expr := ir_expr.(type) {
+	case IrExprLitInt:
+		return LLExprLitInt(expr)
 	case IrExprDefRef:
 		ref_def := &ctx.ir.defs[expr]
 		if ident := llTopLevelNameFrom(ctx.ll_mod, ref_def, ctx.num_globals, ctx.num_funcs); ident != nil {
@@ -80,6 +83,7 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 			} else if strEq(kwd, "gep") {
 				assert(len(callee) == 1)
 				return irToLLInstrGep(ctx, expr)
+				// }else
 			} else {
 				switch ll_sth := irToLL(ctx, callee).(type) {
 				case LLType:
@@ -89,6 +93,13 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 					panic(ll_sth)
 				}
 			}
+		case IrExprIdent:
+			if strEq(callee, "/@") {
+				assert(len(expr) == 2)
+				ref_def := &ctx.ir.defs[expr[1].(IrExprDefRef)]
+				return LLExprIdentGlobal(ref_def.name)
+			}
+			panic("CALLEE-Ident\t" + string(callee))
 		default:
 			panic(callee)
 		}
@@ -97,7 +108,7 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 		if kwd[0] >= 'A' && kwd[0] <= 'Z' {
 			return irToLLType(ctx, expr)
 		}
-		panic("KWD\t" + string(kwd))
+		panic("KWD\t/" + string(kwd))
 	case IrExprIdent:
 		panic("IDENT\t" + string(expr))
 	default:
@@ -110,6 +121,9 @@ func irToLLType(ctx *CtxIrToLL, expr IrExprSlashed) LLType {
 	kwd := expr[0].(IrExprIdent)
 	if kwd[0] == 'I' {
 		assert(len(expr) == 1)
+		if len(kwd) == 1 {
+			return LLTypeInt{bit_width: ll_target_word_bit_width}
+		}
 		return LLTypeInt{bit_width: uintFromStr(kwd[1:])}
 	} else if kwd[0] == 'A' {
 		assert(len(expr) == 3)
