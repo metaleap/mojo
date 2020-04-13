@@ -249,7 +249,7 @@ func irToLLFuncDef(ctx *CtxIrToLL, expr_form IrExprForm) LLFunc {
 
 func irToLLInstrRet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrRet {
 	assert(len(expr_form) == 2)
-	return LLInstrRet{expr: irToLL(ctx, expr_form[1]).(LLExprTyped)}
+	return LLInstrRet{expr: llExprToTyped(irToLL(ctx, expr_form[1]).(LLExpr), LLTypeAuto{})}
 }
 
 func irToLLInstrBrTo(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrBrTo {

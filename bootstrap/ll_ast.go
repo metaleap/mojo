@@ -231,6 +231,20 @@ func llTopLevelNameFrom(ll_mod *LLModule, ir_def *IrDef, num_globals int, num_fu
 	return nil
 }
 
+func llTopLevelNameFind(ll_mod *LLModule, name Str) Any {
+	for i := range ll_mod.globals {
+		if strEql(name, ll_mod.globals[i].name) {
+			return &ll_mod.globals[i]
+		}
+	}
+	for i := range ll_mod.funcs {
+		if strEql(name, ll_mod.funcs[i].name) {
+			return &ll_mod.funcs[i]
+		}
+	}
+	return nil
+}
+
 func llExprToTyped(expr LLExpr, ty_fallback LLType) LLExprTyped {
 	if expr_typed, is := expr.(LLExprTyped); is {
 		return expr_typed
@@ -262,51 +276,83 @@ func llPopulateAutoTypesInGlobal(ll_mod *LLModule, ll_global *LLGlobal) {
 func llPopulateAutoTypesInFunc(ll_mod *LLModule, ll_func *LLFunc) {
 	for i := range ll_func.basic_blocks {
 		for j, instr := range ll_func.basic_blocks[i].instrs {
-			ll_func.basic_blocks[i].instrs[j] = llPopulateAutoTypesInInstr(ll_mod, ll_func, instr)
+			ll_func.basic_blocks[i].instrs[j] =
+				llPopulateAutoTypesInInstr(ll_mod, ll_func, i, instr)
 		}
 	}
 }
 
-func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, ll_instr LLInstr) LLInstr {
+func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int, ll_instr LLInstr) LLInstr {
 	switch instr := ll_instr.(type) {
 	case LLInstrAlloca:
 		if llTypeIsAuto(instr.num_elems.ty) {
 			instr.num_elems.ty = LLTypeInt{bit_width: ll_target_word_bit_width}
 		}
+		instr.num_elems.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.num_elems.expr)
 		ll_instr = instr
 	case LLInstrBinOp:
+		instr.lhs = llExprUnAutoTyped(ll_mod, ll_func, instr.lhs)
+		instr.rhs = llExprUnAutoTyped(ll_mod, ll_func, instr.rhs)
 		ll_instr = instr
 	case LLInstrCall:
+		instr.callee = llExprUnAutoTyped(ll_mod, ll_func, instr.callee)
+		for i, arg := range instr.args {
+			instr.args[i] = llExprUnAutoTyped(ll_mod, ll_func, arg).(LLExprTyped)
+		}
+		callee, is_ident_global := instr.callee.(LLExprIdentGlobal)
+		if is_ident_global {
+			switch found := llTopLevelNameFind(ll_mod, callee).(type) {
+			case *LLFunc:
+				if llTypeIsAuto(instr.ty) {
+					instr.ty = found.ty
+				}
+			}
+		}
 		ll_instr = instr
 	case LLInstrCmpI:
+		instr.lhs = llExprUnAutoTyped(ll_mod, ll_func, instr.lhs)
+		instr.rhs = llExprUnAutoTyped(ll_mod, ll_func, instr.rhs)
 		ll_instr = instr
 	case LLInstrGep:
+		instr.base_ptr = llExprUnAutoTyped(ll_mod, ll_func, instr.base_ptr).(LLExprTyped)
+		for i, index := range instr.indices {
+			instr.indices[i] = llExprUnAutoTyped(ll_mod, ll_func, index).(LLExprTyped)
+		}
 		ll_instr = instr
 	case LLInstrLoad:
+		instr.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
 		ll_instr = instr
 	case LLInstrStore:
+		instr.dst = llExprUnAutoTyped(ll_mod, ll_func, instr.dst).(LLExprTyped)
+		instr.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
 		ll_instr = instr
 	case LLInstrPhi:
+		for i := range instr.predecessors {
+			instr.predecessors[i].expr = llExprUnAutoTyped(ll_mod, ll_func, instr.predecessors[i].expr)
+		}
 		ll_instr = instr
 	case LLInstrBrIf:
-		ll_instr = instr
-	case LLInstrBrTo:
-		ll_instr = instr
-	case LLInstrComment:
+		instr.cond = llExprUnAutoTyped(ll_mod, ll_func, instr.cond)
 		ll_instr = instr
 	case LLInstrLet:
+		instr.instr = llPopulateAutoTypesInInstr(ll_mod, ll_func, idx_block, instr.instr)
 		ll_instr = instr
 	case LLInstrRet:
+		instr.expr.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.expr.expr)
 		if llTypeIsAuto(instr.expr.ty) {
 			instr.expr.ty = ll_func.ty
 		}
 		ll_instr = instr
-	case LLInstrSwitch:
-		ll_instr = instr
-	case LLInstrUnreachable:
-		ll_instr = instr
 	case LLInstrConvert:
+		instr.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
 		ll_instr = instr
+	case LLInstrSwitch:
+		instr.comparee = llExprUnAutoTyped(ll_mod, ll_func, instr.comparee).(LLExprTyped)
+		for i := range instr.cases {
+			instr.cases[i].expr = llExprUnAutoTyped(ll_mod, ll_func, instr.cases[i].expr).(LLExprTyped)
+		}
+		ll_instr = instr
+	case LLInstrBrTo, LLInstrComment, LLInstrUnreachable:
 	default:
 		panic(instr)
 	}
