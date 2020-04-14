@@ -1,24 +1,34 @@
 
 main :=
-  io.writeOut "Hello World"
+  io.writeToOut "Hello World"
 
-  io := { writeTo: writeTo, writeErr: writeErr, writeOut: writeOut }
+  io := { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
+
     writeTo _file _str :=
-      /ffiCall libc.fWrite _str 1 (/len _str) _file
-    writeOut _str :=
-      writeTo libc.stdout _str
-    writeErr _str :=
-      writeTo libc.stderr _str
+      /case (/or (n_written == str_len) (maybe_err == 0))
+            { #true: #ok n_written, #false: #err maybe_err }
+      n_written := /call libc.fWrite _str 1 str_len _file
+      maybe_err := /call libc.fError _file
+      str_len := /len _str
+
+    writeToOut _str := writeToStdOrExit libc.stdout _str
+    writeToErr _str := writeToStdOrExit libc.stdout _str
+
+    writeToStdOrExit std_file _str :=
+      /case (writeTo std_file _str)
+            { #ok n: n, #err _: /call libc.exit 1 }
 
 
 
 libc := {
-  File    : /Foreign #FILE,
-  stdin   : /foreign #stdin {} /P/File,
-  stdout  : /foreign #stdout {} /P/File,
-  stderr  : /foreign #stderr {} /P/File,
-  exit    : /foreign #exit {} /V { #_status: /Ic },
-  fError  : /foreign #ferror {} /Ic { #_file: /P/File },
-  fRead   : /foreign #fread {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File },
-  fWrite  : /foreign #fwrite {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+  File    : /Extern #FILE,
+
+  stdin   : /extern #stdin {} /P/File,
+  stdout  : /extern #stdout {} /P/File,
+  stderr  : /extern #stderr {} /P/File,
+
+  exit    : /extern #exit {} /V { #_status: /Ic } [ #noreturn ],
+  fError  : /extern #ferror {} /Ic { #_file: /P/File },
+  fRead   : /extern #fread {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+  fWrite  : /extern #fwrite {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File },
 }
