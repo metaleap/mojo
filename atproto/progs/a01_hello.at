@@ -1,0 +1,21 @@
+
+LibcFile    := /Foreign #FILE
+libc_stdin  := /foreign #stdin {} /P/LibcFile
+libc_stdout := /foreign #stdout {} /P/LibcFile
+libc_stderr := /foreign #stderr {} /P/LibcFile
+libcExit    := /foreign #exit {} /V { #status: /Ic }
+libcFError  := /foreign #ferror {} /Ic { #file: /P/LibcFile }
+libcFRead   := /foreign #fread {} /Iw { #buf: /P/_, #size: /Iw, #count: /Iw, #file: /P/LibcFile }
+libcFWrite  := /foreign #fwrite {} /Iw { #buf: /P/_, #size: /Iw, #count: /Iw, #file: /P/LibcFile }
+
+writeTo file str :=
+  /ffiCall libcFWrite str 1 (/len str) file
+
+writeOut str :=
+  writeTo libc_stdout str
+
+writeErr str :=
+  writeTo libc_stderr str
+
+main :=
+  writeOut "Hello World"

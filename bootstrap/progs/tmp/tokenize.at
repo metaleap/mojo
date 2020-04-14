@@ -1,0 +1,40 @@
+
+op_chars := "!#$%&*+-;:./<=>?@\\^~|"
+sep_chars := "[]{}(),"
+
+Token := &{
+  byte_idx: uword,
+  num_bytes: uword,
+  line_nr: uword,
+  line_start_byte_id: uword,
+  kind: Kind,
+
+  Kind := |{
+    #comment,
+    #ident,
+    #lit_int,
+    #lit_str,
+    #sep_bparen_open,
+    #sep_bparen_close,
+    #sep_bcurly_open,
+    #sep_bcurly_close,
+    #sep_bsquare_open,
+    #sep_bsquare_close,
+    #sep_comma,
+  },
+}
+
+
+isOpChar byte :=
+  existsIn op_chars (_ == byte)
+
+isSepChar byte :=
+  existsIn sep_chars (_ == byte)
+
+existsIn arr where :=
+  (arr /= []) && (where arr[0] || existsIn arr[1..] where)
+
+
+tokCanThrong tok full_src :=
+  (tok.kind ?= |{ #lit_int, #lit_str }) || (tok.kind == #ident && tok_byte != ':' && tok_byte != '=')
+  tok_byte := full_src[tok.byte_idx]

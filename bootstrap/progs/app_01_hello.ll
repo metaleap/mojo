@@ -50,10 +50,10 @@ b.3:
 }
 
 
-define i32 @main() {
+define i64 @main() {
 b.1:
   %msg = call i8* @strPtrOf([11 x i8]* @msg)
   call void @writeOut(i8* %msg, i64 11)
-  ret i32 0
+  ret i64 0
 }
 

@@ -17,7 +17,7 @@ strPtrOf := /define {} /P/I8 { #global_str_ptr: /P/A/msg_len/I8 } {
 
 msg_len := engl 13 11
 
-main := /define {} /I32 {} {
+main := /define {} /I {} {
   #: [
     /let #msg = /call /@strPtrOf [/@msg],
     /call /@writeOut [#msg, msg_len],

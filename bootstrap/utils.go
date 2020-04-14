@@ -46,15 +46,6 @@ func strConcat(strs []Str) Str {
 	return ret_str
 }
 
-func trimAt(str Str, char byte) Str {
-	for i := range str {
-		if str[i] == char {
-			return str[0:i]
-		}
-	}
-	return str
-}
-
 func unreachable() {
 	fail("reached unreachable")
 }
