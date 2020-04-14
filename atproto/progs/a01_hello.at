@@ -1,21 +1,28 @@
 
-LibcFile    := /Foreign #FILE
-libc_stdin  := /foreign #stdin {} /P/LibcFile
-libc_stdout := /foreign #stdout {} /P/LibcFile
-libc_stderr := /foreign #stderr {} /P/LibcFile
-libcExit    := /foreign #exit {} /V { #status: /Ic }
-libcFError  := /foreign #ferror {} /Ic { #file: /P/LibcFile }
-libcFRead   := /foreign #fread {} /Iw { #buf: /P/_, #size: /Iw, #count: /Iw, #file: /P/LibcFile }
-libcFWrite  := /foreign #fwrite {} /Iw { #buf: /P/_, #size: /Iw, #count: /Iw, #file: /P/LibcFile }
-
-writeTo file str :=
-  /ffiCall libcFWrite str 1 (/len str) file
-
-writeOut str :=
-  writeTo libc_stdout str
-
-writeErr str :=
-  writeTo libc_stderr str
-
 main :=
   writeOut "Hello World"
+
+
+
+io :=
+  { writeTo: writeTo, writeErr: writeErr, writeOut: writeOut }
+
+  writeTo _file _str :=
+    /ffiCall libc.fWrite _str 1 (/len _str) _file,
+  writeOut _str :=
+    writeTo libc.stdout _str,
+  writeErr _str :=
+    writeTo libc.stderr _str,
+
+
+
+libc := {
+  File    : /Foreign #FILE,
+  stdin   : /foreign #stdin {} /P/File,
+  stdout  : /foreign #stdout {} /P/File,
+  stderr  : /foreign #stderr {} /P/File,
+  exit    : /foreign #exit {} /V { #_status: /Ic },
+  fError  : /foreign #ferror {} /Ic { #_file: /P/File },
+  fRead   : /foreign #fread {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+  fWrite  : /foreign #fwrite {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+}

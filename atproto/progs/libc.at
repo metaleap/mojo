@@ -1,0 +1,9 @@
+
+File    := /Foreign #FILE
+stdin   := /foreign #stdin {} /P/File
+stdout  := /foreign #stdout {} /P/File
+stderr  := /foreign #stderr {} /P/File
+exit    := /foreign #exit {} /V { #_status: /Ic }
+fError  := /foreign #ferror {} /Ic { #_file: /P/File }
+fRead   := /foreign #fread {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File }
+fWrite  := /foreign #fwrite {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File }
