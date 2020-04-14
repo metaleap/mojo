@@ -18,6 +18,7 @@ func llModuleFrom(ir *Ir, def_name Str) LLModule {
 		globals:           allocˇLLGlobal(len(ir.defs)),
 		funcs:             allocˇLLFunc(len(ir.defs)),
 	}
+	ret_mod.anns.orig_ir = ir
 	ctx := CtxIrToLL{
 		ir:          ir,
 		ll_mod:      &ret_mod,

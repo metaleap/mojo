@@ -10,6 +10,7 @@ type LLModule struct {
 	globals           []LLGlobal
 	funcs             []LLFunc
 	anns              struct {
+		orig_ir      *Ir
 		global_names []Str
 	}
 }
@@ -313,9 +314,9 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 		ll_instr = instr
 	case LLInstrBinOp:
 		if llTypeIsAuto(instr.ty) {
-			ty := llExprTypeIfIdentLocalReferringToFuncParam(ll_func, instr.lhs)
+			ty := llExprTypeMaybe(ll_mod, ll_func, instr.lhs)
 			if ty == nil {
-				ty = llExprTypeIfIdentLocalReferringToFuncParam(ll_func, instr.rhs)
+				ty = llExprTypeMaybe(ll_mod, ll_func, instr.rhs)
 			}
 			if ty != nil {
 				instr.ty = ty
@@ -326,9 +327,9 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 		ll_instr = instr
 	case LLInstrCmpI:
 		if llTypeIsAuto(instr.ty) {
-			ty := llExprTypeIfIdentLocalReferringToFuncParam(ll_func, instr.lhs)
+			ty := llExprTypeMaybe(ll_mod, ll_func, instr.lhs)
 			if ty == nil {
-				ty = llExprTypeIfIdentLocalReferringToFuncParam(ll_func, instr.rhs)
+				ty = llExprTypeMaybe(ll_mod, ll_func, instr.rhs)
 			}
 			if ty != nil {
 				instr.ty = ty
@@ -339,6 +340,11 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 		ll_instr = instr
 	case LLInstrGep:
 		instr.base_ptr = llExprUnAutoTyped(ll_mod, ll_func, instr.base_ptr).(LLExprTyped)
+		if llTypeIsAuto(instr.ty) {
+			if ptr_ty, is_ptr_ty := instr.base_ptr.ty.(LLTypePtr); is_ptr_ty {
+				instr.ty = ptr_ty.ty
+			}
+		}
 		for i, index := range instr.indices {
 			instr.indices[i] = llExprUnAutoTyped(ll_mod, ll_func, index).(LLExprTyped)
 		}
@@ -383,11 +389,17 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 	return ll_instr
 }
 
-func llExprTypeIfIdentLocalReferringToFuncParam(ll_func *LLFunc, ll_expr LLExpr) LLType {
-	if ident, _ := ll_expr.(LLExprIdentLocal); ident != nil {
+func llExprTypeMaybe(ll_mod *LLModule, ll_func *LLFunc, ll_expr LLExpr) LLType {
+	if ident_local, _ := ll_expr.(LLExprIdentLocal); ident_local != nil {
 		for i := range ll_func.params {
-			if strEql(ident, ll_func.params[i].name) {
+			if strEql(ident_local, ll_func.params[i].name) {
 				return ll_func.params[i].ty
+			}
+		}
+	} else if ident_global, _ := ll_expr.(LLExprIdentGlobal); ident_global != nil {
+		for i := range ll_mod.globals {
+			if strEql(ident_global, ll_mod.globals[i].name) {
+				return LLTypePtr{ty: ll_mod.globals[i].ty}
 			}
 		}
 	}
@@ -395,7 +407,15 @@ func llExprTypeIfIdentLocalReferringToFuncParam(ll_func *LLFunc, ll_expr LLExpr)
 }
 
 func llExprUnAutoTyped(ll_mod *LLModule, ll_func *LLFunc, ll_expr LLExpr) LLExpr {
-	// switch expr:=ll_expr
+	switch expr := ll_expr.(type) {
+	case LLExprTyped:
+		if llTypeIsAuto(expr.ty) {
+			if ty := llExprTypeMaybe(ll_mod, ll_func, expr.expr); ty != nil {
+				expr.ty = ty
+			}
+		}
+		ll_expr = expr
+	}
 	return ll_expr
 }
 

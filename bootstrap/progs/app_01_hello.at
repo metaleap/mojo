@@ -11,7 +11,7 @@ msg := engl (/global /_ { #constant: "Hello World.\010" })
 
 main := /define {} /I32 {} {
   #: [
-    /let #msg = /gep /A/13/I8 (/P/A/13/I8 /@msg) [
+    /let #msg = /gep /_ (/_ /@msg) [
       /I 0, // the /P/A/13/I8
       /I 0, // the /P/I8
     ],

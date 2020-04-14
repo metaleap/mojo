@@ -20,16 +20,16 @@ reverseBytes := /define {} /V { #buf: /P, #len: /I } {
       /brTo #loop,
     ],
     #loop: [
-      /let #i = /phi /I { #prep: 0, #loop: #i_next },         // i := from {prep: 0, loop: i_next}
-      /let #i_swap = /op #sub /I #i_last #i,                  // i_swap := i_last - i
+      /let #i = /phi /I { #prep: 0, #loop: #i_next },     // i := from {prep: 0, loop: i_next}
+      /let #i_swap = /op #sub /I #i_last #i,              // i_swap := i_last - i
 
-      /let #ptr_l = /call /@ptrIncr [#buf, #i],      // ptr_l := buf + i
-      /let #ptr_r = /call /@ptrIncr [#buf, #i_swap], // ptr_r := buf + i_swap
-      /call /@swapBytes [#ptr_l, #ptr_r],            // swapBytes ptr_l ptr_r
+      /let #ptr_l = /call /@ptrIncr [#buf, #i],           // ptr_l := buf + i
+      /let #ptr_r = /call /@ptrIncr [#buf, #i_swap],      // ptr_r := buf + i_swap
+      /call /@swapBytes [#ptr_l, #ptr_r],                 // swapBytes ptr_l ptr_r
 
-      /let #i_next = /op #add /I #i 1,                        // i_next := i + 1
-      /let #loop_again = /icmp #ult /I #i_next #len_half,     // loop_again := i_next < len_half
-      /brIf #loop_again #loop #end,                           // if loop_again loop else end
+      /let #i_next = /op #add /I #i 1,                    // i_next := i + 1
+      /let #loop_again = /icmp #ult /I #i_next #len_half, // loop_again := i_next < len_half
+      /brIf #loop_again #loop #end,                       // if loop_again loop else end
     ],
     #end: [
       /ret,
