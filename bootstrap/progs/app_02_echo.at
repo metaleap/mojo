@@ -1,7 +1,7 @@
 
 main := /define {} /I32 {} {
   #: [
-    /let #buf = /alloca /I8 (/I32 1024),
+    /let #buf = /alloca /I8 (/_ 1024),
     /let #n = /call /@readInOrDie [#buf, 1024],
     /call /@writeOut [#buf, #n],
     /ret 0,

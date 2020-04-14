@@ -347,6 +347,9 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 		}
 		for i, index := range instr.indices {
 			instr.indices[i] = llExprUnAutoTyped(ll_mod, ll_func, index).(LLExprTyped)
+			if llTypeIsAuto(instr.indices[i].ty) {
+				instr.indices[i].ty = LLTypeInt{bit_width: 32}
+			}
 		}
 		ll_instr = instr
 	case LLInstrLoad:
@@ -378,8 +381,22 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 		ll_instr = instr
 	case LLInstrSwitch:
 		instr.comparee = llExprUnAutoTyped(ll_mod, ll_func, instr.comparee).(LLExprTyped)
+		is_ty_auto_cmp := llTypeIsAuto(instr.comparee.ty)
 		for i := range instr.cases {
 			instr.cases[i].expr = llExprUnAutoTyped(ll_mod, ll_func, instr.cases[i].expr).(LLExprTyped)
+			is_ty_auto := llTypeIsAuto(instr.cases[i].expr.ty)
+			if is_ty_auto && !is_ty_auto_cmp {
+				instr.cases[i].expr.ty = instr.comparee.ty
+			} else if is_ty_auto_cmp && !is_ty_auto {
+				instr.comparee.ty = instr.cases[i].expr.ty
+			}
+		}
+		if !llTypeIsAuto(instr.comparee.ty) {
+			for i := range instr.cases {
+				if llTypeIsAuto(instr.cases[i].expr.ty) {
+					instr.cases[i].expr.ty = instr.comparee.ty
+				}
+			}
 		}
 		ll_instr = instr
 	case LLInstrBrTo, LLInstrComment, LLInstrUnreachable:

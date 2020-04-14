@@ -110,7 +110,7 @@ b.5:
 
 define i32 @main() {
 b.1:
-  %buf = alloca i8, i32 1024
+  %buf = alloca i8, i64 1024
   %n = call i64 @readInOrDie(i8* %buf, i64 1024)
   call void @reverseBytes(i8* %buf, i64 %n)
   call void @writeOut(i8* %buf, i64 %n)
