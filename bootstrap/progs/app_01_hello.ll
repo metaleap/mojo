@@ -2,8 +2,15 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@msg = constant [13 x i8] c"Hello World.\0A"
+@msg = constant [11 x i8] c"Hola Welt.\0A"
 @stdout = external global i8*
+
+
+define i8* @strPtrOf([11 x i8]* %global_str_ptr) {
+b.2:
+  %ret_ptr = getelementptr [11 x i8], [11 x i8]* %global_str_ptr, i32 0, i32 0
+  ret i8* %ret_ptr
+}
 
 declare i64 @fwrite(i8*, i64, i64, i8*)
 declare i16 @ferror(i8*)
@@ -37,7 +44,7 @@ end:
 
 
 define void @writeOut(i8* %str_ptr, i64 %str_len) {
-b.2:
+b.3:
   call void @writeToStd(i8* %str_ptr, i64 %str_len, i8** @stdout)
   ret void
 }
@@ -45,8 +52,8 @@ b.2:
 
 define i32 @main() {
 b.1:
-  %msg = getelementptr [13 x i8], [13 x i8]* @msg, i32 0, i32 0
-  call void @writeOut(i8* %msg, i64 13)
+  %msg = call i8* @strPtrOf([11 x i8]* @msg)
+  call void @writeOut(i8* %msg, i64 11)
   ret i32 0
 }
 

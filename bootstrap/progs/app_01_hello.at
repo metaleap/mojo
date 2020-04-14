@@ -2,20 +2,25 @@
 true a b := a
 false a b := b
 
-engl := true
+engl := false
 
 msg := engl (/global /_ { #constant: "Hello World.\010" })
             (/global /_ { #constant: "Hola Welt.\010" })
 
 
+strPtrOf := /define {} /P/I8 { #global_str_ptr: /P/A/msg_len/I8 } {
+  #: [
+    /let #ret_ptr = /gep /A/msg_len/I8 (/_ #global_str_ptr) [ /_ 0, /_ 0 ],
+    /ret #ret_ptr,
+  ],
+}
+
+msg_len := engl 13 11
 
 main := /define {} /I32 {} {
   #: [
-    /let #msg = /gep /_ (/_ /@msg) [
-      /_ 0, // the /P/A/13/I8
-      /_ 0, // the /P/I8
-    ],
-    /call /@writeOut [#msg, 13],
+    /let #msg = /call /@strPtrOf [/@msg],
+    /call /@writeOut [#msg, msg_len],
     /ret 0,
   ],
 }

@@ -52,8 +52,8 @@ func llEmit(ll_something Any) {
 		llEmitExprLitStr(ll)
 	case LLExprTyped:
 		llEmitExprTyped(&ll)
-	case LLTypeAuto:
-		fail("BUG: auto-type made it to llEmit()")
+	case LLTypeHole:
+		fail("BUG: hole-type made it to llEmit()")
 	case LLTypeVoid:
 		llEmitTypeVoid()
 	case LLTypeInt:

@@ -198,7 +198,7 @@ type LLTypeInt struct {
 
 type LLTypeVoid struct{}
 
-type LLTypeAuto struct{}
+type LLTypeHole struct{}
 
 type LLTypePtr struct {
 	ty LLType
@@ -253,17 +253,17 @@ func llExprToTyped(expr LLExpr, ty_fallback LLType) LLExprTyped {
 	return LLExprTyped{ty: ty_fallback, expr: expr}
 }
 
-func llPopulateAutoTypes(ll_mod *LLModule) {
+func llResolveHoleTypes(ll_mod *LLModule) {
 	for i := range ll_mod.globals {
-		llPopulateAutoTypesInGlobal(ll_mod, &ll_mod.globals[i])
+		llResolveHoleTypesInGlobal(ll_mod, &ll_mod.globals[i])
 	}
 	for i := range ll_mod.funcs {
-		llPopulateAutoTypesInFunc(ll_mod, &ll_mod.funcs[i])
+		llResolveHoleTypesInFunc(ll_mod, &ll_mod.funcs[i])
 	}
 }
 
-func llPopulateAutoTypesInGlobal(ll_mod *LLModule, ll_global *LLGlobal) {
-	if !llTypeIsOrHasAuto(ll_global.ty) {
+func llResolveHoleTypesInGlobal(ll_mod *LLModule, ll_global *LLGlobal) {
+	if !llTypeIsOrHasHole(ll_global.ty) {
 		return
 	}
 	switch initer := ll_global.initializer.(type) {
@@ -274,46 +274,46 @@ func llPopulateAutoTypesInGlobal(ll_mod *LLModule, ll_global *LLGlobal) {
 	}
 }
 
-func llPopulateAutoTypesInFunc(ll_mod *LLModule, ll_func *LLFunc) {
+func llResolveHoleTypesInFunc(ll_mod *LLModule, ll_func *LLFunc) {
 	for i := range ll_func.basic_blocks {
 		for j, instr := range ll_func.basic_blocks[i].instrs {
 			ll_func.basic_blocks[i].instrs[j] =
-				llPopulateAutoTypesInInstr(ll_mod, ll_func, i, instr)
+				llResolveHoleTypesInInstr(ll_mod, ll_func, i, instr)
 		}
 	}
 }
 
-func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int, ll_instr LLInstr) LLInstr {
+func llResolveHoleTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int, ll_instr LLInstr) LLInstr {
 	switch instr := ll_instr.(type) {
 	case LLInstrAlloca:
-		if llTypeIsAuto(instr.num_elems.ty) {
+		if llTypeIsHole(instr.num_elems.ty) {
 			instr.num_elems.ty = LLTypeInt{bit_width: ll_target_word_bit_width}
 		}
-		instr.num_elems.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.num_elems.expr)
+		instr.num_elems.expr = llExprUnHoleTyped(ll_mod, ll_func, instr.num_elems.expr)
 		ll_instr = instr
 	case LLInstrCall:
 		callee, is_ident_global := instr.callee.(LLExprIdentGlobal)
 		if is_ident_global {
 			switch found := llTopLevelNameFind(ll_mod, callee).(type) {
 			case *LLFunc:
-				if llTypeIsAuto(instr.ty) {
+				if llTypeIsHole(instr.ty) {
 					instr.ty = found.ty
 				}
 				for i, arg := range instr.args {
-					if llTypeIsAuto(arg.ty) {
+					if llTypeIsHole(arg.ty) {
 						arg.ty = found.params[i].ty
 						instr.args[i] = arg
 					}
 				}
 			}
 		}
-		instr.callee = llExprUnAutoTyped(ll_mod, ll_func, instr.callee)
+		instr.callee = llExprUnHoleTyped(ll_mod, ll_func, instr.callee)
 		for i, arg := range instr.args {
-			instr.args[i] = llExprUnAutoTyped(ll_mod, ll_func, arg).(LLExprTyped)
+			instr.args[i] = llExprUnHoleTyped(ll_mod, ll_func, arg).(LLExprTyped)
 		}
 		ll_instr = instr
 	case LLInstrBinOp:
-		if llTypeIsAuto(instr.ty) {
+		if llTypeIsHole(instr.ty) {
 			ty := llExprTypeMaybe(ll_mod, ll_func, instr.lhs)
 			if ty == nil {
 				ty = llExprTypeMaybe(ll_mod, ll_func, instr.rhs)
@@ -322,11 +322,11 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 				instr.ty = ty
 			}
 		}
-		instr.lhs = llExprUnAutoTyped(ll_mod, ll_func, instr.lhs)
-		instr.rhs = llExprUnAutoTyped(ll_mod, ll_func, instr.rhs)
+		instr.lhs = llExprUnHoleTyped(ll_mod, ll_func, instr.lhs)
+		instr.rhs = llExprUnHoleTyped(ll_mod, ll_func, instr.rhs)
 		ll_instr = instr
 	case LLInstrCmpI:
-		if llTypeIsAuto(instr.ty) {
+		if llTypeIsHole(instr.ty) {
 			ty := llExprTypeMaybe(ll_mod, ll_func, instr.lhs)
 			if ty == nil {
 				ty = llExprTypeMaybe(ll_mod, ll_func, instr.rhs)
@@ -335,65 +335,65 @@ func llPopulateAutoTypesInInstr(ll_mod *LLModule, ll_func *LLFunc, idx_block int
 				instr.ty = ty
 			}
 		}
-		instr.lhs = llExprUnAutoTyped(ll_mod, ll_func, instr.lhs)
-		instr.rhs = llExprUnAutoTyped(ll_mod, ll_func, instr.rhs)
+		instr.lhs = llExprUnHoleTyped(ll_mod, ll_func, instr.lhs)
+		instr.rhs = llExprUnHoleTyped(ll_mod, ll_func, instr.rhs)
 		ll_instr = instr
 	case LLInstrGep:
-		instr.base_ptr = llExprUnAutoTyped(ll_mod, ll_func, instr.base_ptr).(LLExprTyped)
-		if llTypeIsAuto(instr.ty) {
+		instr.base_ptr = llExprUnHoleTyped(ll_mod, ll_func, instr.base_ptr).(LLExprTyped)
+		if llTypeIsHole(instr.ty) {
 			if ptr_ty, is_ptr_ty := instr.base_ptr.ty.(LLTypePtr); is_ptr_ty {
 				instr.ty = ptr_ty.ty
 			}
 		}
 		for i, index := range instr.indices {
-			instr.indices[i] = llExprUnAutoTyped(ll_mod, ll_func, index).(LLExprTyped)
-			if llTypeIsAuto(instr.indices[i].ty) {
+			instr.indices[i] = llExprUnHoleTyped(ll_mod, ll_func, index).(LLExprTyped)
+			if llTypeIsHole(instr.indices[i].ty) {
 				instr.indices[i].ty = LLTypeInt{bit_width: 32}
 			}
 		}
 		ll_instr = instr
 	case LLInstrLoad:
-		instr.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
+		instr.expr = llExprUnHoleTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
 		ll_instr = instr
 	case LLInstrStore:
-		instr.dst = llExprUnAutoTyped(ll_mod, ll_func, instr.dst).(LLExprTyped)
-		instr.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
+		instr.dst = llExprUnHoleTyped(ll_mod, ll_func, instr.dst).(LLExprTyped)
+		instr.expr = llExprUnHoleTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
 		ll_instr = instr
 	case LLInstrPhi:
 		for i := range instr.predecessors {
-			instr.predecessors[i].expr = llExprUnAutoTyped(ll_mod, ll_func, instr.predecessors[i].expr)
+			instr.predecessors[i].expr = llExprUnHoleTyped(ll_mod, ll_func, instr.predecessors[i].expr)
 		}
 		ll_instr = instr
 	case LLInstrBrIf:
-		instr.cond = llExprUnAutoTyped(ll_mod, ll_func, instr.cond)
+		instr.cond = llExprUnHoleTyped(ll_mod, ll_func, instr.cond)
 		ll_instr = instr
 	case LLInstrLet:
-		instr.instr = llPopulateAutoTypesInInstr(ll_mod, ll_func, idx_block, instr.instr)
+		instr.instr = llResolveHoleTypesInInstr(ll_mod, ll_func, idx_block, instr.instr)
 		ll_instr = instr
 	case LLInstrRet:
-		instr.expr.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.expr.expr)
-		if llTypeIsAuto(instr.expr.ty) {
+		instr.expr.expr = llExprUnHoleTyped(ll_mod, ll_func, instr.expr.expr)
+		if llTypeIsHole(instr.expr.ty) {
 			instr.expr.ty = ll_func.ty
 		}
 		ll_instr = instr
 	case LLInstrConvert:
-		instr.expr = llExprUnAutoTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
+		instr.expr = llExprUnHoleTyped(ll_mod, ll_func, instr.expr).(LLExprTyped)
 		ll_instr = instr
 	case LLInstrSwitch:
-		instr.comparee = llExprUnAutoTyped(ll_mod, ll_func, instr.comparee).(LLExprTyped)
-		is_ty_auto_cmp := llTypeIsAuto(instr.comparee.ty)
+		instr.comparee = llExprUnHoleTyped(ll_mod, ll_func, instr.comparee).(LLExprTyped)
+		is_ty_hole_cmp := llTypeIsHole(instr.comparee.ty)
 		for i := range instr.cases {
-			instr.cases[i].expr = llExprUnAutoTyped(ll_mod, ll_func, instr.cases[i].expr).(LLExprTyped)
-			is_ty_auto := llTypeIsAuto(instr.cases[i].expr.ty)
-			if is_ty_auto && !is_ty_auto_cmp {
+			instr.cases[i].expr = llExprUnHoleTyped(ll_mod, ll_func, instr.cases[i].expr).(LLExprTyped)
+			is_ty_hole := llTypeIsHole(instr.cases[i].expr.ty)
+			if is_ty_hole && !is_ty_hole_cmp {
 				instr.cases[i].expr.ty = instr.comparee.ty
-			} else if is_ty_auto_cmp && !is_ty_auto {
+			} else if is_ty_hole_cmp && !is_ty_hole {
 				instr.comparee.ty = instr.cases[i].expr.ty
 			}
 		}
-		if !llTypeIsAuto(instr.comparee.ty) {
+		if !llTypeIsHole(instr.comparee.ty) {
 			for i := range instr.cases {
-				if llTypeIsAuto(instr.cases[i].expr.ty) {
+				if llTypeIsHole(instr.cases[i].expr.ty) {
 					instr.cases[i].expr.ty = instr.comparee.ty
 				}
 			}
@@ -423,10 +423,10 @@ func llExprTypeMaybe(ll_mod *LLModule, ll_func *LLFunc, ll_expr LLExpr) LLType {
 	return nil
 }
 
-func llExprUnAutoTyped(ll_mod *LLModule, ll_func *LLFunc, ll_expr LLExpr) LLExpr {
+func llExprUnHoleTyped(ll_mod *LLModule, ll_func *LLFunc, ll_expr LLExpr) LLExpr {
 	switch expr := ll_expr.(type) {
 	case LLExprTyped:
-		if llTypeIsAuto(expr.ty) {
+		if llTypeIsHole(expr.ty) {
 			if ty := llExprTypeMaybe(ll_mod, ll_func, expr.expr); ty != nil {
 				expr.ty = ty
 			}
@@ -436,31 +436,31 @@ func llExprUnAutoTyped(ll_mod *LLModule, ll_func *LLFunc, ll_expr LLExpr) LLExpr
 	return ll_expr
 }
 
-func llTypeIsAuto(ll_type LLType) bool {
-	_, is := ll_type.(LLTypeAuto)
+func llTypeIsHole(ll_type LLType) bool {
+	_, is := ll_type.(LLTypeHole)
 	return is
 }
 
-func llTypeIsOrHasAuto(ll_type LLType) bool {
+func llTypeIsOrHasHole(ll_type LLType) bool {
 	switch ty := ll_type.(type) {
 	case LLTypeVoid, LLTypeInt:
 		return false
-	case LLTypeAuto:
+	case LLTypeHole:
 		return true
 	case LLTypeArr:
-		return llTypeIsOrHasAuto(ty.ty)
+		return llTypeIsOrHasHole(ty.ty)
 	case LLTypeFunc:
 		for i := range ty.params {
-			if llTypeIsOrHasAuto(ty.params[i]) {
+			if llTypeIsOrHasHole(ty.params[i]) {
 				return true
 			}
 		}
-		return llTypeIsOrHasAuto(ty.ty)
+		return llTypeIsOrHasHole(ty.ty)
 	case LLTypePtr:
-		return llTypeIsOrHasAuto(ty.ty)
+		return llTypeIsOrHasHole(ty.ty)
 	case LLTypeStruct:
 		for i := range ty.fields {
-			if llTypeIsOrHasAuto(ty.fields[i]) {
+			if llTypeIsOrHasHole(ty.fields[i]) {
 				return true
 			}
 		}
@@ -516,7 +516,7 @@ func (LLTypeInt) implementsLLType()    {}
 func (LLTypePtr) implementsLLType()    {}
 func (LLTypeStruct) implementsLLType() {}
 func (LLTypeVoid) implementsLLType()   {}
-func (LLTypeAuto) implementsLLType()   {}
+func (LLTypeHole) implementsLLType()   {}
 
 func (LLExprIdentGlobal) implementsLLExpr() {}
 func (LLExprIdentLocal) implementsLLExpr()  {}

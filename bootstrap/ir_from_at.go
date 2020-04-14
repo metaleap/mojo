@@ -291,8 +291,25 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 			ret_expr = ctx.args[expr]
 		}
 	case IrExprDefRef:
-		irReduceDef(ctx, int(expr))
+		def_ref := expr
+		for {
+			ref_def := &ctx.ir.defs[def_ref]
+			irReduceDef(ctx, int(def_ref))
+			if ref_def.num_params != 0 {
+				break
+			} else if alias, is := ref_def.body.(IrExprDefRef); is {
+				def_ref = alias
+			} else {
+				break
+			}
+		}
+		if ref_def := &ctx.ir.defs[def_ref]; ref_def.num_params == 0 {
+			ret_expr = ref_def.body
+		}
 	case IrExprForm:
+		if callee_ident, _ := expr[0].(IrExprIdent); strEq(callee_ident, "/@") {
+			return IrExprForm(expr)
+		}
 		ret_form := allocˇIrExpr(len(expr))
 		for i := range expr {
 			ret_form[i] = irReduceExpr(ctx, expr[i])
@@ -301,17 +318,6 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 		switch callee := ret_form[0].(type) {
 		case IrExprDefRef:
 			def_ref := callee
-			for {
-				ref_def := &ctx.ir.defs[def_ref]
-				irReduceDef(ctx, int(def_ref))
-				if ref_def.num_params != 0 {
-					break
-				} else if alias, is := ref_def.body.(IrExprDefRef); is {
-					def_ref = alias
-				} else {
-					break
-				}
-			}
 			old_args := ctx.args
 			ctx.args = ret_form[1:]
 			ret_expr = irReduceExpr(ctx, ctx.ir.defs[def_ref].body)
@@ -323,6 +329,7 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 	// 	irExprDbgPrint(ctx.ir, ir_expr, 2)
 	// 	print("\n// TO:\n  ")
 	// 	irExprDbgPrint(ctx.ir, ret_expr, 2)
+	// 	print("\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=\n\n  ")
 	// }
 	return ret_expr
 }

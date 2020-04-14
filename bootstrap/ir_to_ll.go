@@ -123,6 +123,7 @@ func irToLL(ctx *CtxIrToLL, ir_expr IrExpr) Any {
 			}
 			panic("CALLEE-Ident\t" + string(callee))
 		default:
+			irExprDbgPrint(ctx.ir, callee, 0)
 			panic(callee)
 		}
 	case IrExprSlashed:
@@ -149,7 +150,7 @@ func irToLLType(ctx *CtxIrToLL, expr IrExprSlashed) LLType {
 		if kwd[0] == 'V' {
 			return LLTypeVoid{}
 		} else if kwd[0] == '_' {
-			return LLTypeAuto{}
+			return LLTypeHole{}
 		} else if kwd[0] == 'I' {
 			assert(len(expr) == 1)
 			if len(kwd) == 1 {
@@ -250,7 +251,7 @@ func irToLLFuncDef(ctx *CtxIrToLL, expr_form IrExprForm) LLFunc {
 
 func irToLLInstrRet(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrRet {
 	assert(len(expr_form) == 2)
-	return LLInstrRet{expr: llExprToTyped(irToLL(ctx, expr_form[1]).(LLExpr), LLTypeAuto{})}
+	return LLInstrRet{expr: llExprToTyped(irToLL(ctx, expr_form[1]).(LLExpr), LLTypeHole{})}
 }
 
 func irToLLInstrBrTo(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrBrTo {
@@ -385,11 +386,11 @@ func irToLLInstrCall(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrCall {
 	lit_arr_args := expr_form[2].(IrExprArr)
 	ret_call := LLInstrCall{
 		callee: irToLL(ctx, expr_form[1]).(LLExprIdentGlobal),
-		ty:     LLTypeAuto{},
+		ty:     LLTypeHole{},
 		args:   allocˇLLExprTyped(len(lit_arr_args)),
 	}
 	for i := range lit_arr_args {
-		ret_call.args[i] = llExprToTyped(irToLL(ctx, lit_arr_args[i]).(LLExpr), LLTypeAuto{})
+		ret_call.args[i] = llExprToTyped(irToLL(ctx, lit_arr_args[i]).(LLExpr), LLTypeHole{})
 	}
 	return ret_call
 }
