@@ -1,18 +1,14 @@
 
 main :=
-  writeOut "Hello World"
+  io.writeOut "Hello World"
 
-
-
-io :=
-  { writeTo: writeTo, writeErr: writeErr, writeOut: writeOut }
-
-  writeTo _file _str :=
-    /ffiCall libc.fWrite _str 1 (/len _str) _file,
-  writeOut _str :=
-    writeTo libc.stdout _str,
-  writeErr _str :=
-    writeTo libc.stderr _str,
+  io := { writeTo: writeTo, writeErr: writeErr, writeOut: writeOut }
+    writeTo _file _str :=
+      /ffiCall libc.fWrite _str 1 (/len _str) _file
+    writeOut _str :=
+      writeTo libc.stdout _str
+    writeErr _str :=
+      writeTo libc.stderr _str
 
 
 

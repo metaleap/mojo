@@ -235,11 +235,11 @@ func toksCheckBrackets(toks []Token) {
 			level_bsquare--
 		}
 		if level_bparen < 0 {
-			fail("surplus closing parenthesis in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
+			fail("unmatched closing parenthesis in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
 		} else if level_bcurly < 0 {
-			fail("surplus closing curly brace in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
+			fail("unmatched closing curly brace in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
 		} else if level_bsquare < 0 {
-			fail("surplus closing square bracket in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
+			fail("unmatched closing square bracket in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
 		}
 	}
 	if level_bparen > 0 {
