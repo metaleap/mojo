@@ -79,6 +79,55 @@ func astNodeSrc(node *AstNode, ast *Ast) Str {
 	return toksSrcStr(node_toks, ast.src)
 }
 
+func astExprFormExtract(expr_form AstExprForm, idx_start int, idx_end int) AstExpr {
+	sub_form := expr_form[idx_start:idx_end]
+	ret_expr := AstExpr{variant: sub_form}
+	ret_expr.base.toks_idx = expr_form[idx_start].base.toks_idx
+	for i := idx_start; i < idx_end; i++ {
+		ret_expr.base.toks_len += expr_form[i].base.toks_len
+	}
+	if form, is := ret_expr.variant.(AstExprForm); is && 1 == len(form) {
+		ret_expr = form[0]
+	}
+	return ret_expr
+}
+
+func astExprFormSplit(expr *AstExpr, ident string, must bool, must_lhs bool, must_rhs bool, ast *Ast) (lhs AstExpr, rhs AstExpr) {
+	ident_needle := Str(ident)
+	if !must {
+		assert(!(must_lhs || must_rhs))
+	}
+	idx := -1
+	if form, _ := expr.variant.(AstExprForm); len(form) != 0 {
+		for i := range form {
+			switch maybe_ident := form[i].variant.(type) {
+			case AstExprIdent:
+				if strEql(ident_needle, maybe_ident) {
+					idx = i
+					break
+				}
+			}
+		}
+		if idx >= 0 {
+			if idx > 0 {
+				lhs = astExprFormExtract(form, 0, idx)
+			}
+			if idx < len(form)-1 {
+				rhs = astExprFormExtract(form, idx+1, len(form))
+			}
+		}
+	}
+	if idx < 0 && must {
+		fail(astNodeMsg("expected '"+string(ident_needle)+"' in line ", &expr.base, ast))
+	}
+	if lhs.variant == nil && must_lhs {
+		fail(astNodeMsg("expected expression before '"+string(ident_needle)+"' in line ", &expr.base, ast))
+	}
+	if rhs.variant == nil && must_rhs {
+		fail(astNodeMsg("expected expression after '"+string(ident_needle)+"' in line ", &expr.base, ast))
+	}
+	return
+}
 func astPopulateScopes(ast *Ast) {
 	ast.scope.cur = ªAstNameRef(len(ast.defs))
 	for i := range ast.defs {

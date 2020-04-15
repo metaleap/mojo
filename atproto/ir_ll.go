@@ -69,6 +69,14 @@ type IrLLExprOpInt struct {
 	rhs  IrLLExpr
 }
 
+type IrLLOpBoolKind int
+
+const (
+	_ IrLLOpBoolKind = iota
+	ll_bool_op_and
+	ll_bool_op_or
+)
+
 type IrLLOpIntKind int
 
 const (

@@ -36,8 +36,18 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 			dst_def.anns.name = head_expr
 		case AstExprForm:
 			dst_def.anns.name = head_expr[0].variant.(AstExprIdent)
+			for i := 1; i < len(head_expr); i++ {
+				switch param_name := head_expr[i].variant.(type) {
+				case AstExprIdent:
+					if param_name[0] != '_' || param_name[1] == '_' {
+						fail(astNodeMsg("param name doesn't begin with exactly one underscore in line ", &head_expr[i].base, dst_ast))
+					}
+				default:
+					fail(astNodeMsg("unsupported def header in line ", &head_expr[i].base, dst_ast))
+				}
+			}
 		default:
-			fail(astNodeMsg("unsupported header form in line ", &dst_def.head.base, dst_ast))
+			fail(astNodeMsg("unsupported def header in line ", &dst_def.head.base, dst_ast))
 		}
 	}
 	chunks_body := toksIndentBasedChunks(toks[tok_idx_def+1:])

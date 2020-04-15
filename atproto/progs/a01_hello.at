@@ -1,6 +1,6 @@
 
 main :=
-  io.writeToOut  "Hello World!\010"
+  io.writeToOut "Hello World!\010"
 
   io := { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
 
@@ -14,8 +14,8 @@ main :=
     writeToOut _str := writeToStdOrExit libc.stdout _str
     writeToErr _str := writeToStdOrExit libc.stdout _str
 
-    writeToStdOrExit std_file _str :=
-      /case (writeTo std_file _str)
+    writeToStdOrExit _std_file _str :=
+      /case (writeTo _std_file _str)
             { #ok n: n, #err _: /call libc.exit 1 }
 
 
