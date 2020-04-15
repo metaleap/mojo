@@ -103,22 +103,25 @@ func (IrHLExprBag) implementsIrHLExprVariant()    {}
 func (IrHLExprInfix) implementsIrHLExprVariant()  {}
 
 type CtxIrHLFromAst struct {
+	ir       IrHL
+	num_defs int
 }
 
 func irHLFrom(ast *Ast) IrHL {
-	num_defs := 0
-	ret_ir := IrHL{
+	ctx := CtxIrHLFromAst{num_defs: 0, ir: IrHL{
 		defs: ªIrHLDef(ast.anns.num_def_toks),
-	}
-	ret_ir.anns.origin_ast = ast
-	ret_ir.defs = ret_ir.defs[0:num_defs]
+	}}
+	ctx.ir.anns.origin_ast = ast
+
 	for i := range ast.defs {
-		irHLTopDefsFromAstTopDef(&ret_ir, ast, &ast.defs[i])
+		irHLTopDefsFromAstTopDef(&ctx, &ast.defs[i])
 	}
-	return ret_ir
+
+	ctx.ir.defs = ctx.ir.defs[0:ctx.num_defs]
+	return ctx.ir
 }
 
-func irHLTopDefsFromAstTopDef(dst_ir *IrHL, ast *Ast, top_def *AstDef) {
+func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 
 }
 
