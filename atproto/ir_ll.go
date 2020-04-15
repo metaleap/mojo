@@ -31,7 +31,10 @@ type IrLLType interface{ implementsIrLLType() }
 type IrLLExprKind interface{ implementsIrLLExprKind() }
 
 type IrLLTypeInt struct{ bit_width int }
-type IrLLTypeArr struct{ payload IrLLType }
+type IrLLTypeArr struct {
+	size    int
+	payload IrLLType
+}
 type IrLLTypePtr struct{ payload IrLLType }
 type IrLLTypeStruct struct{ fields []IrLLType }
 type IrLLTypeVoid struct{}

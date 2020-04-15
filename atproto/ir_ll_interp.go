@@ -1,12 +1,12 @@
 package main
 
-type IrLLEvalCtx struct {
+type CtxIrLLEval struct {
 	prog *IrLLProg
 	args []IrLLExpr
 }
 
 // TODO: wastefully recursive right now, later pre-alloc stack of manually pushed/popped call frames
-func irLLEval(ctx *IrLLEvalCtx, expr IrLLExpr) IrLLExpr {
+func irLLEval(ctx *CtxIrLLEval, expr IrLLExpr) IrLLExpr {
 	var ret_expr IrLLExpr
 	switch it := expr.kind.(type) {
 	case IrLLExprInt, IrLLExprPtr:

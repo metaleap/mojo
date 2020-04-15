@@ -124,9 +124,9 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 					bracketed_exprs := parseExprsDelimited(expr_toks[i+1:idx_close], all_toks_idx+i+1, tok_kind_sep_comma, ast)
 					switch tok_kind {
 					case tok_kind_sep_bcurly_open:
-						acc_ret[acc_len].kind = AstExprLitCurl(bracketed_exprs)
+						acc_ret[acc_len].kind = AstExprLitObj(bracketed_exprs)
 					case tok_kind_sep_bsquare_open:
-						acc_ret[acc_len].kind = AstExprLitClip(bracketed_exprs)
+						acc_ret[acc_len].kind = AstExprLitList(bracketed_exprs)
 					default:
 						unreachable()
 					}

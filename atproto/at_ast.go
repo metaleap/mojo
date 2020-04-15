@@ -44,9 +44,9 @@ type AstExprIdent Str
 
 type AstExprForm []AstExpr
 
-type AstExprLitClip []AstExpr
+type AstExprLitList []AstExpr
 
-type AstExprLitCurl []AstExpr
+type AstExprLitObj []AstExpr
 
 type AstScopes struct {
 	cur    []AstNameRef
@@ -77,24 +77,6 @@ func astNodeMsg(msg_prefix string, node *AstNode, ast *Ast) Str {
 func astNodeSrc(node *AstNode, ast *Ast) Str {
 	node_toks := astNodeToks(node, ast)
 	return toksSrcStr(node_toks, ast.src)
-}
-
-func astHoistSubDefs(ast *Ast) {
-	num_defs := 0
-	defs := ªAstDef(ast.anns.num_def_toks)
-	for i := range ast.defs {
-		num_defs = astDefHoistSubDefs(ast, &ast.defs[i], defs, num_defs)
-	}
-	ast.defs = defs[0:num_defs]
-	astPopulateScopes(ast)
-}
-
-func astDefHoistSubDefs(ast *Ast, def *AstDef, into []AstDef, num_defs int) int {
-	for i := range def.defs {
-		num_defs = astDefHoistSubDefs(ast, &def.defs[i], into, num_defs)
-	}
-
-	return num_defs
 }
 
 func astPopulateScopes(ast *Ast) {
@@ -163,7 +145,7 @@ type AstExprKind interface{ implementsAstExprKind() }
 
 func (AstExprForm) implementsAstExprKind()    {}
 func (AstExprIdent) implementsAstExprKind()   {}
-func (AstExprLitClip) implementsAstExprKind() {}
-func (AstExprLitCurl) implementsAstExprKind() {}
+func (AstExprLitList) implementsAstExprKind() {}
+func (AstExprLitObj) implementsAstExprKind()  {}
 func (AstExprLitInt) implementsAstExprKind()  {}
 func (AstExprLitStr) implementsAstExprKind()  {}
