@@ -37,7 +37,7 @@ func irLLEval(ctx *IrLLEvalCtx, expr IrLLExpr) IrLLExpr {
 	case IrLLExprOpInt:
 		lhs := irLLEval(ctx, it.lhs)
 		rhs := irLLEval(ctx, it.rhs)
-		assert(lhs.anns.ty == rhs.anns.ty)
+		// assert(lhs.anns.ty == rhs.anns.ty)
 		l, r := lhs.kind.(IrLLExprInt), rhs.kind.(IrLLExprInt)
 		var result IrLLExprInt
 		switch it.kind {
@@ -51,6 +51,10 @@ func irLLEval(ctx *IrLLEvalCtx, expr IrLLExpr) IrLLExpr {
 			result = IrLLExprInt(uint64(l) / uint64(r))
 		case ll_bin_op_sdiv:
 			result = l / r
+		case ll_bin_op_urem:
+			result = IrLLExprInt(uint64(l) % uint64(r))
+		case ll_bin_op_srem:
+			result = l % r
 		default:
 			panic(it.kind)
 		}
@@ -92,6 +96,6 @@ func irLLEval(ctx *IrLLEvalCtx, expr IrLLExpr) IrLLExpr {
 	default:
 		panic(it)
 	}
-	assert(ret_expr.kind != nil)
+	// assert(ret_expr.kind != nil)
 	return ret_expr
 }

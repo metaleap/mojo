@@ -12,7 +12,8 @@ const (
 	tok_kind_ident
 
 	tok_kind_lit_int
-	tok_kind_lit_str
+	tok_kind_lit_str_double
+	tok_kind_lit_str_single
 
 	tok_kind_sep_bparen_open
 	tok_kind_sep_bparen_close
@@ -58,8 +59,8 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 		c := full_src[i]
 
 		if c == '\n' {
-			if state == tok_kind_lit_str {
-				panic("line-break in literal near:\n" + string(full_src[tok_start:i]))
+			if state == tok_kind_lit_str_double || state == tok_kind_lit_str_single {
+				fail("line-break in literal near:\n", full_src[tok_start:i])
 			}
 			if tok_start != -1 && tok_last == -1 {
 				tok_last = i - 1
@@ -72,15 +73,22 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 					i--
 					tok_last = i
 				}
-			case tok_kind_lit_str:
+			case tok_kind_lit_str_double:
 				if c == '"' {
+					tok_last = i
+				}
+			case tok_kind_lit_str_single:
+				if c == '\'' {
 					tok_last = i
 				}
 			case tok_kind_none:
 				switch c {
 				case '"':
 					tok_start = i
-					state = tok_kind_lit_str
+					state = tok_kind_lit_str_double
+				case '\'':
+					tok_start = i
+					state = tok_kind_lit_str_single
 				case '[':
 					tok_last = i
 					tok_start = i
@@ -173,7 +181,10 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 }
 
 func tokCanThrong(tok *Token, full_src Str) bool {
-	return tok.kind == tok_kind_lit_int || tok.kind == tok_kind_lit_str || (tok.kind == tok_kind_ident && full_src[tok.byte_idx] != ':' && full_src[tok.byte_idx] != '=')
+	return tok.kind == tok_kind_lit_int ||
+		tok.kind == tok_kind_lit_str_double ||
+		tok.kind == tok_kind_lit_str_single ||
+		(tok.kind == tok_kind_ident && full_src[tok.byte_idx] != ':' && full_src[tok.byte_idx] != '=')
 }
 
 func tokThrong(toks []Token, idx int, full_src Str) int {
@@ -219,20 +230,39 @@ func toksCountUnnested(toks []Token, full_src Str, tok_kind TokenKind) int {
 
 func toksCheckBrackets(toks []Token) {
 	level_bparen, level_bsquare, level_bcurly := 0, 0, 0
+	line_bparen, line_bsquare, line_bcurly := -1, -1, -1
 	for i := range toks {
 		switch toks[i].kind {
 		case tok_kind_sep_bcurly_open:
 			level_bcurly++
+			if line_bcurly == -1 {
+				line_bcurly = toks[i].line_nr
+			}
 		case tok_kind_sep_bparen_open:
 			level_bparen++
+			if line_bparen == -1 {
+				line_bparen = toks[i].line_nr
+			}
 		case tok_kind_sep_bsquare_open:
 			level_bsquare++
+			if line_bsquare == -1 {
+				line_bsquare = toks[i].line_nr
+			}
 		case tok_kind_sep_bcurly_close:
 			level_bcurly--
+			if level_bcurly == 0 {
+				line_bcurly = -1
+			}
 		case tok_kind_sep_bparen_close:
 			level_bparen--
+			if level_bparen == 0 {
+				line_bparen = -1
+			}
 		case tok_kind_sep_bsquare_close:
 			level_bsquare--
+			if level_bsquare == 0 {
+				line_bsquare = -1
+			}
 		}
 		if level_bparen < 0 {
 			fail("unmatched closing parenthesis in line ", uintToStr(uint64(1+toks[i].line_nr), 10, 1, nil))
@@ -243,11 +273,11 @@ func toksCheckBrackets(toks []Token) {
 		}
 	}
 	if level_bparen > 0 {
-		fail("missing closing parenthesis")
+		fail("unmatched opening parenthesis in line ", uintToStr(uint64(1+line_bparen), 10, 1, nil))
 	} else if level_bcurly > 0 {
-		fail("missing closing curly brace")
+		fail("unmatched opening curly brace in line ", uintToStr(uint64(1+line_bcurly), 10, 1, nil))
 	} else if level_bsquare > 0 {
-		fail("missing closing square bracket")
+		fail("unmatched opening square bracket in line ", uintToStr(uint64(1+line_bsquare), 10, 1, nil))
 	}
 }
 

@@ -24,7 +24,7 @@ func fail(msg_parts ...Any) {
 			print(string(msg_part))
 		case AstExprLitStr:
 			print(string(msg_part))
-		case string: // same-looking as the default case, but need it explicitly for expected output at least in go1.14
+		case string: // same-looking as the default case, but need it explicitly
 			print(msg_part)
 		default:
 			print(msg_part)

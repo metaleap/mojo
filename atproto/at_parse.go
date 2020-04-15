@@ -57,6 +57,7 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 }
 
 func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
+	assert(len(expr_toks) != 0)
 	acc_ret := ªAstExpr(len(expr_toks))
 	acc_len := 0
 	expr_is_throng := (len(expr_toks)-1 == tokThrong(expr_toks, 0, ast.src))
@@ -77,15 +78,32 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 					base: astNodeFrom(all_toks_idx+i, 1),
 					kind: AstExprLitInt(parseExprLitInt(tok_str)),
 				}
-			case tok_kind_lit_str:
+			case tok_kind_lit_str_double:
 				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
 				acc_ret[acc_len] = AstExpr{
 					base: astNodeFrom(all_toks_idx+i, 1),
-					kind: AstExprLitStr(parseExprLitStr(tok_str)),
+					kind: AstExprLitStr(parseExprLitStr(tok_str, '"')),
+				}
+			case tok_kind_lit_str_single:
+				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
+				node_base := astNodeFrom(all_toks_idx+i, 1)
+				char_str := parseExprLitStr(tok_str, '\'')
+				char_rune := rune(-1)
+				for _, r := range string(char_str) {
+					if char_rune < 0 {
+						char_rune = r
+					} else {
+						fail("character literal ", astNodeSrcStr(&node_base, ast), " too long in line ", uintToStr(uint64(1+expr_toks[i].line_nr), 10, 1, nil))
+					}
+				}
+				if char_rune < 0 {
+					fail("character literal ", astNodeSrcStr(&node_base, ast), " too short in line ", uintToStr(uint64(1+expr_toks[i].line_nr), 10, 1, nil))
+				} else {
+					acc_ret[acc_len] = AstExpr{base: node_base, kind: AstExprLitInt(char_rune)}
 				}
 			case tok_kind_sep_bcurly_open, tok_kind_sep_bsquare_open, tok_kind_sep_bparen_open:
 				idx_close := toksIndexOfMatchingBracket(expr_toks[i:])
-				assert(idx_close > 0)
+				assert(idx_close > 0) // the other-case will have been caught already by toksCheckBrackets
 				idx_close += i
 				if tok_kind == tok_kind_sep_bparen_open {
 					inside_parens_toks := expr_toks[i+1 : idx_close]
@@ -138,18 +156,24 @@ func parseExprLitInt(lit_src Str) uint64 {
 	return uintFromStr(lit_src)
 }
 
-func parseExprLitStr(lit_src Str) Str {
-	assert(len(lit_src) >= 2 && lit_src[0] == '"' && lit_src[len(lit_src)-1] == '"')
+func parseExprLitStr(lit_src Str, delim_char byte) Str {
+	assert(len(lit_src) >= 2 && lit_src[0] == delim_char && lit_src[len(lit_src)-1] == delim_char) // tokenizer-guaranteed
 	ret_str := ªbyte(len(lit_src) - 2)
 	ret_len := 0
 	for i := 1; i < len(lit_src)-1; i++ {
 		if lit_src[i] != '\\' {
 			ret_str[ret_len] = lit_src[i]
 		} else {
-			int10str := lit_src[i+1 : i+4]
+			idx_end := i + 4
+			if idx_end >= len(lit_src)-1 {
+				fail("expected 3-digit base-10 integer decimal 000..256 following escape in: ", lit_src)
+			}
+			base10digits := lit_src[i+1 : idx_end]
 			i += 3
-			integer := uintFromStr(int10str)
-			assert(integer < 256)
+			integer := uintFromStr(base10digits)
+			if integer >= 256 {
+				fail("expected 3-digit base-10 integer decimal 000..256 following escape in: ", lit_src)
+			}
 			ret_str[ret_len] = byte(integer)
 		}
 		ret_len++

@@ -1,6 +1,6 @@
 
 main :=
-  io.writeToOut "Hello World"
+  io.writeToOut  "Hello World!\010"
 
   io := { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
 
