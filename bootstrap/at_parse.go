@@ -5,7 +5,7 @@ func parse(all_toks []Token, full_src Str) Ast {
 	ret_ast := Ast{
 		src:  full_src,
 		toks: all_toks,
-		defs: allocˇAstDef(len(chunks)),
+		defs: ªAstDef(len(chunks)),
 	}
 	toks_idx := 0
 	for i, this_chunk_toks := range chunks {
@@ -40,7 +40,7 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 		}
 	}
 	chunks_body := toksIndentBasedChunks(toks[tok_idx_def+1:])
-	dst_def.defs = allocˇAstDef(len(chunks_body) - 1)
+	dst_def.defs = ªAstDef(len(chunks_body) - 1)
 	toks_idx := dst_def.base.toks_idx + tok_idx_def + 1
 	for i, this_chunk_toks := range chunks_body {
 		if i == 0 {
@@ -57,7 +57,7 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 }
 
 func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
-	acc_ret := allocˇAstExpr(len(expr_toks))
+	acc_ret := ªAstExpr(len(expr_toks))
 	acc_len := 0
 	expr_is_throng := tokThrong(expr_toks, 0, ast.src) == len(expr_toks)-1
 	for i := 0; i < len(expr_toks); i++ {
@@ -138,7 +138,7 @@ func parseExprLitInt(lit_src Str) uint64 {
 
 func parseExprLitStr(lit_src Str) Str {
 	assert(len(lit_src) >= 2 && lit_src[0] == '"' && lit_src[len(lit_src)-1] == '"')
-	ret_str := allocˇbyte(len(lit_src) - 2)
+	ret_str := ªbyte(len(lit_src) - 2)
 	ret_len := 0
 	for i := 1; i < len(lit_src)-1; i++ {
 		if lit_src[i] != '\\' {
@@ -157,10 +157,10 @@ func parseExprLitStr(lit_src Str) Str {
 
 func parseExprsDelimited(toks []Token, all_toks_idx int, tok_kind_sep TokenKind, ast *Ast) []AstExpr {
 	if len(toks) == 0 {
-		return allocˇAstExpr(0)
+		return ªAstExpr(0)
 	}
 	per_item_toks := toksSplit(toks, ast.src, tok_kind_sep)
-	ret_exprs := allocˇAstExpr(len(per_item_toks))
+	ret_exprs := ªAstExpr(len(per_item_toks))
 	ret_idx := 0
 	toks_idx := all_toks_idx
 	for _, this_item_toks := range per_item_toks {

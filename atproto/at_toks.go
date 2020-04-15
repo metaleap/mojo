@@ -1,7 +1,7 @@
 package main
 
 const op_chars = "!#$%&*+-;:./<=>?@\\^~|"
-const sep_chars = "[]{}(),"
+const sep_chars = "[]{}(),:"
 
 type TokenKind int
 
@@ -53,13 +53,13 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 	i, cur_line_nr, cur_line_idx, toks_count := 0, 0, 0, 0
 	tok_start, tok_last := -1, -1
 	var state TokenKind = tok_kind_none
-	toks := allocˇToken(len(full_src))
+	toks := ªToken(len(full_src))
 	for i = 0; i < len(full_src); i++ {
 		c := full_src[i]
 
 		if c == '\n' {
 			if state == tok_kind_lit_str {
-				fail("line-break in literal near:\n", full_src[tok_start:i])
+				panic("line-break in literal near:\n" + string(full_src[tok_start:i]))
 			}
 			if tok_start != -1 && tok_last == -1 {
 				tok_last = i - 1
@@ -67,7 +67,7 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 		} else {
 			switch state {
 			case tok_kind_lit_int, tok_kind_ident:
-				if c == ' ' || c == '\t' || c == '"' || c == '\'' || isSepChar(c) || c == ':' ||
+				if c == ' ' || c == '\t' || c == '"' || c == '\'' || isSepChar(c) ||
 					(isOpChar(c) && !isOpChar(full_src[i-1])) || (isOpChar(full_src[i-1]) && !isOpChar(c)) {
 					i--
 					tok_last = i
@@ -284,7 +284,7 @@ func toksIndentBasedChunks(toks []Token) [][]Token {
 	}
 	assert(level == 0)
 
-	ret := allocˇTokens(num_chunks)
+	ret := ªTokens(num_chunks)
 	{
 		start_from, next_idx := -1, 0
 		for i := range toks {
@@ -350,7 +350,7 @@ func toksIndexOfMatchingBracket(toks []Token) int {
 func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
 	assert(!(tokIsOpeningBracket(tok_kind) || tokIsClosingBracket(tok_kind)))
 
-	ret_toks := allocˇTokens(1 + toksCountUnnested(toks, full_src, tok_kind))
+	ret_toks := ªTokens(1 + toksCountUnnested(toks, full_src, tok_kind))
 	ret_idx := 0
 	{
 		level := 0

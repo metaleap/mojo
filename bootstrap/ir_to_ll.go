@@ -15,8 +15,8 @@ func llModuleFrom(ir *Ir, def_name Str) LLModule {
 	ret_mod := LLModule{
 		target_datalayout: Str(llmodule_default_target_datalayout),
 		target_triple:     Str(llmodule_default_target_triple),
-		globals:           allocˇLLGlobal(len(ir.defs)),
-		funcs:             allocˇLLFunc(len(ir.defs)),
+		globals:           ªLLGlobal(len(ir.defs)),
+		funcs:             ªLLFunc(len(ir.defs)),
 	}
 	ret_mod.anns.orig_ir = ir
 	ctx := CtxIrToLL{
@@ -208,7 +208,7 @@ func irToLLFuncDecl(ctx *CtxIrToLL, expr_form IrExprForm) LLFunc {
 		external:     true,
 		name:         expr_form[1].(IrExprTag),
 		ty:           irToLL(ctx, expr_form[3]).(LLType),
-		params:       allocˇLLFuncParam(len(lit_obj_params)),
+		params:       ªLLFuncParam(len(lit_obj_params)),
 		basic_blocks: nil,
 	}
 	irToLLFuncPopulateParams(ctx, lit_obj_params, ret_func.params)
@@ -225,8 +225,8 @@ func irToLLFuncDef(ctx *CtxIrToLL, expr_form IrExprForm) LLFunc {
 		external:     false,
 		name:         nil, // consumer must set it when receiving ret_func
 		ty:           irToLL(ctx, expr_form[2]).(LLType),
-		params:       allocˇLLFuncParam(len(lit_obj_params)),
-		basic_blocks: allocˇLLBasicBlock(len(lit_obj_blocks)),
+		params:       ªLLFuncParam(len(lit_obj_params)),
+		basic_blocks: ªLLBasicBlock(len(lit_obj_blocks)),
 	}
 	irToLLFuncPopulateParams(ctx, lit_obj_params, ret_func.params)
 	for i := range lit_obj_blocks {
@@ -240,7 +240,7 @@ func irToLLFuncDef(ctx *CtxIrToLL, expr_form IrExprForm) LLFunc {
 		block_instrs := pair.rhs.(IrExprArr)
 		ret_func.basic_blocks[i] = LLBasicBlock{
 			name:   block_name,
-			instrs: allocˇLLInstr(len(block_instrs)),
+			instrs: ªLLInstr(len(block_instrs)),
 		}
 		for j, ir_expr_instr := range block_instrs {
 			ret_func.basic_blocks[i].instrs[j] = irToLL(ctx, ir_expr_instr).(LLInstr)
@@ -387,7 +387,7 @@ func irToLLInstrCall(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrCall {
 	ret_call := LLInstrCall{
 		callee: irToLL(ctx, expr_form[1]).(LLExprIdentGlobal),
 		ty:     LLTypeHole{},
-		args:   allocˇLLExprTyped(len(lit_arr_args)),
+		args:   ªLLExprTyped(len(lit_arr_args)),
 	}
 	for i := range lit_arr_args {
 		ret_call.args[i] = llExprToTyped(irToLL(ctx, lit_arr_args[i]).(LLExpr), LLTypeHole{})
@@ -401,7 +401,7 @@ func irToLLInstrSwitch(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrSwitch {
 	ret_switch := LLInstrSwitch{
 		comparee:           irToLL(ctx, expr_form[1]).(LLExprTyped),
 		default_block_name: expr_form[2].(IrExprTag),
-		cases:              allocˇLLSwitchCase(len(lit_obj_cases)),
+		cases:              ªLLSwitchCase(len(lit_obj_cases)),
 	}
 	for i := range lit_obj_cases {
 		pair := lit_obj_cases[i].(IrExprInfix)
@@ -419,7 +419,7 @@ func irToLLInstrPhi(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrPhi {
 	lit_obj_preds := expr_form[2].(IrExprObj)
 	ret_phi := LLInstrPhi{
 		ty:           irToLL(ctx, expr_form[1]).(LLType),
-		predecessors: allocˇLLPhiPred(len(lit_obj_preds)),
+		predecessors: ªLLPhiPred(len(lit_obj_preds)),
 	}
 	for i := range lit_obj_preds {
 		pair := lit_obj_preds[i].(IrExprInfix)
@@ -438,7 +438,7 @@ func irToLLInstrGep(ctx *CtxIrToLL, expr_form IrExprForm) LLInstrGep {
 	ret_gep := LLInstrGep{
 		ty:       irToLL(ctx, expr_form[1]).(LLType),
 		base_ptr: irToLL(ctx, expr_form[2]).(LLExprTyped),
-		indices:  allocˇLLExprTyped(len(lit_arr_idxs)),
+		indices:  ªLLExprTyped(len(lit_arr_idxs)),
 	}
 	for i := range lit_arr_idxs {
 		ret_gep.indices[i] = irToLL(ctx, lit_arr_idxs[i]).(LLExprTyped)

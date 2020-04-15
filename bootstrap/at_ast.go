@@ -102,7 +102,7 @@ func astExprFormSplit(expr *AstExpr, ident string, must bool, must_lhs bool, mus
 			}
 		}
 		if idx >= 0 {
-			both := allocˇAstExpr(2)
+			both := ªAstExpr(2)
 			if idx > 0 {
 				both[0] = astExprFormExtract(form, 0, idx)
 				lhs = &both[0]
@@ -143,7 +143,7 @@ func astExprSlashed(expr *AstExpr) (ret_parts []*AstExpr) {
 			}
 		}
 		if num_parts != 0 {
-			ret_parts = allocˇAstExprPtr(num_parts)
+			ret_parts = ªAstExprPtr(num_parts)
 			ret_idx := 0
 			for i := 1; i < len(form); i += 2 {
 				ret_parts[ret_idx] = &form[i]
@@ -214,7 +214,7 @@ func astHoistLocalDefsToTopDefs(ast *Ast, top_def_name Str) {
 	for i := range ast.defs {
 		top_defs_len += astDefCountAllSubDefs(&ast.defs[i])
 	}
-	top_defs := allocˇAstDef(top_defs_len)
+	top_defs := ªAstDef(top_defs_len)
 	top_defs_len = 0
 	for i := range ast.defs {
 		if strEql(ast.defs[i].anns.name, top_def_name) {
@@ -261,7 +261,7 @@ func astDefHoistLocalDefsToTopDefs(ast *Ast, cur_def *AstDef, top_defs []AstDef,
 }
 
 func astPopulateScopes(ast *Ast) {
-	ast.scope.cur = allocˇAstNameRef(len(ast.defs))
+	ast.scope.cur = ªAstNameRef(len(ast.defs))
 	for i := range ast.defs {
 		def := &ast.defs[i]
 		ast.scope.cur[i] = AstNameRef{name: def.anns.name, param_idx: -1, top_def: def, ref_def: def}
@@ -279,7 +279,7 @@ func astDefPopulateScopes(top_def *AstDef, cur_def *AstDef, ast *Ast, parent *As
 	}
 
 	cur_def.scope.parent = parent
-	cur_def.scope.cur = allocˇAstNameRef(len(cur_def.defs) + num_args)
+	cur_def.scope.cur = ªAstNameRef(len(cur_def.defs) + num_args)
 	for i := range cur_def.defs {
 		sub_def := &cur_def.defs[i]
 		if nil != astScopesResolve(&cur_def.scope, sub_def.anns.name, i) {

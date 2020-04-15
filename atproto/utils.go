@@ -7,12 +7,12 @@ type (
 
 func assert(b bool) {
 	if !b {
-		fail("assertion failure")
+		panic("assertion failure: indicates newly introduced bug")
 	}
 }
 
 func unreachable() {
-	fail("reached unreachable")
+	panic("reached unreachable")
 }
 
 func fail(msg_parts ...Any) {
@@ -39,7 +39,7 @@ func strConcat(strs []Str) Str {
 	for _, str := range strs {
 		str_len += len(str)
 	}
-	ret_str := allocˇbyte(str_len)
+	ret_str := ªbyte(str_len)
 	idx := 0
 	for _, str := range strs {
 		for i, c := range str {
@@ -91,7 +91,7 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	if padding {
 		num_digits = min_len
 	}
-	ret_str := allocˇbyte(len(prefix) + int(num_digits))
+	ret_str := ªbyte(len(prefix) + int(num_digits))
 	for i := range ret_str {
 		ret_str[i] = '0'
 	}
@@ -125,14 +125,15 @@ func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
 	later want to move from OS heap allocs to a pre-alloc'd fixed-size buffer.
 */
 
-func allocˇbool(len int) []bool             { return make([]bool, len) }
-func allocˇint(len int) []int               { return make([]int, len) }
-func allocˇbyte(len int) Str                { return make(Str, len) }
-func allocˇStr(len int) []Str               { return make([]Str, len) }
-func allocˇAny(len int) []Any               { return make([]Any, len) }
-func allocˇToken(len int) []Token           { return make([]Token, len) }
-func allocˇTokens(len int) [][]Token        { return make([][]Token, len) }
-func allocˇAstDef(len int) []AstDef         { return make([]AstDef, len) }
-func allocˇAstExpr(len int) []AstExpr       { return make([]AstExpr, len) }
-func allocˇAstExprPtr(len int) []*AstExpr   { return make([]*AstExpr, len) }
-func allocˇAstNameRef(len int) []AstNameRef { return make([]AstNameRef, len) }
+func ªbool(len int) []bool             { return make([]bool, len) }
+func ªint(len int) []int               { return make([]int, len) }
+func ªbyte(len int) Str                { return make(Str, len) }
+func ªStr(len int) []Str               { return make([]Str, len) }
+func ªAny(len int) []Any               { return make([]Any, len) }
+func ªToken(len int) []Token           { return make([]Token, len) }
+func ªTokens(len int) [][]Token        { return make([][]Token, len) }
+func ªAstDef(len int) []AstDef         { return make([]AstDef, len) }
+func ªAstExpr(len int) []AstExpr       { return make([]AstExpr, len) }
+func ªAstExprPtr(len int) []*AstExpr   { return make([]*AstExpr, len) }
+func ªAstNameRef(len int) []AstNameRef { return make([]AstNameRef, len) }
+func ªIrLLExpr(len int) []IrLLExpr     { return make([]IrLLExpr, len) }

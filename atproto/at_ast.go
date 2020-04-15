@@ -74,7 +74,7 @@ func astNodeSrcStr(node *AstNode, ast *Ast) Str {
 }
 
 func astPopulateScopes(ast *Ast) {
-	ast.scope.cur = allocˇAstNameRef(len(ast.defs))
+	ast.scope.cur = ªAstNameRef(len(ast.defs))
 	for i := range ast.defs {
 		def := &ast.defs[i]
 		ast.scope.cur[i] = AstNameRef{name: def.anns.name, param_idx: -1, top_def: def, ref_def: def}
@@ -92,7 +92,7 @@ func astDefPopulateScopes(top_def *AstDef, cur_def *AstDef, ast *Ast, parent *As
 	}
 
 	cur_def.scope.parent = parent
-	cur_def.scope.cur = allocˇAstNameRef(len(cur_def.defs) + num_args)
+	cur_def.scope.cur = ªAstNameRef(len(cur_def.defs) + num_args)
 	for i := range cur_def.defs {
 		sub_def := &cur_def.defs[i]
 		if nil != astScopesResolve(&cur_def.scope, sub_def.anns.name, i) {

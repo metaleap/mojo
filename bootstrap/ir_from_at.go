@@ -59,7 +59,7 @@ type CtxAstToIr struct {
 }
 
 func irFromAst(ast *Ast, expr *AstExpr) Ir {
-	ret_ir := Ir{origin_ast: ast, defs: allocˇIrDef(len(ast.defs))}
+	ret_ir := Ir{origin_ast: ast, defs: ªIrDef(len(ast.defs))}
 	ctx := CtxAstToIr{scope: &ast.scope, dst: &ret_ir, num_defs: 0}
 	_ = irExprFrom(&ctx, expr).(IrExprDefRef)
 	ret_ir.defs = ret_ir.defs[0:ctx.num_defs]
@@ -76,14 +76,14 @@ func irExprFrom(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 		return IrExprLitStr(expr)
 
 	case AstExprLitClip:
-		ret_arr := allocˇIrExpr(len(expr))
+		ret_arr := ªIrExpr(len(expr))
 		for i := range expr {
 			ret_arr[i] = irExprFrom(ctx, &expr[i])
 		}
 		return IrExprArr(ret_arr)
 
 	case AstExprLitCurl:
-		ret_obj := allocˇIrExpr(len(expr))
+		ret_obj := ªIrExpr(len(expr))
 		for i := range expr {
 			ret_obj[i] = irExprFrom(ctx, &expr[i])
 		}
@@ -151,14 +151,14 @@ func irExprFrom(ctx *CtxAstToIr, ast_expr *AstExpr) IrExpr {
 		if tagged_ident := astExprTaggedIdent(ast_expr); tagged_ident != nil {
 			return IrExprTag(tagged_ident)
 		} else if slashed := astExprSlashed(ast_expr); slashed != nil {
-			ret_slashed := IrExprSlashed(allocˇIrExpr(len(slashed)))
+			ret_slashed := IrExprSlashed(ªIrExpr(len(slashed)))
 			for i, sub_expr := range slashed {
 				ret_slashed[i] = irExprFrom(ctx, sub_expr)
 			}
 			return ret_slashed
 		}
 
-		ir_form := allocˇIrExpr(len(expr))
+		ir_form := ªIrExpr(len(expr))
 		for i := range expr {
 			ir_form[i] = irExprFrom(ctx, &expr[i])
 		}
@@ -241,7 +241,7 @@ type CtxReduce struct {
 }
 
 func irReduceDefs(ir *Ir) {
-	ctx := CtxReduce{ir: ir, done: allocˇbool(len(ir.defs)), args: nil}
+	ctx := CtxReduce{ir: ir, done: ªbool(len(ir.defs)), args: nil}
 	for i := range ir.defs {
 		irReduceDef(&ctx, i)
 	}
@@ -263,19 +263,19 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 	ret_expr := ir_expr
 	switch expr := ir_expr.(type) {
 	case IrExprSlashed:
-		ret_slashed := allocˇIrExpr(len(expr))
+		ret_slashed := ªIrExpr(len(expr))
 		for i := range expr {
 			ret_slashed[i] = irReduceExpr(ctx, expr[i])
 		}
 		ret_expr = IrExprSlashed(ret_slashed)
 	case IrExprArr:
-		ret_arr := allocˇIrExpr(len(expr))
+		ret_arr := ªIrExpr(len(expr))
 		for i := range expr {
 			ret_arr[i] = irReduceExpr(ctx, expr[i])
 		}
 		ret_expr = IrExprArr(ret_arr)
 	case IrExprObj:
-		ret_obj := allocˇIrExpr(len(expr))
+		ret_obj := ªIrExpr(len(expr))
 		for i := range expr {
 			ret_obj[i] = irReduceExpr(ctx, expr[i])
 		}
@@ -310,7 +310,7 @@ func irReduceExpr(ctx *CtxReduce, ir_expr IrExpr) IrExpr {
 		if callee_ident, _ := expr[0].(IrExprIdent); strEq(callee_ident, "/@") {
 			return IrExprForm(expr)
 		}
-		ret_form := allocˇIrExpr(len(expr))
+		ret_form := ªIrExpr(len(expr))
 		for i := range expr {
 			ret_form[i] = irReduceExpr(ctx, expr[i])
 		}
