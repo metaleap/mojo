@@ -43,4 +43,7 @@ func main() {
 
 	ast := parse(toks, input_src_file_bytes)
 	assert(len(ast.defs) != 0)
+	astPopulateScopes(&ast)
+
+	_ = irHLFrom(&ast)
 }

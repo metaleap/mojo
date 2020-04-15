@@ -55,12 +55,17 @@ func tokenize(full_src Str, keep_comment_toks bool) []Token {
 	tok_start, tok_last := -1, -1
 	var state TokenKind = tok_kind_none
 	toks := ªToken(len(full_src))
-	for i = 0; i < len(full_src); i++ {
+	if len(full_src) > 2 && full_src[0] == '#' && full_src[1] == '!' {
+		state = tok_kind_comment
+		tok_start = 0
+		i = 2
+	}
+	for ; i < len(full_src); i++ {
 		c := full_src[i]
 
 		if c == '\n' {
 			if state == tok_kind_lit_str_double || state == tok_kind_lit_str_single {
-				fail("line-break in literal near:\n", full_src[tok_start:i])
+				fail(uintToStr(uint64(1+cur_line_nr), 10, 1, Str("line-break in literal in line ")), ":\n", full_src[tok_start:i])
 			}
 			if tok_start != -1 && tok_last == -1 {
 				tok_last = i - 1
@@ -210,7 +215,17 @@ func tokIsClosingBracket(tok_kind TokenKind) bool {
 	return tok_kind == tok_kind_sep_bcurly_close || tok_kind == tok_kind_sep_bparen_close || tok_kind == tok_kind_sep_bsquare_close
 }
 
-func toksCountUnnested(toks []Token, full_src Str, tok_kind TokenKind) int {
+func toksCount(toks []Token, ident Str, full_src Str) int {
+	ret_num := 0
+	for i := range toks {
+		if toks[i].kind == tok_kind_ident && strEql(ident, toksSrcStr(toks[i:i+1], full_src)) {
+			ret_num++
+		}
+	}
+	return ret_num
+}
+
+func toksCountUnnested(toks []Token, tok_kind TokenKind) int {
 	assert(!(tokIsOpeningBracket(tok_kind) || tokIsClosingBracket(tok_kind)))
 
 	ret_num := 0
@@ -380,7 +395,7 @@ func toksIndexOfMatchingBracket(toks []Token) int {
 func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
 	assert(!(tokIsOpeningBracket(tok_kind) || tokIsClosingBracket(tok_kind)))
 
-	ret_toks := ªTokens(1 + toksCountUnnested(toks, full_src, tok_kind))
+	ret_toks := ªTokens(1 + toksCountUnnested(toks, tok_kind))
 	ret_idx := 0
 	{
 		level := 0

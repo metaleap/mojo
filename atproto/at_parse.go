@@ -7,6 +7,7 @@ func parse(all_toks []Token, full_src Str) Ast {
 		toks: all_toks,
 		defs: ªAstDef(len(chunks)),
 	}
+	ret_ast.anns.num_def_toks = toksCount(all_toks, Str(":="), full_src)
 	toks_idx := 0
 	for i, this_chunk_toks := range chunks {
 		ret_ast.defs[i].base.toks_idx = toks_idx
@@ -22,10 +23,10 @@ func parse(all_toks []Token, full_src Str) Ast {
 }
 
 func parseDef(dst_def *AstDef, dst_ast *Ast) {
-	toks := astNodeToks(&dst_def.base, dst_ast.toks)
+	toks := astNodeToks(&dst_def.base, dst_ast)
 	tok_idx_def := toksIndexOfIdent(toks, Str(":="), dst_ast.src)
 	if tok_idx_def <= 0 || tok_idx_def == len(toks)-1 {
-		fail("expected '<head_expr> := <body_expr>', near:\n", astNodeSrcStr(&dst_def.base, dst_ast))
+		fail(astNodeMsg("expected '<head_expr> := <body_expr>' in line ", &dst_def.base, dst_ast))
 	}
 
 	dst_def.head = parseExpr(toks[0:tok_idx_def], dst_def.base.toks_idx, dst_ast)
@@ -36,7 +37,7 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 		case AstExprForm:
 			dst_def.anns.name = head_expr[0].kind.(AstExprIdent)
 		default:
-			fail(astNodeSrcStr(&dst_def.head.base, dst_ast))
+			fail(astNodeMsg("unsupported header form in line ", &dst_def.head.base, dst_ast))
 		}
 	}
 	chunks_body := toksIndentBasedChunks(toks[tok_idx_def+1:])
@@ -74,30 +75,32 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 			switch tok_kind := expr_toks[i].kind; tok_kind {
 			case tok_kind_lit_int:
 				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
+				node_base := astNodeFrom(all_toks_idx+i, 1)
 				acc_ret[acc_len] = AstExpr{
-					base: astNodeFrom(all_toks_idx+i, 1),
-					kind: AstExprLitInt(parseExprLitInt(tok_str)),
+					base: node_base,
+					kind: AstExprLitInt(parseExprLitInt(&node_base, ast, tok_str)),
 				}
 			case tok_kind_lit_str_double:
 				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
+				node_base := astNodeFrom(all_toks_idx+i, 1)
 				acc_ret[acc_len] = AstExpr{
-					base: astNodeFrom(all_toks_idx+i, 1),
-					kind: AstExprLitStr(parseExprLitStr(tok_str, '"')),
+					base: node_base,
+					kind: AstExprLitStr(parseExprLitStr(&node_base, ast, tok_str, '"')),
 				}
 			case tok_kind_lit_str_single:
 				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
 				node_base := astNodeFrom(all_toks_idx+i, 1)
-				char_str := parseExprLitStr(tok_str, '\'')
+				char_str := parseExprLitStr(&node_base, ast, tok_str, '\'')
 				char_rune := rune(-1)
 				for _, r := range string(char_str) {
 					if char_rune < 0 {
 						char_rune = r
 					} else {
-						fail("character literal ", astNodeSrcStr(&node_base, ast), " too long in line ", uintToStr(uint64(1+expr_toks[i].line_nr), 10, 1, nil))
+						fail(astNodeMsg("character literal too long in line ", &node_base, ast))
 					}
 				}
 				if char_rune < 0 {
-					fail("character literal ", astNodeSrcStr(&node_base, ast), " too short in line ", uintToStr(uint64(1+expr_toks[i].line_nr), 10, 1, nil))
+					fail(astNodeMsg("character literal too short in line ", &node_base, ast))
 				} else {
 					acc_ret[acc_len] = AstExpr{base: node_base, kind: AstExprLitInt(char_rune)}
 				}
@@ -152,29 +155,34 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 	}
 }
 
-func parseExprLitInt(lit_src Str) uint64 {
-	return uintFromStr(lit_src)
+func parseExprLitInt(node_base *AstNode, ast *Ast, lit_src Str) uint64 {
+	r, ok := uintFromStr(lit_src)
+	if !ok {
+		fail(astNodeMsg("malformed integer literal in line ", node_base, ast))
+	}
+	return r
 }
 
-func parseExprLitStr(lit_src Str, delim_char byte) Str {
+func parseExprLitStr(node_base *AstNode, ast *Ast, lit_src Str, delim_char byte) Str {
 	assert(len(lit_src) >= 2 && lit_src[0] == delim_char && lit_src[len(lit_src)-1] == delim_char) // tokenizer-guaranteed
 	ret_str := ªbyte(len(lit_src) - 2)
 	ret_len := 0
-	for i := 1; i < len(lit_src)-1; i++ {
+	for i, i_cry := 1, false; i < len(lit_src)-1; i++ {
 		if lit_src[i] != '\\' {
 			ret_str[ret_len] = lit_src[i]
 		} else {
 			idx_end := i + 4
-			if idx_end >= len(lit_src)-1 {
-				fail("expected 3-digit base-10 integer decimal 000..256 following escape in: ", lit_src)
+			i_cry = idx_end > len(lit_src)-1
+			if !i_cry {
+				base10digits := lit_src[i+1 : idx_end]
+				i += 3
+				integer, ok := uintFromStr(base10digits)
+				i_cry = (!ok) || integer >= 256
+				ret_str[ret_len] = byte(integer)
 			}
-			base10digits := lit_src[i+1 : idx_end]
-			i += 3
-			integer := uintFromStr(base10digits)
-			if integer >= 256 {
-				fail("expected 3-digit base-10 integer decimal 000..256 following escape in: ", lit_src)
-			}
-			ret_str[ret_len] = byte(integer)
+		}
+		if i_cry {
+			fail(astNodeMsg("expected 3-digit base-10 integer decimal 000..256 following escape in line ", node_base, ast))
 		}
 		ret_len++
 	}

@@ -97,3 +97,31 @@ func (IrHLExprForm) implementsIrHLExprKind()   {}
 func (IrHLExprList) implementsIrHLExprKind()   {}
 func (IrHLExprBag) implementsIrHLExprKind()    {}
 func (IrHLExprInfix) implementsIrHLExprKind()  {}
+
+func irHLFrom(ast *Ast) IrHL {
+	astHoistSubDefs(ast)
+	num_defs := 0
+	ret_ir := IrHL{
+		defs: ªIrHLDef(ast.anns.num_def_toks),
+	}
+	ret_ir.anns.origin_ast = ast
+	ret_ir.defs = ret_ir.defs[0:num_defs]
+	for i := range ast.defs {
+		irHLTopDefsFromAstTopDef(&ret_ir, ast, &ast.defs[i])
+	}
+	return ret_ir
+}
+
+func irHLTopDefsFromAstTopDef(dst_ir *IrHL, ast *Ast, top_def *AstDef) {
+
+}
+
+func irHLDump(ir *IrHL) {
+	for i := range ir.defs {
+		irHLDumpDef(ir, &ir.defs[i])
+	}
+}
+
+func irHLDumpDef(ir *IrHL, def *IrHLDef) {}
+
+func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {}

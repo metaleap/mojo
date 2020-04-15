@@ -66,18 +66,18 @@ func strEql(one Str, two Str) bool {
 	return false
 }
 
-func uintFromStr(str Str) uint64 {
+func uintFromStr(str Str) (uint64, bool) {
 	assert(len(str) > 0)
 	var mult uint64 = 1
 	var ret uint64
 	for i := len(str) - 1; i >= 0; i-- {
 		if str[i] < '0' || str[i] > '9' {
-			fail("malformed uint literal: ", str)
+			return 0, false
 		}
 		ret += mult * uint64(str[i]-48)
 		mult *= 10
 	}
-	return ret
+	return ret, true
 }
 
 func uintToStr(integer uint64, base uint64, min_len uint64, prefix Str) Str {
@@ -137,3 +137,4 @@ func ªAstExpr(len int) []AstExpr       { return make([]AstExpr, len) }
 func ªAstExprPtr(len int) []*AstExpr   { return make([]*AstExpr, len) }
 func ªAstNameRef(len int) []AstNameRef { return make([]AstNameRef, len) }
 func ªIrLLExpr(len int) []IrLLExpr     { return make([]IrLLExpr, len) }
+func ªIrHLDef(len int) []IrHLDef       { return make([]IrHLDef, len) }

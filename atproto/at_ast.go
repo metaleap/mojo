@@ -5,6 +5,9 @@ type Ast struct {
 	toks  []Token
 	defs  []AstDef
 	scope AstScopes
+	anns  struct {
+		num_def_toks int
+	}
 }
 
 type AstNode struct {
@@ -61,16 +64,37 @@ func astNodeFrom(toks_idx int, toks_len int) AstNode {
 	return AstNode{toks_idx: toks_idx, toks_len: toks_len}
 }
 
-func astNodeToks(node *AstNode, all_toks []Token) []Token {
-	return all_toks[node.toks_idx : node.toks_idx+node.toks_len]
+func astNodeToks(node *AstNode, ast *Ast) []Token {
+	return ast.toks[node.toks_idx : node.toks_idx+node.toks_len]
 }
 
-func astNodeSrcStr(node *AstNode, ast *Ast) Str {
-	if node.toks_len == 0 {
-		return nil
-	}
-	node_toks := astNodeToks(node, ast.toks)
+func astNodeMsg(msg_prefix string, node *AstNode, ast *Ast) Str {
+	node_toks := astNodeToks(node, ast)
+	str_line_nr := uintToStr(uint64(1+node_toks[0].line_nr), 10, 1, Str(msg_prefix))
+	return strConcat([]Str{str_line_nr, Str(":\n"), toksSrcStr(node_toks, ast.src)})
+}
+
+func astNodeSrc(node *AstNode, ast *Ast) Str {
+	node_toks := astNodeToks(node, ast)
 	return toksSrcStr(node_toks, ast.src)
+}
+
+func astHoistSubDefs(ast *Ast) {
+	num_defs := 0
+	defs := ªAstDef(ast.anns.num_def_toks)
+	for i := range ast.defs {
+		num_defs = astDefHoistSubDefs(ast, &ast.defs[i], defs, num_defs)
+	}
+	ast.defs = defs[0:num_defs]
+	astPopulateScopes(ast)
+}
+
+func astDefHoistSubDefs(ast *Ast, def *AstDef, into []AstDef, num_defs int) int {
+	for i := range def.defs {
+		num_defs = astDefHoistSubDefs(ast, &def.defs[i], into, num_defs)
+	}
+
+	return num_defs
 }
 
 func astPopulateScopes(ast *Ast) {
@@ -96,7 +120,7 @@ func astDefPopulateScopes(top_def *AstDef, cur_def *AstDef, ast *Ast, parent *As
 	for i := range cur_def.defs {
 		sub_def := &cur_def.defs[i]
 		if nil != astScopesResolve(&cur_def.scope, sub_def.anns.name, i) {
-			fail("shadowing of identifier '", sub_def.anns.name, "' near:\n", astNodeSrcStr(&sub_def.base, ast))
+			fail(astNodeMsg("shadowing of '"+string(sub_def.anns.name)+"' in line ", &sub_def.base, ast))
 		}
 		cur_def.scope.cur[i] = AstNameRef{name: sub_def.anns.name, param_idx: -1, top_def: top_def, ref_def: sub_def}
 	}
@@ -105,7 +129,7 @@ func astDefPopulateScopes(top_def *AstDef, cur_def *AstDef, ast *Ast, parent *As
 			param_idx := len(cur_def.defs) + (i - 1)
 			param_name := head_form[i].kind.(AstExprIdent)
 			if nil != astScopesResolve(&cur_def.scope, param_name, param_idx) {
-				fail("shadowing of identifier '", param_name, "' near:\n", astNodeSrcStr(&cur_def.head.base, ast))
+				fail(astNodeMsg("shadowing of '"+string(param_name)+"' in line ", &cur_def.head.base, ast))
 			}
 			cur_def.scope.cur[param_idx] = AstNameRef{
 				name:      param_name,
