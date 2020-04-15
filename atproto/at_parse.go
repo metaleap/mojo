@@ -59,7 +59,7 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 	acc_ret := allocˇAstExpr(len(expr_toks))
 	acc_len := 0
-	expr_is_throng := tokThrong(expr_toks, 0, ast.src) == len(expr_toks)-1
+	expr_is_throng := (len(expr_toks)-1 == tokThrong(expr_toks, 0, ast.src))
 	for i := 0; i < len(expr_toks); i++ {
 		idx_throng_end := i
 		if !expr_is_throng {
@@ -67,6 +67,7 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 		}
 		if idx_throng_end > i {
 			acc_ret[acc_len] = parseExpr(expr_toks[i:idx_throng_end+1], all_toks_idx+i, ast)
+			acc_ret[acc_len].anns.toks_throng = true
 			i = idx_throng_end // loop header will increment
 		} else {
 			switch tok_kind := expr_toks[i].kind; tok_kind {
@@ -92,6 +93,7 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 						acc_ret[acc_len] = AstExpr{kind: AstExprIdent("()"), base: astNodeFrom(all_toks_idx+i, 2)}
 					} else {
 						acc_ret[acc_len] = parseExpr(inside_parens_toks, all_toks_idx+i+1, ast)
+						acc_ret[acc_len].anns.parensed++
 						// still want the paren toks captured in node base:
 						acc_ret[acc_len].base.toks_idx = all_toks_idx + i
 						acc_ret[acc_len].base.toks_len += 2

@@ -27,6 +27,10 @@ type AstDef struct {
 type AstExpr struct {
 	base AstNode
 	kind AstExprKind
+	anns struct {
+		parensed    int
+		toks_throng bool
+	}
 }
 
 type AstExprLitInt int64
