@@ -31,7 +31,9 @@ type IrHLTypePrim interface{ implementsIrHLTypePrim() }
 type IrHLExprTag Str
 type IrHLExprInt int64
 type IrHLExprStr Str
+type IrHLExprVoid struct{}
 type IrHLExprIdent Str
+type IrHLExprRefTmp struct{ ast_ref *AstNameRef }
 type IrHLExprRefDef int
 type IrHLExprRefArg int
 type IrHLExprCall []IrHLExpr
@@ -67,7 +69,7 @@ type IrHLExprPrimOpBool struct {
 	rhs  IrHLExpr
 }
 type IrHLExprPrimLen struct {
-	scrut IrHLExpr
+	subj IrHLExpr
 }
 type IrHLExprPrimCallExt struct {
 	callee IrHLExpr
@@ -83,8 +85,9 @@ type IrHLTypeInt struct {
 	min int64
 	max int64
 }
-type IrHLTypeNever struct{}
+type IrHLTypeNoreturn struct{}
 type IrHLTypeTag struct{}
+type IrHlTypeSlice struct{ payload IrHLType }
 type IrHLTypePrimVoid struct{}
 type IrHLTypePrimExternal Str
 type IrHLTypePrimInt struct{ bit_width int }
@@ -116,8 +119,9 @@ func (IrHLTypePrimStruct) implementsIrHLType()   {}
 func (IrHLTypePrimVoid) implementsIrHLType()     {}
 func (IrHLTypeBag) implementsIrHLType()          {}
 func (IrHLTypeInt) implementsIrHLType()          {}
-func (IrHLTypeNever) implementsIrHLType()        {}
+func (IrHLTypeNoreturn) implementsIrHLType()     {}
 func (IrHLTypeTag) implementsIrHLType()          {}
+func (IrHlTypeSlice) implementsIrHLType()        {}
 
 func (IrHLExprType) implementsIrHLExprVariant()        {}
 func (IrHLExprTag) implementsIrHLExprVariant()         {}
@@ -131,6 +135,8 @@ func (IrHLExprList) implementsIrHLExprVariant()        {}
 func (IrHLExprBag) implementsIrHLExprVariant()         {}
 func (IrHLExprInfix) implementsIrHLExprVariant()       {}
 func (IrHLExprFunc) implementsIrHLExprVariant()        {}
+func (IrHLExprVoid) implementsIrHLExprVariant()        {}
+func (IrHLExprRefTmp) implementsIrHLExprVariant()      {}
 func (IrHLExprPrimOpBool) implementsIrHLExprVariant()  {}
 func (IrHLExprPrimOpInt) implementsIrHLExprVariant()   {}
 func (IrHLExprPrimCallExt) implementsIrHLExprVariant() {}
@@ -153,8 +159,10 @@ func irHLFrom(ast *Ast) IrHL {
 	for i := range ast.defs {
 		irHLTopDefsFromAstTopDef(&ctx, &ast.defs[i])
 	}
-
 	ctx.ir.defs = ctx.ir.defs[0:ctx.num_defs]
+	for i := range ctx.ir.defs {
+		irHlExprResolveTmpRefs(&ctx, &ctx.ir.defs[i].body)
+	}
 	return ctx.ir
 }
 
@@ -174,6 +182,41 @@ func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 	ret_expr.anns.origin_def, ret_expr.anns.origin_expr = ctx.cur_def, expr
 	switch it := expr.variant.(type) {
+	case AstExprLitInt:
+		ret_expr.variant = IrHLExprInt(it)
+		ret_expr.anns.ty = IrHLTypeInt{min: int64(it), max: int64(it)}
+	case AstExprLitStr:
+		ret_expr.variant = IrHLExprStr(it)
+		ret_expr.anns.ty = IrHlTypeSlice{payload: IrHLTypePrimInt{bit_width: 8}}
+	case AstExprLitList:
+		ret_list := ªIrHLExpr(len(it))
+		for i := range it {
+			ret_list[i] = irHlExprFrom(ctx, &it[i])
+		}
+		ret_expr.variant = IrHLExprList(ret_list)
+	case AstExprLitObj:
+		ret_obj := ªIrHLExpr(len(it))
+		for i := range it {
+			ret_obj[i] = irHlExprFrom(ctx, &it[i])
+		}
+		ret_expr.variant = IrHLExprBag(ret_obj)
+	case AstExprIdent:
+		if strEq(it, "()") {
+			ret_expr.variant = IrHLExprVoid{}
+			ret_expr.anns.ty = IrHLTypePrimVoid{}
+		} else if ref := astScopesResolve(&ctx.cur_def.scope, it, -1); ref != nil {
+			if ref.param_idx >= 0 {
+				if ref.ref_def == ctx.cur_def {
+					ret_expr.variant = IrHLExprRefArg(ref.param_idx)
+				} else {
+					panic("TODO: arg-ref to outer scopes")
+				}
+			} else if ref.ref_def == ref.top_def {
+				ret_expr.variant = IrHLExprRefTmp{ast_ref: ref}
+			} else { // local def
+				panic("TODO: local-def ref")
+			}
+		}
 	case AstExprForm:
 		for _, supported_infix := range []string{":", "."} {
 			if lhs, rhs := astExprFormSplit(expr, supported_infix, false, false, false, ctx.ir.anns.origin_ast); lhs.variant != nil && rhs.variant != nil {
@@ -188,7 +231,80 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 	default:
 		panic(it)
 	}
-	panic("newly introduced bug: should be unreachable here")
+	if ret_expr.variant == nil {
+		panic("newly introduced bug: should be unreachable here")
+	}
+	return
+}
+
+func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
+	switch it := expr.variant.(type) {
+	case IrHLExprRefTmp:
+		assert(it.ast_ref.top_def == it.ast_ref.ref_def)
+		expr.variant = nil
+		for i := range ctx.ir.defs {
+			if ctx.ir.defs[i].anns.origin_def == it.ast_ref.top_def {
+				expr.variant = IrHLExprRefDef(i)
+				break
+			}
+		}
+		if expr.variant == nil {
+			panic("newly introduced bug: could not late-resolve def ref '" + string(it.ast_ref.top_def.anns.name) + "'")
+		}
+	case IrHLExprType, IrHLExprVoid, IrHLExprTag, IrHLExprInt, IrHLExprStr, IrHLExprIdent, IrHLExprRefDef, IrHLExprRefArg:
+		// no further traversal from here
+	case IrHLExprFunc:
+		irHlExprResolveTmpRefs(ctx, &it.body)
+		expr.variant = it
+	case IrHLExprCall:
+		for i := range it {
+			irHlExprResolveTmpRefs(ctx, &it[i])
+		}
+		expr.variant = it
+	case IrHLExprList:
+		for i := range it {
+			irHlExprResolveTmpRefs(ctx, &it[i])
+		}
+		expr.variant = it
+	case IrHLExprBag:
+		for i := range it {
+			irHlExprResolveTmpRefs(ctx, &it[i])
+		}
+		expr.variant = it
+	case IrHLExprInfix:
+		irHlExprResolveTmpRefs(ctx, &it.lhs)
+		irHlExprResolveTmpRefs(ctx, &it.rhs)
+		expr.variant = it
+	case IrHLExprPrimCmpInt:
+		irHlExprResolveTmpRefs(ctx, &it.lhs)
+		irHlExprResolveTmpRefs(ctx, &it.rhs)
+		expr.variant = it
+	case IrHLExprPrimOpBool:
+		irHlExprResolveTmpRefs(ctx, &it.lhs)
+		irHlExprResolveTmpRefs(ctx, &it.rhs)
+		expr.variant = it
+	case IrHLExprPrimOpInt:
+		irHlExprResolveTmpRefs(ctx, &it.lhs)
+		irHlExprResolveTmpRefs(ctx, &it.rhs)
+		expr.variant = it
+	case IrHLExprPrimLen:
+		irHlExprResolveTmpRefs(ctx, &it.subj)
+		expr.variant = it
+	case IrHLExprPrimCallExt:
+		irHlExprResolveTmpRefs(ctx, &it.callee)
+		for i := range it.args {
+			irHlExprResolveTmpRefs(ctx, &it.args[i])
+		}
+		expr.variant = it
+	case IrHLExprPrimCase:
+		irHlExprResolveTmpRefs(ctx, &it.scrut)
+		for i := range it.cases {
+			irHlExprResolveTmpRefs(ctx, &it.cases[i])
+		}
+		expr.variant = it
+	default:
+		panic(it)
+	}
 }
 
 func irHLDump(ir *IrHL) {
@@ -304,8 +420,8 @@ func irHLDumpType(ir *IrHL, ty IrHLType) {
 		print(it.min)
 		print('/')
 		print(it.max)
-	case IrHLTypeNever:
-		print("/Never")
+	case IrHLTypeNoreturn:
+		print("/Noreturn")
 	default:
 		panic(it)
 	}

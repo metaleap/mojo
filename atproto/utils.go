@@ -138,3 +138,4 @@ func ªAstExprPtr(len int) []*AstExpr   { return make([]*AstExpr, len) }
 func ªAstNameRef(len int) []AstNameRef { return make([]AstNameRef, len) }
 func ªIrLLExpr(len int) []IrLLExpr     { return make([]IrLLExpr, len) }
 func ªIrHLDef(len int) []IrHLDef       { return make([]IrHLDef, len) }
+func ªIrHLExpr(len int) []IrHLExpr     { return make([]IrHLExpr, len) }
