@@ -28,9 +28,9 @@ type AstDef struct {
 }
 
 type AstExpr struct {
-	base AstNode
-	kind AstExprKind
-	anns struct {
+	base    AstNode
+	variant AstExprVariant
+	anns    struct {
 		parensed    int
 		toks_throng bool
 	}
@@ -92,7 +92,7 @@ func astPopulateScopes(ast *Ast) {
 
 func astDefPopulateScopes(top_def *AstDef, cur_def *AstDef, ast *Ast, parent *AstScopes) {
 	num_args := 0
-	head_form, _ := cur_def.head.kind.(AstExprForm)
+	head_form, _ := cur_def.head.variant.(AstExprForm)
 	if head_form != nil {
 		num_args = len(head_form) - 1
 	}
@@ -109,7 +109,7 @@ func astDefPopulateScopes(top_def *AstDef, cur_def *AstDef, ast *Ast, parent *As
 	if head_form != nil {
 		for i := 1; i < len(head_form); i++ {
 			param_idx := len(cur_def.defs) + (i - 1)
-			param_name := head_form[i].kind.(AstExprIdent)
+			param_name := head_form[i].variant.(AstExprIdent)
 			if nil != astScopesResolve(&cur_def.scope, param_name, param_idx) {
 				fail(astNodeMsg("shadowing of '"+string(param_name)+"' in line ", &cur_def.head.base, ast))
 			}
@@ -141,11 +141,11 @@ func astScopesResolve(scope *AstScopes, name Str, only_until_before_idx int) *As
 	return nil
 }
 
-type AstExprKind interface{ implementsAstExprKind() }
+type AstExprVariant interface{ implementsAstExprVariant() }
 
-func (AstExprForm) implementsAstExprKind()    {}
-func (AstExprIdent) implementsAstExprKind()   {}
-func (AstExprLitList) implementsAstExprKind() {}
-func (AstExprLitObj) implementsAstExprKind()  {}
-func (AstExprLitInt) implementsAstExprKind()  {}
-func (AstExprLitStr) implementsAstExprKind()  {}
+func (AstExprForm) implementsAstExprVariant()    {}
+func (AstExprIdent) implementsAstExprVariant()   {}
+func (AstExprLitList) implementsAstExprVariant() {}
+func (AstExprLitObj) implementsAstExprVariant()  {}
+func (AstExprLitInt) implementsAstExprVariant()  {}
+func (AstExprLitStr) implementsAstExprVariant()  {}

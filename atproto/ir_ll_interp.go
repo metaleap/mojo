@@ -8,7 +8,7 @@ type CtxIrLLEval struct {
 // TODO: wastefully recursive right now, later pre-alloc stack of manually pushed/popped call frames
 func irLLEval(ctx *CtxIrLLEval, expr IrLLExpr) IrLLExpr {
 	var ret_expr IrLLExpr
-	switch it := expr.kind.(type) {
+	switch it := expr.variant.(type) {
 	case IrLLExprInt, IrLLExprPtr:
 		ret_expr = expr
 	case IrLLExprArgRef:
@@ -29,7 +29,7 @@ func irLLEval(ctx *CtxIrLLEval, expr IrLLExpr) IrLLExpr {
 		ctx.args = old_args
 	case IrLLExprSelect:
 		boolish_int := irLLEval(ctx, it.cond)
-		if boolish_int.kind.(IrLLExprInt) == 1 {
+		if boolish_int.variant.(IrLLExprInt) == 1 {
 			ret_expr = irLLEval(ctx, it.if_true)
 		} else {
 			ret_expr = irLLEval(ctx, it.if_false)
@@ -38,7 +38,7 @@ func irLLEval(ctx *CtxIrLLEval, expr IrLLExpr) IrLLExpr {
 		lhs := irLLEval(ctx, it.lhs)
 		rhs := irLLEval(ctx, it.rhs)
 		// assert(lhs.anns.ty == rhs.anns.ty)
-		l, r := lhs.kind.(IrLLExprInt), rhs.kind.(IrLLExprInt)
+		l, r := lhs.variant.(IrLLExprInt), rhs.variant.(IrLLExprInt)
 		var result IrLLExprInt
 		switch it.kind {
 		case ll_bin_op_add:
@@ -59,11 +59,11 @@ func irLLEval(ctx *CtxIrLLEval, expr IrLLExpr) IrLLExpr {
 			panic(it.kind)
 		}
 		ret_expr.anns.ty = lhs.anns.ty
-		ret_expr.kind = result
+		ret_expr.variant = result
 	case IrLLExprCmpInt:
 		result := false
-		lhs := irLLEval(ctx, it.lhs).kind.(IrLLExprInt)
-		rhs := irLLEval(ctx, it.rhs).kind.(IrLLExprInt)
+		lhs := irLLEval(ctx, it.lhs).variant.(IrLLExprInt)
+		rhs := irLLEval(ctx, it.rhs).variant.(IrLLExprInt)
 		switch it.kind {
 		case ll_cmp_i_eq:
 			result = (lhs == rhs)
@@ -89,13 +89,13 @@ func irLLEval(ctx *CtxIrLLEval, expr IrLLExpr) IrLLExpr {
 			panic(it.kind)
 		}
 		ret_expr.anns.ty = IrLLTypeInt{bit_width: 1}
-		ret_expr.kind = IrLLExprInt(0)
+		ret_expr.variant = IrLLExprInt(0)
 		if result {
-			ret_expr.kind = IrLLExprInt(1)
+			ret_expr.variant = IrLLExprInt(1)
 		}
 	default:
 		panic(it)
 	}
-	// assert(ret_expr.kind != nil)
+	// assert(ret_expr.variant != nil)
 	return ret_expr
 }

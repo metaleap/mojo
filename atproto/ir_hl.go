@@ -8,22 +8,23 @@ type IrHL struct {
 }
 
 type IrHLDef struct {
-	args []IrHLType
-	body IrHLExpr
-	anns struct {
+	params []IrHLType
+	body   IrHLExpr
+	anns   struct {
 		origin_def *AstDef
+		name       Str
 	}
 }
 
 type IrHLExpr struct {
-	kind IrHLExprKind
-	anns struct {
+	variant IrHLExprVariant
+	anns    struct {
 		origin_expr *AstExpr
 		ty          IrHLType
 	}
 }
 
-type IrHLExprKind interface{ implementsIrHLExprKind() }
+type IrHLExprVariant interface{ implementsIrHLExprVariant() }
 type IrHLType interface{ implementsIrHLType() }
 type IrHLTypePrim interface{ implementsIrHLTypePrim() }
 
@@ -89,17 +90,17 @@ func (IrHLTypeInt) implementsIrHLType()        {}
 func (IrHLTypeNever) implementsIrHLType()      {}
 func (IrHLTypeTag) implementsIrHLType()        {}
 
-func (IrHLExprType) implementsIrHLExprKind()   {}
-func (IrHLExprTag) implementsIrHLExprKind()    {}
-func (IrHLExprInt) implementsIrHLExprKind()    {}
-func (IrHLExprStr) implementsIrHLExprKind()    {}
-func (IrHLExprIdent) implementsIrHLExprKind()  {}
-func (IrHLExprRefDef) implementsIrHLExprKind() {}
-func (IrHLExprRefArg) implementsIrHLExprKind() {}
-func (IrHLExprCall) implementsIrHLExprKind()   {}
-func (IrHLExprList) implementsIrHLExprKind()   {}
-func (IrHLExprBag) implementsIrHLExprKind()    {}
-func (IrHLExprInfix) implementsIrHLExprKind()  {}
+func (IrHLExprType) implementsIrHLExprVariant()   {}
+func (IrHLExprTag) implementsIrHLExprVariant()    {}
+func (IrHLExprInt) implementsIrHLExprVariant()    {}
+func (IrHLExprStr) implementsIrHLExprVariant()    {}
+func (IrHLExprIdent) implementsIrHLExprVariant()  {}
+func (IrHLExprRefDef) implementsIrHLExprVariant() {}
+func (IrHLExprRefArg) implementsIrHLExprVariant() {}
+func (IrHLExprCall) implementsIrHLExprVariant()   {}
+func (IrHLExprList) implementsIrHLExprVariant()   {}
+func (IrHLExprBag) implementsIrHLExprVariant()    {}
+func (IrHLExprInfix) implementsIrHLExprVariant()  {}
 
 type CtxIrHLFromAst struct {
 }
@@ -128,11 +129,17 @@ func irHLDump(ir *IrHL) {
 }
 
 func irHLDumpDef(ir *IrHL, def *IrHLDef) {
-
+	print(string(def.anns.name))
+	for i := range def.params {
+		print(' ')
+		irHLDumpType(ir, def.params[i])
+	}
+	print(" :=\n    ")
+	irHLDumpExpr(ir, &def.body)
 }
 
 func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {
-	switch it := expr.kind.(type) {
+	switch it := expr.variant.(type) {
 	case IrHLExprType:
 		irHLDumpType(ir, it.ty)
 	case IrHLExprTag:
@@ -147,7 +154,7 @@ func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {
 	case IrHLExprIdent:
 		print(string(it))
 	case IrHLExprRefDef:
-		print(string(ir.defs[it].anns.origin_def.anns.name))
+		print(string(ir.defs[it].anns.name))
 	case IrHLExprRefArg:
 		print('@')
 		print(it)

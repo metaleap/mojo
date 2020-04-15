@@ -20,15 +20,15 @@ type IrLLDef struct {
 }
 
 type IrLLExpr struct {
-	kind IrLLExprKind
-	anns struct {
+	variant IrLLExprVariant
+	anns    struct {
 		origin *IrHLExpr
 		ty     IrLLType
 	}
 }
 
 type IrLLType interface{ implementsIrLLType() }
-type IrLLExprKind interface{ implementsIrLLExprKind() }
+type IrLLExprVariant interface{ implementsIrLLExprVariant() }
 
 type IrLLTypeInt struct{ bit_width int }
 type IrLLTypeArr struct {
@@ -112,10 +112,10 @@ func (IrLLTypeVoid) implementsIrLLType()   {}
 func (IrLLTypeFunc) implementsIrLLType()   {}
 func (IrLLTypeExtern) implementsIrLLType() {}
 
-func (IrLLExprInt) implementsIrLLExprKind()    {}
-func (IrLLExprPtr) implementsIrLLExprKind()    {}
-func (IrLLExprArgRef) implementsIrLLExprKind() {}
-func (IrLLExprCall) implementsIrLLExprKind()   {}
-func (IrLLExprSelect) implementsIrLLExprKind() {}
-func (IrLLExprOpInt) implementsIrLLExprKind()  {}
-func (IrLLExprCmpInt) implementsIrLLExprKind() {}
+func (IrLLExprInt) implementsIrLLExprVariant()    {}
+func (IrLLExprPtr) implementsIrLLExprVariant()    {}
+func (IrLLExprArgRef) implementsIrLLExprVariant() {}
+func (IrLLExprCall) implementsIrLLExprVariant()   {}
+func (IrLLExprSelect) implementsIrLLExprVariant() {}
+func (IrLLExprOpInt) implementsIrLLExprVariant()  {}
+func (IrLLExprCmpInt) implementsIrLLExprVariant() {}

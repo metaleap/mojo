@@ -31,11 +31,11 @@ func parseDef(dst_def *AstDef, dst_ast *Ast) {
 
 	dst_def.head = parseExpr(toks[0:tok_idx_def], dst_def.base.toks_idx, dst_ast)
 	{
-		switch head_expr := dst_def.head.kind.(type) {
+		switch head_expr := dst_def.head.variant.(type) {
 		case AstExprIdent:
 			dst_def.anns.name = head_expr
 		case AstExprForm:
-			dst_def.anns.name = head_expr[0].kind.(AstExprIdent)
+			dst_def.anns.name = head_expr[0].variant.(AstExprIdent)
 		default:
 			fail(astNodeMsg("unsupported header form in line ", &dst_def.head.base, dst_ast))
 		}
@@ -77,15 +77,15 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
 				node_base := astNodeFrom(all_toks_idx+i, 1)
 				acc_ret[acc_len] = AstExpr{
-					base: node_base,
-					kind: AstExprLitInt(parseExprLitInt(&node_base, ast, tok_str)),
+					base:    node_base,
+					variant: AstExprLitInt(parseExprLitInt(&node_base, ast, tok_str)),
 				}
 			case tok_kind_lit_str_double:
 				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
 				node_base := astNodeFrom(all_toks_idx+i, 1)
 				acc_ret[acc_len] = AstExpr{
-					base: node_base,
-					kind: AstExprLitStr(parseExprLitStr(&node_base, ast, tok_str, '"')),
+					base:    node_base,
+					variant: AstExprLitStr(parseExprLitStr(&node_base, ast, tok_str, '"')),
 				}
 			case tok_kind_lit_str_single:
 				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
@@ -102,7 +102,7 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 				if char_rune < 0 {
 					fail(astNodeMsg("character literal too short in line ", &node_base, ast))
 				} else {
-					acc_ret[acc_len] = AstExpr{base: node_base, kind: AstExprLitInt(char_rune)}
+					acc_ret[acc_len] = AstExpr{base: node_base, variant: AstExprLitInt(char_rune)}
 				}
 			case tok_kind_sep_bcurly_open, tok_kind_sep_bsquare_open, tok_kind_sep_bparen_open:
 				idx_close := toksIndexOfMatchingBracket(expr_toks[i:])
@@ -111,7 +111,7 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 				if tok_kind == tok_kind_sep_bparen_open {
 					inside_parens_toks := expr_toks[i+1 : idx_close]
 					if len(inside_parens_toks) == 0 {
-						acc_ret[acc_len] = AstExpr{kind: AstExprIdent("()"), base: astNodeFrom(all_toks_idx+i, 2)}
+						acc_ret[acc_len] = AstExpr{variant: AstExprIdent("()"), base: astNodeFrom(all_toks_idx+i, 2)}
 					} else {
 						acc_ret[acc_len] = parseExpr(inside_parens_toks, all_toks_idx+i+1, ast)
 						acc_ret[acc_len].anns.parensed++
@@ -124,9 +124,9 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 					bracketed_exprs := parseExprsDelimited(expr_toks[i+1:idx_close], all_toks_idx+i+1, tok_kind_sep_comma, ast)
 					switch tok_kind {
 					case tok_kind_sep_bcurly_open:
-						acc_ret[acc_len].kind = AstExprLitObj(bracketed_exprs)
+						acc_ret[acc_len].variant = AstExprLitObj(bracketed_exprs)
 					case tok_kind_sep_bsquare_open:
-						acc_ret[acc_len].kind = AstExprLitList(bracketed_exprs)
+						acc_ret[acc_len].variant = AstExprLitList(bracketed_exprs)
 					default:
 						unreachable()
 					}
@@ -137,8 +137,8 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 			default:
 				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
 				acc_ret[acc_len] = AstExpr{
-					base: astNodeFrom(all_toks_idx+i, 1),
-					kind: AstExprIdent(tok_str),
+					base:    astNodeFrom(all_toks_idx+i, 1),
+					variant: AstExprIdent(tok_str),
 				}
 			}
 		}
@@ -150,8 +150,8 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 		return acc_ret[0]
 	}
 	return AstExpr{
-		base: astNodeFrom(all_toks_idx, len(expr_toks)),
-		kind: AstExprForm(acc_ret[0:acc_len]),
+		base:    astNodeFrom(all_toks_idx, len(expr_toks)),
+		variant: AstExprForm(acc_ret[0:acc_len]),
 	}
 }
 
