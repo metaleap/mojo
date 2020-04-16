@@ -18,17 +18,15 @@ main :=
       /case (writeTo _std_file _str)
             { #ok n: n, #err _: /call libc.exit 1 }
 
-
-
 libc := {
-  File    : /Extern #FILE,
+  File    : /Extern/#FILE,
 
-  stdin   : /extern #stdin {} /P/File,
-  stdout  : /extern #stdout {} /P/File,
-  stderr  : /extern #stderr {} /P/File,
+  stdin   : /extern #stdin [] /P/File,
+  stdout  : /extern #stdout [] /P/File,
+  stderr  : /extern #stderr [] /P/File,
 
-  exit    : /extern #exit {} /V { #_status: /Ic } [ #noreturn ],
-  fError  : /extern #ferror {} /Ic { #_file: /P/File },
-  fRead   : /extern #fread {} /Iw { #_buf: /P/A/_/I8, #_size: /Iw, #_count: /Iw, #_file: /P/File },
-  fWrite  : /extern #fwrite {} /Iw { #_buf: /P/A/_/I8, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+  exit    : /extern #exit [#noreturn] /V { #_status: /Ic },
+  fError  : /extern #ferror [] /Ic { #_file: /P/File },
+  fRead   : /extern #fread [] /Iw { #_buf: /P/A/_/I8, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+  fWrite  : /extern #fwrite [] /Iw { #_buf: /P/A/_/I8, #_size: /Iw, #_count: /Iw, #_file: /P/File },
 }

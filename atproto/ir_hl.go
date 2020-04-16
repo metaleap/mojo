@@ -53,7 +53,7 @@ type IrHLExprFunc struct {
 	body   IrHLExpr
 }
 type IrHLExprPrimCallee Str
-type IrHLExprPrimBranch struct {
+type IrHLExprPrimCase struct {
 	scrut IrHLExpr
 	cases []IrHLExpr
 }
@@ -73,6 +73,12 @@ type IrHLExprPrimLen struct {
 type IrHLExprPrimCallExt struct {
 	callee IrHLExpr
 	args   []IrHLExpr
+}
+type IrHLExprPrimExtRef struct {
+	name_tag  IrHLExpr
+	opts      IrHLExpr
+	ty        IrHLExpr
+	fn_params []IrHLExpr
 }
 
 type IrHLExprPrimArithKind int
@@ -98,7 +104,7 @@ const (
 	hl_cmp_geq
 )
 
-type IrHLTypeTag struct{}
+type IrHLTypeTag Str
 type IrHlTypeSlice struct{ payload IrHLType }
 type IrHLTypeBag struct {
 	field_names []Str
@@ -150,11 +156,12 @@ func (IrHLExprVoid) implementsIrHLExprVariant()        {}
 func (IrHLExprRefTmp) implementsIrHLExprVariant()      {}
 func (IrHLExprPrimArith) implementsIrHLExprVariant()   {}
 func (IrHLExprPrimCallExt) implementsIrHLExprVariant() {}
-func (IrHLExprPrimBranch) implementsIrHLExprVariant()  {}
+func (IrHLExprPrimCase) implementsIrHLExprVariant()    {}
 func (IrHLExprPrimCmp) implementsIrHLExprVariant()     {}
 func (IrHLExprPrimLen) implementsIrHLExprVariant()     {}
 func (IrHLExprLet) implementsIrHLExprVariant()         {}
 func (IrHLExprPrimCallee) implementsIrHLExprVariant()  {}
+func (IrHLExprPrimExtRef) implementsIrHLExprVariant()  {}
 
 type CtxIrHLFromAst struct {
 	ir       IrHL
@@ -281,7 +288,11 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 						ret_expr.variant = IrHLExprTag(ident)
 					} else if prefix[0] == '/' {
 						if ident[0] >= 'A' && ident[0] <= 'Z' {
-							println("TODO: type-expr " + string(astNodeSrc(&expr.base, ast)))
+							if strEq(ident, "Extern") {
+								ret_expr.variant = IrHLExprType{ty: IrHLTypeExternal{}}
+							} else {
+								panic("TODO: type-expr " + string(astNodeSrc(&expr.base, ast)))
+							}
 						} else {
 							ret_expr.variant = IrHLExprPrimCallee(ident)
 						}
@@ -301,18 +312,40 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 				} else if strEq(callee, "len") && len(ret_call) == 2 {
 					ret_expr.variant = IrHLExprPrimLen{subj: ret_call[1]}
 				} else if is_or := strEq(callee, "or"); (is_or || strEq(callee, "and")) && len(ret_call) == 3 {
-					ret_branch := IrHLExprPrimBranch{
+					ret_branch := IrHLExprPrimCase{
 						scrut: ret_call[1],
 						cases: ªIrHLExpr(2),
 					}
-					if is_or { // or a b -> case a [true: true, false: b]
-						ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: IrHLExpr{variant: IrHLExprTag("true")}}
-						ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: ret_call[2]}
+					if is_or { // or a b -> case a [false: b, true: true]
+						ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: ret_call[2]}
+						ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: IrHLExpr{variant: IrHLExprTag("true")}}
 					} else { // and a b -> case a [true: b, false: false]
 						ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: ret_call[2]}
 						ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: IrHLExpr{variant: IrHLExprTag("false")}}
 					}
 					ret_expr.variant = ret_branch
+				} else if strEq(callee, "case") && len(ret_call) == 3 {
+					if lit_cases, _ := ret_call[2].variant.(IrHLExprBag); len(lit_cases) != 0 {
+						ret_expr.variant = IrHLExprPrimCase{
+							scrut: ret_call[1],
+							cases: lit_cases,
+						}
+					}
+				} else if strEq(callee, "extern") && (len(ret_call) == 4 || len(ret_call) == 5) {
+					ret_ext := IrHLExprPrimExtRef{
+						name_tag:  ret_call[1],
+						opts:      ret_call[2],
+						ty:        ret_call[3],
+						fn_params: nil,
+					}
+					if len(ret_call) == 5 {
+						if lit_params, _ := ret_call[4].variant.(IrHLExprBag); lit_params != nil {
+							ret_ext.fn_params = []IrHLExpr(lit_params)
+						}
+					}
+					if len(ret_call) == 4 || ret_ext.fn_params != nil {
+						ret_expr.variant = ret_ext
+					}
 				} else if strEq(callee, "cmp") && len(ret_call) == 4 {
 					if tag, _ := ret_call[1].variant.(IrHLExprTag); tag != nil {
 						cmp_kind := IrHLExprPrimCmpKind(0)
@@ -367,6 +400,13 @@ func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
 		}
 	case IrHLExprType, IrHLExprVoid, IrHLExprTag, IrHLExprInt, IrHLExprIdent, IrHLExprRefDef, IrHLExprRefArg:
 		// no further traversal from here
+	case IrHLExprPrimExtRef:
+		irHlExprResolveTmpRefs(ctx, &it.name_tag)
+		irHlExprResolveTmpRefs(ctx, &it.opts)
+		irHlExprResolveTmpRefs(ctx, &it.ty)
+		for i := range it.fn_params {
+			irHlExprResolveTmpRefs(ctx, &it.fn_params[i])
+		}
 	case IrHLExprFunc:
 		irHlExprResolveTmpRefs(ctx, &it.body)
 		expr.variant = it
@@ -406,7 +446,7 @@ func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
 			irHlExprResolveTmpRefs(ctx, &it.args[i])
 		}
 		expr.variant = it
-	case IrHLExprPrimBranch:
+	case IrHLExprPrimCase:
 		irHlExprResolveTmpRefs(ctx, &it.scrut)
 		for i := range it.cases {
 			irHlExprResolveTmpRefs(ctx, &it.cases[i])
@@ -474,7 +514,7 @@ func irHLDumpExpr(ir *IrHL, expr *IrHLExpr, ind int) {
 		}
 		print("]")
 	case IrHLExprBag:
-		if len(it) <= 2 { // gettin nasty now!
+		if ind == 0 || len(it) < 2 {
 			print("{")
 			for i := range it {
 				if i > 0 {
@@ -513,6 +553,57 @@ func irHLDumpExpr(ir *IrHL, expr *IrHLExpr, ind int) {
 			irHLDumpExpr(ir, &it.exprs[i], ind)
 		}
 		print(")")
+	case IrHLExprPrimCase:
+		print("⟨/case ")
+		irHLDumpExpr(ir, &it.scrut, ind)
+		irHLDumpExpr(ir, &IrHLExpr{variant: IrHLExprBag(it.cases)}, ind)
+		print("⟩")
+	case IrHLExprPrimCmp:
+		print("⟨/cmp ")
+		switch it.kind {
+		case hl_cmp_eq:
+			print("#eq ")
+		case hl_cmp_neq:
+			print("#neq ")
+		case hl_cmp_lt:
+			print("#lt ")
+		case hl_cmp_gt:
+			print("#gt ")
+		case hl_cmp_leq:
+			print("#leq ")
+		case hl_cmp_geq:
+			print("#geq ")
+		default:
+			panic(it.kind)
+		}
+		irHLDumpExpr(ir, &it.lhs, ind)
+		print(" ")
+		irHLDumpExpr(ir, &it.rhs, ind)
+		print("⟩")
+	case IrHLExprPrimCallExt:
+		print("⟨/call ")
+		irHLDumpExpr(ir, &it.callee, ind)
+		for i := range it.args {
+			print(" ")
+			irHLDumpExpr(ir, &it.args[i], ind)
+		}
+		print("⟩")
+	case IrHLExprPrimLen:
+		print("⟨/len ")
+		irHLDumpExpr(ir, &it.subj, ind)
+		print("⟩")
+	case IrHLExprPrimExtRef:
+		print("⟨/extern ")
+		irHLDumpExpr(ir, &it.name_tag, ind)
+		print(" ")
+		irHLDumpExpr(ir, &it.opts, ind)
+		print(" ")
+		irHLDumpExpr(ir, &it.ty, ind)
+		if it.fn_params != nil {
+			print(" ")
+			irHLDumpExpr(ir, &IrHLExpr{variant: IrHLExprBag(it.fn_params)}, 0)
+		}
+		print("⟩")
 	default:
 		panic(it)
 	}
@@ -528,7 +619,7 @@ func irHLDumpType(ir *IrHL, ty IrHLType) {
 		print("/")
 		print(it.max)
 	case IrHLTypeExternal:
-		print("/Extern #")
+		print("/Extern/#")
 		print(string(it))
 	case IrHLTypePtr:
 		print("/P")
@@ -546,7 +637,13 @@ func irHLDumpType(ir *IrHL, ty IrHLType) {
 			irHLDumpType(ir, it.params[i])
 		}
 	case IrHLTypeTag:
-		print("/Tag")
+		if len(it) == 0 {
+			print("/Tag")
+		} else {
+			print("(/Tag/#")
+			print(string(it))
+			print(")")
+		}
 	case IrHLTypeBag:
 		if it.is_union {
 			print("/Union{ ")
