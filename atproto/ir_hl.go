@@ -77,15 +77,15 @@ type IrHLExprPrimCallExt struct {
 }
 
 type IrHLTypeBag struct {
-	field_names      []Str
-	field_types      []IrHLType
-	is_union_or_enum bool
+	field_names []Str
+	field_types []IrHLType
+	is_union    bool
 }
 type IrHLTypeInt struct {
 	min int64
 	max int64
 }
-type IrHLTypeNoreturn struct{}
+type IrHLTypeAborts struct{}
 type IrHLTypeTag struct{}
 type IrHlTypeSlice struct{ payload IrHLType }
 type IrHLTypePrimVoid struct{}
@@ -119,7 +119,7 @@ func (IrHLTypePrimStruct) implementsIrHLType()   {}
 func (IrHLTypePrimVoid) implementsIrHLType()     {}
 func (IrHLTypeBag) implementsIrHLType()          {}
 func (IrHLTypeInt) implementsIrHLType()          {}
-func (IrHLTypeNoreturn) implementsIrHLType()     {}
+func (IrHLTypeAborts) implementsIrHLType()       {}
 func (IrHLTypeTag) implementsIrHLType()          {}
 func (IrHlTypeSlice) implementsIrHLType()        {}
 
@@ -182,24 +182,29 @@ func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 	ret_expr.anns.origin_def, ret_expr.anns.origin_expr = ctx.cur_def, expr
 	switch it := expr.variant.(type) {
+
 	case AstExprLitInt:
 		ret_expr.variant = IrHLExprInt(it)
 		ret_expr.anns.ty = IrHLTypeInt{min: int64(it), max: int64(it)}
+
 	case AstExprLitStr:
 		ret_expr.variant = IrHLExprStr(it)
 		ret_expr.anns.ty = IrHlTypeSlice{payload: IrHLTypePrimInt{bit_width: 8}}
+
 	case AstExprLitList:
 		ret_list := ªIrHLExpr(len(it))
 		for i := range it {
 			ret_list[i] = irHlExprFrom(ctx, &it[i])
 		}
 		ret_expr.variant = IrHLExprList(ret_list)
+
 	case AstExprLitObj:
 		ret_obj := ªIrHLExpr(len(it))
 		for i := range it {
 			ret_obj[i] = irHlExprFrom(ctx, &it[i])
 		}
 		ret_expr.variant = IrHLExprBag(ret_obj)
+
 	case AstExprIdent:
 		if strEq(it, "()") {
 			ret_expr.variant = IrHLExprVoid{}
@@ -217,6 +222,7 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 				panic("TODO: local-def ref")
 			}
 		}
+
 	case AstExprForm:
 		for _, supported_infix := range []string{":", "."} {
 			if lhs, rhs := astExprFormSplit(expr, supported_infix, false, false, false, ctx.ir.anns.origin_ast); lhs.variant != nil && rhs.variant != nil {
@@ -228,6 +234,7 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 				return
 			}
 		}
+
 	default:
 		panic(it)
 	}
@@ -403,7 +410,7 @@ func irHLDumpType(ir *IrHL, ty IrHLType) {
 	case IrHLTypeTag:
 		print("/Tag")
 	case IrHLTypeBag:
-		if it.is_union_or_enum {
+		if it.is_union {
 			print("/Union{ ")
 		} else {
 			print("/Struct{ ")
@@ -420,8 +427,8 @@ func irHLDumpType(ir *IrHL, ty IrHLType) {
 		print(it.min)
 		print('/')
 		print(it.max)
-	case IrHLTypeNoreturn:
-		print("/Noreturn")
+	case IrHLTypeAborts:
+		print("/Aborts")
 	default:
 		panic(it)
 	}
