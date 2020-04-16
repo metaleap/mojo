@@ -46,5 +46,5 @@ func main() {
 	astPopulateScopes(&ast)
 
 	ir_hl := irHLFrom(&ast)
-	irHLDump(&ir_hl)
+	irHLPrint(&ir_hl)
 }

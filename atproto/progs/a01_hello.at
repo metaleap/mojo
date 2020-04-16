@@ -1,14 +1,15 @@
+#!atproto
 
 main :=
-  io.writeToOut "Hello World!\010"
+  io.writeToOut (/addr "Hello World!\010")
 
   io := { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
 
     writeTo _file _str :=
       /case (/or (/cmp #eq n_written str_len) (/cmp #eq maybe_err 0))
             { #true: #ok n_written, #false: #err maybe_err }
-      n_written := /call libc.fWrite _str 1 str_len _file
-      maybe_err := /call libc.fError _file
+      n_written := libc.fWrite _str 1 str_len _file
+      maybe_err := libc.fError _file
       str_len := /len _str
 
     writeToOut _str := writeToStdOrExit libc.stdout _str
@@ -16,17 +17,17 @@ main :=
 
     writeToStdOrExit _std_file _str :=
       /case (writeTo _std_file _str)
-            { #ok n: n, #err _: /call libc.exit 1 }
+            { #ok n: n, #err _: libc.exit 1 }
 
 libc := {
-  File    : /Extern/#FILE,
+  File    : /T #extern #FILE,
 
-  stdin   : /extern #stdin [] /P/File,
-  stdout  : /extern #stdout [] /P/File,
-  stderr  : /extern #stderr [] /P/File,
+  stdin   : /extern #stdin [] (/T #ptr File),
+  stdout  : /extern #stdout [] (/T #ptr File),
+  stderr  : /extern #stderr [] (/T #ptr File),
 
-  exit    : /extern #exit [#noreturn] /V { #_status: /Ic },
-  fError  : /extern #ferror [] /Ic { #_file: /P/File },
-  fRead   : /extern #fread [] /Iw { #_buf: /P/A/_/I8, #_size: /Iw, #_count: /Iw, #_file: /P/File },
-  fWrite  : /extern #fwrite [] /Iw { #_buf: /P/A/_/I8, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+  exit    : /extern #exit [#noreturn] (/T #void) { #_status: (/T #int #c) },
+  fError  : /extern #ferror [] (/T #int #c) { #_file: (/T #ptr File) },
+  fRead   : /extern #fread [] (/T #int #word) { #_buf: (/T #ptr (/T #arr (/T #int 0 255))), #_size: (/T #int #word), #_count: (/T #int #word), #_file: (/T #ptr File) },
+  fWrite  : /extern #fwrite [] (/T #int #word) { #_buf: (/T #ptr (/T #arr (/T #int 0 255))), #_size: (/T #int #word), #_count: (/T #int #word), #_file: (/T #ptr File) },
 }

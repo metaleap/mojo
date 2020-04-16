@@ -105,18 +105,19 @@ const (
 )
 
 type IrHLTypeTag Str
-type IrHlTypeSlice struct{ payload IrHLType }
 type IrHLTypeBag struct {
 	field_names []Str
 	field_types []IrHLType
 	is_union    bool
 }
 type IrHLTypeInt struct {
-	min int64
-	max int64
+	min  int64
+	max  int64
+	c    bool
+	word bool
 }
 type IrHLTypeVoid struct{}
-type IrHLTypeExternal Str
+type IrHLTypeExt Str
 type IrHLTypePtr struct{ payload IrHLType }
 type IrHLTypeArr struct {
 	size    int
@@ -131,15 +132,14 @@ type IrHLTypeFunc struct {
 	}
 }
 
-func (IrHLTypeArr) implementsIrHLType()      {}
-func (IrHLTypeFunc) implementsIrHLType()     {}
-func (IrHLTypeExternal) implementsIrHLType() {}
-func (IrHLTypePtr) implementsIrHLType()      {}
-func (IrHLTypeVoid) implementsIrHLType()     {}
-func (IrHLTypeBag) implementsIrHLType()      {}
-func (IrHLTypeInt) implementsIrHLType()      {}
-func (IrHLTypeTag) implementsIrHLType()      {}
-func (IrHlTypeSlice) implementsIrHLType()    {}
+func (IrHLTypeArr) implementsIrHLType()  {}
+func (IrHLTypeFunc) implementsIrHLType() {}
+func (IrHLTypeExt) implementsIrHLType()  {}
+func (IrHLTypePtr) implementsIrHLType()  {}
+func (IrHLTypeVoid) implementsIrHLType() {}
+func (IrHLTypeBag) implementsIrHLType()  {}
+func (IrHLTypeInt) implementsIrHLType()  {}
+func (IrHLTypeTag) implementsIrHLType()  {}
 
 func (IrHLExprType) implementsIrHLExprVariant()        {}
 func (IrHLExprTag) implementsIrHLExprVariant()         {}
@@ -281,21 +281,13 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 				return
 			}
 		}
-		if ret_expr.variant == nil {
+		if ret_expr.variant == nil && len(it) == 2 {
 			if prefix, _ := it[0].variant.(AstExprIdent); len(prefix) == 1 {
 				if ident, _ := it[1].variant.(AstExprIdent); ident != nil {
 					if prefix[0] == '#' {
 						ret_expr.variant = IrHLExprTag(ident)
 					} else if prefix[0] == '/' {
-						if ident[0] >= 'A' && ident[0] <= 'Z' {
-							if strEq(ident, "Extern") {
-								ret_expr.variant = IrHLExprType{ty: IrHLTypeExternal{}}
-							} else {
-								panic("TODO: type-expr " + string(astNodeSrc(&expr.base, ast)))
-							}
-						} else {
-							ret_expr.variant = IrHLExprPrimCallee(ident)
-						}
+						ret_expr.variant = IrHLExprPrimCallee(ident)
 					}
 				}
 			}
@@ -305,75 +297,7 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 			for i := range it {
 				ret_call[i] = irHlExprFrom(ctx, &it[i])
 			}
-			switch callee := ret_call[0].variant.(type) {
-			case IrHLExprPrimCallee:
-				if strEq(callee, "call") && len(ret_call) > 1 {
-					ret_expr.variant = IrHLExprPrimCallExt{callee: ret_call[1], args: ret_call[2:]}
-				} else if strEq(callee, "len") && len(ret_call) == 2 {
-					ret_expr.variant = IrHLExprPrimLen{subj: ret_call[1]}
-				} else if is_or := strEq(callee, "or"); (is_or || strEq(callee, "and")) && len(ret_call) == 3 {
-					ret_branch := IrHLExprPrimCase{
-						scrut: ret_call[1],
-						cases: ªIrHLExpr(2),
-					}
-					if is_or { // or a b -> case a [false: b, true: true]
-						ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: ret_call[2]}
-						ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: IrHLExpr{variant: IrHLExprTag("true")}}
-					} else { // and a b -> case a [true: b, false: false]
-						ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: ret_call[2]}
-						ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: IrHLExpr{variant: IrHLExprTag("false")}}
-					}
-					ret_expr.variant = ret_branch
-				} else if strEq(callee, "case") && len(ret_call) == 3 {
-					if lit_cases, _ := ret_call[2].variant.(IrHLExprBag); len(lit_cases) != 0 {
-						ret_expr.variant = IrHLExprPrimCase{
-							scrut: ret_call[1],
-							cases: lit_cases,
-						}
-					}
-				} else if strEq(callee, "extern") && (len(ret_call) == 4 || len(ret_call) == 5) {
-					ret_ext := IrHLExprPrimExtRef{
-						name_tag:  ret_call[1],
-						opts:      ret_call[2],
-						ty:        ret_call[3],
-						fn_params: nil,
-					}
-					if len(ret_call) == 5 {
-						if lit_params, _ := ret_call[4].variant.(IrHLExprBag); lit_params != nil {
-							ret_ext.fn_params = []IrHLExpr(lit_params)
-						}
-					}
-					if len(ret_call) == 4 || ret_ext.fn_params != nil {
-						ret_expr.variant = ret_ext
-					}
-				} else if strEq(callee, "cmp") && len(ret_call) == 4 {
-					if tag, _ := ret_call[1].variant.(IrHLExprTag); tag != nil {
-						cmp_kind := IrHLExprPrimCmpKind(0)
-						if strEq(tag, "eq") {
-							cmp_kind = hl_cmp_eq
-						} else if strEq(tag, "neq") {
-							cmp_kind = hl_cmp_neq
-						} else if strEq(tag, "lt") {
-							cmp_kind = hl_cmp_lt
-						} else if strEq(tag, "gt") {
-							cmp_kind = hl_cmp_gt
-						} else if strEq(tag, "leq") {
-							cmp_kind = hl_cmp_leq
-						} else if strEq(tag, "geq") {
-							cmp_kind = hl_cmp_geq
-						}
-						if cmp_kind != 0 {
-							ret_expr.variant = IrHLExprPrimCmp{
-								kind: cmp_kind,
-								lhs:  ret_call[2],
-								rhs:  ret_call[3],
-							}
-						}
-					}
-				}
-			default:
-				ret_expr.variant = IrHLExprCall(ret_call)
-			}
+			ret_expr.variant = IrHLExprCall(ret_call)
 		}
 	default:
 		panic(it)
@@ -382,6 +306,73 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 		fail(astNodeMsg("Syntax error in line ", &expr.base, ast))
 	}
 	return
+}
+
+func irHlExprResolvePrimCalls() {
+	// if strEq(callee, "call") && len(ret_call) > 1 {
+	// 	ret_expr.variant = IrHLExprPrimCallExt{callee: ret_call[1], args: ret_call[2:]}
+	// } else if strEq(callee, "len") && len(ret_call) == 2 {
+	// 	ret_expr.variant = IrHLExprPrimLen{subj: ret_call[1]}
+	// } else if is_or := strEq(callee, "or"); (is_or || strEq(callee, "and")) && len(ret_call) == 3 {
+	// 	ret_branch := IrHLExprPrimCase{
+	// 		scrut: ret_call[1],
+	// 		cases: ªIrHLExpr(2),
+	// 	}
+	// 	if is_or { // or a b -> case a [false: b, true: true]
+	// 		ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: ret_call[2]}
+	// 		ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: IrHLExpr{variant: IrHLExprTag("true")}}
+	// 	} else { // and a b -> case a [true: b, false: false]
+	// 		ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: ret_call[2]}
+	// 		ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: IrHLExpr{variant: IrHLExprTag("false")}}
+	// 	}
+	// 	ret_expr.variant = ret_branch
+	// } else if strEq(callee, "case") && len(ret_call) == 3 {
+	// 	if lit_cases, _ := ret_call[2].variant.(IrHLExprBag); len(lit_cases) != 0 {
+	// 		ret_expr.variant = IrHLExprPrimCase{
+	// 			scrut: ret_call[1],
+	// 			cases: lit_cases,
+	// 		}
+	// 	}
+	// } else if strEq(callee, "extern") && (len(ret_call) == 4 || len(ret_call) == 5) {
+	// 	ret_ext := IrHLExprPrimExtRef{
+	// 		name_tag:  ret_call[1],
+	// 		opts:      ret_call[2],
+	// 		ty:        ret_call[3],
+	// 		fn_params: nil,
+	// 	}
+	// 	if len(ret_call) == 5 {
+	// 		if lit_params, _ := ret_call[4].variant.(IrHLExprBag); lit_params != nil {
+	// 			ret_ext.fn_params = []IrHLExpr(lit_params)
+	// 		}
+	// 	}
+	// 	if len(ret_call) == 4 || ret_ext.fn_params != nil {
+	// 		ret_expr.variant = ret_ext
+	// 	}
+	// } else if strEq(callee, "cmp") && len(ret_call) == 4 {
+	// 	if tag, _ := ret_call[1].variant.(IrHLExprTag); tag != nil {
+	// 		cmp_kind := IrHLExprPrimCmpKind(0)
+	// 		if strEq(tag, "eq") {
+	// 			cmp_kind = hl_cmp_eq
+	// 		} else if strEq(tag, "neq") {
+	// 			cmp_kind = hl_cmp_neq
+	// 		} else if strEq(tag, "lt") {
+	// 			cmp_kind = hl_cmp_lt
+	// 		} else if strEq(tag, "gt") {
+	// 			cmp_kind = hl_cmp_gt
+	// 		} else if strEq(tag, "leq") {
+	// 			cmp_kind = hl_cmp_leq
+	// 		} else if strEq(tag, "geq") {
+	// 			cmp_kind = hl_cmp_geq
+	// 		}
+	// 		if cmp_kind != 0 {
+	// 			ret_expr.variant = IrHLExprPrimCmp{
+	// 				kind: cmp_kind,
+	// 				lhs:  ret_call[2],
+	// 				rhs:  ret_call[3],
+	// 			}
+	// 		}
+	// 	}
+	// }
 }
 
 func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
@@ -398,7 +389,7 @@ func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
 		if expr.variant == nil {
 			panic("newly introduced bug: could not late-resolve def ref '" + string(it.ast_ref.top_def.anns.name) + "'")
 		}
-	case IrHLExprType, IrHLExprVoid, IrHLExprTag, IrHLExprInt, IrHLExprIdent, IrHLExprRefDef, IrHLExprRefArg:
+	case IrHLExprType, IrHLExprVoid, IrHLExprTag, IrHLExprInt, IrHLExprIdent, IrHLExprRefDef, IrHLExprRefArg, IrHLExprPrimCallee:
 		// no further traversal from here
 	case IrHLExprPrimExtRef:
 		irHlExprResolveTmpRefs(ctx, &it.name_tag)
@@ -457,206 +448,6 @@ func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
 			irHlExprResolveTmpRefs(ctx, &it.exprs[i])
 		}
 		irHlExprResolveTmpRefs(ctx, &it.body)
-	default:
-		panic(it)
-	}
-}
-
-func irHLDump(ir *IrHL) {
-	for i := range ir.defs {
-		irHLDumpDef(ir, &ir.defs[i])
-	}
-}
-
-func irHLDumpDef(ir *IrHL, def *IrHLDef) {
-	print(string(def.anns.name))
-	print(" :=\n  ")
-	irHLDumpExpr(ir, &def.body, 4)
-	print("\n\n")
-}
-
-func irHLDumpExpr(ir *IrHL, expr *IrHLExpr, ind int) {
-	switch it := expr.variant.(type) {
-	case IrHLExprType:
-		irHLDumpType(ir, it.ty)
-	case IrHLExprTag:
-		print("#")
-		print(string(it))
-	case IrHLExprInt:
-		print(it)
-	case IrHLExprIdent:
-		print(string(it))
-	case IrHLExprRefDef:
-		print(string(ir.defs[it].anns.name))
-	case IrHLExprRefArg:
-		print("@")
-		print(it)
-	case IrHLExprCall:
-		if expr.anns.origin_expr.anns.toks_throng {
-			for i := range it {
-				irHLDumpExpr(ir, &it[i], ind)
-			}
-		} else {
-			print("(")
-			for i := range it {
-				if i > 0 {
-					print(" ")
-				}
-				irHLDumpExpr(ir, &it[i], ind)
-			}
-			print(")")
-		}
-	case IrHLExprList:
-		print("[ ")
-		for i := range it {
-			irHLDumpExpr(ir, &it[i], ind)
-			print(", ")
-		}
-		print("]")
-	case IrHLExprBag:
-		if ind == 0 || len(it) < 2 {
-			print("{")
-			for i := range it {
-				if i > 0 {
-					print(", ")
-				}
-				irHLDumpExpr(ir, &it[i], ind+2)
-			}
-			print("}")
-		} else {
-			print("{\n")
-			for i := range it {
-				for j := 0; j < ind; j++ {
-					print(" ")
-				}
-				irHLDumpExpr(ir, &it[i], ind+2)
-				print(",\n")
-			}
-			for i := 0; i < ind; i++ {
-				print(" ")
-			}
-			print("}")
-		}
-	case IrHLExprInfix:
-		irHLDumpExpr(ir, &it.lhs, ind)
-		print(string(it.kind))
-		print(" ")
-		irHLDumpExpr(ir, &it.rhs, ind)
-	case IrHLExprLet:
-		print("(")
-		irHLDumpExpr(ir, &it.body, ind)
-		assert(len(it.names) == len(it.exprs))
-		for i, name := range it.names {
-			print(", ")
-			print(string(name))
-			print(" := ")
-			irHLDumpExpr(ir, &it.exprs[i], ind)
-		}
-		print(")")
-	case IrHLExprPrimCase:
-		print("⟨/case ")
-		irHLDumpExpr(ir, &it.scrut, ind)
-		irHLDumpExpr(ir, &IrHLExpr{variant: IrHLExprBag(it.cases)}, ind)
-		print("⟩")
-	case IrHLExprPrimCmp:
-		print("⟨/cmp ")
-		switch it.kind {
-		case hl_cmp_eq:
-			print("#eq ")
-		case hl_cmp_neq:
-			print("#neq ")
-		case hl_cmp_lt:
-			print("#lt ")
-		case hl_cmp_gt:
-			print("#gt ")
-		case hl_cmp_leq:
-			print("#leq ")
-		case hl_cmp_geq:
-			print("#geq ")
-		default:
-			panic(it.kind)
-		}
-		irHLDumpExpr(ir, &it.lhs, ind)
-		print(" ")
-		irHLDumpExpr(ir, &it.rhs, ind)
-		print("⟩")
-	case IrHLExprPrimCallExt:
-		print("⟨/call ")
-		irHLDumpExpr(ir, &it.callee, ind)
-		for i := range it.args {
-			print(" ")
-			irHLDumpExpr(ir, &it.args[i], ind)
-		}
-		print("⟩")
-	case IrHLExprPrimLen:
-		print("⟨/len ")
-		irHLDumpExpr(ir, &it.subj, ind)
-		print("⟩")
-	case IrHLExprPrimExtRef:
-		print("⟨/extern ")
-		irHLDumpExpr(ir, &it.name_tag, ind)
-		print(" ")
-		irHLDumpExpr(ir, &it.opts, ind)
-		print(" ")
-		irHLDumpExpr(ir, &it.ty, ind)
-		if it.fn_params != nil {
-			print(" ")
-			irHLDumpExpr(ir, &IrHLExpr{variant: IrHLExprBag(it.fn_params)}, 0)
-		}
-		print("⟩")
-	default:
-		panic(it)
-	}
-}
-
-func irHLDumpType(ir *IrHL, ty IrHLType) {
-	switch it := ty.(type) {
-	case IrHLTypeVoid:
-		print("/V")
-	case IrHLTypeInt:
-		print("/I/")
-		print(it.min)
-		print("/")
-		print(it.max)
-	case IrHLTypeExternal:
-		print("/Extern/#")
-		print(string(it))
-	case IrHLTypePtr:
-		print("/P")
-		irHLDumpType(ir, it.payload)
-	case IrHLTypeArr:
-		print("/A/")
-		print(it.size)
-		irHLDumpType(ir, it.payload)
-	case IrHLTypeFunc:
-		print("/F")
-		irHLDumpType(ir, it.returns)
-		print("/")
-		print(len(it.params))
-		for i := range it.params {
-			irHLDumpType(ir, it.params[i])
-		}
-	case IrHLTypeTag:
-		if len(it) == 0 {
-			print("/Tag")
-		} else {
-			print("(/Tag/#")
-			print(string(it))
-			print(")")
-		}
-	case IrHLTypeBag:
-		if it.is_union {
-			print("/Union{ ")
-		} else {
-			print("/Struct{ ")
-		}
-		for i := range it.field_names {
-			print(string(it.field_names[i]))
-			print(": ")
-			irHLDumpType(ir, it.field_types[i])
-			print(", ")
-		}
-		print("}")
 	default:
 		panic(it)
 	}
