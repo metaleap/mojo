@@ -276,6 +276,7 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 		} else if ref := astScopesResolve(&ctx.cur_def.scope, it, -1); ref != nil {
 			ret_expr.variant = IrHLExprRefTmp{ast_ref: ref}
 		} else {
+			println(string(astNodeMsg("unresolved in line ", &expr.base, ast)))
 			ret_expr.variant = IrHLExprIdent(it)
 		}
 	case AstExprForm:
