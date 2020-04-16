@@ -2,10 +2,6 @@ package main
 
 type IrLLProg struct {
 	defs []IrLLDef
-	ext  struct {
-		vars  Any
-		funcs Any
-	}
 	anns struct {
 		origin *IrHL
 	}

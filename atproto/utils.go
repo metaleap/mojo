@@ -1,7 +1,6 @@
 package main
 
 type (
-	Any = interface{}
 	Str = []byte
 )
 
@@ -15,7 +14,7 @@ func unreachable() {
 	panic("reached unreachable")
 }
 
-func fail(msg_parts ...Any) {
+func fail(msg_parts ...interface{}) {
 	for i := 0; i < len(msg_parts); i++ {
 		switch msg_part := msg_parts[i].(type) {
 		case Str:
@@ -129,7 +128,6 @@ func ªbool(len int) []bool             { return make([]bool, len) }
 func ªint(len int) []int               { return make([]int, len) }
 func ªbyte(len int) Str                { return make(Str, len) }
 func ªStr(len int) []Str               { return make([]Str, len) }
-func ªAny(len int) []Any               { return make([]Any, len) }
 func ªToken(len int) []Token           { return make([]Token, len) }
 func ªTokens(len int) [][]Token        { return make([][]Token, len) }
 func ªAstDef(len int) []AstDef         { return make([]AstDef, len) }
