@@ -81,13 +81,13 @@ type IrLLOpIntKind int
 
 const (
 	_ IrLLOpIntKind = iota
-	ll_bin_op_add
-	ll_bin_op_mul
-	ll_bin_op_sub
-	ll_bin_op_udiv
-	ll_bin_op_sdiv
-	ll_bin_op_urem
-	ll_bin_op_srem
+	ll_iop_add
+	ll_iop_mul
+	ll_iop_sub
+	ll_iop_udiv
+	ll_iop_sdiv
+	ll_iop_urem
+	ll_iop_srem
 )
 
 type IrLLExprCmpInt struct {
@@ -100,16 +100,16 @@ type IrLLCmpIntKind int
 
 const (
 	_ IrLLCmpIntKind = iota
-	ll_cmp_i_eq
-	ll_cmp_i_ne
-	ll_cmp_i_ugt
-	ll_cmp_i_uge
-	ll_cmp_i_ult
-	ll_cmp_i_ule
-	ll_cmp_i_sgt
-	ll_cmp_i_sge
-	ll_cmp_i_slt
-	ll_cmp_i_sle
+	ll_icmp_eq
+	ll_icmp_ne
+	ll_icmp_ugt
+	ll_icmp_uge
+	ll_icmp_ult
+	ll_icmp_ule
+	ll_icmp_sgt
+	ll_icmp_sge
+	ll_icmp_slt
+	ll_icmp_sle
 )
 
 func (IrLLTypeInt) implementsIrLLType()    {}

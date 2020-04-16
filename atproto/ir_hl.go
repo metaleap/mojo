@@ -26,7 +26,6 @@ type IrHLExpr struct {
 
 type IrHLExprVariant interface{ implementsIrHLExprVariant() }
 type IrHLType interface{ implementsIrHLType() }
-type IrHLTypePrim interface{ implementsIrHLTypePrim() }
 
 type IrHLExprTag Str
 type IrHLExprInt int64
@@ -44,26 +43,27 @@ type IrHLExprInfix struct {
 	lhs  IrHLExpr
 	rhs  IrHLExpr
 }
+type IrHLExprLet struct {
+	names []Str
+	exprs []IrHLExpr
+	body  IrHLExpr
+}
 type IrHLExprFunc struct {
 	params []IrHLExpr
 	body   IrHLExpr
 }
-type IrHLExprPrimCase struct {
+type IrHLExprPrimCallee Str
+type IrHLExprPrimBranch struct {
 	scrut IrHLExpr
 	cases []IrHLExpr
 }
-type IrHLExprPrimCmpInt struct {
-	kind IrLLCmpIntKind
+type IrHLExprPrimCmp struct {
+	kind IrHLExprPrimCmpKind
 	lhs  IrHLExpr
 	rhs  IrHLExpr
 }
-type IrHLExprPrimOpInt struct {
-	kind IrLLOpIntKind
-	lhs  IrHLExpr
-	rhs  IrHLExpr
-}
-type IrHLExprPrimOpBool struct {
-	kind IrLLOpBoolKind
+type IrHLExprPrimArith struct {
+	kind IrHLExprPrimArithKind
 	lhs  IrHLExpr
 	rhs  IrHLExpr
 }
@@ -75,6 +75,31 @@ type IrHLExprPrimCallExt struct {
 	args   []IrHLExpr
 }
 
+type IrHLExprPrimArithKind int
+
+const (
+	_ IrHLExprPrimArithKind = iota
+	hl_arith_add
+	hl_arith_mul
+	hl_arith_sub
+	hl_arith_div
+	hl_arith_mod
+)
+
+type IrHLExprPrimCmpKind int
+
+const (
+	_ IrHLExprPrimCmpKind = iota
+	hl_cmp_eq
+	hl_cmp_neq
+	hl_cmp_lt
+	hl_cmp_gt
+	hl_cmp_leq
+	hl_cmp_geq
+)
+
+type IrHLTypeTag struct{}
+type IrHlTypeSlice struct{ payload IrHLType }
 type IrHLTypeBag struct {
 	field_names []Str
 	field_types []IrHLType
@@ -84,43 +109,31 @@ type IrHLTypeInt struct {
 	min int64
 	max int64
 }
-type IrHLTypeAborts struct{}
-type IrHLTypeTag struct{}
-type IrHlTypeSlice struct{ payload IrHLType }
-type IrHLTypePrimVoid struct{}
-type IrHLTypePrimExternal Str
-type IrHLTypePrimInt struct{ bit_width int }
-type IrHLTypePrimPtr struct{ payload IrHLType }
-type IrHLTypePrimStruct struct{ fields []IrHLType }
-type IrHLTypePrimArr struct {
+type IrHLTypeVoid struct{}
+type IrHLTypeExternal Str
+type IrHLTypePtr struct{ payload IrHLType }
+type IrHLTypeArr struct {
 	size    int
 	payload IrHLType
 }
-type IrHLTypePrimFunc struct {
+type IrHLTypeFunc struct {
 	returns IrHLType
 	params  []IrHLType
+	aborts  struct {
+		always      bool
+		potentially bool
+	}
 }
 
-func (IrHLTypePrimArr) implementsIrHLTypePrim()      {}
-func (IrHLTypePrimFunc) implementsIrHLTypePrim()     {}
-func (IrHLTypePrimInt) implementsIrHLTypePrim()      {}
-func (IrHLTypePrimExternal) implementsIrHLTypePrim() {}
-func (IrHLTypePrimPtr) implementsIrHLTypePrim()      {}
-func (IrHLTypePrimStruct) implementsIrHLTypePrim()   {}
-func (IrHLTypePrimVoid) implementsIrHLTypePrim()     {}
-
-func (IrHLTypePrimArr) implementsIrHLType()      {}
-func (IrHLTypePrimFunc) implementsIrHLType()     {}
-func (IrHLTypePrimInt) implementsIrHLType()      {}
-func (IrHLTypePrimExternal) implementsIrHLType() {}
-func (IrHLTypePrimPtr) implementsIrHLType()      {}
-func (IrHLTypePrimStruct) implementsIrHLType()   {}
-func (IrHLTypePrimVoid) implementsIrHLType()     {}
-func (IrHLTypeBag) implementsIrHLType()          {}
-func (IrHLTypeInt) implementsIrHLType()          {}
-func (IrHLTypeAborts) implementsIrHLType()       {}
-func (IrHLTypeTag) implementsIrHLType()          {}
-func (IrHlTypeSlice) implementsIrHLType()        {}
+func (IrHLTypeArr) implementsIrHLType()      {}
+func (IrHLTypeFunc) implementsIrHLType()     {}
+func (IrHLTypeExternal) implementsIrHLType() {}
+func (IrHLTypePtr) implementsIrHLType()      {}
+func (IrHLTypeVoid) implementsIrHLType()     {}
+func (IrHLTypeBag) implementsIrHLType()      {}
+func (IrHLTypeInt) implementsIrHLType()      {}
+func (IrHLTypeTag) implementsIrHLType()      {}
+func (IrHlTypeSlice) implementsIrHLType()    {}
 
 func (IrHLExprType) implementsIrHLExprVariant()        {}
 func (IrHLExprTag) implementsIrHLExprVariant()         {}
@@ -135,12 +148,13 @@ func (IrHLExprInfix) implementsIrHLExprVariant()       {}
 func (IrHLExprFunc) implementsIrHLExprVariant()        {}
 func (IrHLExprVoid) implementsIrHLExprVariant()        {}
 func (IrHLExprRefTmp) implementsIrHLExprVariant()      {}
-func (IrHLExprPrimOpBool) implementsIrHLExprVariant()  {}
-func (IrHLExprPrimOpInt) implementsIrHLExprVariant()   {}
+func (IrHLExprPrimArith) implementsIrHLExprVariant()   {}
 func (IrHLExprPrimCallExt) implementsIrHLExprVariant() {}
-func (IrHLExprPrimCase) implementsIrHLExprVariant()    {}
-func (IrHLExprPrimCmpInt) implementsIrHLExprVariant()  {}
+func (IrHLExprPrimBranch) implementsIrHLExprVariant()  {}
+func (IrHLExprPrimCmp) implementsIrHLExprVariant()     {}
 func (IrHLExprPrimLen) implementsIrHLExprVariant()     {}
+func (IrHLExprLet) implementsIrHLExprVariant()         {}
+func (IrHLExprPrimCallee) implementsIrHLExprVariant()  {}
 
 type CtxIrHLFromAst struct {
 	ir       IrHL
@@ -174,7 +188,7 @@ func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 	def.anns.name = top_def.anns.name
 	switch def_head := top_def.head.variant.(type) {
 	case AstExprIdent:
-		def.body = irHlExprFrom(ctx, &top_def.body)
+		def.body = irHlExprFromAstDef(ctx, top_def)
 	case AstExprForm:
 		fn := IrHLExprFunc{params: ªIrHLExpr(len(def_head) - 1)}
 		for i := 1; i < len(def_head); i++ {
@@ -182,7 +196,7 @@ func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 			fn.params[i-1].anns.origin_def = top_def
 			fn.params[i-1].anns.origin_expr = &def_head[i]
 		}
-		fn.body = irHlExprFrom(ctx, &top_def.body)
+		fn.body = irHlExprFromAstDef(ctx, top_def)
 		def.body = IrHLExpr{variant: fn}
 	default:
 		panic("def head not supported in this prototype: " + string(astNodeSrc(&top_def.head.base, ctx.ir.anns.origin_ast)))
@@ -191,7 +205,26 @@ func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 	ctx.cur_def = old_def
 }
 
+func irHlExprFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) (ret_expr IrHLExpr) {
+	if len(def.defs) == 0 {
+		return irHlExprFrom(ctx, &def.body)
+	}
+	ret_let := IrHLExprLet{
+		names: ªStr(len(def.defs)),
+		exprs: ªIrHLExpr(len(def.defs)),
+	}
+	for i := range def.defs {
+		ret_let.names[i] = def.defs[i].anns.name
+		ret_let.exprs[i] = irHlExprFromAstDef(ctx, &def.defs[i])
+	}
+	ret_let.body = irHlExprFrom(ctx, &def.body)
+	ret_expr.variant = ret_let
+	ret_expr.anns.origin_def, ret_expr.anns.origin_expr = def, &def.body
+	return
+}
+
 func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
+	ast := ctx.ir.anns.origin_ast
 	ret_expr.anns.origin_def, ret_expr.anns.origin_expr = ctx.cur_def, expr
 	switch it := expr.variant.(type) {
 
@@ -224,7 +257,7 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 	case AstExprIdent:
 		if strEq(it, "()") {
 			ret_expr.variant = IrHLExprVoid{}
-			ret_expr.anns.ty = IrHLTypePrimVoid{}
+			ret_expr.anns.ty = IrHLTypeVoid{}
 		} else if ref := astScopesResolve(&ctx.cur_def.scope, it, -1); ref != nil {
 			ret_expr.variant = IrHLExprRefTmp{ast_ref: ref}
 		}
@@ -232,7 +265,7 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 
 	case AstExprForm:
 		for _, supported_infix := range []string{":", "."} {
-			if lhs, rhs := astExprFormSplit(expr, supported_infix, false, false, false, ctx.ir.anns.origin_ast); lhs.variant != nil && rhs.variant != nil {
+			if lhs, rhs := astExprFormSplit(expr, supported_infix, false, false, false, ast); lhs.variant != nil && rhs.variant != nil {
 				ret_expr.variant = IrHLExprInfix{
 					kind: Str(supported_infix),
 					lhs:  irHlExprFrom(ctx, &lhs),
@@ -241,18 +274,79 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 				return
 			}
 		}
-
-		ret_call := ªIrHLExpr(len(it))
-		for i := range it {
-			ret_call[i] = irHlExprFrom(ctx, &it[i])
+		if ret_expr.variant == nil {
+			if prefix, _ := it[0].variant.(AstExprIdent); len(prefix) == 1 {
+				if ident, _ := it[1].variant.(AstExprIdent); ident != nil {
+					if prefix[0] == '#' {
+						ret_expr.variant = IrHLExprTag(ident)
+					} else if prefix[0] == '/' {
+						if ident[0] >= 'A' && ident[0] <= 'Z' {
+							println("TODO: type-expr " + string(astNodeSrc(&expr.base, ast)))
+						} else {
+							ret_expr.variant = IrHLExprPrimCallee(ident)
+						}
+					}
+				}
+			}
 		}
-		ret_expr.variant = IrHLExprCall(ret_call)
-
+		if ret_expr.variant == nil {
+			ret_call := ªIrHLExpr(len(it))
+			for i := range it {
+				ret_call[i] = irHlExprFrom(ctx, &it[i])
+			}
+			switch callee := ret_call[0].variant.(type) {
+			case IrHLExprPrimCallee:
+				if strEq(callee, "call") && len(ret_call) > 1 {
+					ret_expr.variant = IrHLExprPrimCallExt{callee: ret_call[1], args: ret_call[2:]}
+				} else if strEq(callee, "len") && len(ret_call) == 2 {
+					ret_expr.variant = IrHLExprPrimLen{subj: ret_call[1]}
+				} else if is_or := strEq(callee, "or"); (is_or || strEq(callee, "and")) && len(ret_call) == 3 {
+					ret_branch := IrHLExprPrimBranch{
+						scrut: ret_call[1],
+						cases: ªIrHLExpr(2),
+					}
+					if is_or { // or a b -> case a [true: true, false: b]
+						ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: IrHLExpr{variant: IrHLExprTag("true")}}
+						ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: ret_call[2]}
+					} else { // and a b -> case a [true: b, false: false]
+						ret_branch.cases[0].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("true")}, rhs: ret_call[2]}
+						ret_branch.cases[1].variant = IrHLExprInfix{kind: Str(":"), lhs: IrHLExpr{variant: IrHLExprTag("false")}, rhs: IrHLExpr{variant: IrHLExprTag("false")}}
+					}
+					ret_expr.variant = ret_branch
+				} else if strEq(callee, "cmp") && len(ret_call) == 4 {
+					if tag, _ := ret_call[1].variant.(IrHLExprTag); tag != nil {
+						cmp_kind := IrHLExprPrimCmpKind(0)
+						if strEq(tag, "eq") {
+							cmp_kind = hl_cmp_eq
+						} else if strEq(tag, "neq") {
+							cmp_kind = hl_cmp_neq
+						} else if strEq(tag, "lt") {
+							cmp_kind = hl_cmp_lt
+						} else if strEq(tag, "gt") {
+							cmp_kind = hl_cmp_gt
+						} else if strEq(tag, "leq") {
+							cmp_kind = hl_cmp_leq
+						} else if strEq(tag, "geq") {
+							cmp_kind = hl_cmp_geq
+						}
+						if cmp_kind != 0 {
+							ret_expr.variant = IrHLExprPrimCmp{
+								kind: cmp_kind,
+								lhs:  ret_call[2],
+								rhs:  ret_call[3],
+							}
+						}
+					}
+				}
+			default:
+				ret_expr.variant = IrHLExprCall(ret_call)
+			}
+		}
 	default:
 		panic(it)
 	}
 	if ret_expr.variant == nil {
-		panic("newly introduced bug: should be unreachable here")
+		fail(astNodeMsg("Syntax error in line ", &expr.base, ast))
 	}
 	return
 }
@@ -295,15 +389,11 @@ func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
 		irHlExprResolveTmpRefs(ctx, &it.lhs)
 		irHlExprResolveTmpRefs(ctx, &it.rhs)
 		expr.variant = it
-	case IrHLExprPrimCmpInt:
+	case IrHLExprPrimCmp:
 		irHlExprResolveTmpRefs(ctx, &it.lhs)
 		irHlExprResolveTmpRefs(ctx, &it.rhs)
 		expr.variant = it
-	case IrHLExprPrimOpBool:
-		irHlExprResolveTmpRefs(ctx, &it.lhs)
-		irHlExprResolveTmpRefs(ctx, &it.rhs)
-		expr.variant = it
-	case IrHLExprPrimOpInt:
+	case IrHLExprPrimArith:
 		irHlExprResolveTmpRefs(ctx, &it.lhs)
 		irHlExprResolveTmpRefs(ctx, &it.rhs)
 		expr.variant = it
@@ -316,12 +406,17 @@ func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
 			irHlExprResolveTmpRefs(ctx, &it.args[i])
 		}
 		expr.variant = it
-	case IrHLExprPrimCase:
+	case IrHLExprPrimBranch:
 		irHlExprResolveTmpRefs(ctx, &it.scrut)
 		for i := range it.cases {
 			irHlExprResolveTmpRefs(ctx, &it.cases[i])
 		}
 		expr.variant = it
+	case IrHLExprLet:
+		for i := range it.exprs {
+			irHlExprResolveTmpRefs(ctx, &it.exprs[i])
+		}
+		irHlExprResolveTmpRefs(ctx, &it.body)
 	default:
 		panic(it)
 	}
@@ -335,12 +430,12 @@ func irHLDump(ir *IrHL) {
 
 func irHLDumpDef(ir *IrHL, def *IrHLDef) {
 	print(string(def.anns.name))
-	print(" := ")
-	irHLDumpExpr(ir, &def.body)
+	print(" :=\n  ")
+	irHLDumpExpr(ir, &def.body, 4)
 	print("\n\n")
 }
 
-func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {
+func irHLDumpExpr(ir *IrHL, expr *IrHLExpr, ind int) {
 	switch it := expr.variant.(type) {
 	case IrHLExprType:
 		irHLDumpType(ir, it.ty)
@@ -357,32 +452,67 @@ func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {
 		print("@")
 		print(it)
 	case IrHLExprCall:
-		print("(")
-		for i := range it {
-			if i > 0 {
-				print(" ")
+		if expr.anns.origin_expr.anns.toks_throng {
+			for i := range it {
+				irHLDumpExpr(ir, &it[i], ind)
 			}
-			irHLDumpExpr(ir, &it[i])
+		} else {
+			print("(")
+			for i := range it {
+				if i > 0 {
+					print(" ")
+				}
+				irHLDumpExpr(ir, &it[i], ind)
+			}
+			print(")")
 		}
-		print(")")
 	case IrHLExprList:
 		print("[ ")
 		for i := range it {
-			irHLDumpExpr(ir, &it[i])
+			irHLDumpExpr(ir, &it[i], ind)
 			print(", ")
 		}
 		print("]")
 	case IrHLExprBag:
-		print("{ ")
-		for i := range it {
-			irHLDumpExpr(ir, &it[i])
-			print(", ")
+		if len(it) <= 2 { // gettin nasty now!
+			print("{")
+			for i := range it {
+				if i > 0 {
+					print(", ")
+				}
+				irHLDumpExpr(ir, &it[i], ind+2)
+			}
+			print("}")
+		} else {
+			print("{\n")
+			for i := range it {
+				for j := 0; j < ind; j++ {
+					print(" ")
+				}
+				irHLDumpExpr(ir, &it[i], ind+2)
+				print(",\n")
+			}
+			for i := 0; i < ind; i++ {
+				print(" ")
+			}
+			print("}")
 		}
-		print("}")
 	case IrHLExprInfix:
-		irHLDumpExpr(ir, &it.lhs)
+		irHLDumpExpr(ir, &it.lhs, ind)
 		print(string(it.kind))
-		irHLDumpExpr(ir, &it.rhs)
+		print(" ")
+		irHLDumpExpr(ir, &it.rhs, ind)
+	case IrHLExprLet:
+		print("(")
+		irHLDumpExpr(ir, &it.body, ind)
+		assert(len(it.names) == len(it.exprs))
+		for i, name := range it.names {
+			print(", ")
+			print(string(name))
+			print(" := ")
+			irHLDumpExpr(ir, &it.exprs[i], ind)
+		}
+		print(")")
 	default:
 		panic(it)
 	}
@@ -390,34 +520,30 @@ func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {
 
 func irHLDumpType(ir *IrHL, ty IrHLType) {
 	switch it := ty.(type) {
-	case IrHLTypePrimVoid:
+	case IrHLTypeVoid:
 		print("/V")
-	case IrHLTypePrimInt:
-		print("/I")
-		print(it.bit_width)
-	case IrHLTypePrimExternal:
+	case IrHLTypeInt:
+		print("/I/")
+		print(it.min)
+		print("/")
+		print(it.max)
+	case IrHLTypeExternal:
 		print("/Extern #")
 		print(string(it))
-	case IrHLTypePrimPtr:
+	case IrHLTypePtr:
 		print("/P")
 		irHLDumpType(ir, it.payload)
-	case IrHLTypePrimArr:
+	case IrHLTypeArr:
 		print("/A/")
 		print(it.size)
 		irHLDumpType(ir, it.payload)
-	case IrHLTypePrimFunc:
+	case IrHLTypeFunc:
 		print("/F")
 		irHLDumpType(ir, it.returns)
 		print("/")
 		print(len(it.params))
 		for i := range it.params {
 			irHLDumpType(ir, it.params[i])
-		}
-	case IrHLTypePrimStruct:
-		print("/S/")
-		print(len(it.fields))
-		for i := range it.fields {
-			irHLDumpType(ir, it.fields[i])
 		}
 	case IrHLTypeTag:
 		print("/Tag")
@@ -434,13 +560,6 @@ func irHLDumpType(ir *IrHL, ty IrHLType) {
 			print(", ")
 		}
 		print("}")
-	case IrHLTypeInt:
-		print("Int/")
-		print(it.min)
-		print("/")
-		print(it.max)
-	case IrHLTypeAborts:
-		print("/Aborts")
 	default:
 		panic(it)
 	}

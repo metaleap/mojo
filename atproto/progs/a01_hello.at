@@ -5,7 +5,7 @@ main :=
   io := { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
 
     writeTo _file _str :=
-      /case (/or (/cmpi #eq n_written str_len) (/cmpi #eq maybe_err 0))
+      /case (/or (/cmp #eq n_written str_len) (/cmp #eq maybe_err 0))
             { #true: #ok n_written, #false: #err maybe_err }
       n_written := /call libc.fWrite _str 1 str_len _file
       maybe_err := /call libc.fError _file
@@ -29,6 +29,6 @@ libc := {
 
   exit    : /extern #exit {} /V { #_status: /Ic } [ #noreturn ],
   fError  : /extern #ferror {} /Ic { #_file: /P/File },
-  fRead   : /extern #fread {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File },
-  fWrite  : /extern #fwrite {} /Iw { #_buf: /P/_, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+  fRead   : /extern #fread {} /Iw { #_buf: /P/A/_/I8, #_size: /Iw, #_count: /Iw, #_file: /P/File },
+  fWrite  : /extern #fwrite {} /Iw { #_buf: /P/A/_/I8, #_size: /Iw, #_count: /Iw, #_file: /P/File },
 }

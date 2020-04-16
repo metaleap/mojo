@@ -44,19 +44,19 @@ func irLLEval(ctx *CtxIrLLEval, expr *IrLLExpr) IrLLExpr {
 		l, r := lhs.variant.(IrLLExprInt), rhs.variant.(IrLLExprInt)
 		var result IrLLExprInt
 		switch it.kind {
-		case ll_bin_op_add:
+		case ll_iop_add:
 			result = l + r
-		case ll_bin_op_mul:
+		case ll_iop_mul:
 			result = l * r
-		case ll_bin_op_sub:
+		case ll_iop_sub:
 			result = l - r
-		case ll_bin_op_udiv:
+		case ll_iop_udiv:
 			result = IrLLExprInt(uint64(l) / uint64(r))
-		case ll_bin_op_sdiv:
+		case ll_iop_sdiv:
 			result = l / r
-		case ll_bin_op_urem:
+		case ll_iop_urem:
 			result = IrLLExprInt(uint64(l) % uint64(r))
-		case ll_bin_op_srem:
+		case ll_iop_srem:
 			result = l % r
 		default:
 			panic(it.kind)
@@ -68,25 +68,25 @@ func irLLEval(ctx *CtxIrLLEval, expr *IrLLExpr) IrLLExpr {
 		lhs := irLLEval(ctx, &it.lhs).variant.(IrLLExprInt)
 		rhs := irLLEval(ctx, &it.rhs).variant.(IrLLExprInt)
 		switch it.kind {
-		case ll_cmp_i_eq:
+		case ll_icmp_eq:
 			result = (lhs == rhs)
-		case ll_cmp_i_ne:
+		case ll_icmp_ne:
 			result = (lhs != rhs)
-		case ll_cmp_i_ugt:
+		case ll_icmp_ugt:
 			result = (uint64(lhs) > uint64(rhs))
-		case ll_cmp_i_uge:
+		case ll_icmp_uge:
 			result = (uint64(lhs) >= uint64(rhs))
-		case ll_cmp_i_ult:
+		case ll_icmp_ult:
 			result = (uint64(lhs) < uint64(rhs))
-		case ll_cmp_i_ule:
+		case ll_icmp_ule:
 			result = (uint64(lhs) <= uint64(rhs))
-		case ll_cmp_i_sgt:
+		case ll_icmp_sgt:
 			result = (lhs > rhs)
-		case ll_cmp_i_sge:
+		case ll_icmp_sge:
 			result = (lhs >= rhs)
-		case ll_cmp_i_slt:
+		case ll_icmp_slt:
 			result = (lhs < rhs)
-		case ll_cmp_i_sle:
+		case ll_icmp_sle:
 			result = (lhs <= rhs)
 		default:
 			panic(it.kind)
