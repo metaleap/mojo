@@ -345,7 +345,7 @@ func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {
 	case IrHLExprType:
 		irHLDumpType(ir, it.ty)
 	case IrHLExprTag:
-		print('#')
+		print("#")
 		print(string(it))
 	case IrHLExprInt:
 		print(it)
@@ -354,28 +354,31 @@ func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {
 	case IrHLExprRefDef:
 		print(string(ir.defs[it].anns.name))
 	case IrHLExprRefArg:
-		print('@')
+		print("@")
 		print(it)
 	case IrHLExprCall:
-		print('(')
+		print("(")
 		for i := range it {
+			if i > 0 {
+				print(" ")
+			}
 			irHLDumpExpr(ir, &it[i])
 		}
-		print(')')
+		print(")")
 	case IrHLExprList:
 		print("[ ")
 		for i := range it {
 			irHLDumpExpr(ir, &it[i])
 			print(", ")
 		}
-		print(']')
+		print("]")
 	case IrHLExprBag:
 		print("{ ")
 		for i := range it {
 			irHLDumpExpr(ir, &it[i])
 			print(", ")
 		}
-		print('}')
+		print("}")
 	case IrHLExprInfix:
 		irHLDumpExpr(ir, &it.lhs)
 		print(string(it.kind))
@@ -405,7 +408,7 @@ func irHLDumpType(ir *IrHL, ty IrHLType) {
 	case IrHLTypePrimFunc:
 		print("/F")
 		irHLDumpType(ir, it.returns)
-		print('/')
+		print("/")
 		print(len(it.params))
 		for i := range it.params {
 			irHLDumpType(ir, it.params[i])
@@ -430,11 +433,11 @@ func irHLDumpType(ir *IrHL, ty IrHLType) {
 			irHLDumpType(ir, it.field_types[i])
 			print(", ")
 		}
-		print('}')
+		print("}")
 	case IrHLTypeInt:
 		print("Int/")
 		print(it.min)
-		print('/')
+		print("/")
 		print(it.max)
 	case IrHLTypeAborts:
 		print("/Aborts")
