@@ -7,6 +7,7 @@ func irHLPrint(ir *IrHL) {
 }
 
 func irHLPrintDef(ir *IrHL, def *IrHLDef) {
+	print("\n\n")
 	print(string(def.anns.name))
 	print(" :=\n  ")
 	irHLPrintExpr(ir, &def.body, 4)
@@ -91,7 +92,7 @@ func irHLPrintExpr(ir *IrHL, expr *IrHLExpr, ind int) {
 	case IrHLExprLet:
 		print("(")
 		irHLPrintExpr(ir, &it.body, ind)
-		print("\n")
+		print(",\n\n")
 		for i, name := range it.names {
 			for j := 0; j < ind; j++ {
 				print(" ")
@@ -99,7 +100,7 @@ func irHLPrintExpr(ir *IrHL, expr *IrHLExpr, ind int) {
 			print(string(name))
 			print(" := ")
 			irHLPrintExpr(ir, &it.exprs[i], 2+ind)
-			print(",\n")
+			print(",\n\n")
 		}
 		for i := 0; i < ind; i++ {
 			print(" ")

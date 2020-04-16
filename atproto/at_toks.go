@@ -218,7 +218,7 @@ func tokIsClosingBracket(tok_kind TokenKind) bool {
 func toksCount(toks []Token, ident Str, full_src Str) int {
 	ret_num := 0
 	for i := range toks {
-		if toks[i].kind == tok_kind_ident && strEql(ident, toksSrcStr(toks[i:i+1], full_src)) {
+		if toks[i].kind == tok_kind_ident && strEql(ident, toksSrc(toks[i:i+1], full_src)) {
 			ret_num++
 		}
 	}
@@ -358,7 +358,7 @@ func toksIndentBasedChunks(toks []Token) [][]Token {
 
 func toksIndexOfIdent(toks []Token, ident Str, full_src Str) int {
 	for i := range toks {
-		if toks[i].kind == tok_kind_ident && strEql(ident, toksSrcStr(toks[i:i+1], full_src)) {
+		if toks[i].kind == tok_kind_ident && strEql(ident, toksSrc(toks[i:i+1], full_src)) {
 			return i
 		}
 	}
@@ -420,7 +420,7 @@ func toksSplit(toks []Token, full_src Str, tok_kind TokenKind) [][]Token {
 	return ret_toks[0:ret_idx]
 }
 
-func toksSrcStr(toks []Token, full_src Str) Str {
+func toksSrc(toks []Token, full_src Str) Str {
 	first, last := &toks[0], &toks[len(toks)-1]
 	return full_src[first.byte_idx : last.byte_idx+last.num_bytes]
 }

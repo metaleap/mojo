@@ -190,21 +190,19 @@ func irHLFrom(ast *Ast) IrHL {
 }
 
 func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
-	old_def := ctx.cur_def
-	ctx.cur_def = top_def
-
 	def := &ctx.ir.defs[ctx.num_defs]
 	ctx.num_defs++
 	def.anns.origin_def = top_def
 	def.anns.name = top_def.anns.name
 	def.body = irHlExprMaybeFuncFromAstDef(ctx, top_def)
-	ctx.cur_def = old_def
 }
 
-func irHlExprMaybeFuncFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) IrHLExpr {
+func irHlExprMaybeFuncFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) (ret_expr IrHLExpr) {
+	old_def := ctx.cur_def
+	ctx.cur_def = def
 	switch def_head := def.head.variant.(type) {
 	case AstExprIdent:
-		return irHlExprMaybeLetFromAstDef(ctx, def)
+		ret_expr = irHlExprMaybeLetFromAstDef(ctx, def)
 	case AstExprForm:
 		fn := IrHLExprFunc{params: ªIrHLExpr(len(def_head) - 1)}
 		for i := 1; i < len(def_head); i++ {
@@ -213,10 +211,12 @@ func irHlExprMaybeFuncFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) IrHLExpr {
 			fn.params[i-1].anns.origin_expr = &def_head[i]
 		}
 		fn.body = irHlExprMaybeLetFromAstDef(ctx, def)
-		return IrHLExpr{variant: fn}
+		ret_expr = IrHLExpr{variant: fn}
 	default:
 		panic("def head not supported in this prototype: " + string(astNodeSrc(&def.head.base, ctx.ir.anns.origin_ast)))
 	}
+	ctx.cur_def = old_def
+	return
 }
 
 func irHlExprMaybeLetFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) (ret_expr IrHLExpr) {
@@ -276,7 +276,6 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 		} else if ref := astScopesResolve(&ctx.cur_def.scope, it, -1); ref != nil {
 			ret_expr.variant = IrHLExprRefTmp{ast_ref: ref}
 		} else {
-			println("'" + string(it) + string(astNodeMsg("' unresolved in line ", &expr.base, ast)))
 			ret_expr.variant = IrHLExprIdent(it)
 		}
 	case AstExprForm:
@@ -457,14 +456,16 @@ func irHlExprResolvePrimCalls() {
 func irHlDefResolveTmpRefs(ctx *CtxIrHLFromAst, def *IrHLDef) {
 	def.body.variant = irHlExprTraverse(&def.body, def, func(expr *IrHLExpr) IrHLExprVariant {
 		if it, ok := expr.variant.(IrHLExprRefTmp); ok {
-			expr.variant = nil
 			if it.ast_ref.top_def == it.ast_ref.ref_def && it.ast_ref.param_idx == -1 {
+				found := false
 				for i := range ctx.ir.defs {
 					if ctx.ir.defs[i].anns.origin_def == it.ast_ref.top_def {
 						expr.variant = IrHLExprRefDef(i)
+						found = true
 						break
 					}
 				}
+				assert(found)
 			} else {
 				ret_local := IrHLExprRefLocal{let: nil, let_idx: -1, param_idx: it.ast_ref.param_idx}
 				if it.ast_ref.top_def != it.ast_ref.ref_def {
@@ -486,7 +487,6 @@ func irHlDefResolveTmpRefs(ctx *CtxIrHLFromAst, def *IrHLDef) {
 				}
 				expr.variant = ret_local
 			}
-			assert(expr.variant != nil)
 		}
 		return expr.variant
 	})

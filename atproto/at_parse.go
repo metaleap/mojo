@@ -84,21 +84,21 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 		} else {
 			switch tok_kind := expr_toks[i].kind; tok_kind {
 			case tok_kind_lit_int:
-				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
+				tok_str := toksSrc(expr_toks[i:i+1], ast.src)
 				node_base := astNodeFrom(all_toks_idx+i, 1)
 				acc_ret[acc_len] = AstExpr{
 					base:    node_base,
 					variant: AstExprLitInt(parseExprLitInt(&node_base, ast, tok_str)),
 				}
 			case tok_kind_lit_str_double:
-				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
+				tok_str := toksSrc(expr_toks[i:i+1], ast.src)
 				node_base := astNodeFrom(all_toks_idx+i, 1)
 				acc_ret[acc_len] = AstExpr{
 					base:    node_base,
 					variant: AstExprLitStr(parseExprLitStr(&node_base, ast, tok_str, '"')),
 				}
 			case tok_kind_lit_str_single:
-				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
+				tok_str := toksSrc(expr_toks[i:i+1], ast.src)
 				node_base := astNodeFrom(all_toks_idx+i, 1)
 				char_str := parseExprLitStr(&node_base, ast, tok_str, '\'')
 				char_rune := rune(-1)
@@ -145,7 +145,7 @@ func parseExpr(expr_toks []Token, all_toks_idx int, ast *Ast) AstExpr {
 			case tok_kind_comment:
 				unreachable()
 			default:
-				tok_str := toksSrcStr(expr_toks[i:i+1], ast.src)
+				tok_str := toksSrc(expr_toks[i:i+1], ast.src)
 				acc_ret[acc_len] = AstExpr{
 					base:    astNodeFrom(all_toks_idx+i, 1),
 					variant: AstExprIdent(tok_str),

@@ -71,12 +71,12 @@ func astNodeToks(node *AstNode, ast *Ast) []Token {
 func astNodeMsg(msg_prefix string, node *AstNode, ast *Ast) Str {
 	node_toks := astNodeToks(node, ast)
 	str_line_nr := uintToStr(uint64(1+node_toks[0].line_nr), 10, 1, Str(msg_prefix))
-	return strConcat([]Str{str_line_nr, Str(":\n"), toksSrcStr(node_toks, ast.src)})
+	return strConcat([]Str{str_line_nr, Str(":\n"), toksSrc(node_toks, ast.src)})
 }
 
 func astNodeSrc(node *AstNode, ast *Ast) Str {
 	node_toks := astNodeToks(node, ast)
-	return toksSrcStr(node_toks, ast.src)
+	return toksSrc(node_toks, ast.src)
 }
 
 func astExprFormExtract(expr_form AstExprForm, idx_start int, idx_end int) AstExpr {
