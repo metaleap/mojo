@@ -26,9 +26,15 @@ func irHLPrintExpr(ir *IrHL, expr *IrHLExpr, ind int) {
 		print(string(it))
 	case IrHLExprRefDef:
 		print(string(ir.defs[it].anns.name))
-	case IrHLExprRefArg:
-		print("@")
-		print(it)
+	case IrHLExprRefLocal:
+		if it.let != nil {
+			print("%")
+			print(string(it.let.variant.(IrHLExprLet).names[it.let_idx]))
+		}
+		if it.param_idx >= 0 {
+			print("@")
+			print(it.param_idx)
+		}
 	case IrHLExprCall:
 		if expr.anns.origin_expr.anns.toks_throng {
 			for i := range it {
@@ -154,6 +160,17 @@ func irHLPrintExpr(ir *IrHL, expr *IrHLExpr, ind int) {
 			irHLPrintExpr(ir, &IrHLExpr{variant: IrHLExprBag(it.fn_params)}, 0)
 		}
 		print("⟩")
+	case IrHLExprFunc:
+		print("(")
+		for i := range it.params {
+			irHLPrintExpr(ir, &it.params[i], ind)
+			print(" ")
+		}
+		print("-> ")
+		irHLPrintExpr(ir, &it.body, ind)
+		print(")")
+	case nil:
+		print("⟨?NIL?⟩")
 	default:
 		panic(it)
 	}

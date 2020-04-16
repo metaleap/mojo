@@ -33,7 +33,11 @@ type IrHLExprVoid struct{}
 type IrHLExprIdent Str
 type IrHLExprRefTmp struct{ ast_ref *AstNameRef }
 type IrHLExprRefDef int
-type IrHLExprRefArg int
+type IrHLExprRefLocal struct {
+	let       *IrHLExpr
+	let_idx   int
+	param_idx int
+}
 type IrHLExprCall []IrHLExpr
 type IrHLExprList []IrHLExpr
 type IrHLExprBag []IrHLExpr
@@ -146,7 +150,7 @@ func (IrHLExprTag) implementsIrHLExprVariant()         {}
 func (IrHLExprInt) implementsIrHLExprVariant()         {}
 func (IrHLExprIdent) implementsIrHLExprVariant()       {}
 func (IrHLExprRefDef) implementsIrHLExprVariant()      {}
-func (IrHLExprRefArg) implementsIrHLExprVariant()      {}
+func (IrHLExprRefLocal) implementsIrHLExprVariant()    {}
 func (IrHLExprCall) implementsIrHLExprVariant()        {}
 func (IrHLExprList) implementsIrHLExprVariant()        {}
 func (IrHLExprBag) implementsIrHLExprVariant()         {}
@@ -180,7 +184,7 @@ func irHLFrom(ast *Ast) IrHL {
 	}
 	ctx.ir.defs = ctx.ir.defs[0:ctx.num_defs]
 	for i := range ctx.ir.defs {
-		irHlExprResolveTmpRefs(&ctx, &ctx.ir.defs[i].body)
+		irHlDefResolveTmpRefs(&ctx, &ctx.ir.defs[i])
 	}
 	return ctx.ir
 }
@@ -193,26 +197,29 @@ func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 	ctx.num_defs++
 	def.anns.origin_def = top_def
 	def.anns.name = top_def.anns.name
-	switch def_head := top_def.head.variant.(type) {
+	def.body = irHlExprMaybeFuncFromAstDef(ctx, top_def)
+	ctx.cur_def = old_def
+}
+
+func irHlExprMaybeFuncFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) IrHLExpr {
+	switch def_head := def.head.variant.(type) {
 	case AstExprIdent:
-		def.body = irHlExprFromAstDef(ctx, top_def)
+		return irHlExprMaybeLetFromAstDef(ctx, def)
 	case AstExprForm:
 		fn := IrHLExprFunc{params: ªIrHLExpr(len(def_head) - 1)}
 		for i := 1; i < len(def_head); i++ {
 			fn.params[i-1] = IrHLExpr{variant: IrHLExprIdent(def_head[i].variant.(AstExprIdent))}
-			fn.params[i-1].anns.origin_def = top_def
+			fn.params[i-1].anns.origin_def = def
 			fn.params[i-1].anns.origin_expr = &def_head[i]
 		}
-		fn.body = irHlExprFromAstDef(ctx, top_def)
-		def.body = IrHLExpr{variant: fn}
+		fn.body = irHlExprMaybeLetFromAstDef(ctx, def)
+		return IrHLExpr{variant: fn}
 	default:
-		panic("def head not supported in this prototype: " + string(astNodeSrc(&top_def.head.base, ctx.ir.anns.origin_ast)))
+		panic("def head not supported in this prototype: " + string(astNodeSrc(&def.head.base, ctx.ir.anns.origin_ast)))
 	}
-
-	ctx.cur_def = old_def
 }
 
-func irHlExprFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) (ret_expr IrHLExpr) {
+func irHlExprMaybeLetFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) (ret_expr IrHLExpr) {
 	if len(def.defs) == 0 {
 		return irHlExprFrom(ctx, &def.body)
 	}
@@ -221,8 +228,9 @@ func irHlExprFromAstDef(ctx *CtxIrHLFromAst, def *AstDef) (ret_expr IrHLExpr) {
 		exprs: ªIrHLExpr(len(def.defs)),
 	}
 	for i := range def.defs {
-		ret_let.names[i] = def.defs[i].anns.name
-		ret_let.exprs[i] = irHlExprFromAstDef(ctx, &def.defs[i])
+		this_def := &def.defs[i]
+		ret_let.names[i] = this_def.anns.name
+		ret_let.exprs[i] = irHlExprMaybeFuncFromAstDef(ctx, this_def)
 	}
 	ret_let.body = irHlExprFrom(ctx, &def.body)
 	ret_expr.variant = ret_let
@@ -240,12 +248,12 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 		ret_expr.anns.ty = IrHLTypeInt{min: int64(it), max: int64(it)}
 
 	case AstExprLitStr:
-		tmp_list := ªAstExpr(len(it))
+		ret_list := ªAstExpr(len(it))
 		for i, char := range it {
-			tmp_list[i].base = expr.base
-			tmp_list[i].variant = AstExprLitInt(char)
+			ret_list[i].base = expr.base
+			ret_list[i].variant = AstExprLitInt(char)
 		}
-		ret_expr = irHlExprFrom(ctx, &AstExpr{variant: AstExprLitList(tmp_list), base: expr.base, anns: expr.anns})
+		ret_expr = irHlExprFrom(ctx, &AstExpr{variant: AstExprLitList(ret_list), base: expr.base, anns: expr.anns})
 
 	case AstExprLitList:
 		ret_list := ªIrHLExpr(len(it))
@@ -267,9 +275,9 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 			ret_expr.anns.ty = IrHLTypeVoid{}
 		} else if ref := astScopesResolve(&ctx.cur_def.scope, it, -1); ref != nil {
 			ret_expr.variant = IrHLExprRefTmp{ast_ref: ref}
+		} else {
+			ret_expr.variant = IrHLExprIdent(it)
 		}
-		ret_expr.variant = IrHLExprIdent(it)
-
 	case AstExprForm:
 		for _, supported_infix := range []string{":", "."} {
 			if lhs, rhs := astExprFormSplit(expr, supported_infix, false, false, false, ast); lhs.variant != nil && rhs.variant != nil {
@@ -306,6 +314,76 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 		fail(astNodeMsg("Syntax error in line ", &expr.base, ast))
 	}
 	return
+}
+
+func irHlExprTraverse(expr *IrHLExpr, def *IrHLDef, visitor func(*IrHLExpr) IrHLExprVariant) IrHLExprVariant {
+	switch it := expr.variant.(type) {
+	case IrHLExprRefTmp, IrHLExprType, IrHLExprVoid, IrHLExprTag, IrHLExprInt, IrHLExprIdent, IrHLExprRefDef, IrHLExprRefLocal, IrHLExprPrimCallee:
+		// no further traversal from here
+	case IrHLExprPrimExtRef:
+		it.name_tag.variant = irHlExprTraverse(&it.name_tag, def, visitor)
+		it.opts.variant = irHlExprTraverse(&it.opts, def, visitor)
+		it.ty.variant = irHlExprTraverse(&it.ty, def, visitor)
+		for i := range it.fn_params {
+			it.fn_params[i].variant = irHlExprTraverse(&it.fn_params[i], def, visitor)
+		}
+		expr.variant = it
+	case IrHLExprFunc:
+		it.body.variant = irHlExprTraverse(&it.body, def, visitor)
+		expr.variant = it
+	case IrHLExprCall:
+		for i := range it {
+			it[i].variant = irHlExprTraverse(&it[i], def, visitor)
+		}
+		expr.variant = it
+	case IrHLExprList:
+		for i := range it {
+			it[i].variant = irHlExprTraverse(&it[i], def, visitor)
+		}
+		expr.variant = it
+	case IrHLExprBag:
+		for i := range it {
+			it[i].variant = irHlExprTraverse(&it[i], def, visitor)
+		}
+		expr.variant = it
+	case IrHLExprInfix:
+		it.lhs.variant = irHlExprTraverse(&it.lhs, def, visitor)
+		it.rhs.variant = irHlExprTraverse(&it.rhs, def, visitor)
+		expr.variant = it
+	case IrHLExprPrimCmp:
+		it.lhs.variant = irHlExprTraverse(&it.lhs, def, visitor)
+		it.rhs.variant = irHlExprTraverse(&it.rhs, def, visitor)
+		expr.variant = it
+	case IrHLExprPrimArith:
+		it.lhs.variant = irHlExprTraverse(&it.lhs, def, visitor)
+		it.rhs.variant = irHlExprTraverse(&it.rhs, def, visitor)
+		expr.variant = it
+	case IrHLExprPrimLen:
+		it.subj.variant = irHlExprTraverse(&it.subj, def, visitor)
+		expr.variant = it
+	case IrHLExprPrimCallExt:
+		it.callee.variant = irHlExprTraverse(&it.callee, def, visitor)
+		for i := range it.args {
+			it.args[i].variant = irHlExprTraverse(&it.args[i], def, visitor)
+		}
+		expr.variant = it
+	case IrHLExprPrimCase:
+		it.scrut.variant = irHlExprTraverse(&it.scrut, def, visitor)
+		for i := range it.cases {
+			it.cases[i].variant = irHlExprTraverse(&it.cases[i], def, visitor)
+		}
+		expr.variant = it
+	case IrHLExprLet:
+		for i := range it.exprs {
+			it.exprs[i].variant = irHlExprTraverse(&it.exprs[i], def, visitor)
+		}
+		it.body.variant = irHlExprTraverse(&it.body, def, visitor)
+		expr.variant = it
+	default:
+		panic(it)
+	}
+	expr.variant = visitor(expr)
+	return expr.variant
 }
 
 func irHlExprResolvePrimCalls() {
@@ -375,80 +453,40 @@ func irHlExprResolvePrimCalls() {
 	// }
 }
 
-func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
-	switch it := expr.variant.(type) {
-	case IrHLExprRefTmp:
-		assert(it.ast_ref.top_def == it.ast_ref.ref_def)
-		expr.variant = nil
-		for i := range ctx.ir.defs {
-			if ctx.ir.defs[i].anns.origin_def == it.ast_ref.top_def {
-				expr.variant = IrHLExprRefDef(i)
-				break
+func irHlDefResolveTmpRefs(ctx *CtxIrHLFromAst, def *IrHLDef) {
+	def.body.variant = irHlExprTraverse(&def.body, def, func(expr *IrHLExpr) IrHLExprVariant {
+		if it, ok := expr.variant.(IrHLExprRefTmp); ok {
+			expr.variant = nil
+			if it.ast_ref.top_def == it.ast_ref.ref_def && it.ast_ref.param_idx == -1 {
+				for i := range ctx.ir.defs {
+					if ctx.ir.defs[i].anns.origin_def == it.ast_ref.top_def {
+						expr.variant = IrHLExprRefDef(i)
+						break
+					}
+				}
+			} else {
+				ret_local := IrHLExprRefLocal{let: nil, let_idx: -1, param_idx: it.ast_ref.param_idx}
+				if it.ast_ref.top_def != it.ast_ref.ref_def {
+					_ = irHlExprTraverse(&def.body, def, func(this_expr *IrHLExpr) IrHLExprVariant {
+						if ret_local.let == nil {
+							if let, is := this_expr.variant.(IrHLExprLet); is {
+								for i, name := range let.names {
+									if strEql(name, it.ast_ref.ref_def.anns.name) {
+										ret_local.let_idx = i
+										ret_local.let = this_expr
+										break
+									}
+								}
+							}
+						}
+						return this_expr.variant
+					})
+					assert(ret_local.let != nil && ret_local.let_idx >= 0)
+				}
+				expr.variant = ret_local
 			}
+			assert(expr.variant != nil)
 		}
-		if expr.variant == nil {
-			panic("newly introduced bug: could not late-resolve def ref '" + string(it.ast_ref.top_def.anns.name) + "'")
-		}
-	case IrHLExprType, IrHLExprVoid, IrHLExprTag, IrHLExprInt, IrHLExprIdent, IrHLExprRefDef, IrHLExprRefArg, IrHLExprPrimCallee:
-		// no further traversal from here
-	case IrHLExprPrimExtRef:
-		irHlExprResolveTmpRefs(ctx, &it.name_tag)
-		irHlExprResolveTmpRefs(ctx, &it.opts)
-		irHlExprResolveTmpRefs(ctx, &it.ty)
-		for i := range it.fn_params {
-			irHlExprResolveTmpRefs(ctx, &it.fn_params[i])
-		}
-	case IrHLExprFunc:
-		irHlExprResolveTmpRefs(ctx, &it.body)
-		expr.variant = it
-	case IrHLExprCall:
-		for i := range it {
-			irHlExprResolveTmpRefs(ctx, &it[i])
-		}
-		expr.variant = it
-	case IrHLExprList:
-		for i := range it {
-			irHlExprResolveTmpRefs(ctx, &it[i])
-		}
-		expr.variant = it
-	case IrHLExprBag:
-		for i := range it {
-			irHlExprResolveTmpRefs(ctx, &it[i])
-		}
-		expr.variant = it
-	case IrHLExprInfix:
-		irHlExprResolveTmpRefs(ctx, &it.lhs)
-		irHlExprResolveTmpRefs(ctx, &it.rhs)
-		expr.variant = it
-	case IrHLExprPrimCmp:
-		irHlExprResolveTmpRefs(ctx, &it.lhs)
-		irHlExprResolveTmpRefs(ctx, &it.rhs)
-		expr.variant = it
-	case IrHLExprPrimArith:
-		irHlExprResolveTmpRefs(ctx, &it.lhs)
-		irHlExprResolveTmpRefs(ctx, &it.rhs)
-		expr.variant = it
-	case IrHLExprPrimLen:
-		irHlExprResolveTmpRefs(ctx, &it.subj)
-		expr.variant = it
-	case IrHLExprPrimCallExt:
-		irHlExprResolveTmpRefs(ctx, &it.callee)
-		for i := range it.args {
-			irHlExprResolveTmpRefs(ctx, &it.args[i])
-		}
-		expr.variant = it
-	case IrHLExprPrimCase:
-		irHlExprResolveTmpRefs(ctx, &it.scrut)
-		for i := range it.cases {
-			irHlExprResolveTmpRefs(ctx, &it.cases[i])
-		}
-		expr.variant = it
-	case IrHLExprLet:
-		for i := range it.exprs {
-			irHlExprResolveTmpRefs(ctx, &it.exprs[i])
-		}
-		irHlExprResolveTmpRefs(ctx, &it.body)
-	default:
-		panic(it)
-	}
+		return expr.variant
+	})
 }
