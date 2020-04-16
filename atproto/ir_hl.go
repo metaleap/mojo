@@ -46,7 +46,7 @@ type IrHLExprInfix struct {
 	rhs  IrHLExpr
 }
 type IrHLExprFunc struct {
-	params []IrHLType
+	params []IrHLExpr
 	body   IrHLExpr
 }
 type IrHLExprPrimCase struct {
@@ -145,9 +145,10 @@ func (IrHLExprPrimCmpInt) implementsIrHLExprVariant()  {}
 func (IrHLExprPrimLen) implementsIrHLExprVariant()     {}
 
 type CtxIrHLFromAst struct {
-	ir       IrHL
-	cur_def  *AstDef
-	num_defs int
+	ir        IrHL
+	cur_def   *AstDef
+	cur_funcs []*IrHLExpr
+	num_defs  int
 }
 
 func irHLFrom(ast *Ast) IrHL {
@@ -174,7 +175,23 @@ func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 	ctx.num_defs++
 	def.anns.origin_def = top_def
 	def.anns.name = top_def.anns.name
-	def.body = irHlExprFrom(ctx, &top_def.body)
+	switch def_head := top_def.head.variant.(type) {
+	case AstExprIdent:
+		def.body = irHlExprFrom(ctx, &top_def.body)
+	case AstExprForm:
+		fn := IrHLExprFunc{params: ªIrHLExpr(len(def_head) - 1)}
+		for i := 1; i < len(def_head); i++ {
+			fn.params[i-1] = IrHLExpr{variant: IrHLExprIdent(def_head[i].variant.(AstExprIdent))}
+			fn.params[i-1].anns.origin_def = top_def
+			fn.params[i-1].anns.origin_expr = &def_head[i]
+		}
+		def.body = IrHLExpr{variant: fn}
+		def.body.anns.origin_def = top_def
+		def.body.anns.origin_expr = &top_def.body
+		def.body = irHlExprFrom(ctx, &top_def.body)
+	default:
+		panic("def head not supported in this prototype: " + string(astNodeSrc(&top_def.head.base, ctx.ir.anns.origin_ast)))
+	}
 
 	ctx.cur_def = old_def
 }
