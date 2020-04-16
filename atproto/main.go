@@ -45,5 +45,6 @@ func main() {
 	assert(len(ast.defs) != 0)
 	astPopulateScopes(&ast)
 
-	_ = irHLFrom(&ast)
+	ir_hl := irHLFrom(&ast)
+	irHLDump(&ir_hl)
 }

@@ -30,7 +30,6 @@ type IrHLTypePrim interface{ implementsIrHLTypePrim() }
 
 type IrHLExprTag Str
 type IrHLExprInt int64
-type IrHLExprStr Str
 type IrHLExprVoid struct{}
 type IrHLExprIdent Str
 type IrHLExprRefTmp struct{ ast_ref *AstNameRef }
@@ -126,7 +125,6 @@ func (IrHlTypeSlice) implementsIrHLType()        {}
 func (IrHLExprType) implementsIrHLExprVariant()        {}
 func (IrHLExprTag) implementsIrHLExprVariant()         {}
 func (IrHLExprInt) implementsIrHLExprVariant()         {}
-func (IrHLExprStr) implementsIrHLExprVariant()         {}
 func (IrHLExprIdent) implementsIrHLExprVariant()       {}
 func (IrHLExprRefDef) implementsIrHLExprVariant()      {}
 func (IrHLExprRefArg) implementsIrHLExprVariant()      {}
@@ -145,10 +143,9 @@ func (IrHLExprPrimCmpInt) implementsIrHLExprVariant()  {}
 func (IrHLExprPrimLen) implementsIrHLExprVariant()     {}
 
 type CtxIrHLFromAst struct {
-	ir        IrHL
-	cur_def   *AstDef
-	cur_funcs []*IrHLExpr
-	num_defs  int
+	ir       IrHL
+	cur_def  *AstDef
+	num_defs int
 }
 
 func irHLFrom(ast *Ast) IrHL {
@@ -185,10 +182,8 @@ func irHLTopDefsFromAstTopDef(ctx *CtxIrHLFromAst, top_def *AstDef) {
 			fn.params[i-1].anns.origin_def = top_def
 			fn.params[i-1].anns.origin_expr = &def_head[i]
 		}
+		fn.body = irHlExprFrom(ctx, &top_def.body)
 		def.body = IrHLExpr{variant: fn}
-		def.body.anns.origin_def = top_def
-		def.body.anns.origin_expr = &top_def.body
-		def.body = irHlExprFrom(ctx, &top_def.body)
 	default:
 		panic("def head not supported in this prototype: " + string(astNodeSrc(&top_def.head.base, ctx.ir.anns.origin_ast)))
 	}
@@ -205,8 +200,12 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 		ret_expr.anns.ty = IrHLTypeInt{min: int64(it), max: int64(it)}
 
 	case AstExprLitStr:
-		ret_expr.variant = IrHLExprStr(it)
-		ret_expr.anns.ty = IrHlTypeSlice{payload: IrHLTypePrimInt{bit_width: 8}}
+		tmp_list := ªAstExpr(len(it))
+		for i, char := range it {
+			tmp_list[i].base = expr.base
+			tmp_list[i].variant = AstExprLitInt(char)
+		}
+		ret_expr = irHlExprFrom(ctx, &AstExpr{variant: AstExprLitList(tmp_list), base: expr.base, anns: expr.anns})
 
 	case AstExprLitList:
 		ret_list := ªIrHLExpr(len(it))
@@ -227,18 +226,9 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 			ret_expr.variant = IrHLExprVoid{}
 			ret_expr.anns.ty = IrHLTypePrimVoid{}
 		} else if ref := astScopesResolve(&ctx.cur_def.scope, it, -1); ref != nil {
-			if ref.param_idx >= 0 {
-				if ref.ref_def == ctx.cur_def {
-					ret_expr.variant = IrHLExprRefArg(ref.param_idx)
-				} else {
-					panic("TODO: arg-ref to outer scopes")
-				}
-			} else if ref.ref_def == ref.top_def {
-				ret_expr.variant = IrHLExprRefTmp{ast_ref: ref}
-			} else { // local def
-				panic("TODO: local-def ref")
-			}
+			ret_expr.variant = IrHLExprRefTmp{ast_ref: ref}
 		}
+		ret_expr.variant = IrHLExprIdent(it)
 
 	case AstExprForm:
 		for _, supported_infix := range []string{":", "."} {
@@ -251,6 +241,12 @@ func irHlExprFrom(ctx *CtxIrHLFromAst, expr *AstExpr) (ret_expr IrHLExpr) {
 				return
 			}
 		}
+
+		ret_call := ªIrHLExpr(len(it))
+		for i := range it {
+			ret_call[i] = irHlExprFrom(ctx, &it[i])
+		}
+		ret_expr.variant = IrHLExprCall(ret_call)
 
 	default:
 		panic(it)
@@ -275,7 +271,7 @@ func irHlExprResolveTmpRefs(ctx *CtxIrHLFromAst, expr *IrHLExpr) {
 		if expr.variant == nil {
 			panic("newly introduced bug: could not late-resolve def ref '" + string(it.ast_ref.top_def.anns.name) + "'")
 		}
-	case IrHLExprType, IrHLExprVoid, IrHLExprTag, IrHLExprInt, IrHLExprStr, IrHLExprIdent, IrHLExprRefDef, IrHLExprRefArg:
+	case IrHLExprType, IrHLExprVoid, IrHLExprTag, IrHLExprInt, IrHLExprIdent, IrHLExprRefDef, IrHLExprRefArg:
 		// no further traversal from here
 	case IrHLExprFunc:
 		irHlExprResolveTmpRefs(ctx, &it.body)
@@ -353,10 +349,6 @@ func irHLDumpExpr(ir *IrHL, expr *IrHLExpr) {
 		print(string(it))
 	case IrHLExprInt:
 		print(it)
-	case IrHLExprStr:
-		print('"')
-		print(string(it))
-		print('"')
 	case IrHLExprIdent:
 		print(string(it))
 	case IrHLExprRefDef:
