@@ -1,6 +1,6 @@
 # atmorepl
 --
-    import "github.com/metaleap/atmo/0ld/tooling/repl"
+    import "github.com/metaleap/atmo/old/v2019/tooling/repl"
 
 Package `atmorepl` provides the core functionality of the `atmo repl` command,
 including an infinite readln loop via `Repl.Run`

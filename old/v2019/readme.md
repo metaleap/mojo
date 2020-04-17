@@ -1,6 +1,6 @@
 # atmo
 --
-    import "github.com/metaleap/atmo/0ld"
+    import "github.com/metaleap/atmo/old/v2019"
 
 Package `atmo` is the foundational shared package imported by any and every
 package belonging to atmo. In addition to some general-purpose utils and firm

@@ -1,6 +1,6 @@
 # atmoil
 --
-    import "github.com/metaleap/atmo/0ld/il"
+    import "github.com/metaleap/atmo/old/v2019/il"
 
 Package `atmo/il` implements the intermediate-language representation that a
 lexed-and-parsed `atmo/ast` is transformed into as a next step. Whereas the

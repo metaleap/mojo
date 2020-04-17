@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
-	. "github.com/metaleap/atmo/0ld"
+	. "github.com/metaleap/atmo/old/v2019"
 )
 
 const (

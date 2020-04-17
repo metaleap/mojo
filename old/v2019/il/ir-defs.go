@@ -1,8 +1,8 @@
 package atmoil
 
 import (
-	. "github.com/metaleap/atmo/0ld"
-	. "github.com/metaleap/atmo/0ld/ast"
+	. "github.com/metaleap/atmo/old/v2019"
+	. "github.com/metaleap/atmo/old/v2019/ast"
 )
 
 func (me IrDefs) Len() int          { return len(me) }

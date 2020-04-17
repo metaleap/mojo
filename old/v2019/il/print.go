@@ -2,8 +2,8 @@ package atmoil
 
 import (
 	"github.com/go-leap/str"
-	. "github.com/metaleap/atmo/0ld"
-	. "github.com/metaleap/atmo/0ld/ast"
+	. "github.com/metaleap/atmo/old/v2019"
+	. "github.com/metaleap/atmo/old/v2019/ast"
 )
 
 func DbgPrintToStderr(node IIrNode) { PrintToStderr(node.Print()) }

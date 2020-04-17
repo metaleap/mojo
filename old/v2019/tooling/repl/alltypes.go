@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	. "github.com/metaleap/atmo/0ld/session"
+	. "github.com/metaleap/atmo/old/v2019/session"
 )
 
 type directives []directive

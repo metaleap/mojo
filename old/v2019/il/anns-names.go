@@ -1,7 +1,7 @@
 package atmoil
 
 import (
-	. "github.com/metaleap/atmo/0ld"
+	. "github.com/metaleap/atmo/old/v2019"
 )
 
 func (me AnnNamesInScope) Add(name string, nodes ...IIrNode) {

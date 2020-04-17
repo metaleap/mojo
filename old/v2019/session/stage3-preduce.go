@@ -2,8 +2,8 @@ package atmosess
 
 import (
 	"github.com/go-leap/dev/lex"
-	. "github.com/metaleap/atmo/0ld"
-	. "github.com/metaleap/atmo/0ld/il"
+	. "github.com/metaleap/atmo/old/v2019"
+	. "github.com/metaleap/atmo/old/v2019/il"
 )
 
 func (me *ctxPreducing) def() IrDefRef {

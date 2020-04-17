@@ -1,6 +1,6 @@
 # atmosess
 --
-    import "github.com/metaleap/atmo/0ld/session"
+    import "github.com/metaleap/atmo/old/v2019/session"
 
 Package `atmosess` allows implementations of live sessions operating on atmo
 "kits" (libs/pkgs of src-files basically), such as REPLs or language servers. It

@@ -10,8 +10,8 @@ import (
 	"github.com/go-leap/fs"
 	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
-	. "github.com/metaleap/atmo/0ld"
-	. "github.com/metaleap/atmo/0ld/ast"
+	. "github.com/metaleap/atmo/old/v2019"
+	. "github.com/metaleap/atmo/old/v2019/ast"
 )
 
 // CtxDefaultCacheDirPath returns the default used by `Ctx.Init` if `Ctx.Dirs.Cache`

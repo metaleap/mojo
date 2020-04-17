@@ -3,7 +3,7 @@ package atmoil
 import (
 	"fmt"
 	"github.com/go-leap/std"
-	. "github.com/metaleap/atmo/0ld"
+	. "github.com/metaleap/atmo/old/v2019"
 )
 
 func (me *PValFactBase) Errs() Errors        { return nil }

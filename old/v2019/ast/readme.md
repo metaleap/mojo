@@ -1,6 +1,6 @@
 # atmoast
 --
-    import "github.com/metaleap/atmo/0ld/ast"
+    import "github.com/metaleap/atmo/old/v2019/ast"
 
 Package `atmo/ast` offers AST node structures and supporting auxiliary types and
 funcs, plus implements the lexing and parsing into such ASTs. It has no notion

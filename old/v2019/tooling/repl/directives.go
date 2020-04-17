@@ -5,10 +5,10 @@ import (
 
 	"github.com/go-leap/std"
 	"github.com/go-leap/str"
-	. "github.com/metaleap/atmo/0ld"
-	. "github.com/metaleap/atmo/0ld/ast"
-	. "github.com/metaleap/atmo/0ld/il"
-	. "github.com/metaleap/atmo/0ld/session"
+	. "github.com/metaleap/atmo/old/v2019"
+	. "github.com/metaleap/atmo/old/v2019/ast"
+	. "github.com/metaleap/atmo/old/v2019/il"
+	. "github.com/metaleap/atmo/old/v2019/session"
 )
 
 func (me *Repl) initEnsureDefaultDirectives() {

@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/go-leap/dev/lex"
-	"github.com/metaleap/atmo/0ld/ast"
+	"github.com/metaleap/atmo/old/v2019/ast"
 )
 
 func mainFmt() {

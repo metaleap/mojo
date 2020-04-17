@@ -3,7 +3,7 @@ package atmoast
 import (
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/str"
-	. "github.com/metaleap/atmo/0ld"
+	. "github.com/metaleap/atmo/old/v2019"
 )
 
 func (me *AstFile) parse(this *AstFileChunk) (freshErrs Errors) {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-leap/dev/lex"
 	"github.com/go-leap/std"
-	. "github.com/metaleap/atmo/0ld"
+	. "github.com/metaleap/atmo/old/v2019"
 )
 
 func init() {

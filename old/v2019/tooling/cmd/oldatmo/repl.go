@@ -6,9 +6,9 @@ import (
 	"github.com/go-forks/go-ps"
 	"github.com/go-leap/str"
 	"github.com/go-leap/sys"
-	"github.com/metaleap/atmo/0ld"
-	"github.com/metaleap/atmo/0ld/session"
-	"github.com/metaleap/atmo/0ld/tooling/repl"
+	"github.com/metaleap/atmo/old/v2019"
+	"github.com/metaleap/atmo/old/v2019/session"
+	"github.com/metaleap/atmo/old/v2019/tooling/repl"
 )
 
 var (

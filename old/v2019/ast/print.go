@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-leap/std"
-	. "github.com/metaleap/atmo/0ld"
+	. "github.com/metaleap/atmo/old/v2019"
 )
 
 func PrintToStderr(node IAstNode) { PrintTo(nil, node, os.Stderr, true, 1) }
