@@ -12,10 +12,10 @@
 
 
 
-#define SliceOf(T)                                                                                \
-    struct {                                                                                      \
-        T *_;                                                                                     \
-        Uint len;                                                                                 \
+#define SliceOf(T)                                                                                                                                                                                                           \
+    struct {                                                                                                                                                                                                                 \
+        T *at;                                                                                                                                                                                                               \
+        Uint len;                                                                                                                                                                                                            \
     }
 
 typedef bool Bool;
@@ -37,8 +37,7 @@ typedef const char *String;
 
 #define nameOf(ident) #ident
 
-#define slice(T, the_slice, start, num_items)                                                     \
-    ((T##s) {.len = num_items, ._ = the_slice._ + (start * sizeof(T))})
+#define slice(T, the_slice, idx_start, idx_end) ((T##s) {.len = idx_end - idx_start, .at = the_slice.at + (idx_start * sizeof(T))})
 
 
 
@@ -60,12 +59,9 @@ void panicIf(int err) {
         panic("error %d", err);
 }
 
-void assert(Bool pred) {
-    panicIf(!pred);
-}
-
-void unreachable() {
-    panic("unreachable");
+void assert(Bool pred, String msg) {
+    if (!pred)
+        panic("%s", msg);
 }
 
 
@@ -75,8 +71,7 @@ void unreachable() {
 U8 mem_buf[mem_max];
 Uint mem_pos = 0;
 
-#define alloc(T, num_items)                                                                       \
-    ((T##s) {.len = num_items, ._ = (T *)(memAlloc(num_items * (sizeof(T))))})
+#define alloc(T, num_items) ((T##s) {.len = num_items, .at = (T *)(memAlloc(num_items * (sizeof(T))))})
 
 U8 *memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
@@ -88,20 +83,20 @@ U8 *memAlloc(Uint const num_bytes) {
 }
 
 Str newStr(Uint str_len) {
-    return (Str) {.len = str_len, ._ = memAlloc(str_len)};
+    return (Str) {.len = str_len, .at = memAlloc(str_len)};
 }
 
 Str str(String from) {
     Uint str_len = 0;
     for (Uint i = 0; from[i] != 0; i += 1)
         str_len += 1;
-    return (Str) {.len = str_len, ._ = (U8 *)from};
+    return (Str) {.len = str_len, .at = (U8 *)from};
 }
 
 Bool strEql(Str one, Str two) {
     if (one.len == two.len) {
         for (Uint i = 0; i < one.len; i += 1)
-            if (one._[i] != two._[i])
+            if (one.at[i] != two.at[i])
                 return false;
         return true;
     }
@@ -112,16 +107,52 @@ Bool strEq(Str one, String two) {
     return strEql(one, str(two));
 }
 
+Str strSub(Str str, Uint idx_start, Uint idx_end) {
+    return (Str) {.len = idx_end - idx_start, .at = str.at + idx_start};
+}
+
 Uint uintParse(Str str) {
-    assert(str.len > 0);
+    assert(str.len > 0, "empty string passed to uintParse");
     Uint ret_uint = 0;
     Uint mult = 1;
     for (Uint i = str.len; i > 0;) {
         i -= 1;
-        if (str._[i] < '0' || str._[i] > '9')
+        if (str.at[i] < '0' || str.at[i] > '9')
             panic("bad Uint literal: %s\n", str);
-        ret_uint += mult * (str._[i] - 48);
+        ret_uint += mult * (str.at[i] - 48);
         mult *= 10;
     }
     return ret_uint;
+}
+
+Str uintToStr(Uint uint_value, Uint base) {
+    Uint num_digits = 1;
+    Uint n = uint_value;
+    while (n >= base) {
+        num_digits += 1;
+        n /= base;
+    }
+    n = uint_value;
+
+    Str ret_str = newStr(num_digits);
+    for (Uint i = ret_str.len; i > 0;) {
+        i -= 1;
+        if (n < base) {
+            ret_str.at[i] = 48 + n;
+            break;
+        } else {
+            ret_str.at[i] = 48 + (n % base);
+            n /= base;
+        }
+        if (base > 10 && ret_str.at[i] > '9')
+            ret_str.at[i] += 7;
+    }
+    return ret_str;
+}
+
+Bool strHasChar(String s, U8 c) {
+    for (Uint i = 0; s[i] != 0;)
+        if (s[i] == c)
+            return true;
+    return false;
 }

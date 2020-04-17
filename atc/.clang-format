@@ -13,6 +13,7 @@ AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
-ColumnLimit: 99
+ColumnLimit: 88
 SpaceBeforeCpp11BracedList: true
+BreakBeforeBinaryOperators: NonAssignment
 ...
