@@ -12,10 +12,10 @@
 
 
 
-#define SliceOf(T)                                                                                                        \
-    struct {                                                                                                              \
-        T *at;                                                                                                            \
-        Uint len;                                                                                                         \
+#define SliceOf(T)                                                                                                                             \
+    struct {                                                                                                                                   \
+        T *at;                                                                                                                                 \
+        Uint len;                                                                                                                              \
     }
 
 typedef bool Bool;
@@ -37,8 +37,7 @@ typedef const char *String;
 
 #define nameOf(ident) #ident
 
-#define slice(T, the_slice, idx_start, idx_end)                                                                           \
-    ((T##s) {.len = idx_end - idx_start, .at = the_slice.at + (idx_start * sizeof(T))})
+#define slice(T, the_slice, idx_start, idx_end) ((T##s) {.len = idx_end - idx_start, .at = the_slice.at + (idx_start * sizeof(T))})
 
 
 
@@ -127,7 +126,7 @@ Uint uintParse(Str str) {
     for (Uint i = str.len; i > 0;) {
         i -= 1;
         if (str.at[i] < '0' || str.at[i] > '9')
-            panic("bad Uint literal: %s\n", str);
+            panic("bad Uint literal: %s\n", strZ(str));
         ret_uint += mult * (str.at[i] - 48);
         mult *= 10;
     }
