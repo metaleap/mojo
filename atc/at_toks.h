@@ -33,48 +33,49 @@ typedef SliceOf(Token) Tokens;
 typedef SliceOf(Tokens) Tokenss;
 
 
-Bool tokIsOpeningBracket(TokenKind tok_kind) {
+Bool tokIsOpeningBracket(TokenKind const tok_kind) {
     return tok_kind == tok_kind_sep_bcurly_open || tok_kind == tok_kind_sep_bparen_open || tok_kind == tok_kind_sep_bsquare_open;
 }
 
-Bool tokIsClosingBracket(TokenKind tok_kind) {
+Bool tokIsClosingBracket(TokenKind const tok_kind) {
     return tok_kind == tok_kind_sep_bcurly_close || tok_kind == tok_kind_sep_bparen_close || tok_kind == tok_kind_sep_bsquare_close;
 }
 
-Bool tokIsBracket(TokenKind tok_kind) {
+Bool tokIsBracket(TokenKind const tok_kind) {
     return tokIsOpeningBracket(tok_kind) || tokIsClosingBracket(tok_kind);
 }
 
-Uint tokPosCol(Token *tok) {
+Uint tokPosCol(Token const *const tok) {
     return tok->char_pos - tok->char_pos_line_start;
 }
 
-Bool tokCanThrong(Token *tok, Str full_src) {
+Bool tokCanThrong(Token const *const tok, Str const full_src) {
     return tok->kind == tok_kind_lit_int || tok->kind == tok_kind_lit_str_double || tok->kind == tok_kind_lit_str_single
            || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && full_src.at[tok->char_pos] != '=');
 }
 
-Uint tokThrong(Tokens toks, Uint tok_idx, Str full_src) {
-    if (tokCanThrong(&toks.at[tok_idx], full_src)) {
-        for (Uint i = tok_idx + 1; i < toks.len; i += 1)
+Uint tokThrong(Tokens const toks, Uint const tok_idx, Str const full_src) {
+    Uint ret_idx = tok_idx;
+    if (tokCanThrong(&toks.at[ret_idx], full_src)) {
+        for (Uint i = ret_idx + 1; i < toks.len; i += 1)
             if (toks.at[i].char_pos == toks.at[i - 1].char_pos + toks.at[i - 1].str_len && tokCanThrong(&toks.at[i], full_src))
-                tok_idx = i;
+                ret_idx = i;
             else
                 break;
     }
-    return tok_idx;
+    return ret_idx;
 }
 
-Str tokSrc(Token *tok, Str full_src) {
+Str tokSrc(Token const *const tok, Str const full_src) {
     return strSub(full_src, tok->char_pos, tok->char_pos + tok->str_len);
 }
 
-Str toksSrc(Tokens toks, Str full_src) {
+Str toksSrc(Tokens const toks, Str const full_src) {
     Token *tok_last = &toks.at[toks.len - 1];
     return strSub(full_src, toks.at[0].char_pos, tok_last->char_pos + tok_last->str_len);
 }
 
-Uint toksCount(Tokens toks, Str ident, Str full_src) {
+Uint toksCount(Tokens const toks, Str const ident, Str const full_src) {
     Uint ret_num = 0;
     for (Uint i = 0; i < toks.len; i += 1)
         if (toks.at[i].kind == tok_kind_ident && strEql(ident, tokSrc(&toks.at[i], full_src)))
@@ -82,7 +83,7 @@ Uint toksCount(Tokens toks, Str ident, Str full_src) {
     return ret_num;
 }
 
-Uint toksCountUnnested(Tokens toks, TokenKind tok_kind) {
+Uint toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
     assert(!tokIsBracket(tok_kind));
     Uint ret_num = 0;
     Int level = 0;
@@ -98,7 +99,7 @@ Uint toksCountUnnested(Tokens toks, TokenKind tok_kind) {
     return ret_num;
 }
 
-void toksCheckBrackets(Tokens toks) {
+void toksCheckBrackets(Tokens const toks) {
     Int level_bparen = 0, level_bsquare = 0, level_bcurly = 0;
     Int line_bparen = -1, line_bsquare = -1, line_bcurly = -1;
     for (Uint i = 0; i < toks.len; i += 1) {

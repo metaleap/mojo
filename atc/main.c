@@ -19,7 +19,7 @@ later transliterate smoothly into our initially very limited language iteration:
 */
 
 
-int main(int argc, String argv[]) {
+int main(int const argc, String const argv[]) {
     if (argc < 2)
         panic("expected usage: atc <src_file_path>");
 

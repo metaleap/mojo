@@ -46,9 +46,9 @@ typedef const char *String;
     } while (0)
 
 
-void panic(String format, ...) {
+void panic(String const format, ...) {
     Ptr callstack[16];
-    Uint n_frames = backtrace(callstack, 16);
+    Uint const n_frames = backtrace(callstack, 16);
     backtrace_symbols_fd(callstack, n_frames, 2); // 2 being stderr
 
     va_list args;
@@ -60,12 +60,12 @@ void panic(String format, ...) {
     exit(1);
 }
 
-void panicIf(int err) {
+void panicIf(int const err) {
     if (err)
         panic("error %d", err);
 }
 
-void assert(Bool pred) {
+void assert(Bool const pred) {
 #ifdef DEBUG
     if (!pred)
         panic("assertion failure");
@@ -90,18 +90,18 @@ U8 *memAlloc(Uint const num_bytes) {
     return mem_ptr;
 }
 
-Str newStr(Uint str_len) {
+Str newStr(Uint const str_len) {
     return (Str) {.len = str_len, .at = memAlloc(str_len)};
 }
 
-Str str(String from) {
+Str str(String const from) {
     Uint str_len = 0;
     for (Uint i = 0; from[i] != 0; i += 1)
         str_len += 1;
     return (Str) {.len = str_len, .at = (U8 *)from};
 }
 
-Bool strEql(Str one, Str two) {
+Bool strEql(Str const one, Str const two) {
     if (one.len == two.len) {
         for (Uint i = 0; i < one.len; i += 1)
             if (one.at[i] != two.at[i])
@@ -111,15 +111,15 @@ Bool strEql(Str one, Str two) {
     return false;
 }
 
-Bool strEq(Str one, String two) {
+Bool strEq(Str const one, String const two) {
     return strEql(one, str(two));
 }
 
-Str strSub(Str str, Uint idx_start, Uint idx_end) {
+Str strSub(Str const str, Uint const idx_start, Uint const idx_end) {
     return (Str) {.len = idx_end - idx_start, .at = str.at + idx_start};
 }
 
-String strZ(Str str) {
+String strZ(Str const str) {
     U8 *buf = memAlloc(1 + str.len);
     buf[str.len] = 0;
     for (Uint i = 0; i < str.len; i++)
@@ -127,7 +127,7 @@ String strZ(Str str) {
     return (String)buf;
 }
 
-Uint uintParse(Str str) {
+Uint uintParse(Str const str) {
     assert(str.len > 0);
     Uint ret_uint = 0;
     Uint mult = 1;
@@ -141,7 +141,7 @@ Uint uintParse(Str str) {
     return ret_uint;
 }
 
-Str uintToStr(Uint uint_value, Uint base) {
+Str uintToStr(Uint const uint_value, Uint const base) {
     Uint num_digits = 1;
     Uint n = uint_value;
     while (n >= base) {
@@ -166,7 +166,7 @@ Str uintToStr(Uint uint_value, Uint base) {
     return ret_str;
 }
 
-Bool strHasChar(String s, U8 c) {
+Bool strHasChar(String const s, U8 const c) {
     for (Uint i = 0; s[i] != 0; i += 1)
         if (s[i] == c)
             return true;
