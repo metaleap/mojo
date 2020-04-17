@@ -12,10 +12,10 @@
 
 
 
-#define SliceOf(T)                                                                                                                                                                                                           \
-    struct {                                                                                                                                                                                                                 \
-        T *at;                                                                                                                                                                                                               \
-        Uint len;                                                                                                                                                                                                            \
+#define SliceOf(T)                                                                                                        \
+    struct {                                                                                                              \
+        T *at;                                                                                                            \
+        Uint len;                                                                                                         \
     }
 
 typedef bool Bool;
@@ -29,7 +29,7 @@ typedef int8_t I8;
 typedef int16_t I16;
 typedef int32_t I32;
 typedef int64_t I64;
-typedef void *Any;
+typedef void *Ptr;
 typedef SliceOf(U8) Str;
 typedef const char *String;
 
@@ -37,12 +37,13 @@ typedef const char *String;
 
 #define nameOf(ident) #ident
 
-#define slice(T, the_slice, idx_start, idx_end) ((T##s) {.len = idx_end - idx_start, .at = the_slice.at + (idx_start * sizeof(T))})
+#define slice(T, the_slice, idx_start, idx_end)                                                                           \
+    ((T##s) {.len = idx_end - idx_start, .at = the_slice.at + (idx_start * sizeof(T))})
 
 
 
 void panic(String format, ...) {
-    Any callstack[16];
+    Ptr callstack[16];
     Uint n_frames = backtrace(callstack, 16);
     backtrace_symbols_fd(callstack, n_frames, 2); // 2 being stderr
 
@@ -111,6 +112,14 @@ Str strSub(Str str, Uint idx_start, Uint idx_end) {
     return (Str) {.len = idx_end - idx_start, .at = str.at + idx_start};
 }
 
+String strZ(Str str) {
+    U8 *buf = memAlloc(1 + str.len);
+    buf[str.len] = 0;
+    for (Uint i = 0; i < str.len; i++)
+        buf[i] = str.at[i];
+    return (String)buf;
+}
+
 Uint uintParse(Str str) {
     assert(str.len > 0, "empty string passed to uintParse");
     Uint ret_uint = 0;
@@ -151,7 +160,7 @@ Str uintToStr(Uint uint_value, Uint base) {
 }
 
 Bool strHasChar(String s, U8 c) {
-    for (Uint i = 0; s[i] != 0;)
+    for (Uint i = 0; s[i] != 0; i += 1)
         if (s[i] == c)
             return true;
     return false;

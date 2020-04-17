@@ -4,7 +4,7 @@
 
 Str readUntilEof(FILE *stream) {
     Str ret_str = {.len = 0, .at = memAlloc(4096)};
-    for (Any addr = ret_str.at; true;) {
+    for (Ptr addr = ret_str.at; true;) {
         ret_str.len += fread(addr, 1, 4096, stream);
         panicIf(ferror(stream));
         if (feof(stream))

@@ -26,9 +26,11 @@ int main(int argc, String argv[]) {
     Str input_src_file_bytes = readFile(argv[1]);
 
     Tokens toks = tokenize(input_src_file_bytes, false);
+    for (Uint i = 0; i < toks.len; i += 1)
+        printf("%d\t%s\n", toks.at[i].kind, strZ(tokSrc(&toks.at[i], input_src_file_bytes)));
     printf("Number of toks: %zu\n", toks.len); // want 403
 
-    Uint uint_parsed = uintParse(str(argv[2]));
-    printf("Uint parsed: ___%zu___ thx!\n", uint_parsed);
-    printf("And here it is again: ___%s___ bye now!\n", uintToStr(uint_parsed, 10).at);
+    Uint n = uintParse(str(argv[2]));
+    printf("Uint parsed: ___%zu___ thx!\n", n);
+    printf("And here it is again: ___%s___ bye now!\n", strZ(uintToStr(n, 10)));
 }
