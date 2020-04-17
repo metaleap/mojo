@@ -1,0 +1,18 @@
+---
+Language: Cpp
+# BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AllowShortFunctionsOnASingleLine: None
+SortIncludes: false
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 11
+AlignTrailingComments: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+ColumnLimit: 99
+SpaceBeforeCpp11BracedList: true
+...
