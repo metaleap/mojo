@@ -39,6 +39,11 @@ typedef const char *String;
 
 #define slice(T, the_slice, idx_start, idx_end) ((T##s) {.len = idx_end - idx_start, .at = the_slice.at + (idx_start * sizeof(T))})
 
+#define append(the_slice, item)                                                                                                                \
+    {                                                                                                                                          \
+        the_slice.at[the_slice.len] = (item);                                                                                                  \
+        the_slice.len += 1;                                                                                                                    \
+    }
 
 
 void panic(String format, ...) {
@@ -50,6 +55,7 @@ void panic(String format, ...) {
     va_start(args, format);
     vfprintf(stderr, format, args);
     va_end(args);
+    fwrite("\n", 1, 1, stderr);
 
     exit(1);
 }
@@ -59,9 +65,9 @@ void panicIf(int err) {
         panic("error %d", err);
 }
 
-void assert(Bool pred, String msg) {
+void assert(Bool pred) {
     if (!pred)
-        panic("%s", msg);
+        panic("assertion failure");
 }
 
 
@@ -76,7 +82,7 @@ Uint mem_pos = 0;
 U8 *memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
     if (new_pos >= mem_max)
-        panic("out of memory: increase mem_max!\n");
+        panic("out of memory: increase mem_max!");
     U8 *mem_ptr = &mem_buf[mem_pos];
     mem_pos = new_pos;
     return mem_ptr;
@@ -120,13 +126,13 @@ String strZ(Str str) {
 }
 
 Uint uintParse(Str str) {
-    assert(str.len > 0, "empty string passed to uintParse");
+    assert(str.len > 0);
     Uint ret_uint = 0;
     Uint mult = 1;
     for (Uint i = str.len; i > 0;) {
         i -= 1;
         if (str.at[i] < '0' || str.at[i] > '9')
-            panic("bad Uint literal: %s\n", strZ(str));
+            panic("bad Uint literal: %s", strZ(str));
         ret_uint += mult * (str.at[i] - 48);
         mult *= 10;
     }

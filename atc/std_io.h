@@ -18,7 +18,7 @@ Str readUntilEof(FILE *stream) {
 Str readFile(String file_path) {
     FILE *file = fopen(file_path, "rb");
     if (file == NULL)
-        panic("could not open %s\n", file_path);
+        panic("could not open %s", file_path);
     Str file_bytes = readUntilEof(file);
     fclose(file);
     return file_bytes;

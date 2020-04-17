@@ -16,4 +16,5 @@ AllowShortCaseLabelsOnASingleLine: false
 ColumnLimit: 144
 SpaceBeforeCpp11BracedList: true
 BreakBeforeBinaryOperators: NonAssignment
+AllowShortCaseLabelsOnASingleLine: true
 ...
