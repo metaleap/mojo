@@ -150,7 +150,7 @@ void toksCheckBrackets(Tokens toks) {
         panic("unmatched opening square bracket in line %s", strZ(uintToStr(1 + line_bsquare, 10)));
 }
 
-Tokenss toksIndentBasedChunks(Tokens toks) {
+Tokenss toksIndentBasedChunks(Tokens const toks) {
     assert(toks.len > 0);
     Uint cmp_pos_col = tokPosCol(&toks.at[0]);
     Int level = 0;
@@ -203,14 +203,14 @@ Tokenss toksIndentBasedChunks(Tokens toks) {
     return ret_chunks;
 }
 
-Int toksIndexOfIdent(Tokens toks, Str ident, Str full_src) {
+Int toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
     for (Uint i = 0; i < toks.len; i += 1)
         if (toks.at[i].kind == tok_kind_ident && strEql(ident, tokSrc(&toks.at[i], full_src)))
             return i;
     return -1;
 }
 
-Int toksIndexOfMatchingBracket(Tokens toks) {
+Int toksIndexOfMatchingBracket(Tokens const toks) {
     TokenKind tok_open_kind = toks.at[0].kind;
     TokenKind tok_close_kind = tok_kind_none;
     switch (tok_open_kind) {
@@ -233,7 +233,7 @@ Int toksIndexOfMatchingBracket(Tokens toks) {
     return -1;
 }
 
-Tokenss toksSplit(Tokens toks, TokenKind tok_kind) {
+Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     assert(!tokIsBracket(tok_kind));
     Tokenss ret_sub_toks = alloc(Tokens, 1 + toksCountUnnested(toks, tok_kind));
     ret_sub_toks.len = 0;
@@ -255,23 +255,23 @@ Tokenss toksSplit(Tokens toks, TokenKind tok_kind) {
     return ret_sub_toks;
 }
 
-Tokens tokenize(Str full_src, Bool keep_comment_toks) {
+Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
     Tokens toks = alloc(Token, full_src.len);
     toks.len = 0;
 
     TokenKind state = tok_kind_none;
-    Uint i = 0;
     Uint cur_line_nr = 0;
     Uint cur_line_idx = 0;
     Int tok_idx_start = -1;
     Int tok_idx_last = -1;
 
+    Uint i = 0;
     // shebang? #!
     if (full_src.len > 2 && full_src.at[0] == '#' && full_src.at[1] == '!') {
         state = tok_kind_comment;
         tok_idx_start = 0;
         i = 2;
-    }
+    } // now we start:
 
     for (; i < full_src.len; i += 1) {
         U8 c = full_src.at[i];

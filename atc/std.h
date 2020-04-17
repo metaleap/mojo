@@ -40,10 +40,10 @@ typedef const char *String;
 #define slice(T, the_slice, idx_start, idx_end) ((T##s) {.len = idx_end - idx_start, .at = the_slice.at + (idx_start * sizeof(T))})
 
 #define append(the_slice, item)                                                                                                                \
-    {                                                                                                                                          \
+    do {                                                                                                                                       \
         the_slice.at[the_slice.len] = (item);                                                                                                  \
         the_slice.len += 1;                                                                                                                    \
-    }
+    } while (0)
 
 
 void panic(String format, ...) {
@@ -66,8 +66,10 @@ void panicIf(int err) {
 }
 
 void assert(Bool pred) {
+#ifdef DEBUG
     if (!pred)
         panic("assertion failure");
+#endif
 }
 
 
