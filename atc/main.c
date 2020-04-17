@@ -12,5 +12,5 @@ int main(int argc, String argv[]) {
     Tokens toks = tokenize(input_src_file_bytes, false);
     printf("Len: %zu\n", toks.len); // want 403
 
-    printf("Uint parsed: _~_%zu_~_ thx!\n", uintParse(str(argv[2])));
+    printf("Uint parsed: ___%zu___ thx!\n", uintParse(str(argv[2])));
 }

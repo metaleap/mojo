@@ -12,17 +12,11 @@
 
 
 
-#define nameOf(ident) #ident
-
 #define SliceOf(T)                                                                                \
     struct {                                                                                      \
         T *_;                                                                                     \
         Uint len;                                                                                 \
     }
-
-#define slice(T, slice, start, num_items)                                                         \
-    ((T##s) {.len = num_items, ._ = slice._ + (start * sizeof(T))})
-
 
 typedef bool Bool;
 typedef u_int8_t U8;
@@ -38,6 +32,13 @@ typedef int64_t I64;
 typedef void *Any;
 typedef SliceOf(U8) Str;
 typedef const char *String;
+
+
+
+#define nameOf(ident) #ident
+
+#define slice(T, the_slice, start, num_items)                                                     \
+    ((T##s) {.len = num_items, ._ = the_slice._ + (start * sizeof(T))})
 
 
 
@@ -69,13 +70,13 @@ void unreachable() {
 
 
 
-// "heap" without syscalls
-#define alloc(T, num_items)                                                                       \
-    ((T##s) {.len = num_items, ._ = (T *)(memAlloc(num_items * (sizeof(T))))})
-
+// pre-allocated fixed-size "heap"
 #define mem_max (2 * 1024 * 1024)
 U8 mem_buf[mem_max];
 Uint mem_pos = 0;
+
+#define alloc(T, num_items)                                                                       \
+    ((T##s) {.len = num_items, ._ = (T *)(memAlloc(num_items * (sizeof(T))))})
 
 U8 *memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
