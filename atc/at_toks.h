@@ -367,7 +367,7 @@ Tokens tokenize(Str full_src, Bool keep_comment_toks) {
         }
         if (tok_idx_last != -1) {
             assert(state != tok_kind_none && tok_idx_start != -1);
-            if (state != tok_kind_comment || keep_comment_toks) {
+            if (state != tok_kind_comment || keep_comment_toks)
                 append(toks, ((Token) {
                                  .kind = state,
                                  .line_nr = cur_line_nr,
@@ -375,7 +375,6 @@ Tokens tokenize(Str full_src, Bool keep_comment_toks) {
                                  .char_pos = (Uint)(tok_idx_start),
                                  .str_len = (Uint)(1 + (tok_idx_last - tok_idx_start)),
                              }));
-            }
             state = tok_kind_none;
             tok_idx_start = -1;
             tok_idx_last = -1;
@@ -387,7 +386,7 @@ Tokens tokenize(Str full_src, Bool keep_comment_toks) {
     }
     if (tok_idx_start != -1) {
         assert(state != tok_kind_none);
-        if (state != tok_kind_comment || keep_comment_toks) {
+        if (state != tok_kind_comment || keep_comment_toks)
             append(toks, ((Token) {
                              .kind = state,
                              .line_nr = cur_line_nr,
@@ -395,7 +394,6 @@ Tokens tokenize(Str full_src, Bool keep_comment_toks) {
                              .char_pos = (Uint)(tok_idx_start),
                              .str_len = i - tok_idx_start,
                          }));
-        }
     }
     return toks;
 }
