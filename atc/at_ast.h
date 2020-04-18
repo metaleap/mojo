@@ -73,7 +73,7 @@ typedef SliceOf(AstNameRef) AstNameRefs;
 struct AstScopes;
 typedef struct AstScopes AstScopes;
 struct AstScopes {
-    AstNameRefs names;
+    AstNameRefs name_refs;
     AstScopes* parent;
 };
 
@@ -111,7 +111,7 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
     return ret_expr;
 }
 
-ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str ident) {
+ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const ident) {
     forEach(AstExpr, expr, ast_expr->kind_form, {
         if (expr->kind == ast_expr_ident && strEql(ident, expr->kind_ident))
             return ok(Uint, exprˇidx);
@@ -119,7 +119,7 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
     return none(Uint);
 }
 
-AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str ident, Bool must_lhs, Bool must_rhs, Ast const* const ast) {
+AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Bool const must_lhs, Bool const must_rhs, Ast const* const ast) {
     AstExpr² ret_tup = (AstExpr²) {.lhs = none(AstExpr), .rhs = none(AstExpr)};
 
     ºUint const pos = astExprFormIndexOfIdent(ast_expr, ident);
@@ -129,9 +129,26 @@ AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str ident, Bool must
         if (pos.it < ast_expr->kind_form.len - 1)
             ret_tup.rhs = ok(AstExpr, astExprFormSub(ast_expr, 1 + pos.it, ast_expr->kind_form.len));
     }
-
     const Bool must_both = must_lhs && must_rhs;
     if (must_both && !pos.ok)
         panic(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->base, ast));
+    if (must_lhs && !ret_tup.lhs.ok)
+        panic(astNodeMsg(str3(str("expected expression before '"), ident, str("'")), &ast_expr->base, ast));
+    if (must_rhs && !ret_tup.rhs.ok)
+        panic(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->base, ast));
     return ret_tup;
+}
+
+AstNameRef* astScopesResolve(AstScopes const* scope, Str const name, ºUint only_until_before_idx) {
+    while (scope != NULL) {
+        forEach(AstNameRef, ref, scope->name_refs, {
+            if (only_until_before_idx.ok && only_until_before_idx.it == refˇidx)
+                break;
+            if (strEql(name, ref->name))
+                return ref;
+        });
+        only_until_before_idx.ok = false;
+        scope = scope->parent;
+    }
+    return NULL;
 }
