@@ -45,19 +45,19 @@ Bool tokIsBracket(TokenKind const tok_kind) {
     return tokIsOpeningBracket(tok_kind) || tokIsClosingBracket(tok_kind);
 }
 
-Uint tokPosCol(Token const *const tok) {
+Uint tokPosCol(Token const* const tok) {
     return tok->char_pos - tok->char_pos_line_start;
 }
 
-Bool tokCanThrong(Token const *const tok, Str const full_src) {
+Bool tokCanThrong(Token const* const tok, Str const full_src) {
     return tok->kind == tok_kind_lit_int || tok->kind == tok_kind_lit_str_double || tok->kind == tok_kind_lit_str_single
            || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && full_src.at[tok->char_pos] != '=');
 }
 
 Uint tokThrong(Tokens const toks, Uint const tok_idx, Str const full_src) {
     Uint ret_idx = tok_idx;
-    if (tokCanThrong(&toks.at[ret_idx], full_src)) {
-        for (Uint i = ret_idx + 1; i < toks.len; i += 1)
+    if (tokCanThrong(&toks.at[tok_idx], full_src)) {
+        for (Uint i = tok_idx + 1; i < toks.len; i += 1)
             if (toks.at[i].char_pos == toks.at[i - 1].char_pos + toks.at[i - 1].str_len && tokCanThrong(&toks.at[i], full_src))
                 ret_idx = i;
             else
@@ -66,20 +66,21 @@ Uint tokThrong(Tokens const toks, Uint const tok_idx, Str const full_src) {
     return ret_idx;
 }
 
-Str tokSrc(Token const *const tok, Str const full_src) {
+Str tokSrc(Token const* const tok, Str const full_src) {
     return strSub(full_src, tok->char_pos, tok->char_pos + tok->str_len);
 }
 
 Str toksSrc(Tokens const toks, Str const full_src) {
-    Token *tok_last = &toks.at[toks.len - 1];
+    Token* tok_last = &toks.at[toks.len - 1];
     return strSub(full_src, toks.at[0].char_pos, tok_last->char_pos + tok_last->str_len);
 }
 
 Uint toksCount(Tokens const toks, Str const ident, Str const full_src) {
     Uint ret_num = 0;
-    for (Uint i = 0; i < toks.len; i += 1)
-        if (toks.at[i].kind == tok_kind_ident && strEql(ident, tokSrc(&toks.at[i], full_src)))
+    forEach(Token, tok, toks, {
+        if (tok->kind == tok_kind_ident && strEql(ident, tokSrc(tok, full_src)))
             ret_num += 1;
+    });
     return ret_num;
 }
 
@@ -87,37 +88,37 @@ Uint toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
     assert(!tokIsBracket(tok_kind));
     Uint ret_num = 0;
     Int level = 0;
-    for (Uint i = 0; i < toks.len; i += 1) {
-        TokenKind this_kind = toks.at[i].kind;
+    forEach(Token, tok, toks, {
+        TokenKind this_kind = tok->kind;
         if (this_kind == tok_kind && level == 0)
             ret_num += 1;
         else if (tokIsOpeningBracket(this_kind))
             level += 1;
         else if (tokIsClosingBracket(this_kind))
             level -= 1;
-    }
+    });
     return ret_num;
 }
 
 void toksCheckBrackets(Tokens const toks) {
     Int level_bparen = 0, level_bsquare = 0, level_bcurly = 0;
     Int line_bparen = -1, line_bsquare = -1, line_bcurly = -1;
-    for (Uint i = 0; i < toks.len; i += 1) {
-        switch (toks.at[i].kind) {
+    forEach(Token, tok, toks, {
+        switch (tok->kind) {
             case tok_kind_sep_bcurly_open:
                 level_bcurly += 1;
                 if (line_bcurly == -1)
-                    line_bcurly = toks.at[i].line_nr;
+                    line_bcurly = tok->line_nr;
                 break;
             case tok_kind_sep_bparen_open:
                 level_bparen += 1;
                 if (line_bparen == -1)
-                    line_bparen = toks.at[i].line_nr;
+                    line_bparen = tok->line_nr;
                 break;
             case tok_kind_sep_bsquare_open:
                 level_bsquare += 1;
                 if (line_bsquare == -1)
-                    line_bsquare = toks.at[i].line_nr;
+                    line_bsquare = tok->line_nr;
                 break;
             case tok_kind_sep_bcurly_close:
                 level_bcurly -= 1;
@@ -137,12 +138,12 @@ void toksCheckBrackets(Tokens const toks) {
             default: break;
         }
         if (level_bparen < 0)
-            panic("unmatched closing parenthesis in line %s", strZ(uintToStr(1 + toks.at[i].line_nr, 10)));
+            panic("unmatched closing parenthesis in line %s", strZ(uintToStr(1 + tok->line_nr, 10)));
         else if (level_bcurly < 0)
-            panic("unmatched closing curly brace in line %s", strZ(uintToStr(1 + toks.at[i].line_nr, 10)));
+            panic("unmatched closing curly brace in line %s", strZ(uintToStr(1 + tok->line_nr, 10)));
         else if (level_bsquare < 0)
-            panic("unmatched closing square bracket in line %s", strZ(uintToStr(1 + toks.at[i].line_nr, 10)));
-    }
+            panic("unmatched closing square bracket in line %s", strZ(uintToStr(1 + tok->line_nr, 10)));
+    });
     if (level_bparen > 0)
         panic("unmatched opening parenthesis in line %s", strZ(uintToStr(1 + line_bparen, 10)));
     else if (level_bcurly > 0)
@@ -155,8 +156,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     assert(toks.len > 0);
     Uint cmp_pos_col = tokPosCol(&toks.at[0]);
     Int level = 0;
-    for (Uint i = 0; i < toks.len; i += 1) {
-        Token *tok = &toks.at[i];
+    forEach(Token, tok, toks, {
         if (level == 0) {
             Uint pos_col = tokPosCol(tok);
             if (pos_col < cmp_pos_col)
@@ -165,38 +165,36 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
             level += 1;
         else if (tokIsClosingBracket(tok->kind))
             level -= 1;
-    }
+    });
     assert(level == 0);
 
     Uint num_chunks = 0;
-    for (Uint i = 0; i < toks.len; i += 1) {
-        Token *tok = &toks.at[i];
+    forEach(Token, tok, toks, {
         if (level == 0) {
-            if (i == 0 || tokPosCol(tok) <= cmp_pos_col)
+            if (tokˇidx == 0 || tokPosCol(tok) <= cmp_pos_col)
                 num_chunks += 1;
         } else if (tokIsOpeningBracket(tok->kind))
             level += 1;
         else if (tokIsClosingBracket(tok->kind))
             level -= 1;
-    }
+    });
     assert(level == 0);
 
     Tokenss ret_chunks = alloc(Tokens, num_chunks);
     {
         ret_chunks.len = 0;
         Int start_from = -1;
-        for (Uint i = 0; i < toks.len; i += 1) {
-            Token *tok = &toks.at[i];
-            if (i == 0 || (level == 0 && tokPosCol(tok) <= cmp_pos_col)) {
+        forEach(Token, tok, toks, {
+            if (tokˇidx == 0 || (level == 0 && tokPosCol(tok) <= cmp_pos_col)) {
                 if (start_from != -1)
-                    append(ret_chunks, slice(Token, toks, start_from, i));
-                start_from = i;
+                    append(ret_chunks, slice(Token, toks, start_from, tokˇidx));
+                start_from = tokˇidx;
             }
             if (tokIsOpeningBracket(tok->kind))
                 level += 1;
             else if (tokIsClosingBracket(tok->kind))
                 level -= 1;
-        }
+        });
         if (start_from != -1)
             append(ret_chunks, slice(Token, toks, start_from, toks.len));
         assert(ret_chunks.len == num_chunks);
@@ -204,14 +202,15 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     return ret_chunks;
 }
 
-ˇUint toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
-    for (Uint i = 0; i < toks.len; i += 1)
-        if (toks.at[i].kind == tok_kind_ident && strEql(ident, tokSrc(&toks.at[i], full_src)))
-            return (ˇUint) {.ok = true, .it = i};
-    return (ˇUint) {.ok = false};
+ºUint toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
+    forEach(Token, tok, toks, {
+        if (tok->kind == tok_kind_ident && strEql(ident, tokSrc(tok, full_src)))
+            return ok(Uint, tokˇidx);
+    });
+    return none(Uint);
 }
 
-ˇUint toksIndexOfMatchingBracket(Tokens const toks) {
+ºUint toksIndexOfMatchingBracket(Tokens const toks) {
     TokenKind tok_open_kind = toks.at[0].kind;
     TokenKind tok_close_kind = tok_kind_none;
     switch (tok_open_kind) {
@@ -223,15 +222,16 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     assert(tok_close_kind != tok_kind_none);
 
     Int level = 0;
-    for (Uint i = 0; i < toks.len; i += 1)
-        if (toks.at[i].kind == tok_open_kind)
+    forEach(Token, tok, toks, {
+        if (tok->kind == tok_open_kind)
             level += 1;
-        else if (toks.at[i].kind == tok_close_kind) {
+        else if (tok->kind == tok_close_kind) {
             level -= 1;
             if (level == 0)
-                return (ˇUint) {.ok = false, .it = i};
+                return ok(Uint, tokˇidx);
         }
-    return (ˇUint) {.ok = false};
+    });
+    return none(Uint);
 }
 
 Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
@@ -241,16 +241,15 @@ Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     {
         Int level = 0;
         Uint start_from = 0;
-        for (Uint i = 0; i < toks.len; i += 1) {
-            Token *tok = &toks.at[i];
+        forEach(Token, tok, toks, {
             if (tok->kind == tok_kind && level == 0) {
-                append(ret_sub_toks, slice(Token, toks, start_from, i));
-                start_from = i + 1;
+                append(ret_sub_toks, slice(Token, toks, start_from, tokˇidx));
+                start_from = tokˇidx + 1;
             } else if (tokIsOpeningBracket(tok->kind))
                 level += 1;
             else if (tokIsClosingBracket(tok->kind))
                 level -= 1;
-        }
+        });
         append(ret_sub_toks, slice(Token, toks, start_from, toks.len));
     }
     return ret_sub_toks;

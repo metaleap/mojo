@@ -2,7 +2,7 @@
 #include "at_toks.h"
 #include "std.h"
 
-Str readUntilEof(FILE *const stream) {
+Str readUntilEof(FILE* const stream) {
     Uint const buf_size = 4096;
     Str ret_str = {.len = 0, .at = memAlloc(buf_size)};
     for (Ptr addr = ret_str.at; true;) {
@@ -22,7 +22,7 @@ Str readUntilEof(FILE *const stream) {
 }
 
 Str readFile(String const file_path) {
-    FILE *file = fopen(file_path, "rb");
+    FILE* file = fopen(file_path, "rb");
     if (file == NULL)
         panic("could not open %s", file_path);
     Str file_bytes = readUntilEof(file);

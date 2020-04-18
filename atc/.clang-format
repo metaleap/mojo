@@ -17,4 +17,5 @@ SpaceBeforeCpp11BracedList: true
 BreakBeforeBinaryOperators: NonAssignment
 AllowShortCaseLabelsOnASingleLine: true
 IndentCaseLabels: true
+PointerAlignment: Left
 ...
