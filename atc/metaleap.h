@@ -45,12 +45,13 @@ typedef int16_t I16;
 typedef int32_t I32;
 typedef int64_t I64;
 typedef ssize_t Int;
-typedef Maybe(Int) ˇInt;
 typedef size_t Uint;
+typedef Maybe(Int) ˇInt;
 typedef Maybe(Uint) ºUint;
 typedef SliceOf(Uint) Uints;
+typedef SliceOf(U8) U8s; // we dont use it but use `Str`, however `slice(U8, ...)` expects it
 typedef void* Ptr;
-typedef SliceOf(U8) Str;
+typedef U8s Str;
 typedef SliceOf(Str) Strs;
 typedef const char* String;
 

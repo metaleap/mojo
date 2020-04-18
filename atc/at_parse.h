@@ -5,9 +5,33 @@
 
 
 AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* const ast) {
-    return AstExpr {};
+    return (AstExpr) {};
 }
 
+
+Str parseExprLitStr(AstNodeBase const* const node_base, Ast const* const ast, Str const lit_src, U8 const quote_char) {
+    assert(lit_src.len >= 2 && lit_src.at[0] == quote_char && lit_src.at[lit_src.len - 1] == quote_char);
+    Str ret_str = newStr(0, lit_src.len - 2);
+    for (Uint i = 0; i < lit_src.len; i += 1) {
+        if (lit_src.at[i] != '\\')
+            ret_str.at[ret_str.len] = lit_src.at[i];
+        else {
+            Uint const idx_end = i + 4;
+            Bool bad_esc = idx_end > lit_src.len - 1;
+            if (!bad_esc) {
+                Str base10digits = slice(U8, lit_src, i + 1, idx_end);
+                i += 3;
+                ºUint maybe = uintParse(base10digits);
+                bad_esc = (!maybe.ok) || maybe.it >= 256;
+                ret_str.at[ret_str.len] = (U8)maybe.it;
+            }
+            if (bad_esc)
+                panic(astNodeMsg(str("expected 3-digit base-10 integer decimal 000-255 following backslash escape"), node_base, ast));
+        }
+        ret_str.len += 1;
+    }
+    return ret_str;
+}
 
 AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
     if (toks.len == 0)

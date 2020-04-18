@@ -113,7 +113,7 @@ AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Boo
         if (pos.it < ast_expr->kind_form.len - 1)
             ret_tup.rhs = ok(AstExpr, astExprFormSub(ast_expr, 1 + pos.it, ast_expr->kind_form.len));
     }
-    const Bool must_both = must_lhs && must_rhs;
+    Bool const must_both = must_lhs && must_rhs;
     if (must_both && !pos.ok)
         panic(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->node_base, ast));
     if (must_lhs && !ret_tup.lhs.ok)
