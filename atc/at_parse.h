@@ -4,13 +4,65 @@
 #include "at_ast.h"
 
 
+AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* const ast);
+void parseDef(AstDef* const dst_def, Ast const* const ast);
 
+
+Ast parse(Tokens const all_toks, Str const full_src) {
+    Tokenss const chunks = toksIndentBasedChunks(all_toks);
+    Ast ret_ast = (Ast) {
+        .src = full_src,
+        .toks = all_toks,
+        .top_defs = make(AstDef, 0, chunks.len),
+        .anns = {.total_defs_count = 0},
+    };
+    Uint toks_idx = 0;
+    forEach(Tokens, chunk_toks, chunks, {
+        AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
+        dst_def->anns.total_sub_defs_count = 0;
+        dst_def->parent_def = NULL;
+        dst_def->node_base = astNodeBaseFrom(toks_idx, chunk_toks->len);
+        parseDef(dst_def, &ret_ast);
+        ret_ast.top_defs.len += 1;
+        toks_idx += chunk_toks->len;
+    });
+    return ret_ast;
+}
+
+void parseDef(AstDef* const dst_def, Ast const* const ast) {
+    Tokens const toks = astNodeToks(&dst_def->node_base, ast);
+    ºUint const idx_tok_def = toksIndexOfIdent(toks, str(":="), ast->src);
+    if ((!idx_tok_def.ok) || idx_tok_def.it == 0 || idx_tok_def.it == toks.len - 1)
+        panic(astNodeMsg(str("expected '<head_expr> := <body_expr>'"), &dst_def->node_base, ast));
+
+    dst_def->head = parseExpr(slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
+    switch (dst_def->head.kind) {
+        case ast_expr_ident: {
+            dst_def->anns.name = dst_def->head.kind_ident;
+        } break;
+        case ast_expr_form: {
+            if (dst_def->head.kind_form.at[0].kind != ast_expr_ident)
+                panic(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
+            dst_def->anns.name = dst_def->head.kind_form.at[0].kind_ident;
+            for (Uint i = 1; i < dst_def->head.kind_form.len; i += 1) {
+                if (dst_def->head.kind_form.at[i].kind != ast_expr_ident)
+                    panic(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
+                Str const param_name = dst_def->head.kind_form.at[i].kind_ident;
+                if (param_name.at[0] != '_' || (param_name.len > 1 && param_name.at[1] == '_'))
+                    panic(astNodeMsg(str("param name must begin with exactly one underscore"), &dst_def->head.kind_form.at[i].node_base, ast));
+            }
+        } break;
+        default: {
+            panic(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
+        } break;
+    }
+}
 
 AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {
     AstExpr ret_expr = astExpr(all_toks_idx, 1, ast_expr_lit_int);
     ºU64 const maybe = uintParse(tokSrc(tok, ast->src));
     if (!maybe.ok)
-        panic(astNodeMsg(str("malformed integer literal"), &ret_expr.node_base, ast));
+        panic(astNodeMsg(str("malformed or not-yet-supported integer literal"), &ret_expr.node_base, ast));
     ret_expr.kind_lit_int = maybe.it;
     return ret_expr;
 }
@@ -39,13 +91,11 @@ AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token con
         }
         ret_str.len += 1;
     }
-    ret_str.at[ret_str.len] = 0;
+    ret_str.at[ret_str.len] = 0; // we ensured the extra capacity up in `newStr` call
 
     ret_expr.kind_lit_str = ret_str;
     return ret_expr;
 }
-
-AstExpr parseExpr(Tokens const, Uint const, Ast const* const);
 
 AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
     if (toks.len == 0)
@@ -77,7 +127,9 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
         } else
             switch (expr_toks.at[i].kind) {
 
-                case tok_kind_comment: panic("unreachable"); break;
+                case tok_kind_comment: {
+                    panic("unreachable");
+                } break;
 
                 case tok_kind_lit_num_prefixed: {
                     append(ret_acc, parseExprLitInt(all_toks_idx + 1, ast, &expr_toks.at[i]));
@@ -142,8 +194,7 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
                 } break;
 
                 default: {
-                    Token* const t = &expr_toks.at[i];
-                    panic("unrecognized token in line %zu: %s", t->line_nr + 1, tokSrc(t, ast->src));
+                    panic("unrecognized token in line %zu: %s", expr_toks.at[i].line_nr + 1, tokSrc(&expr_toks.at[i], ast->src));
                 } break;
             }
     }

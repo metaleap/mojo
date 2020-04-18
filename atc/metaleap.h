@@ -130,8 +130,8 @@ U8* memAlloc(Uint const num_bytes) {
     return mem_ptr;
 }
 
-Str newStr(Uint const str_len, Uint const str_cap) {
-    Str ret_str = (Str) {.len = str_len, .at = memAlloc(str_cap)};
+Str newStr(Uint const initial_len, Uint const max_capacity) {
+    Str ret_str = (Str) {.len = initial_len, .at = memAlloc(max_capacity)};
     return ret_str;
 }
 

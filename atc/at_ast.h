@@ -59,6 +59,9 @@ typedef struct Ast {
     Str src;
     Tokens toks;
     AstDefs top_defs;
+    struct {
+        Uint total_defs_count;
+    } anns;
 } Ast;
 
 
