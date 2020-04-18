@@ -4,54 +4,21 @@
 #include "at_ast.h"
 
 
-AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* const ast) {
-    assert(expr_toks.len != 0);
-    AstExprs ret_acc = make(AstExpr, 0, expr_toks.len);
-    Bool const whole_form_throng = (expr_toks.len > 1) && (tokThrong(expr_toks, 0, ast->src) == expr_toks.len - 1);
 
-    for (Uint i = 0; i < expr_toks.len; i += 1) {
-        Uint const idx_throng_end = whole_form_throng ? i : tokThrong(expr_toks, i, ast->src);
-        if (idx_throng_end > i) {
-            append(ret_acc, parseExpr(slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast));
-            i = idx_throng_end; // loop header will increment
-        } else
-            switch (expr_toks.at[i].kind) {
-                case tok_kind_comment: panic("unreachable"); break;
-                case tok_kind_lit_num_prefixed: panic("TODO"); break;
-                case tok_kind_lit_str_qdouble: panic("TODO"); break;
-                case tok_kind_lit_str_qsingle: panic("TODO"); break;
-                case tok_kind_sep_bcurly_open:
-                case tok_kind_sep_bsquare_open:
-                case tok_kind_sep_bparen_open: panic("TODO"); break;
-                default: {
-                    AstExpr expr_ident = astExpr(all_toks_idx + i, 1, ast_expr_ident);
-                    expr_ident.kind_ident = tokSrc(&expr_toks.at[i], ast->src);
-                    append(ret_acc, expr_ident);
-                } break;
-            }
-    }
 
-    assert(ret_acc.len != 0);
-    if (ret_acc.len == 1)
-        return ret_acc.at[0];
-
-    AstExpr ret_expr = astExpr(all_toks_idx, expr_toks.len, ast_expr_form);
-    ret_expr.kind_form = ret_acc;
-    ret_expr.anns.toks_throng = whole_form_throng;
+AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {
+    AstExpr ret_expr = astExpr(all_toks_idx, 1, ast_expr_lit_int);
+    ºU64 const maybe = uintParse(tokSrc(tok, ast->src));
+    if (!maybe.ok)
+        panic(astNodeMsg(str("malformed integer literal"), &ret_expr.node_base, ast));
+    ret_expr.kind_lit_int = maybe.it;
     return ret_expr;
-}
-
-U64 parseExprLitInt(AstNodeBase const* const node_base, Ast const* const ast, Str const lit_src) {
-    ºU64 const maybe = uintParse(lit_src);
-    if (maybe.ok)
-        panic(astNodeMsg(str("malformed integer literal"), node_base, ast));
-    return maybe.it;
 }
 
 Str parseExprLitStr(AstNodeBase const* const node_base, Ast const* const ast, Str const lit_src, U8 const quote_char) {
     assert(lit_src.len >= 2 && lit_src.at[0] == quote_char && lit_src.at[lit_src.len - 1] == quote_char);
-    Str ret_str = newStr(0, lit_src.len - 2);
-    for (Uint i = 0; i < lit_src.len; i += 1) {
+    Str ret_str = newStr(0, lit_src.len - 1);
+    for (Uint i = 1; i < lit_src.len - 1; i += 1) {
         if (lit_src.at[i] != '\\')
             ret_str.at[ret_str.len] = lit_src.at[i];
         else {
@@ -69,8 +36,11 @@ Str parseExprLitStr(AstNodeBase const* const node_base, Ast const* const ast, St
         }
         ret_str.len += 1;
     }
+    ret_str.at[ret_str.len] = 0;
     return ret_str;
 }
+
+AstExpr parseExpr(Tokens const, Uint const, Ast const* const);
 
 AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
     if (toks.len == 0)
@@ -87,4 +57,43 @@ AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKi
         }
     });
     return ret_exprs;
+}
+
+AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* const ast) {
+    assert(expr_toks.len != 0);
+    AstExprs ret_acc = make(AstExpr, 0, expr_toks.len);
+    Bool const whole_form_throng = (expr_toks.len > 1) && (tokThrong(expr_toks, 0, ast->src) == expr_toks.len - 1);
+
+    for (Uint i = 0; i < expr_toks.len; i += 1) {
+        Uint const idx_throng_end = whole_form_throng ? i : tokThrong(expr_toks, i, ast->src);
+        if (idx_throng_end > i) {
+            append(ret_acc, parseExpr(slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast));
+            i = idx_throng_end; // loop header will increment
+        } else
+            switch (expr_toks.at[i].kind) {
+                case tok_kind_comment: panic("unreachable"); break;
+                case tok_kind_lit_num_prefixed: {
+                    append(ret_acc, parseExprLitInt(all_toks_idx + 1, ast, &expr_toks.at[i]));
+                } break;
+                case tok_kind_lit_str_qdouble: panic("TODO"); break;
+                case tok_kind_lit_str_qsingle: panic("TODO"); break;
+                case tok_kind_sep_bcurly_open:  // fall through to:
+                case tok_kind_sep_bsquare_open: // fall through to:
+                case tok_kind_sep_bparen_open: panic("TODO"); break;
+                default: {
+                    AstExpr expr_ident = astExpr(all_toks_idx + i, 1, ast_expr_ident);
+                    expr_ident.kind_ident = tokSrc(&expr_toks.at[i], ast->src);
+                    append(ret_acc, expr_ident);
+                } break;
+            }
+    }
+
+    assert(ret_acc.len != 0);
+    if (ret_acc.len == 1)
+        return ret_acc.at[0];
+
+    AstExpr ret_expr = astExpr(all_toks_idx, expr_toks.len, ast_expr_form);
+    ret_expr.kind_form = ret_acc;
+    ret_expr.anns.toks_throng = whole_form_throng;
+    return ret_expr;
 }
