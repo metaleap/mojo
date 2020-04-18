@@ -14,14 +14,11 @@ Ast parse(Tokens const all_toks, Str const full_src) {
         .src = full_src,
         .toks = all_toks,
         .top_defs = make(AstDef, 0, chunks.len),
-        .anns = {.total_defs_count = 0},
     };
     Uint toks_idx = 0;
     forEach(Tokens, chunk_toks, chunks, {
         AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
-        dst_def->anns.total_sub_defs_count = 0;
-        dst_def->parent_def = NULL;
-        dst_def->node_base = astNodeBaseFrom(toks_idx, chunk_toks->len);
+        *dst_def = astDef(NULL, toks_idx, chunk_toks->len);
         parseDef(dst_def, &ret_ast);
         ret_ast.top_defs.len += 1;
         toks_idx += chunk_toks->len;
@@ -56,6 +53,21 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
             panic(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
         } break;
     }
+
+    Tokenss const def_body_chunks = toksIndentBasedChunks(slice(Token, toks, idx_tok_def.it + 1, toks.len));
+    dst_def->sub_defs = make(AstDef, 0, def_body_chunks.len - 1);
+    Uint all_toks_idx = dst_def->node_base.toks_idx + idx_tok_def.it + 1;
+    forEach(Tokens, chunk_toks, def_body_chunks, {
+        if (chunk_toksˇidx == 0)
+            dst_def->body = parseExpr(*chunk_toks, all_toks_idx, ast);
+        else {
+            AstDef* const sub_def = &dst_def->sub_defs.at[dst_def->sub_defs.len];
+            *sub_def = astDef(dst_def, all_toks_idx, chunk_toks->len);
+            parseDef(sub_def, ast);
+            dst_def->sub_defs.len += 1;
+        }
+        all_toks_idx += chunk_toks->len;
+    });
 }
 
 AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {

@@ -51,7 +51,6 @@ struct AstDef {
     AstDef* parent_def;
     struct {
         Str name;
-        Uint total_sub_defs_count;
     } anns;
 };
 
@@ -59,9 +58,8 @@ typedef struct Ast {
     Str src;
     Tokens toks;
     AstDefs top_defs;
-    struct {
-        Uint total_defs_count;
-    } anns;
+    // struct {
+    // } anns;
 } Ast;
 
 
@@ -79,6 +77,13 @@ String astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const
     Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 10);
     Str const toks_src = toksSrc(node_toks, ast->src);
     return (String)str5(msg_prefix, str(" in line "), line_nr, str(":\n"), toks_src).at;
+}
+
+AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
+    return (AstDef) {
+        .parent_def = parent_def,
+        .node_base = astNodeBaseFrom(all_toks_idx, toks_len),
+    };
 }
 
 AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind) {

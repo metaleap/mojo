@@ -37,6 +37,9 @@ int main(int const argc, String const argv[]) {
     Tokens const toks = tokenize(input_src_file_bytes, false);
     toksCheckBrackets(toks);
     printf("%zu\n", toks.len);
+
+    Ast ast = parse(toks, input_src_file_bytes);
+    printf("%zu\n", ast.top_defs.len);
 }
 
 
