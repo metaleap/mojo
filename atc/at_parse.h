@@ -15,14 +15,14 @@ Ast parse(Tokens const all_toks, Str const full_src) {
         .toks = all_toks,
         .top_defs = make(AstDef, 0, chunks.len),
     };
-    Uint toks_idx = 0;
-    forEach(Tokens, chunk_toks, chunks, {
-        AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
-        *dst_def = astDef(NULL, toks_idx, chunk_toks->len);
-        parseDef(dst_def, &ret_ast);
-        ret_ast.top_defs.len += 1;
-        toks_idx += chunk_toks->len;
-    });
+    // Uint toks_idx = 0;
+    // forEach(Tokens, chunk_toks, chunks, {
+    //     AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
+    //     *dst_def = astDef(NULL, toks_idx, chunk_toks->len);
+    //     parseDef(dst_def, &ret_ast);
+    //     ret_ast.top_defs.len += 1;
+    //     toks_idx += chunk_toks->len;
+    // });
     return ret_ast;
 }
 

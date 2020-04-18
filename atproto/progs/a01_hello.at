@@ -1,7 +1,6 @@
 #!atproto
 
 
-
 main :=
     io.writeToOut (/addr "Hello World!\010")
 
