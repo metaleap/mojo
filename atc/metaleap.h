@@ -2,10 +2,8 @@
 #include <execinfo.h>
 #include <limits.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #if CHAR_BIT != 8
 #error unsupported 'CHAR_BIT', need 8
 #endif
@@ -94,8 +92,8 @@ void panic(String const format, ...) {
     va_start(args, format);
     vfprintf(stderr, format, args);
     va_end(args);
-    fwrite("\n", 1, 1, stderr);
 
+    fwrite("\n", 1, 1, stderr);
     exit(1);
 }
 

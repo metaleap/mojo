@@ -1,7 +1,12 @@
 #pragma once
+#include "metaleap.h"
 #include "at_toks.h"
-#include "std.h"
 
+
+typedef struct AstNodeBase {
+    Uint toks_idx;
+    Uint toks_len;
+} AstNodeBase;
 
 typedef enum AstExprKind {
     ast_expr_lit_int,
@@ -12,15 +17,10 @@ typedef enum AstExprKind {
     ast_expr_lit_braces,
 } AstExprKind;
 
-typedef struct AstNode {
-    Uint toks_idx;
-    Uint toks_len;
-} AstNode;
-
 typedef struct AstExpr AstExpr;
 typedef SliceOf(AstExpr) AstExprs;
 struct AstExpr {
-    AstNode base;
+    AstNodeBase node_base;
     AstExprKind kind;
     union {
         Uint kind_lit_int;     // 123
@@ -44,7 +44,7 @@ typedef struct AstExpr² {
 typedef struct AstDef AstDef;
 typedef SliceOf(AstDef) AstDefs;
 struct AstDef {
-    AstNode base;
+    AstNodeBase node_base;
     AstExpr head;
     AstExpr body;
     AstDefs sub_defs;
@@ -63,32 +63,15 @@ typedef struct Ast {
 
 
 
-typedef struct AstNameRef {
-    Str name;
-    AstDef* top_def;
-    Uints sub_def_path;
-    ºUint param_idx;
-} AstNameRef;
-typedef SliceOf(AstNameRef) AstNameRefs;
-
-struct AstScopes;
-typedef struct AstScopes AstScopes;
-struct AstScopes {
-    AstNameRefs name_refs;
-    AstScopes* parent;
-};
-
-
-
-AstNode astNodeFrom(Uint const toks_idx, Uint const toks_len) {
-    return (AstNode) {.toks_idx = toks_idx, .toks_len = toks_len};
+AstNodeBase astNodeBaseFrom(Uint const toks_idx, Uint const toks_len) {
+    return (AstNodeBase) {.toks_idx = toks_idx, .toks_len = toks_len};
 }
 
-Tokens astNodeToks(AstNode const* const node, Ast const* const ast) {
+Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
     return slice(Token, ast->toks, node->toks_idx, node->toks_idx + node->toks_len);
 }
 
-String astNodeMsg(Str const msg_prefix, AstNode const* const node, Ast const* const ast) {
+String astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
     Tokens const node_toks = astNodeToks(node, ast);
     Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 10);
     Str const toks_src = toksSrc(node_toks, ast->src);
@@ -104,11 +87,11 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
     AstExpr ret_expr = (AstExpr) {
         .kind = ast_expr_form,
         .anns = {.parensed = false, .toks_throng = ast_expr->anns.toks_throng},
-        .base = {.toks_len = 0, .toks_idx = ast_expr->kind_form.at[idx_start].base.toks_idx},
+        .node_base = {.toks_len = 0, .toks_idx = ast_expr->kind_form.at[idx_start].node_base.toks_idx},
         .kind_form = slice(AstExpr, ast_expr->kind_form, idx_start, idx_end),
     };
     for (Uint i = idx_start; i < idx_end; i += 1)
-        ret_expr.base.toks_len += ast_expr->kind_form.at[i].base.toks_len;
+        ret_expr.node_base.toks_len += ast_expr->kind_form.at[i].node_base.toks_len;
     return ret_expr;
 }
 
@@ -132,28 +115,10 @@ AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Boo
     }
     const Bool must_both = must_lhs && must_rhs;
     if (must_both && !pos.ok)
-        panic(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->base, ast));
+        panic(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->node_base, ast));
     if (must_lhs && !ret_tup.lhs.ok)
-        panic(astNodeMsg(str3(str("expected expression before '"), ident, str("'")), &ast_expr->base, ast));
+        panic(astNodeMsg(str3(str("expected expression before '"), ident, str("'")), &ast_expr->node_base, ast));
     if (must_rhs && !ret_tup.rhs.ok)
-        panic(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->base, ast));
+        panic(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
     return ret_tup;
-}
-
-AstNameRef* astScopesResolve(AstScopes const* scope, Str const name, ºUint only_until_before_idx) {
-    while (scope != NULL) {
-        forEach(AstNameRef, ref, scope->name_refs, {
-            if (only_until_before_idx.ok && only_until_before_idx.it == refˇidx)
-                break;
-            if (strEql(name, ref->name))
-                return ref;
-        });
-        only_until_before_idx.ok = false;
-        scope = scope->parent;
-    }
-    return NULL;
-}
-
-
-void astDefScopesPopulate(AstDef const* const top_def, Ast const* const ast, AstScopes const* const parent_scope) {
 }
