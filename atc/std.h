@@ -20,8 +20,8 @@
 
 #define Maybe(T)                                                                                                                               \
     struct {                                                                                                                                   \
-        Bool ok;                                                                                                                               \
         T it;                                                                                                                                  \
+        Bool ok;                                                                                                                               \
     }
 
 typedef bool Bool;
@@ -29,13 +29,15 @@ typedef u_int8_t U8;
 typedef u_int16_t U16;
 typedef u_int32_t U32;
 typedef u_int64_t U64;
-typedef ssize_t Int;
-typedef size_t Uint;
-typedef SliceOf(Uint) Uints;
 typedef int8_t I8;
 typedef int16_t I16;
 typedef int32_t I32;
 typedef int64_t I64;
+typedef ssize_t Int;
+typedef Maybe(Int) ˇInt;
+typedef size_t Uint;
+typedef Maybe(Uint) ˇUint;
+typedef SliceOf(Uint) Uints;
 typedef void *Ptr;
 typedef SliceOf(U8) Str;
 typedef const char *String;
@@ -134,18 +136,18 @@ String strZ(Str const str) {
     return (String)buf;
 }
 
-Uint uintParse(Str const str) {
+ˇUint uintParse(Str const str) {
     assert(str.len > 0);
     Uint ret_uint = 0;
     Uint mult = 1;
     for (Uint i = str.len; i > 0;) {
         i -= 1;
         if (str.at[i] < '0' || str.at[i] > '9')
-            panic("bad Uint literal: %s", strZ(str));
+            return (ˇUint) {.ok = false};
         ret_uint += mult * (str.at[i] - 48);
         mult *= 10;
     }
-    return ret_uint;
+    return (ˇUint) {.ok = true, .it = ret_uint};
 }
 
 Str uintToStr(Uint const uint_value, Uint const base) {

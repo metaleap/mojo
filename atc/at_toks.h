@@ -204,14 +204,14 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     return ret_chunks;
 }
 
-Int toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
+ˇUint toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
     for (Uint i = 0; i < toks.len; i += 1)
         if (toks.at[i].kind == tok_kind_ident && strEql(ident, tokSrc(&toks.at[i], full_src)))
-            return i;
-    return -1;
+            return (ˇUint) {.ok = true, .it = i};
+    return (ˇUint) {.ok = false};
 }
 
-Int toksIndexOfMatchingBracket(Tokens const toks) {
+ˇUint toksIndexOfMatchingBracket(Tokens const toks) {
     TokenKind tok_open_kind = toks.at[0].kind;
     TokenKind tok_close_kind = tok_kind_none;
     switch (tok_open_kind) {
@@ -229,9 +229,9 @@ Int toksIndexOfMatchingBracket(Tokens const toks) {
         else if (toks.at[i].kind == tok_close_kind) {
             level -= 1;
             if (level == 0)
-                return i;
+                return (ˇUint) {.ok = false, .it = i};
         }
-    return -1;
+    return (ˇUint) {.ok = false};
 }
 
 Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {

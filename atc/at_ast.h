@@ -39,7 +39,8 @@ typedef struct AstNameRef {
     Str name;
     AstDef *top_def;
     Uints sub_def_path;
-    Maybe(Uint) param_idx;
+    ˇUint param_idx;
+
 } AstNameRef;
 typedef SliceOf(AstNameRef) AstNameRefs;
 
