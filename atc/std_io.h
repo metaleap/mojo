@@ -3,14 +3,20 @@
 #include "std.h"
 
 Str readUntilEof(FILE *const stream) {
-    Str ret_str = {.len = 0, .at = memAlloc(4096)};
+    Uint const buf_size = 4096;
+    Str ret_str = {.len = 0, .at = memAlloc(buf_size)};
     for (Ptr addr = ret_str.at; true;) {
-        ret_str.len += fread(addr, 1, 4096, stream);
-        panicIf(ferror(stream));
-        if (feof(stream))
-            break;
-        else if ((ret_str.len % 4096) == 0)
-            addr = memAlloc(4096);
+        Uint n_read = fread(addr, 1, buf_size, stream);
+        ret_str.len += n_read;
+
+        if (n_read != buf_size) {
+            panicIf(ferror(stream));
+            if (feof(stream)) // reading is done
+                break;
+        }
+
+        if ((ret_str.len % buf_size) == 0) // ret_str is "full"?
+            addr = memAlloc(buf_size);     // but reading is not done, so expand ret_str
     }
     return ret_str;
 }

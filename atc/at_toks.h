@@ -104,37 +104,37 @@ void toksCheckBrackets(Tokens const toks) {
     Int line_bparen = -1, line_bsquare = -1, line_bcurly = -1;
     for (Uint i = 0; i < toks.len; i += 1) {
         switch (toks.at[i].kind) {
-        case tok_kind_sep_bcurly_open:
-            level_bcurly += 1;
-            if (line_bcurly == -1)
-                line_bcurly = toks.at[i].line_nr;
-            break;
-        case tok_kind_sep_bparen_open:
-            level_bparen += 1;
-            if (line_bparen == -1)
-                line_bparen = toks.at[i].line_nr;
-            break;
-        case tok_kind_sep_bsquare_open:
-            level_bsquare += 1;
-            if (line_bsquare == -1)
-                line_bsquare = toks.at[i].line_nr;
-            break;
-        case tok_kind_sep_bcurly_close:
-            level_bcurly -= 1;
-            if (level_bcurly == 0)
-                line_bcurly = -1;
-            break;
-        case tok_kind_sep_bparen_close:
-            level_bparen -= 1;
-            if (level_bparen == 0)
-                line_bparen = -1;
-            break;
-        case tok_kind_sep_bsquare_close:
-            level_bsquare -= 1;
-            if (level_bsquare == 0)
-                line_bsquare = -1;
-            break;
-        default: break;
+            case tok_kind_sep_bcurly_open:
+                level_bcurly += 1;
+                if (line_bcurly == -1)
+                    line_bcurly = toks.at[i].line_nr;
+                break;
+            case tok_kind_sep_bparen_open:
+                level_bparen += 1;
+                if (line_bparen == -1)
+                    line_bparen = toks.at[i].line_nr;
+                break;
+            case tok_kind_sep_bsquare_open:
+                level_bsquare += 1;
+                if (line_bsquare == -1)
+                    line_bsquare = toks.at[i].line_nr;
+                break;
+            case tok_kind_sep_bcurly_close:
+                level_bcurly -= 1;
+                if (level_bcurly == 0)
+                    line_bcurly = -1;
+                break;
+            case tok_kind_sep_bparen_close:
+                level_bparen -= 1;
+                if (level_bparen == 0)
+                    line_bparen = -1;
+                break;
+            case tok_kind_sep_bsquare_close:
+                level_bsquare -= 1;
+                if (level_bsquare == 0)
+                    line_bsquare = -1;
+                break;
+            default: break;
         }
         if (level_bparen < 0)
             panic("unmatched closing parenthesis in line %s", strZ(uintToStr(1 + toks.at[i].line_nr, 10)));
@@ -215,10 +215,10 @@ Int toksIndexOfMatchingBracket(Tokens const toks) {
     TokenKind tok_open_kind = toks.at[0].kind;
     TokenKind tok_close_kind = tok_kind_none;
     switch (tok_open_kind) {
-    case tok_kind_sep_bcurly_open: tok_close_kind = tok_kind_sep_bcurly_close; break;
-    case tok_kind_sep_bsquare_open: tok_close_kind = tok_kind_sep_bsquare_close; break;
-    case tok_kind_sep_bparen_open: tok_close_kind = tok_kind_sep_bparen_close; break;
-    default: break;
+        case tok_kind_sep_bcurly_open: tok_close_kind = tok_kind_sep_bcurly_close; break;
+        case tok_kind_sep_bsquare_open: tok_close_kind = tok_kind_sep_bsquare_close; break;
+        case tok_kind_sep_bparen_open: tok_close_kind = tok_kind_sep_bparen_close; break;
+        default: break;
     }
     assert(tok_close_kind != tok_kind_none);
 
@@ -283,87 +283,87 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                 tok_idx_last = i - 1;
         } else {
             switch (state) {
-            case tok_kind_lit_int:
-            case tok_kind_ident:
-                if (c == ' ' || c == '\t' || c == '\"' || c == '\'' || strHasChar(tok_sep_chars, c)
-                    || (strHasChar(tok_op_chars, c) && !strHasChar(tok_op_chars, full_src.at[i - 1]))
-                    || (strHasChar(tok_op_chars, full_src.at[i - 1]) && !strHasChar(tok_op_chars, c))) {
-                    i -= 1;
-                    tok_idx_last = i;
-                }
-                break;
-            case tok_kind_lit_str_double:
-                if (c == '\"')
-                    tok_idx_last = i;
-                break;
-            case tok_kind_lit_str_single:
-                if (c == '\'')
-                    tok_idx_last = i;
-                break;
-            case tok_kind_comment: break;
-            case tok_kind_none:
-                switch (c) {
-                case '\"':
-                    tok_idx_start = i;
-                    state = tok_kind_lit_str_double;
-                    break;
-                case '\'':
-                    tok_idx_start = i;
-                    state = tok_kind_lit_str_single;
-                    break;
-                case '[':
-                    tok_idx_last = i;
-                    tok_idx_start = i;
-                    state = tok_kind_sep_bsquare_open;
-                    break;
-                case ']':
-                    tok_idx_last = i;
-                    tok_idx_start = i;
-                    state = tok_kind_sep_bsquare_close;
-                    break;
-                case '(':
-                    tok_idx_last = i;
-                    tok_idx_start = i;
-                    state = tok_kind_sep_bparen_open;
-                    break;
-                case ')':
-                    tok_idx_last = i;
-                    tok_idx_start = i;
-                    state = tok_kind_sep_bparen_close;
-                    break;
-                case '{':
-                    tok_idx_last = i;
-                    tok_idx_start = i;
-                    state = tok_kind_sep_bcurly_open;
-                    break;
-                case '}':
-                    tok_idx_last = i;
-                    tok_idx_start = i;
-                    state = tok_kind_sep_bcurly_close;
-                    break;
-                case ',':
-                    tok_idx_last = i;
-                    tok_idx_start = i;
-                    state = tok_kind_sep_comma;
-                    break;
-                default:
-                    if (c == '/' && i < full_src.len - 1 && full_src.at[i + 1] == '/') {
-                        tok_idx_start = i;
-                        state = tok_kind_comment;
-                    } else if (c >= '0' && c <= '9') {
-                        tok_idx_start = i;
-                        state = tok_kind_lit_int;
-                    } else if (c == ' ' || c == '\t') {
-                        if (tok_idx_start != -1 && tok_idx_last == -1)
-                            tok_idx_last = i - 1;
-                    } else {
-                        tok_idx_start = i;
-                        state = tok_kind_ident;
+                case tok_kind_lit_int:
+                case tok_kind_ident:
+                    if (c == ' ' || c == '\t' || c == '\"' || c == '\'' || strHasChar(tok_sep_chars, c)
+                        || (strHasChar(tok_op_chars, c) && !strHasChar(tok_op_chars, full_src.at[i - 1]))
+                        || (strHasChar(tok_op_chars, full_src.at[i - 1]) && !strHasChar(tok_op_chars, c))) {
+                        i -= 1;
+                        tok_idx_last = i;
                     }
                     break;
-                }
-                break;
-            default: panic("unreachable");
+                case tok_kind_lit_str_double:
+                    if (c == '\"')
+                        tok_idx_last = i;
+                    break;
+                case tok_kind_lit_str_single:
+                    if (c == '\'')
+                        tok_idx_last = i;
+                    break;
+                case tok_kind_comment: break;
+                case tok_kind_none:
+                    switch (c) {
+                        case '\"':
+                            tok_idx_start = i;
+                            state = tok_kind_lit_str_double;
+                            break;
+                        case '\'':
+                            tok_idx_start = i;
+                            state = tok_kind_lit_str_single;
+                            break;
+                        case '[':
+                            tok_idx_last = i;
+                            tok_idx_start = i;
+                            state = tok_kind_sep_bsquare_open;
+                            break;
+                        case ']':
+                            tok_idx_last = i;
+                            tok_idx_start = i;
+                            state = tok_kind_sep_bsquare_close;
+                            break;
+                        case '(':
+                            tok_idx_last = i;
+                            tok_idx_start = i;
+                            state = tok_kind_sep_bparen_open;
+                            break;
+                        case ')':
+                            tok_idx_last = i;
+                            tok_idx_start = i;
+                            state = tok_kind_sep_bparen_close;
+                            break;
+                        case '{':
+                            tok_idx_last = i;
+                            tok_idx_start = i;
+                            state = tok_kind_sep_bcurly_open;
+                            break;
+                        case '}':
+                            tok_idx_last = i;
+                            tok_idx_start = i;
+                            state = tok_kind_sep_bcurly_close;
+                            break;
+                        case ',':
+                            tok_idx_last = i;
+                            tok_idx_start = i;
+                            state = tok_kind_sep_comma;
+                            break;
+                        default:
+                            if (c == '/' && i < full_src.len - 1 && full_src.at[i + 1] == '/') {
+                                tok_idx_start = i;
+                                state = tok_kind_comment;
+                            } else if (c >= '0' && c <= '9') {
+                                tok_idx_start = i;
+                                state = tok_kind_lit_int;
+                            } else if (c == ' ' || c == '\t') {
+                                if (tok_idx_start != -1 && tok_idx_last == -1)
+                                    tok_idx_last = i - 1;
+                            } else {
+                                tok_idx_start = i;
+                                state = tok_kind_ident;
+                            }
+                            break;
+                    }
+                    break;
+                default: panic("unreachable");
             }
         }
         if (tok_idx_last != -1) {

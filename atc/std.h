@@ -18,6 +18,12 @@
         Uint len;                                                                                                                              \
     }
 
+#define Maybe(T)                                                                                                                               \
+    struct {                                                                                                                                   \
+        Bool ok;                                                                                                                               \
+        T it;                                                                                                                                  \
+    }
+
 typedef bool Bool;
 typedef u_int8_t U8;
 typedef u_int16_t U16;
@@ -25,6 +31,7 @@ typedef u_int32_t U32;
 typedef u_int64_t U64;
 typedef ssize_t Int;
 typedef size_t Uint;
+typedef SliceOf(Uint) Uints;
 typedef int8_t I8;
 typedef int16_t I16;
 typedef int32_t I32;
