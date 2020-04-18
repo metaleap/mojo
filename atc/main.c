@@ -32,9 +32,18 @@ int main(int const argc, String const argv[]) {
     if (argc < 2)
         panic("expected usage: atc <src_file_path>");
 
-    Str input_src_file_bytes = readFile(argv[1]);
+    Str const input_src_file_bytes = readFile(argv[1]);
 
-    Tokens toks = tokenize(input_src_file_bytes, false);
+    Tokens const toks = tokenize(input_src_file_bytes, false);
     toksCheckBrackets(toks);
     printf("%zu\n", toks.len);
 }
+
+
+
+
+
+/* note for later from https://embeddedartistry.com/blog/2017/07/05/printf-a-limited-number-of-characters-from-a-string/
+// Only 5 characters printed. When using %.*s, add a value before your string variable to specify the length.
+    printf("Here are the first 5 characters: %.*s\n", 5, mystr); //5 here refers to # of characters
+*/

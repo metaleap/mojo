@@ -1,6 +1,6 @@
 #pragma once
-#include "std.h"
 #include "at_toks.h"
+#include "std.h"
 
 typedef enum AstExprKind {
     ast_expr_lit_int,
@@ -26,8 +26,10 @@ struct AstExpr {
         Str kind_lit_str;      // "123"
         Str kind_ident;        // anyIdentifier                         (also operators)
         AstExprs kind_form;    // expr1 expr2 expr3 ... exprN           (always: .len >= 2)
-        AstExprs kind_bracket; // [expr1, expr2, expr3, ..., exprN]     (always: .len >= 0)
-        AstExprs kind_braces;  // {expr1, expr2, expr3, ..., exprN}     (always: .len >= 0)
+        AstExprs kind_bracket; // [expr1, expr2, expr3, ..., exprN]     (always:
+                               // .len >= 0)
+        AstExprs kind_braces;  // {expr1, expr2, expr3, ..., exprN}     (always: .len
+                               // >= 0)
     };
     struct {
         Uint parensed;
@@ -78,7 +80,9 @@ Tokens astNodeToks(AstNode const* const node, Ast const* const ast) {
 }
 
 Str astNodeMsg(String const msg_prefix, AstNode const* const node, Ast const* const ast) {
-    Tokens node_toks = astNodeToks(node, ast);
-    Str line_nr = uintToStr(1 + node_toks.at[0].line_nr, 10);
-    return str("TODO");
+    Tokens const node_toks = astNodeToks(node, ast);
+    Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 10);
+    Str const toks_src = toksSrc(node_toks, ast->src);
+    Str arr[5] = {str(msg_prefix), str(" in line "), line_nr, str(":\n"), toks_src};
+    return strConcat((Strs) {.len = 5, .at = arr});
 }

@@ -57,7 +57,7 @@ typedef const char* String;
 
 #define forEach(T, iteree_ident, the_slice, do_block)                                                                                          \
     for (Uint iteree_ident##ˇidx = 0; iteree_ident##ˇidx < the_slice.len; iteree_ident##ˇidx += 1) {                                           \
-        T* iteree_ident = &the_slice.at[iteree_ident##ˇidx];                                                                                   \
+        T* const iteree_ident = &the_slice.at[iteree_ident##ˇidx];                                                                             \
         do_block                                                                                                                               \
     }
 
@@ -105,19 +105,21 @@ void assert(Bool const pred) {
 U8 mem_buf[mem_max];
 Uint mem_pos = 0;
 
-#define alloc(T, num_items) ((T##s) {.len = num_items, .at = (T*)(memAlloc(num_items * (sizeof(T))))})
+#define alloc(T, initial_len, max_capacity)                                                                                                    \
+    ((T##s) {.len = initial_len, .at = (T*)(memAlloc(((max_capacity < initial_len) ? initial_len : max_capacity) * (sizeof(T))))})
 
 U8* memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
     if (new_pos >= mem_max)
         panic("out of memory: increase mem_max!");
-    U8* mem_ptr = &mem_buf[mem_pos];
+    U8* const mem_ptr = &mem_buf[mem_pos];
     mem_pos = new_pos;
     return mem_ptr;
 }
 
-Str newStr(Uint const str_len) {
-    return (Str) {.len = str_len, .at = memAlloc(str_len)};
+Str newStr(Uint const str_len, Uint const str_cap) {
+    Str ret_str = (Str) {.len = str_len, .at = memAlloc(str_cap)};
+    return ret_str;
 }
 
 ºUint uintParse(Str const str) {
@@ -143,7 +145,7 @@ Str uintToStr(Uint const uint_value, Uint const base) {
     }
     n = uint_value;
 
-    Str ret_str = newStr(num_digits);
+    Str const ret_str = newStr(num_digits, num_digits);
     for (Uint i = ret_str.len; i > 0;) {
         i -= 1;
         if (n < base) {
@@ -201,7 +203,14 @@ Bool strHasChar(String const s, U8 const c) {
 
 Str strConcat(Strs strs) {
     Uint str_len = 0;
+    forEach(Str, str, strs, { str_len += str->len; });
 
-    forEach(Str, foo, strs, { str_len += foo->len; });
+    Str ret_str = newStr(0, str_len);
+    forEach(Str, str, strs, {
+        for (Uint i = 0; i < str->len; i += 1)
+            ret_str.at[i + ret_str.len] = str->at[i];
+        ret_str.len += str->len;
+    });
+
     return str("TODO");
 }
