@@ -26,10 +26,8 @@ struct AstExpr {
         Str kind_lit_str;      // "123"
         Str kind_ident;        // anyIdentifier                         (also operators)
         AstExprs kind_form;    // expr1 expr2 expr3 ... exprN           (always: .len >= 2)
-        AstExprs kind_bracket; // [expr1, expr2, expr3, ..., exprN]     (always:
-                               // .len >= 0)
-        AstExprs kind_braces;  // {expr1, expr2, expr3, ..., exprN}     (always: .len
-                               // >= 0)
+        AstExprs kind_bracket; // [expr1, expr2, expr3, ..., exprN]     (always: .len >= 0)
+        AstExprs kind_braces;  // {expr1, expr2, expr3, ..., exprN}     (always: .len >= 0)
     };
     struct {
         Uint parensed;
@@ -85,4 +83,21 @@ Str astNodeMsg(String const msg_prefix, AstNode const* const node, Ast const* co
     Str const toks_src = toksSrc(node_toks, ast->src);
     Str arr[5] = {str(msg_prefix), str(" in line "), line_nr, str(":\n"), toks_src};
     return strConcat((Strs) {.len = 5, .at = arr});
+}
+
+AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint const idx_end) {
+    assert(!(idx_start == 0 && idx_end == ast_expr->kind_form.len));
+    assert(idx_end > idx_start);
+    if (idx_end == idx_start + 1)
+        return ast_expr->kind_form.at[idx_start];
+
+    AstExpr ret_expr = (AstExpr) {
+        .kind = ast_expr_form,
+        .anns = {.parensed = false, .toks_throng = ast_expr->anns.toks_throng},
+        .base = {.toks_len = 0, .toks_idx = ast_expr->kind_form.at[idx_start].base.toks_idx},
+        .kind_form = slice(AstExpr, ast_expr->kind_form, idx_start, idx_end),
+    };
+    for (Uint i = idx_start; i < idx_end; i += 1)
+        ret_expr.base.toks_len += ast_expr->kind_form.at[i].base.toks_len;
+    return ret_expr;
 }

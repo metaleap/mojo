@@ -179,7 +179,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     });
     assert(level == 0);
 
-    Tokenss ret_chunks = alloc(Tokens, 0, num_chunks);
+    Tokenss ret_chunks = make(Tokens, 0, num_chunks);
     {
         Int start_from = -1;
         forEach(Token, tok, toks, {
@@ -234,7 +234,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
 
 Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     assert(!tokIsBracket(tok_kind));
-    Tokenss ret_sub_toks = alloc(Tokens, 0, 1 + toksCountUnnested(toks, tok_kind));
+    Tokenss ret_sub_toks = make(Tokens, 0, 1 + toksCountUnnested(toks, tok_kind));
     {
         Int level = 0;
         Uint start_from = 0;
@@ -253,7 +253,7 @@ Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
 }
 
 Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
-    Tokens toks = alloc(Token, 0, full_src.len);
+    Tokens toks = make(Token, 0, full_src.len);
 
     TokenKind state = tok_kind_none;
     Uint cur_line_nr = 0;

@@ -105,7 +105,7 @@ void assert(Bool const pred) {
 U8 mem_buf[mem_max];
 Uint mem_pos = 0;
 
-#define alloc(T, initial_len, max_capacity)                                                                                                    \
+#define make(T, initial_len, max_capacity)                                                                                                     \
     ((T##s) {.len = initial_len, .at = (T*)(memAlloc(((max_capacity < initial_len) ? initial_len : max_capacity) * (sizeof(T))))})
 
 U8* memAlloc(Uint const num_bytes) {
