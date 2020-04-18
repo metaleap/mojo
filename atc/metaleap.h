@@ -50,6 +50,7 @@ typedef Maybe(Int) ˇInt;
 typedef Maybe(Uint) ºUint;
 typedef SliceOf(Uint) Uints;
 typedef SliceOf(U8) U8s; // we dont use it but use `Str`, however `slice(U8, ...)` expects it
+typedef Maybe(U64) ºU64;
 typedef void* Ptr;
 typedef U8s Str;
 typedef SliceOf(Str) Strs;
@@ -113,7 +114,7 @@ void assert(Bool const pred) {
 
 
 // pre-allocated fixed-size "heap"
-#define mem_max (2 * 1024 * 1024)
+#define mem_max (1 * 1024 * 1024)
 U8 mem_buf[mem_max];
 Uint mem_pos = 0;
 
@@ -134,18 +135,18 @@ Str newStr(Uint const str_len, Uint const str_cap) {
     return ret_str;
 }
 
-ºUint uintParse(Str const str) {
+ºU64 uintParse(Str const str) {
     assert(str.len > 0);
-    Uint ret_uint = 0;
-    Uint mult = 1;
+    U64 ret_uint = 0;
+    U64 mult = 1;
     for (Uint i = str.len; i > 0;) {
         i -= 1;
         if (str.at[i] < '0' || str.at[i] > '9')
-            return none(Uint);
+            return none(U64);
         ret_uint += mult * (str.at[i] - 48);
         mult *= 10;
     }
-    return ok(Uint, ret_uint);
+    return ok(U64, ret_uint);
 }
 
 Str uintToStr(Uint const uint_value, Uint const base) {

@@ -11,8 +11,8 @@ typedef enum TokenKind {
     tok_kind_comment = 1,
     tok_kind_ident = 2,
     tok_kind_lit_num_prefixed = 3, // tokens starting with '0'-'9'
-    tok_kind_lit_str_normal = 4,   // "string-ish quote marks"
-    tok_kind_lit_str_charish = 5,  // 'char-ish quote marks'
+    tok_kind_lit_str_qdouble = 4,  // "string-ish quote marks"
+    tok_kind_lit_str_qsingle = 5,  // 'char-ish quote marks'
     tok_kind_sep_bparen_open = 6,
     tok_kind_sep_bparen_close = 7,
     tok_kind_sep_bcurly_open = 8,
@@ -50,7 +50,7 @@ Uint tokPosCol(Token const* const tok) {
 }
 
 Bool tokCanThrong(Token const* const tok, Str const full_src) {
-    return tok->kind == tok_kind_lit_num_prefixed || tok->kind == tok_kind_lit_str_normal || tok->kind == tok_kind_lit_str_charish
+    return tok->kind == tok_kind_lit_num_prefixed || tok->kind == tok_kind_lit_str_qdouble || tok->kind == tok_kind_lit_str_qsingle
            || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && full_src.at[tok->char_pos] != '=');
 }
 
@@ -274,7 +274,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
     for (; i < full_src.len; i += 1) {
         U8 const c = full_src.at[i];
         if (c == '\n') {
-            if (state == tok_kind_lit_str_normal || state == tok_kind_lit_str_charish)
+            if (state == tok_kind_lit_str_qdouble || state == tok_kind_lit_str_qsingle)
                 panic("line-break in literal in line %s:\n%s", strZ(uintToStr(1 + cur_line_nr, 10)), strZ(strSub(full_src, tok_idx_start, i)));
             if (tok_idx_start != -1 && tok_idx_last == -1)
                 tok_idx_last = i - 1;
@@ -289,11 +289,11 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                         tok_idx_last = i;
                     }
                     break;
-                case tok_kind_lit_str_normal:
+                case tok_kind_lit_str_qdouble:
                     if (c == '\"')
                         tok_idx_last = i;
                     break;
-                case tok_kind_lit_str_charish:
+                case tok_kind_lit_str_qsingle:
                     if (c == '\'')
                         tok_idx_last = i;
                     break;
@@ -302,11 +302,11 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                     switch (c) {
                         case '\"':
                             tok_idx_start = i;
-                            state = tok_kind_lit_str_normal;
+                            state = tok_kind_lit_str_qdouble;
                             break;
                         case '\'':
                             tok_idx_start = i;
-                            state = tok_kind_lit_str_charish;
+                            state = tok_kind_lit_str_qsingle;
                             break;
                         case '[':
                             tok_idx_last = i;

@@ -23,7 +23,7 @@ struct AstExpr {
     AstNodeBase node_base;
     AstExprKind kind;
     union {
-        Uint kind_lit_int;     // 123
+        U64 kind_lit_int;      // 123
         Str kind_lit_str;      // "123"
         Str kind_ident;        // anyIdentifier                         (also operators)
         AstExprs kind_form;    // expr1 expr2 expr3 ... exprN           (always: .len >= 2)
@@ -78,18 +78,23 @@ String astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const
     return (String)str5(msg_prefix, str(" in line "), line_nr, str(":\n"), toks_src).at;
 }
 
+AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind) {
+    return (AstExpr) {
+        .node_base = astNodeBaseFrom(toks_idx, toks_len),
+        .kind = expr_kind,
+        .anns = {.parensed = 0, .toks_throng = false},
+    };
+}
+
 AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint const idx_end) {
     assert(!(idx_start == 0 && idx_end == ast_expr->kind_form.len));
     assert(idx_end > idx_start);
     if (idx_end == idx_start + 1)
         return ast_expr->kind_form.at[idx_start];
 
-    AstExpr ret_expr = (AstExpr) {
-        .kind = ast_expr_form,
-        .anns = {.parensed = false, .toks_throng = ast_expr->anns.toks_throng},
-        .node_base = {.toks_len = 0, .toks_idx = ast_expr->kind_form.at[idx_start].node_base.toks_idx},
-        .kind_form = slice(AstExpr, ast_expr->kind_form, idx_start, idx_end),
-    };
+    AstExpr ret_expr = astExpr(ast_expr->kind_form.at[idx_start].node_base.toks_idx, 0, ast_expr_form);
+    ret_expr.anns.toks_throng = ast_expr->anns.toks_throng;
+    ret_expr.kind_form = slice(AstExpr, ast_expr->kind_form, idx_start, idx_end);
     for (Uint i = idx_start; i < idx_end; i += 1)
         ret_expr.node_base.toks_len += ast_expr->kind_form.at[i].node_base.toks_len;
     return ret_expr;
