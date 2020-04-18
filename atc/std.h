@@ -178,8 +178,9 @@ Bool strEql(Str const one, Str const two) {
     return false;
 }
 
-Bool strEq(Str const one, String const two) {
-    return strEql(one, str(two));
+Bool strEq(Str const one, String const two, ºUint const str_len) {
+    Str const s2 = (!str_len.ok) ? str(two) : ((Str) {.len = str_len.it, .at = (U8*)two});
+    return strEql(one, s2);
 }
 
 Str strSub(Str const str, Uint const idx_start, Uint const idx_end) {
@@ -201,16 +202,33 @@ Bool strHasChar(String const s, U8 const c) {
     return false;
 }
 
-Str strConcat(Strs strs) {
+Str strConcat(Strs const strs) {
     Uint str_len = 0;
     forEach(Str, str, strs, { str_len += str->len; });
 
-    Str ret_str = newStr(0, str_len);
+    Str ret_str = newStr(0, 1 + str_len);
+    ret_str.at[str_len] = 0;
     forEach(Str, str, strs, {
         for (Uint i = 0; i < str->len; i += 1)
             ret_str.at[i + ret_str.len] = str->at[i];
         ret_str.len += str->len;
     });
 
-    return str("TODO");
+    return ret_str;
+}
+
+Str str2(Str const s1, Str const s2) {
+    return strConcat((Strs) {.len = 2, .at = ((Str[]) {s1, s2})});
+}
+
+Str str3(Str const s1, Str const s2, Str const s3) {
+    return strConcat((Strs) {.len = 3, .at = ((Str[]) {s1, s2, s3})});
+}
+
+Str str4(Str const s1, Str const s2, Str const s3, Str const s4) {
+    return strConcat((Strs) {.len = 4, .at = ((Str[]) {s1, s2, s3, s4})});
+}
+
+Str str5(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5) {
+    return strConcat((Strs) {.len = 5, .at = ((Str[]) {s1, s2, s3, s4, s5})});
 }
