@@ -24,6 +24,19 @@
         Bool ok;                                                                                                                               \
     }
 
+#define Tup2(T0, T1)                                                                                                                           \
+    struct {                                                                                                                                   \
+        T0 _0;                                                                                                                                 \
+        T1 _1;                                                                                                                                 \
+    }
+
+#define Tup3(T0, T1, T2)                                                                                                                       \
+    struct {                                                                                                                                   \
+        T0 _0;                                                                                                                                 \
+        T1 _1;                                                                                                                                 \
+        T2 _2;                                                                                                                                 \
+    }
+
 typedef bool Bool;
 typedef u_int8_t U8;
 typedef u_int16_t U16;

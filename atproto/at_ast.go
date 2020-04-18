@@ -170,6 +170,7 @@ func astDefPopulateScopes(top_def *AstDef, cur_def *AstDef, ast *Ast, parent *As
 			}
 		}
 	}
+
 	for i := range cur_def.defs {
 		sub_def := &cur_def.defs[i]
 		astDefPopulateScopes(top_def, sub_def, ast, &cur_def.scope)

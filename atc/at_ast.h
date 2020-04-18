@@ -48,9 +48,10 @@ struct AstDef {
     AstExpr head;
     AstExpr body;
     AstDefs sub_defs;
+    AstDef* parent_def;
     struct {
-        Bool is_top_def;
         Str name;
+        Uint total_sub_defs_count;
     } anns;
 };
 
@@ -151,4 +152,8 @@ AstNameRef* astScopesResolve(AstScopes const* scope, Str const name, ºUint only
         scope = scope->parent;
     }
     return NULL;
+}
+
+
+void astDefScopesPopulate(AstDef const* const top_def, Ast const* const ast, AstScopes const* const parent_scope) {
 }
