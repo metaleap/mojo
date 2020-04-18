@@ -7,7 +7,7 @@ const String tok_sep_chars = "[]{}(),:";
 
 
 typedef enum TokenKind {
-    tok_kind_none = 0,
+    tok_kind_nope = 0,
     tok_kind_comment = 1,
     tok_kind_ident = 2,
     tok_kind_lit_num_prefixed = 3, // tokens starting with '0'-'9'
@@ -210,14 +210,13 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
 
 ºUint toksIndexOfMatchingBracket(Tokens const toks) {
     TokenKind const tok_open_kind = toks.at[0].kind;
-    TokenKind tok_close_kind = tok_kind_none;
+    TokenKind tok_close_kind;
     switch (tok_open_kind) {
         case tok_kind_sep_bcurly_open: tok_close_kind = tok_kind_sep_bcurly_close; break;
         case tok_kind_sep_bsquare_open: tok_close_kind = tok_kind_sep_bsquare_close; break;
         case tok_kind_sep_bparen_open: tok_close_kind = tok_kind_sep_bparen_close; break;
-        default: break;
+        default: panic("toksIndexOfMatchingBracket: caller mistake"); break;
     }
-    assert(tok_close_kind != tok_kind_none);
 
     Int level = 0;
     forEach(Token, tok, toks, {
@@ -257,7 +256,7 @@ Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
 Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
     Tokens toks = make(Token, 0, full_src.len);
 
-    TokenKind state = tok_kind_none;
+    TokenKind state = tok_kind_nope;
     Uint cur_line_nr = 0;
     Uint cur_line_idx = 0;
     Int tok_idx_start = -1;
@@ -298,7 +297,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                         tok_idx_last = i;
                     break;
                 case tok_kind_comment: break;
-                case tok_kind_none:
+                case tok_kind_nope:
                     switch (c) {
                         case '\"':
                             tok_idx_start = i;
@@ -368,7 +367,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
             }
         }
         if (tok_idx_last != -1) {
-            assert(state != tok_kind_none && tok_idx_start != -1);
+            assert(state != tok_kind_nope && tok_idx_start != -1);
             if (state != tok_kind_comment || keep_comment_toks)
                 append(toks, ((Token) {
                                  .kind = state,
@@ -377,7 +376,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                                  .char_pos = (Uint)(tok_idx_start),
                                  .str_len = (Uint)(1 + (tok_idx_last - tok_idx_start)),
                              }));
-            state = tok_kind_none;
+            state = tok_kind_nope;
             tok_idx_start = -1;
             tok_idx_last = -1;
         }
@@ -387,7 +386,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
         }
     }
     if (tok_idx_start != -1) {
-        assert(state != tok_kind_none);
+        assert(state != tok_kind_nope);
         if (state != tok_kind_comment || keep_comment_toks)
             append(toks, ((Token) {
                              .kind = state,

@@ -9,12 +9,12 @@ typedef struct AstNodeBase {
 } AstNodeBase;
 
 typedef enum AstExprKind {
-    ast_expr_lit_int,
-    ast_expr_lit_str,
-    ast_expr_ident,
-    ast_expr_form,
-    ast_expr_lit_bracket,
-    ast_expr_lit_braces,
+    ast_expr_lit_int = 1,
+    ast_expr_lit_str = 2,
+    ast_expr_ident = 3,
+    ast_expr_form = 4,
+    ast_expr_lit_bracket = 5,
+    ast_expr_lit_braces = 6,
 } AstExprKind;
 
 typedef struct AstExpr AstExpr;
