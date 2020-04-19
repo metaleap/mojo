@@ -58,8 +58,6 @@ typedef struct Ast {
     Str src;
     Tokens toks;
     AstDefs top_defs;
-    // struct {
-    // } anns;
 } Ast;
 
 
@@ -72,11 +70,11 @@ Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
     return ·slice(Token, ast->toks, node->toks_idx, node->toks_idx + node->toks_len);
 }
 
-String astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
+Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
     Tokens const node_toks = astNodeToks(node, ast);
     Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 10);
     Str const toks_src = toksSrc(node_toks, ast->src);
-    return (String)str5(msg_prefix, str(" in line "), line_nr, str(":\n"), toks_src).at;
+    return str5(msg_prefix, str(" in line "), line_nr, str(":\n"), toks_src);
 }
 
 AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
@@ -128,10 +126,13 @@ AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Boo
     }
     Bool const must_both = must_lhs && must_rhs;
     if (must_both && !pos.ok)
-        panic(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->node_base, ast));
+        fail(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->node_base, ast));
     if (must_lhs && !ret_tup.lhs.ok)
-        panic(astNodeMsg(str3(str("expected expression before '"), ident, str("'")), &ast_expr->node_base, ast));
+        fail(astNodeMsg(str3(str("expected expression before '"), ident, str("'")), &ast_expr->node_base, ast));
     if (must_rhs && !ret_tup.rhs.ok)
-        panic(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
+        fail(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
     return ret_tup;
+}
+
+void astPrint(Ast const* const ast) {
 }

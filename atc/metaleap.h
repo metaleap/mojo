@@ -90,31 +90,33 @@ typedef ·SliceOf(Str) Strs;
 #define ·none(T) ((º##T) {.ok = false})
 
 
-void panic(String const format, ...) {
+
+
+void fail(Str const str) {
     PtrAny callstack[16];
     Uint const n_frames = backtrace(callstack, 16);
     backtrace_symbols_fd(callstack, n_frames, 2); // 2 being stderr
 
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-
+    fwrite(str.at, 1, str.len, stderr);
     fwrite("\n", 1, 1, stderr);
     exit(1);
 }
 
-void panicIf(int const err) {
-    if (err)
-        panic("error %d", err);
+Str str(String const);
+Str uintToStr(Uint const, Uint const);
+Str str2(Str const, Str const);
+void failIf(int err_code) {
+    if (err_code)
+        fail(str2(str("error code: "), uintToStr(err_code, 10)));
 }
 
 void assert(Bool const pred) {
 #ifdef DEBUG
     if (!pred)
-        panic("assertion failure");
+        fail(str("assertion failure"));
 #endif
 }
+
 
 
 
@@ -130,7 +132,7 @@ Uint mem_pos = 0;
 U8* memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
     if (new_pos >= mem_max - 1)
-        panic("out of memory: increase mem_max!");
+        fail(str("out of memory: increase mem_max!"));
     U8* const mem_ptr = &mem_buf[mem_pos];
     mem_pos = new_pos;
     return mem_ptr;
@@ -237,6 +239,10 @@ Str strConcat(Strs const strs) {
     });
 
     return ret_str;
+}
+
+Str str1(Str const s1) {
+    return strConcat((Strs) {.len = 1, .at = ((Str[]) {s1})});
 }
 
 Str str2(Str const s1, Str const s2) {

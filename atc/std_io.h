@@ -10,7 +10,7 @@ Str readUntilEof(FILE* const stream) {
         ret_str.len += n_read;
 
         if (n_read != buf_size) {
-            panicIf(ferror(stream));
+            failIf(ferror(stream));
             if (feof(stream)) // reading is done
                 break;
         }
@@ -24,7 +24,7 @@ Str readUntilEof(FILE* const stream) {
 Str readFile(String const file_path) {
     FILE* const file = fopen(file_path, "rb");
     if (file == null)
-        panic("could not open %s", file_path);
+        fail(str2(str("failed to open "), str(file_path)));
     Str const file_bytes = readUntilEof(file);
     fclose(file);
     return file_bytes;

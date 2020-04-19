@@ -29,7 +29,7 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
     Tokens const toks = astNodeToks(&dst_def->node_base, ast);
     ºUint const idx_tok_def = toksIndexOfIdent(toks, str(":="), ast->src);
     if ((!idx_tok_def.ok) || idx_tok_def.it == 0 || idx_tok_def.it == toks.len - 1)
-        panic(astNodeMsg(str("expected '<head_expr> := <body_expr>'"), &dst_def->node_base, ast));
+        fail(astNodeMsg(str("expected '<head_expr> := <body_expr>'"), &dst_def->node_base, ast));
 
     dst_def->head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
     switch (dst_def->head.kind) {
@@ -38,18 +38,18 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
         } break;
         case ast_expr_form: {
             if (dst_def->head.kind_form.at[0].kind != ast_expr_ident)
-                panic(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
+                fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
             dst_def->anns.name = dst_def->head.kind_form.at[0].kind_ident;
             for (Uint i = 1; i < dst_def->head.kind_form.len; i += 1) {
                 if (dst_def->head.kind_form.at[i].kind != ast_expr_ident)
-                    panic(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
+                    fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
                 Str const param_name = dst_def->head.kind_form.at[i].kind_ident;
                 if (param_name.at[0] != '_' || (param_name.len > 1 && param_name.at[1] == '_'))
-                    panic(astNodeMsg(str("param name must begin with exactly one underscore"), &dst_def->head.kind_form.at[i].node_base, ast));
+                    fail(astNodeMsg(str("param name must begin with exactly one underscore"), &dst_def->head.kind_form.at[i].node_base, ast));
             }
         } break;
         default: {
-            panic(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
+            fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
         } break;
     }
 
@@ -73,7 +73,7 @@ AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token con
     AstExpr ret_expr = astExpr(all_toks_idx, 1, ast_expr_lit_int);
     ºU64 const maybe = uintParse(tokSrc(tok, ast->src));
     if (!maybe.ok)
-        panic(astNodeMsg(str("malformed or not-yet-supported integer literal"), &ret_expr.node_base, ast));
+        fail(astNodeMsg(str("malformed or not-yet-supported integer literal"), &ret_expr.node_base, ast));
     ret_expr.kind_lit_int = maybe.it;
     return ret_expr;
 }
@@ -98,7 +98,7 @@ AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token con
                 ret_str.at[ret_str.len] = (U8)maybe.it;
             }
             if (bad_esc)
-                panic(astNodeMsg(str("expected 3-digit base-10 integer decimal 000-255 following backslash escape"), &ret_expr.node_base, ast));
+                fail(astNodeMsg(str("expected 3-digit base-10 integer decimal 000-255 following backslash escape"), &ret_expr.node_base, ast));
         }
         ret_str.len += 1;
     }
@@ -139,27 +139,24 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
             switch (expr_toks.at[i].kind) {
 
                 case tok_kind_comment: {
-                    panic("unreachable");
+                    fail(str("unreachable"));
                 } break;
 
                 case tok_kind_lit_num_prefixed: {
-
                     ·append(ret_acc, parseExprLitInt(all_toks_idx + 1, ast, &expr_toks.at[i]));
                 } break;
 
                 case tok_kind_lit_str_qdouble: {
-
                     ·append(ret_acc, parseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"'));
                 } break;
 
                 case tok_kind_lit_str_qsingle: {
                     AstExpr expr_lit = parseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"');
                     if (expr_lit.kind_lit_str.len != 1)
-                        panic(astNodeMsg(str("currently only supporting single-byte char literals"), &expr_lit.node_base, ast));
+                        fail(astNodeMsg(str("currently only supporting single-byte char literals"), &expr_lit.node_base, ast));
 
                     expr_lit.kind = ast_expr_lit_int;
                     expr_lit.kind_lit_int = expr_lit.kind_lit_str.at[0];
-
                     ·append(ret_acc, expr_lit);
                 } break;
 
@@ -208,8 +205,8 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
                 } break;
 
                 default: {
-                    panic("unrecognized token (index %zu, kind %d) in line %zu: %s", i, expr_toks.at[i].kind, expr_toks.at[i].line_nr + 1,
-                          strZ(tokSrc(&expr_toks.at[i], ast->src)));
+                    fail(str4(str("unrecognized token in line "), uintToStr(expr_toks.at[i].line_nr + 1, 10), str(": "),
+                              tokSrc(&expr_toks.at[i], ast->src)));
                 } break;
             }
         }

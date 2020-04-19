@@ -137,18 +137,18 @@ void toksCheckBrackets(Tokens const toks) {
             default: break;
         }
         if (level_bparen < 0)
-            panic("unmatched closing parenthesis in line %s", strZ(uintToStr(1 + tok->line_nr, 10)));
+            fail(str2(str("unmatched closing parenthesis in line "), uintToStr(1 + tok->line_nr, 10)));
         else if (level_bcurly < 0)
-            panic("unmatched closing curly brace in line %s", strZ(uintToStr(1 + tok->line_nr, 10)));
+            fail(str2(str("unmatched closing curly brace in line "), uintToStr(1 + tok->line_nr, 10)));
         else if (level_bsquare < 0)
-            panic("unmatched closing square bracket in line %s", strZ(uintToStr(1 + tok->line_nr, 10)));
+            fail(str2(str("unmatched closing square bracket in line "), uintToStr(1 + tok->line_nr, 10)));
     });
     if (level_bparen > 0)
-        panic("unmatched opening parenthesis in line %s", strZ(uintToStr(1 + line_bparen, 10)));
+        fail(str2(str("unmatched opening parenthesis in line "), uintToStr(1 + line_bparen, 10)));
     else if (level_bcurly > 0)
-        panic("unmatched opening curly brace in line %s", strZ(uintToStr(1 + line_bcurly, 10)));
+        fail(str2(str("unmatched opening curly brace in line "), uintToStr(1 + line_bcurly, 10)));
     else if (level_bsquare > 0)
-        panic("unmatched opening square bracket in line %s", strZ(uintToStr(1 + line_bsquare, 10)));
+        fail(str2(str("unmatched opening square bracket in line "), uintToStr(1 + line_bsquare, 10)));
 }
 
 Tokenss toksIndentBasedChunks(Tokens const toks) {
@@ -217,7 +217,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
         case tok_kind_sep_bcurly_open: tok_close_kind = tok_kind_sep_bcurly_close; break;
         case tok_kind_sep_bsquare_open: tok_close_kind = tok_kind_sep_bsquare_close; break;
         case tok_kind_sep_bparen_open: tok_close_kind = tok_kind_sep_bparen_close; break;
-        default: panic("toksIndexOfMatchingBracket: caller mistake"); break;
+        default: fail(str("toksIndexOfMatchingBracket: caller mistake")); break;
     }
 
     Int level = 0;
@@ -277,7 +277,8 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
         U8 const c = full_src.at[i];
         if (c == '\n') {
             if (state == tok_kind_lit_str_qdouble || state == tok_kind_lit_str_qsingle)
-                panic("line-break in literal in line %s:\n%s", strZ(uintToStr(1 + cur_line_nr, 10)), strZ(strSub(full_src, tok_idx_start, i)));
+                fail(str4(str("line-break in literal in line "), uintToStr(1 + cur_line_nr, 10), str(":\n"),
+                          strSub(full_src, tok_idx_start, i)));
             if (tok_idx_start != -1 && tok_idx_last == -1)
                 tok_idx_last = i - 1;
         } else {
@@ -366,7 +367,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                             break;
                     }
                     break;
-                default: panic("unreachable");
+                default: fail(str("unreachable"));
             }
         }
         if (tok_idx_last != -1) {

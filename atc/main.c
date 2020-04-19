@@ -30,16 +30,15 @@ itself can move from a "host language" (like C) to self-hosted / rolling LLVM-IR
 
 int main(int const argc, String const argv[]) {
     if (argc < 2)
-        panic("expected usage: atc <src_file_path>");
+        fail(str("expected usage: atc <src_file_path>"));
 
     Str const input_src_file_bytes = readFile(argv[1]);
 
     Tokens const toks = tokenize(input_src_file_bytes, false);
     toksCheckBrackets(toks);
-    printf("%zu\n", toks.len);
 
     Ast ast = parse(toks, input_src_file_bytes);
-    printf("%zu\n", ast.top_defs.len);
+    astPrint(&ast);
 }
 
 
