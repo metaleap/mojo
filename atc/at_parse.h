@@ -34,14 +34,14 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
     dst_def->head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
     switch (dst_def->head.kind) {
         case ast_expr_ident: {
-            dst_def->anns.name = dst_def->head.kind_ident;
+            dst_def->anns.name = dst_def->head.of_ident;
         } break;
         case ast_expr_form: {
-            if (dst_def->head.kind_form.at[0].kind != ast_expr_ident)
+            if (dst_def->head.of_form.at[0].kind != ast_expr_ident)
                 ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
-            dst_def->anns.name = dst_def->head.kind_form.at[0].kind_ident;
-            for (Uint i = 1; i < dst_def->head.kind_form.len; i += 1)
-                if (dst_def->head.kind_form.at[i].kind != ast_expr_ident)
+            dst_def->anns.name = dst_def->head.of_form.at[0].of_ident;
+            for (Uint i = 1; i < dst_def->head.of_form.len; i += 1)
+                if (dst_def->head.of_form.at[i].kind != ast_expr_ident)
                     ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
         } break;
         default: {
@@ -70,7 +70,7 @@ AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token con
     ºU64 const maybe = uintParse(tokSrc(tok, ast->src));
     if (!maybe.ok)
         ·fail(astNodeMsg(str("malformed or not-yet-supported integer literal"), &ret_expr.node_base, ast));
-    ret_expr.kind_lit_int = maybe.it;
+    ret_expr.of_lit_int = maybe.it;
     return ret_expr;
 }
 
@@ -100,7 +100,7 @@ AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token con
     }
     ret_str.at[ret_str.len] = 0; // we ensured the extra capacity up in `newStr` call
 
-    ret_expr.kind_lit_str = ret_str;
+    ret_expr.of_lit_str = ret_str;
     return ret_expr;
 }
 
@@ -148,11 +148,11 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
 
                 case tok_kind_lit_str_qsingle: {
                     AstExpr expr_lit = parseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"');
-                    if (expr_lit.kind_lit_str.len != 1)
+                    if (expr_lit.of_lit_str.len != 1)
                         ·fail(astNodeMsg(str("currently only supporting single-byte char literals"), &expr_lit.node_base, ast));
 
                     expr_lit.kind = ast_expr_lit_int;
-                    expr_lit.kind_lit_int = expr_lit.kind_lit_str.at[0];
+                    expr_lit.of_lit_int = expr_lit.of_lit_str.at[0];
                     ·append(ret_acc, expr_lit);
                 } break;
 
@@ -167,7 +167,7 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
                         Tokens const toks_inside_parens = ·slice(Token, expr_toks, i + 1, idx_closing.it);
                         if (toks_inside_parens.len == 0) {
                             AstExpr expr_ident = astExpr(all_toks_idx + i, 2, ast_expr_ident);
-                            expr_ident.kind_ident = str("()");
+                            expr_ident.of_ident = str("()");
                             ·append(ret_acc, expr_ident);
                         } else {
                             AstExpr expr_inside_parens = parseExpr(toks_inside_parens, all_toks_idx + i + 1, ast);
@@ -186,9 +186,9 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
                         AstExpr expr_brac =
                             astExpr(all_toks_idx + i, 1 + (idx_closing.it - i), is_bracket ? ast_expr_lit_bracket : ast_expr_lit_braces);
                         if (is_braces)
-                            expr_brac.kind_braces = exprs_inside;
+                            expr_brac.of_braces = exprs_inside;
                         else
-                            expr_brac.kind_bracket = exprs_inside;
+                            expr_brac.of_bracket = exprs_inside;
                         ·append(ret_acc, expr_brac);
                     }
                     i = idx_closing.it;
@@ -196,7 +196,7 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
 
                 case tok_kind_ident: {
                     AstExpr expr_ident = astExpr(all_toks_idx + i, 1, ast_expr_ident);
-                    expr_ident.kind_ident = tokSrc(&expr_toks.at[i], ast->src);
+                    expr_ident.of_ident = tokSrc(&expr_toks.at[i], ast->src);
                     ·append(ret_acc, expr_ident);
                 } break;
 
@@ -213,7 +213,7 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
         return ret_acc.at[0];
 
     AstExpr ret_expr = astExpr(all_toks_idx, expr_toks.len, ast_expr_form);
-    ret_expr.kind_form = ret_acc;
+    ret_expr.of_form = ret_acc;
     ret_expr.anns.toks_throng = whole_form_throng;
     return ret_expr;
 }

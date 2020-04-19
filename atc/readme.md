@@ -1,11 +1,11 @@
 Fairly unidiomatic code! Because we want to have a _most_-compact C code base to
 later transliterate into our initial (extremely limited) language iteration, we
-anticipate the various early-stage limitations and reflect them in these sources:
+anticipate the various early-stage limitations and reflect them in this code base:
 
-- no proper error handling, immediate `panic`s upon detecting a problem
+- no graceful error handling, immediate `panic`s upon detecting a problem
 - no 3rd-party imports / deps whatsoever
 - no stdlib imports for *core* processing (just for basic program setup & I/O)
-  (hence crude minimal own implementations like uintToStr, uintParse, strEql etc)
+  - hence crude minimal own implementations like uintToStr, uintParse, strEql etc.
 - use of macros limited to (eventual) WIP-lang meta-programming / generic powers
 - all would-be `malloc`s replaced by global fixed-size backing buffer allocation
 - naming / casing conventions follow WIP-lang rather than C customs
@@ -13,11 +13,21 @@ anticipate the various early-stage limitations and reflect them in these sources
 
 We want here to merely reach the "execute-input-sources-or-die" stage. No bells &
 whistles, no *fancy* type stuff, no syntax sugars (not even operators, we endure
-prim calls). No nifty optimizations, no proper byte code, will be slow. Wasteful
-on RAM too, no freeing. Once the destination is reached, build it out to where it
-can be fully redone in WIP-lang, interpreter-in-interpreter. At that point then,
-worry about compilation next before advancing anything else. Thus the foundation
-itself can move from a "host language" (like C) to "self-hosted" (aka. LLVM-IR).
+prim calls). No nifty optimizations, no proper byte code, will be slow. Wasteful on
+RAM, no `free`ing. Not even cross-source-file-imports, too bad. But must focus:
 
-At that point then, months from now, rewrite once again from scratch but this
-time "cleanly" &mdash; focusing on optimal resource usage, real-time perf etc.
+Once the "basic interpreter" destination is reached, build it out to where the
+interpreter itself can be fully redone in WIP-lang, interpreter-in-interpreter.
+At that point then, this C code base is frozen and done and served its purpose.
+All further work proceeds in the very low level limited early initial WIP-lang.
+Now worry about compilation to LLVM-IR next before advancing anything else. Thus
+the ground itself moved: from a "host language" (like C) to "self-hosted" (LLVM).
+
+With basic (theoretically sub-optimal but practically working) compilation in
+place, now rewrite it all once again from scratch but this time "cleanly" &mdash;
+focusing on optimal resource usage, real-time perf etc, error handling, REPL,
+more optimal IR generation (at least rectifying the already obvious TODOs).
+
+Still no bells or whistles, syntax sugars or type magic yet &mdash; until all the
+above is in place properly and well-oiled, robust and sound. I'm impatient too!
+But for once, want to reach for the sky on a bedrock-not-quicksand foundation.

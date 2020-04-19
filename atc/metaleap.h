@@ -67,20 +67,20 @@ typedef ·SliceOf(Str) Strs;
 
 #define ·nameOf(ident) (#ident)
 
-#define ·slice(TSlice__, ¹the_slice_to_reslice__, idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                       \
-    ((TSlice__##s) {.len = (¹idx_end_to_reslice_until__) - (idx_start_reslice_from__),                                                         \
-                    .at = &((¹the_slice_to_reslice__).at[idx_start_reslice_from__])})
+#define ·slice(TSlice__, ¹the_slice_to_reslice__, ²idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                      \
+    ((TSlice__##s) {.len = (¹idx_end_to_reslice_until__) - (²idx_start_reslice_from__),                                                        \
+                    .at = &((¹the_slice_to_reslice__).at[²idx_start_reslice_from__])})
 
-#define ·append(the_slice_to_append_to__, ¹the_item_to_append__)                                                                               \
+#define ·append(³the_slice_to_append_to__, ¹the_item_to_append__)                                                                              \
     do {                                                                                                                                       \
-        (the_slice_to_append_to__).at[(the_slice_to_append_to__).len] = (¹the_item_to_append__);                                               \
-        (the_slice_to_append_to__).len += 1;                                                                                                   \
+        (³the_slice_to_append_to__).at[(³the_slice_to_append_to__).len] = (¹the_item_to_append__);                                             \
+        (³the_slice_to_append_to__).len += 1;                                                                                                  \
     } while (0)
 
-#define ·forEach(TItem, iteree_ident__, the_slice_to_iter__, ¹do_block__)                                                                      \
+#define ·forEach(TItem, iteree_ident__, ²the_slice_to_iter__, ¹do_block__)                                                                     \
     do {                                                                                                                                       \
-        for (Uint iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                           \
-            TItem* const iteree_ident__ = &((the_slice_to_iter__).at[iˇ##iteree_ident__]);                                                     \
+        for (Uint iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (²the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                          \
+            TItem* const iteree_ident__ = &((²the_slice_to_iter__).at[iˇ##iteree_ident__]);                                                    \
             ¹do_block__                                                                                                                       \
         }                                                                                                                                      \
     } while (0)
@@ -100,8 +100,10 @@ typedef ·SliceOf(Str) Strs;
 #if DEBUG
 #define ·assert(¹the_predicate)                                                                                                                \
     do {                                                                                                                                       \
-        if (!(¹the_predicate))                                                                                                                 \
-            fprintf(stderr, "\nassert violation `%s` triggered in: %s:%d\n", #¹the_predicate, __FILE__, __LINE__);                             \
+        if (!(¹the_predicate)) {                                                                                                               \
+            fprintf(stderr, "\n>>>>>>>>>>>>>>>>>>>>>>\n\nassert violation `%s` triggered in: %s:%d\n\n", #¹the_predicate, __FILE__, __LINE__); \
+            exit(1);                                                                                                                           \
+        }                                                                                                                                      \
     } while (0)
 #else
 #define ·assert(¹the_predicate)
@@ -141,9 +143,9 @@ void failIf(int err_code) {
 U8 mem_buf[mem_max];
 Uint mem_pos = 0;
 
-#define ·make(T, initial_len__, max_capacity__)                                                                                                \
-    ((T##s) {.len = (initial_len__),                                                                                                           \
-             .at = (T*)(memAlloc((((max_capacity__) < (initial_len__)) ? (initial_len__) : (max_capacity__)) * (sizeof(T))))})
+#define ·make(T, ³initial_len__, ²max_capacity__)                                                                                              \
+    ((T##s) {.len = (³initial_len__),                                                                                                          \
+             .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
 
 U8* memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
