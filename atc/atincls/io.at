@@ -1,0 +1,17 @@
+
+io :=
+  { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
+
+  writeTo _file _str :=
+    /case (/or (eq n_written str_len) (eq maybe_err 0))
+          { true: #ok n_written, false: #err maybe_err }
+    n_written := libc.fWrite _str 1 str_len _file
+    maybe_err := libc.fError _file
+    str_len := /len _str
+
+  writeToOut _str := writeToStdOrExit libc.stdout _str
+  writeToErr _str := writeToStdOrExit libc.stdout _str
+
+  writeToStdOrExit _std_file _str :=
+    /case (writeTo _std_file _str)
+          { #ok: n -> n, #err: _ -> libc.exit 1 }

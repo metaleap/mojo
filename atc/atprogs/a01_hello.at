@@ -1,0 +1,3 @@
+
+main :=
+    io.writeToOut "Hello World!\010"

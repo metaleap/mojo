@@ -211,7 +211,8 @@ Str str(String const from) {
     return (Str) {.len = str_len, .at = (U8*)from};
 }
 
-// for immediate consumption! not for keeping around
+// unused in principle, but kept around just in case we really do need a printf
+// occasionally while debugging. result for immediate consumption! not for keeping.
 String strZ(Str const str) {
     if (str.at[str.len] == 0)
         return (String)str.at;
