@@ -7,19 +7,19 @@ const String tok_sep_chars = "[]{}(),:";
 
 
 typedef enum TokenKind {
-    tok_kind_nope = 0,
-    tok_kind_comment = 1,
-    tok_kind_ident = 2,
-    tok_kind_lit_num_prefixed = 3, // tokens starting with '0'-'9'
-    tok_kind_lit_str_qdouble = 4,  // "string-ish quote marks"
-    tok_kind_lit_str_qsingle = 5,  // 'char-ish quote marks'
-    tok_kind_sep_bparen_open = 6,
-    tok_kind_sep_bparen_close = 7,
-    tok_kind_sep_bcurly_open = 8,
-    tok_kind_sep_bcurly_close = 9,
-    tok_kind_sep_bsquare_open = 10,
-    tok_kind_sep_bsquare_close = 11,
-    tok_kind_sep_comma = 12,
+    tok_kind_nope = 0,               // used for state machine inside `tokenize`, never produced to consumers
+    tok_kind_comment = 1,            // double-slash comments, until EOL
+    tok_kind_ident = 2,              // fallback for all otherwise-unmatched tokens
+    tok_kind_lit_num_prefixed = 3,   // any tokens starting with '0'-'9'
+    tok_kind_lit_str_qdouble = 4,    // "string-ish quote marks"
+    tok_kind_lit_str_qsingle = 5,    // 'char-ish quote marks'
+    tok_kind_sep_bparen_open = 6,    // (
+    tok_kind_sep_bparen_close = 7,   // )
+    tok_kind_sep_bcurly_open = 8,    // {
+    tok_kind_sep_bcurly_close = 9,   // }
+    tok_kind_sep_bsquare_open = 10,  // [
+    tok_kind_sep_bsquare_close = 11, // ]
+    tok_kind_sep_comma = 12,         // ,
 } TokenKind;
 
 typedef struct Token {
@@ -29,8 +29,8 @@ typedef struct Token {
     Uint char_pos;
     Uint str_len;
 } Token;
-typedef SliceOf(Token) Tokens;
-typedef SliceOf(Tokens) Tokenss;
+typedef ·SliceOf(Token) Tokens;
+typedef ·SliceOf(Tokens) Tokenss;
 
 
 Bool tokIsOpeningBracket(TokenKind const tok_kind) {
@@ -77,7 +77,7 @@ Str toksSrc(Tokens const toks, Str const full_src) {
 
 Uint toksCount(Tokens const toks, Str const ident, Str const full_src) {
     Uint ret_num = 0;
-    forEach(Token, tok, toks, {
+    ·forEach(Token, tok, toks, {
         if (tok->kind == tok_kind_ident && strEql(ident, tokSrc(tok, full_src)))
             ret_num += 1;
     });
@@ -88,7 +88,7 @@ Uint toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
     assert(!tokIsBracket(tok_kind));
     Uint ret_num = 0;
     Int level = 0;
-    forEach(Token, tok, toks, {
+    ·forEach(Token, tok, toks, {
         if (tok->kind == tok_kind && level == 0)
             ret_num += 1;
         else if (tokIsOpeningBracket(tok->kind))
@@ -102,7 +102,7 @@ Uint toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
 void toksCheckBrackets(Tokens const toks) {
     Int level_bparen = 0, level_bsquare = 0, level_bcurly = 0;
     Int line_bparen = -1, line_bsquare = -1, line_bcurly = -1;
-    forEach(Token, tok, toks, {
+    ·forEach(Token, tok, toks, {
         switch (tok->kind) {
             case tok_kind_sep_bcurly_open:
                 level_bcurly += 1;
@@ -155,12 +155,13 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     assert(toks.len > 0);
     Uint cmp_pos_col = tokPosCol(&toks.at[0]);
     Int level = 0;
-    forEach(Token, tok, toks, {
+    ·forEach(Token, tok, toks, {
         if (level == 0) {
             Uint const pos_col = tokPosCol(tok);
             if (pos_col < cmp_pos_col)
                 cmp_pos_col = pos_col;
-        } else if (tokIsOpeningBracket(tok->kind))
+        }
+        if (tokIsOpeningBracket(tok->kind))
             level += 1;
         else if (tokIsClosingBracket(tok->kind))
             level -= 1;
@@ -168,25 +169,26 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     assert(level == 0);
 
     Uint num_chunks = 0;
-    forEach(Token, tok, toks, {
+    ·forEach(Token, tok, toks, {
         if (level == 0) {
-            if (tokˇidx == 0 || tokPosCol(tok) <= cmp_pos_col)
+            if (iˇtok == 0 || tokPosCol(tok) <= cmp_pos_col)
                 num_chunks += 1;
-        } else if (tokIsOpeningBracket(tok->kind))
+        }
+        if (tokIsOpeningBracket(tok->kind))
             level += 1;
         else if (tokIsClosingBracket(tok->kind))
             level -= 1;
     });
     assert(level == 0);
 
-    Tokenss ret_chunks = make(Tokens, 0, num_chunks);
+    Tokenss ret_chunks = ·make(Tokens, 0, num_chunks);
     {
         Int start_from = -1;
-        forEach(Token, tok, toks, {
-            if (tokˇidx == 0 || (level == 0 && tokPosCol(tok) <= cmp_pos_col)) {
+        ·forEach(Token, tok, toks, {
+            if (iˇtok == 0 || (level == 0 && tokPosCol(tok) <= cmp_pos_col)) {
                 if (start_from != -1)
-                    append(ret_chunks, slice(Token, toks, start_from, tokˇidx));
-                start_from = tokˇidx;
+                    ·append(ret_chunks, ·slice(Token, toks, start_from, iˇtok));
+                start_from = iˇtok;
             }
             if (tokIsOpeningBracket(tok->kind))
                 level += 1;
@@ -194,19 +196,18 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
                 level -= 1;
         });
         if (start_from != -1)
-            append(ret_chunks, slice(Token, toks, start_from, toks.len));
-        printf("TODO!\t%zu VS %zu\n", ret_chunks.len, num_chunks);
+            ·append(ret_chunks, ·slice(Token, toks, start_from, toks.len));
         assert(ret_chunks.len == num_chunks);
     }
     return ret_chunks;
 }
 
 ºUint toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
-    forEach(Token, tok, toks, {
+    ·forEach(Token, tok, toks, {
         if (tok->kind == tok_kind_ident && strEql(ident, tokSrc(tok, full_src)))
-            return ok(Uint, tokˇidx);
+            return ·ok(Uint, iˇtok);
     });
-    return none(Uint);
+    return ·none(Uint);
 }
 
 ºUint toksIndexOfMatchingBracket(Tokens const toks) {
@@ -220,42 +221,43 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     }
 
     Int level = 0;
-    forEach(Token, tok, toks, {
+    ·forEach(Token, tok, toks, {
         if (tok->kind == tok_open_kind)
             level += 1;
         else if (tok->kind == tok_close_kind) {
             level -= 1;
             if (level == 0)
-                return ok(Uint, tokˇidx);
+                return ·ok(Uint, iˇtok);
         }
     });
-    return none(Uint);
+    return ·none(Uint);
 }
 
 Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     assert(!tokIsBracket(tok_kind));
     if (toks.len == 0)
         return (Tokenss) {.len = 0, .at = NULL};
-    Tokenss ret_sub_toks = make(Tokens, 0, 1 + toksCountUnnested(toks, tok_kind));
+    Uint capacity = 1 + toksCountUnnested(toks, tok_kind);
+    Tokenss ret_sub_toks = ·make(Tokens, 0, capacity);
     {
         Int level = 0;
         Uint start_from = 0;
-        forEach(Token, tok, toks, {
+        ·forEach(Token, tok, toks, {
             if (tok->kind == tok_kind && level == 0) {
-                append(ret_sub_toks, slice(Token, toks, start_from, tokˇidx));
-                start_from = tokˇidx + 1;
+                ·append(ret_sub_toks, ·slice(Token, toks, start_from, iˇtok));
+                start_from = iˇtok + 1;
             } else if (tokIsOpeningBracket(tok->kind))
                 level += 1;
             else if (tokIsClosingBracket(tok->kind))
                 level -= 1;
         });
-        append(ret_sub_toks, slice(Token, toks, start_from, toks.len));
+        ·append(ret_sub_toks, ·slice(Token, toks, start_from, toks.len));
     }
     return ret_sub_toks;
 }
 
 Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
-    Tokens toks = make(Token, 0, full_src.len);
+    Tokens toks = ·make(Token, 0, full_src.len);
 
     TokenKind state = tok_kind_nope;
     Uint cur_line_nr = 0;
@@ -370,13 +372,13 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
         if (tok_idx_last != -1) {
             assert(state != tok_kind_nope && tok_idx_start != -1);
             if (state != tok_kind_comment || keep_comment_toks)
-                append(toks, ((Token) {
-                                 .kind = state,
-                                 .line_nr = cur_line_nr,
-                                 .char_pos_line_start = cur_line_idx,
-                                 .char_pos = (Uint)(tok_idx_start),
-                                 .str_len = (Uint)(1 + (tok_idx_last - tok_idx_start)),
-                             }));
+                ·append(toks, ((Token) {
+                                  .kind = state,
+                                  .line_nr = cur_line_nr,
+                                  .char_pos_line_start = cur_line_idx,
+                                  .char_pos = (Uint)(tok_idx_start),
+                                  .str_len = (Uint)(1 + (tok_idx_last - tok_idx_start)),
+                              }));
             state = tok_kind_nope;
             tok_idx_start = -1;
             tok_idx_last = -1;
@@ -389,13 +391,13 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
     if (tok_idx_start != -1) {
         assert(state != tok_kind_nope);
         if (state != tok_kind_comment || keep_comment_toks)
-            append(toks, ((Token) {
-                             .kind = state,
-                             .line_nr = cur_line_nr,
-                             .char_pos_line_start = cur_line_idx,
-                             .char_pos = (Uint)(tok_idx_start),
-                             .str_len = i - tok_idx_start,
-                         }));
+            ·append(toks, ((Token) {
+                              .kind = state,
+                              .line_nr = cur_line_nr,
+                              .char_pos_line_start = cur_line_idx,
+                              .char_pos = (Uint)(tok_idx_start),
+                              .str_len = i - tok_idx_start,
+                          }));
     }
     return toks;
 }

@@ -10,25 +10,25 @@
 
 
 
-#define SliceOf(T)                                                                                                                             \
+#define ·SliceOf(T)                                                                                                                            \
     struct {                                                                                                                                   \
         T* at;                                                                                                                                 \
         Uint len;                                                                                                                              \
     }
 
-#define Maybe(T)                                                                                                                               \
+#define ·Maybe(T)                                                                                                                              \
     struct {                                                                                                                                   \
         T it;                                                                                                                                  \
         Bool ok;                                                                                                                               \
     }
 
-#define Tup2(T0, T1)                                                                                                                           \
+#define ·Tup2(T0, T1)                                                                                                                          \
     struct {                                                                                                                                   \
         T0 _0;                                                                                                                                 \
         T1 _1;                                                                                                                                 \
     }
 
-#define Tup3(T0, T1, T2)                                                                                                                       \
+#define ·Tup3(T0, T1, T2)                                                                                                                      \
     struct {                                                                                                                                   \
         T0 _0;                                                                                                                                 \
         T1 _1;                                                                                                                                 \
@@ -46,43 +46,41 @@ typedef int32_t I32;
 typedef int64_t I64;
 typedef ssize_t Int;
 typedef size_t Uint;
-typedef Maybe(Int) ˇInt;
-typedef Maybe(Uint) ºUint;
-typedef SliceOf(Uint) Uints;
-typedef SliceOf(U8) U8s; // we dont use it but use `Str`, however `slice(U8, ...)` expects it
-typedef Maybe(U64) ºU64;
+typedef ·Maybe(Int) ºInt;
+typedef ·Maybe(Uint) ºUint;
+typedef ·SliceOf(Uint) Uints;
+typedef ·SliceOf(U8) U8s; // we dont use it but use `Str`, however `·slice(U8, ...)` expects it
+typedef ·Maybe(U64) ºU64;
 typedef void* Ptr;
 typedef U8s Str;
-typedef SliceOf(Str) Strs;
+typedef ·SliceOf(Str) Strs;
 typedef const char* String;
 
 
 
-#define nameOf(ident) #ident
+#define ·nameOf(ident) (#ident)
 
-#define slice(T, the_slice, idx_start, idx_end) ((T##s) {.len = idx_end - idx_start, .at = the_slice.at + (idx_start * sizeof(T))})
+#define ·slice(TSlice__, ¹the_slice_to_reslice__, idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                       \
+    ((TSlice__##s) {.len = (¹idx_end_to_reslice_until__) - (idx_start_reslice_from__),                                                         \
+                    .at = &((¹the_slice_to_reslice__).at[idx_start_reslice_from__])})
 
-#define append(the_slice, item)                                                                                                                \
+#define ·append(the_slice_to_append_to__, ¹the_item_to_append__)                                                                               \
     do {                                                                                                                                       \
-        the_slice.at[the_slice.len] = (item);                                                                                                  \
-        the_slice.len += 1;                                                                                                                    \
+        (the_slice_to_append_to__).at[(the_slice_to_append_to__).len] = (¹the_item_to_append__);                                               \
+        (the_slice_to_append_to__).len += 1;                                                                                                   \
     } while (0)
 
-#define forEach(T, iteree_ident, the_slice, do_block)                                                                                          \
-    for (Uint iteree_ident##ˇidx = 0; iteree_ident##ˇidx < the_slice.len; iteree_ident##ˇidx += 1) {                                           \
-        T* const iteree_ident = &the_slice.at[iteree_ident##ˇidx];                                                                             \
-        do_block                                                                                                                               \
-    }
+#define ·forEach(TItem, iteree_ident__, the_slice_to_iter__, ¹do_block__)                                                                      \
+    do {                                                                                                                                       \
+        for (Uint iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                           \
+            TItem* const iteree_ident__ = &((the_slice_to_iter__).at[iˇ##iteree_ident__]);                                                     \
+            ¹do_block__                                                                                                                       \
+        }                                                                                                                                      \
+    } while (0)
 
-#define ok(T, the_it)                                                                                                                          \
-    (º##T) {                                                                                                                                   \
-        .ok = true, .it = the_it                                                                                                               \
-    }
+#define ·ok(T, ¹the_value__) ((º##T) {.ok = true, .it = (¹the_value__)})
 
-#define none(T)                                                                                                                                \
-    (º##T) {                                                                                                                                   \
-        .ok = false                                                                                                                            \
-    }
+#define ·none(T) ((º##T) {.ok = false})
 
 
 void panic(String const format, ...) {
@@ -114,16 +112,17 @@ void assert(Bool const pred) {
 
 
 // pre-allocated fixed-size "heap"
-#define mem_max (1 * 1024 * 1024)
+#define mem_max (1 * 1024 * 1024) // would `const` but triggers -Wgnu-folding-constant
 U8 mem_buf[mem_max];
 Uint mem_pos = 0;
 
-#define make(T, initial_len, max_capacity)                                                                                                     \
-    ((T##s) {.len = initial_len, .at = (T*)(memAlloc(((max_capacity < initial_len) ? initial_len : max_capacity) * (sizeof(T))))})
+#define ·make(T, initial_len__, max_capacity__)                                                                                                \
+    ((T##s) {.len = (initial_len__),                                                                                                           \
+             .at = (T*)(memAlloc((((max_capacity__) < (initial_len__)) ? (initial_len__) : (max_capacity__)) * (sizeof(T))))})
 
 U8* memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
-    if (new_pos >= mem_max)
+    if (new_pos >= mem_max - 1)
         panic("out of memory: increase mem_max!");
     U8* const mem_ptr = &mem_buf[mem_pos];
     mem_pos = new_pos;
@@ -142,11 +141,11 @@ Str newStr(Uint const initial_len, Uint const max_capacity) {
     for (Uint i = str.len; i > 0;) {
         i -= 1;
         if (str.at[i] < '0' || str.at[i] > '9')
-            return none(U64);
+            return ·none(U64);
         ret_uint += mult * (str.at[i] - 48);
         mult *= 10;
     }
-    return ok(U64, ret_uint);
+    return ·ok(U64, ret_uint);
 }
 
 Str uintToStr(Uint const uint_value, Uint const base) {
@@ -200,7 +199,10 @@ Str strSub(Str const str, Uint const idx_start, Uint const idx_end) {
     return (Str) {.len = idx_end - idx_start, .at = str.at + idx_start};
 }
 
+// for immediate consumption! not for keeping around
 String strZ(Str const str) {
+    if (str.at[str.len] == 0)
+        return (String)str.at;
     U8* buf = memAlloc(1 + str.len);
     buf[str.len] = 0;
     for (Uint i = 0; i < str.len; i++)
@@ -217,11 +219,11 @@ Bool strHasChar(String const s, U8 const c) {
 
 Str strConcat(Strs const strs) {
     Uint str_len = 0;
-    forEach(Str, str, strs, { str_len += str->len; });
+    ·forEach(Str, str, strs, { str_len += str->len; });
 
     Str ret_str = newStr(0, 1 + str_len);
     ret_str.at[str_len] = 0;
-    forEach(Str, str, strs, {
+    ·forEach(Str, str, strs, {
         for (Uint i = 0; i < str->len; i += 1)
             ret_str.at[i + ret_str.len] = str->at[i];
         ret_str.len += str->len;

@@ -18,7 +18,7 @@ typedef enum AstExprKind {
 } AstExprKind;
 
 typedef struct AstExpr AstExpr;
-typedef SliceOf(AstExpr) AstExprs;
+typedef ·SliceOf(AstExpr) AstExprs;
 struct AstExpr {
     AstNodeBase node_base;
     AstExprKind kind;
@@ -35,14 +35,14 @@ struct AstExpr {
         Bool toks_throng;
     } anns;
 };
-typedef Maybe(AstExpr) ºAstExpr;
+typedef ·Maybe(AstExpr) ºAstExpr;
 typedef struct AstExpr² {
     ºAstExpr lhs;
     ºAstExpr rhs;
 } AstExpr²;
 
 typedef struct AstDef AstDef;
-typedef SliceOf(AstDef) AstDefs;
+typedef ·SliceOf(AstDef) AstDefs;
 struct AstDef {
     AstNodeBase node_base;
     AstExpr head;
@@ -69,7 +69,7 @@ AstNodeBase astNodeBaseFrom(Uint const toks_idx, Uint const toks_len) {
 }
 
 Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
-    return slice(Token, ast->toks, node->toks_idx, node->toks_idx + node->toks_len);
+    return ·slice(Token, ast->toks, node->toks_idx, node->toks_idx + node->toks_len);
 }
 
 String astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
@@ -102,29 +102,29 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
 
     AstExpr ret_expr = astExpr(ast_expr->kind_form.at[idx_start].node_base.toks_idx, 0, ast_expr_form);
     ret_expr.anns.toks_throng = ast_expr->anns.toks_throng;
-    ret_expr.kind_form = slice(AstExpr, ast_expr->kind_form, idx_start, idx_end);
+    ret_expr.kind_form = ·slice(AstExpr, ast_expr->kind_form, idx_start, idx_end);
     for (Uint i = idx_start; i < idx_end; i += 1)
         ret_expr.node_base.toks_len += ast_expr->kind_form.at[i].node_base.toks_len;
     return ret_expr;
 }
 
 ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const ident) {
-    forEach(AstExpr, expr, ast_expr->kind_form, {
+    ·forEach(AstExpr, expr, ast_expr->kind_form, {
         if (expr->kind == ast_expr_ident && strEql(ident, expr->kind_ident))
-            return ok(Uint, exprˇidx);
+            return ·ok(Uint, iˇexpr);
     });
-    return none(Uint);
+    return ·none(Uint);
 }
 
 AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Bool const must_lhs, Bool const must_rhs, Ast const* const ast) {
-    AstExpr² ret_tup = (AstExpr²) {.lhs = none(AstExpr), .rhs = none(AstExpr)};
+    AstExpr² ret_tup = (AstExpr²) {.lhs = ·none(AstExpr), .rhs = ·none(AstExpr)};
 
     ºUint const pos = astExprFormIndexOfIdent(ast_expr, ident);
     if (pos.ok) {
         if (pos.it > 0)
-            ret_tup.lhs = ok(AstExpr, astExprFormSub(ast_expr, 0, pos.it));
+            ret_tup.lhs = ·ok(AstExpr, astExprFormSub(ast_expr, 0, pos.it));
         if (pos.it < ast_expr->kind_form.len - 1)
-            ret_tup.rhs = ok(AstExpr, astExprFormSub(ast_expr, 1 + pos.it, ast_expr->kind_form.len));
+            ret_tup.rhs = ·ok(AstExpr, astExprFormSub(ast_expr, 1 + pos.it, ast_expr->kind_form.len));
     }
     Bool const must_both = must_lhs && must_rhs;
     if (must_both && !pos.ok)
