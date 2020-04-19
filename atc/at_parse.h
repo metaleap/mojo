@@ -40,13 +40,9 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
             if (dst_def->head.kind_form.at[0].kind != ast_expr_ident)
                 ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
             dst_def->anns.name = dst_def->head.kind_form.at[0].kind_ident;
-            for (Uint i = 1; i < dst_def->head.kind_form.len; i += 1) {
+            for (Uint i = 1; i < dst_def->head.kind_form.len; i += 1)
                 if (dst_def->head.kind_form.at[i].kind != ast_expr_ident)
                     ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
-                Str const param_name = dst_def->head.kind_form.at[i].kind_ident;
-                if (param_name.at[0] != '_' || (param_name.len > 1 && param_name.at[1] == '_'))
-                    ·fail(astNodeMsg(str("param name must begin with exactly one underscore"), &dst_def->head.kind_form.at[i].node_base, ast));
-            }
         } break;
         default: {
             ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));

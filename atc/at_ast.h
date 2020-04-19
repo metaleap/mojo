@@ -144,17 +144,18 @@ void astPrint(Ast const* const ast) {
         astDefPrint(top_def, ast);
         printChr('\n');
     });
-    ·assert(ast == null);
 }
 
 void astDefPrint(AstDef const* const def, Ast const* const ast) {
     printChr('\n');
     astExprPrint(&def->head, def, ast, false, 0);
-    printStr(str(" :=\n    "));
-    astExprPrint(&def->body, def, ast, false, 4);
+    printStr(str(" :=\n  "));
+    astExprPrint(&def->body, def, ast, false, 2);
 }
 
 void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast const* const ast, Bool const is_form_item, Uint const ind) {
+    for (Uint i = 0; i < expr->anns.parensed; i++)
+        printChr('(');
     switch (expr->kind) {
         case ast_expr_ident: {
             printStr(expr->kind_ident);
@@ -169,24 +170,39 @@ void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast const*
         } break;
 
         case ast_expr_form: {
-            if (is_form_item)
+            Bool const parens = is_form_item && expr->anns.parensed == 0 && !expr->anns.toks_throng;
+            if (parens)
                 printChr('(');
             ·forEach(AstExpr, sub_expr, expr->kind_form, {
-                if (iˇsub_expr != 0)
+                if (iˇsub_expr != 0 && !expr->anns.toks_throng)
                     printChr(' ');
                 astExprPrint(sub_expr, def, ast, true, ind);
             });
-            if (is_form_item)
+            if (parens)
                 printChr(')');
         } break;
 
         case ast_expr_lit_bracket: {
             printChr('[');
+            ·forEach(AstExpr, sub_expr, expr->kind_bracket, {
+                if (iˇsub_expr != 0)
+                    printStr(str(", "));
+                astExprPrint(sub_expr, def, ast, false, ind);
+            });
             printChr(']');
         } break;
 
         case ast_expr_lit_braces: {
-            printChr('{');
+            printStr(str("{\n"));
+            Uint const ind_next = 2 + ind;
+            ·forEach(AstExpr, sub_expr, expr->kind_braces, {
+                for (Uint i = 0; i < ind_next; i += 1)
+                    printChr(' ');
+                astExprPrint(sub_expr, def, ast, false, ind_next);
+                printStr(str(",\n"));
+            });
+            for (Uint i = 0; i < ind; i += 1)
+                printChr(' ');
             printChr('}');
         } break;
 
@@ -194,4 +210,6 @@ void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast const*
             printStr(uintToStr(expr->kind, 1, 10));
         } break;
     }
+    for (Uint i = 0; i < expr->anns.parensed; i++)
+        printChr(')');
 }

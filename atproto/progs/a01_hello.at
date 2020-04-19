@@ -1,5 +1,17 @@
 #!atproto
 
+true := #true
+false := #false
+
+or b1 b2 :=
+    /case b1 { true: true, false: b2 }
+and b1 b2 :=
+    /case b1 { true: b2, false: false }
+not b :=
+    /case b { true: false, false: true }
+eq a b :=
+    case (/cmp #eq a b) { 1: true, 0: false }
+
 
 main :=
     io.writeToOut "Hello World!\010"
@@ -7,8 +19,8 @@ main :=
     io := { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
 
         writeTo _file _str :=
-            /case (/or (/cmp #eq n_written str_len) (/cmp #eq maybe_err 0))
-                  { #true: #ok n_written, #false: #err maybe_err }
+            /case (or (eq n_written str_len) (eq maybe_err 0))
+                  { true: #ok n_written, false: #err maybe_err }
             n_written := libc.fWrite _str 1 str_len _file
             maybe_err := libc.fError _file
             str_len := /len _str
@@ -18,7 +30,7 @@ main :=
 
         writeToStdOrExit _std_file _str :=
             /case (writeTo _std_file _str)
-                  { #ok n: n, #err _: libc.exit 1 }
+                  { #ok: n -> n, #err: _ -> libc.exit 1 }
 
 
 
