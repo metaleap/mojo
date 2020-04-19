@@ -90,6 +90,24 @@ typedef ·SliceOf(Str) Strs;
 #define ·none(T) ((º##T) {.ok = false})
 
 
+#define ·fail(¹the_msg)                                                                                                                        \
+    do {                                                                                                                                       \
+        fprintf(stderr, "\npanicked at: %s:%d\n", __FILE__, __LINE__);                                                                         \
+        fail(¹the_msg);                                                                                                                        \
+    } while (0)
+
+
+#if DEBUG
+#define ·assert(¹the_predicate)                                                                                                                \
+    do {                                                                                                                                       \
+        if (!(¹the_predicate))                                                                                                                 \
+            fprintf(stderr, "\nassert violation `%s` triggered in: %s:%d\n", #¹the_predicate, __FILE__, __LINE__);                             \
+    } while (0)
+#else
+#define ·assert(¹the_predicate)
+#endif
+
+
 
 
 void printStr(Str const str) {
@@ -113,16 +131,8 @@ Str uintToStr(Uint const, Uint const, Uint const);
 Str str2(Str const, Str const);
 void failIf(int err_code) {
     if (err_code)
-        fail(str2(str("error code: "), uintToStr(err_code, 1, 10)));
+        ·fail(str2(str("error code: "), uintToStr(err_code, 1, 10)));
 }
-
-void assert(Bool const pred) {
-#ifdef DEBUG
-    if (!pred)
-        fail(str("assertion failure"));
-#endif
-}
-
 
 
 
@@ -138,7 +148,7 @@ Uint mem_pos = 0;
 U8* memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
     if (new_pos >= mem_max - 1)
-        fail(str("out of memory: increase mem_max!"));
+        ·fail(str("out of memory: increase mem_max!"));
     U8* const mem_ptr = &mem_buf[mem_pos];
     mem_pos = new_pos;
     return mem_ptr;
@@ -150,7 +160,7 @@ Str newStr(Uint const initial_len, Uint const max_capacity) {
 }
 
 ºU64 uintParse(Str const str) {
-    assert(str.len > 0);
+    ·assert(str.len > 0);
     U64 ret_uint = 0;
     U64 mult = 1;
     for (Uint i = str.len; i > 0;) {

@@ -85,7 +85,7 @@ Uint toksCount(Tokens const toks, Str const ident, Str const full_src) {
 }
 
 Uint toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
-    assert(!tokIsBracket(tok_kind));
+    ·assert(!tokIsBracket(tok_kind));
     Uint ret_num = 0;
     Int level = 0;
     ·forEach(Token, tok, toks, {
@@ -137,22 +137,22 @@ void toksCheckBrackets(Tokens const toks) {
             default: break;
         }
         if (level_bparen < 0)
-            fail(str2(str("unmatched closing parenthesis in line "), uintToStr(1 + tok->line_nr, 1, 10)));
+            ·fail(str2(str("unmatched closing parenthesis in line "), uintToStr(1 + tok->line_nr, 1, 10)));
         else if (level_bcurly < 0)
-            fail(str2(str("unmatched closing curly brace in line "), uintToStr(1 + tok->line_nr, 1, 10)));
+            ·fail(str2(str("unmatched closing curly brace in line "), uintToStr(1 + tok->line_nr, 1, 10)));
         else if (level_bsquare < 0)
-            fail(str2(str("unmatched closing square bracket in line "), uintToStr(1 + tok->line_nr, 1, 10)));
+            ·fail(str2(str("unmatched closing square bracket in line "), uintToStr(1 + tok->line_nr, 1, 10)));
     });
     if (level_bparen > 0)
-        fail(str2(str("unmatched opening parenthesis in line "), uintToStr(1 + line_bparen, 1, 10)));
+        ·fail(str2(str("unmatched opening parenthesis in line "), uintToStr(1 + line_bparen, 1, 10)));
     else if (level_bcurly > 0)
-        fail(str2(str("unmatched opening curly brace in line "), uintToStr(1 + line_bcurly, 1, 10)));
+        ·fail(str2(str("unmatched opening curly brace in line "), uintToStr(1 + line_bcurly, 1, 10)));
     else if (level_bsquare > 0)
-        fail(str2(str("unmatched opening square bracket in line "), uintToStr(1 + line_bsquare, 1, 10)));
+        ·fail(str2(str("unmatched opening square bracket in line "), uintToStr(1 + line_bsquare, 1, 10)));
 }
 
 Tokenss toksIndentBasedChunks(Tokens const toks) {
-    assert(toks.len > 0);
+    ·assert(toks.len > 0);
     Uint cmp_pos_col = tokPosCol(&toks.at[0]);
     Int level = 0;
     ·forEach(Token, tok, toks, {
@@ -166,7 +166,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
         else if (tokIsClosingBracket(tok->kind))
             level -= 1;
     });
-    assert(level == 0);
+    ·assert(level == 0);
 
     Uint num_chunks = 0;
     ·forEach(Token, tok, toks, {
@@ -179,7 +179,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
         else if (tokIsClosingBracket(tok->kind))
             level -= 1;
     });
-    assert(level == 0);
+    ·assert(level == 0);
 
     Tokenss ret_chunks = ·make(Tokens, 0, num_chunks);
     {
@@ -197,7 +197,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
         });
         if (start_from != -1)
             ·append(ret_chunks, ·slice(Token, toks, start_from, toks.len));
-        assert(ret_chunks.len == num_chunks);
+        ·assert(ret_chunks.len == num_chunks);
     }
     return ret_chunks;
 }
@@ -217,7 +217,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
         case tok_kind_sep_bcurly_open: tok_close_kind = tok_kind_sep_bcurly_close; break;
         case tok_kind_sep_bsquare_open: tok_close_kind = tok_kind_sep_bsquare_close; break;
         case tok_kind_sep_bparen_open: tok_close_kind = tok_kind_sep_bparen_close; break;
-        default: fail(str("toksIndexOfMatchingBracket: caller mistake")); break;
+        default: ·fail(str("toksIndexOfMatchingBracket: caller mistake")); break;
     }
 
     Int level = 0;
@@ -234,7 +234,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
 }
 
 Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
-    assert(!tokIsBracket(tok_kind));
+    ·assert(!tokIsBracket(tok_kind));
     if (toks.len == 0)
         return (Tokenss) {.len = 0, .at = null};
     Uint capacity = 1 + toksCountUnnested(toks, tok_kind);
@@ -277,8 +277,8 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
         U8 const c = full_src.at[i];
         if (c == '\n') {
             if (state == tok_kind_lit_str_qdouble || state == tok_kind_lit_str_qsingle)
-                fail(str4(str("line-break in literal in line "), uintToStr(1 + cur_line_nr, 1, 10), str(":\n"),
-                          strSub(full_src, tok_idx_start, i)));
+                ·fail(str4(str("line-break in literal in line "), uintToStr(1 + cur_line_nr, 1, 10), str(":\n"),
+                           strSub(full_src, tok_idx_start, i)));
             if (tok_idx_start != -1 && tok_idx_last == -1)
                 tok_idx_last = i - 1;
         } else {
@@ -367,11 +367,13 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                             break;
                     }
                     break;
-                default: fail(str("unreachable"));
+                default: {
+                    ·fail(str("unreachable"));
+                } break;
             }
         }
         if (tok_idx_last != -1) {
-            assert(state != tok_kind_nope && tok_idx_start != -1);
+            ·assert(state != tok_kind_nope && tok_idx_start != -1);
             if (state != tok_kind_comment || keep_comment_toks)
                 ·append(toks, ((Token) {
                                   .kind = state,
@@ -390,7 +392,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
         }
     }
     if (tok_idx_start != -1) {
-        assert(state != tok_kind_nope);
+        ·assert(state != tok_kind_nope);
         if (state != tok_kind_comment || keep_comment_toks)
             ·append(toks, ((Token) {
                               .kind = state,

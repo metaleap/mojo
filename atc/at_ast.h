@@ -94,8 +94,8 @@ AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr
 }
 
 AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint const idx_end) {
-    assert(!(idx_start == 0 && idx_end == ast_expr->kind_form.len));
-    assert(idx_end > idx_start);
+    ·assert(!(idx_start == 0 && idx_end == ast_expr->kind_form.len));
+    ·assert(idx_end > idx_start);
     if (idx_end == idx_start + 1)
         return ast_expr->kind_form.at[idx_start];
 
@@ -127,11 +127,11 @@ AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Boo
     }
     Bool const must_both = must_lhs && must_rhs;
     if (must_both && !pos.ok)
-        fail(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->node_base, ast));
+        ·fail(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->node_base, ast));
     if (must_lhs && !ret_tup.lhs.ok)
-        fail(astNodeMsg(str3(str("expected expression before '"), ident, str("'")), &ast_expr->node_base, ast));
+        ·fail(astNodeMsg(str3(str("expected expression before '"), ident, str("'")), &ast_expr->node_base, ast));
     if (must_rhs && !ret_tup.rhs.ok)
-        fail(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
+        ·fail(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
     return ret_tup;
 }
 
@@ -144,6 +144,7 @@ void astPrint(Ast const* const ast) {
         astDefPrint(top_def, ast);
         printChr('\n');
     });
+    ·assert(ast == null);
 }
 
 void astDefPrint(AstDef const* const def, Ast const* const ast) {
