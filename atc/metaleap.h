@@ -9,6 +9,9 @@
 #endif
 
 
+// macro names prefixed with '·' instead of all upper-case (I abhor SCREAM_CODE!)
+// exceptions: param-less atomic-expression macros
+
 
 #define ·SliceOf(T)                                                                                                                            \
     struct {                                                                                                                                   \
@@ -35,6 +38,7 @@
         T2 _2;                                                                                                                                 \
     }
 
+
 typedef bool Bool;
 typedef u_int8_t U8;
 typedef u_int16_t U16;
@@ -46,17 +50,20 @@ typedef int32_t I32;
 typedef int64_t I64;
 typedef ssize_t Int;
 typedef size_t Uint;
-typedef ·Maybe(Int) ºInt;
-typedef ·Maybe(Uint) ºUint;
-typedef ·SliceOf(Uint) Uints;
-typedef ·SliceOf(U8) U8s; // we dont use it but use `Str`, however `·slice(U8, ...)` expects it
-typedef ·Maybe(U64) ºU64;
-typedef void* Ptr;
-typedef U8s Str;
-typedef ·SliceOf(Str) Strs;
+typedef void* PtrAny;
 typedef const char* String;
 
+typedef ·Maybe(Int) ºInt;
+typedef ·Maybe(Uint) ºUint;
+typedef ·Maybe(U64) ºU64;
+typedef ·SliceOf(Uint) Uints;
+typedef ·SliceOf(U8) U8s;
+typedef U8s Str;
+typedef ·SliceOf(Str) Strs;
 
+
+
+#define null NULL
 
 #define ·nameOf(ident) (#ident)
 
@@ -84,7 +91,7 @@ typedef const char* String;
 
 
 void panic(String const format, ...) {
-    Ptr callstack[16];
+    PtrAny callstack[16];
     Uint const n_frames = backtrace(callstack, 16);
     backtrace_symbols_fd(callstack, n_frames, 2); // 2 being stderr
 

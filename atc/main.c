@@ -14,7 +14,6 @@ later transliterate smoothly into our initially very limited language iteration:
 - no stdlib imports for *core* processing (just for basic program setup & I/O)
   (hence manual implementations like uintToStr, uintParse, strEql etc)
 - use of macros limited to (eventual) WIP-lang meta-programming / generic facilities
-    - macro names are prefixed with · instead of all upper-case, I abhor SCREAM_CODE
 - all would-be `malloc`s replaced by global fixed-size backing buffer allocation
 - naming / casing conventions follow WIP-lang rather than C customs
 - no zero-terminated C strings, except for final `%s` productions for `panic`s
