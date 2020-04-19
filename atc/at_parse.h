@@ -205,7 +205,7 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
                 } break;
 
                 default: {
-                    fail(str4(str("unrecognized token in line "), uintToStr(expr_toks.at[i].line_nr + 1, 10), str(": "),
+                    fail(str4(str("unrecognized token in line "), uintToStr(expr_toks.at[i].line_nr + 1, 1, 10), str(": "),
                               tokSrc(&expr_toks.at[i], ast->src)));
                 } break;
             }

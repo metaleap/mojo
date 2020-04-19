@@ -137,18 +137,18 @@ void toksCheckBrackets(Tokens const toks) {
             default: break;
         }
         if (level_bparen < 0)
-            fail(str2(str("unmatched closing parenthesis in line "), uintToStr(1 + tok->line_nr, 10)));
+            fail(str2(str("unmatched closing parenthesis in line "), uintToStr(1 + tok->line_nr, 1, 10)));
         else if (level_bcurly < 0)
-            fail(str2(str("unmatched closing curly brace in line "), uintToStr(1 + tok->line_nr, 10)));
+            fail(str2(str("unmatched closing curly brace in line "), uintToStr(1 + tok->line_nr, 1, 10)));
         else if (level_bsquare < 0)
-            fail(str2(str("unmatched closing square bracket in line "), uintToStr(1 + tok->line_nr, 10)));
+            fail(str2(str("unmatched closing square bracket in line "), uintToStr(1 + tok->line_nr, 1, 10)));
     });
     if (level_bparen > 0)
-        fail(str2(str("unmatched opening parenthesis in line "), uintToStr(1 + line_bparen, 10)));
+        fail(str2(str("unmatched opening parenthesis in line "), uintToStr(1 + line_bparen, 1, 10)));
     else if (level_bcurly > 0)
-        fail(str2(str("unmatched opening curly brace in line "), uintToStr(1 + line_bcurly, 10)));
+        fail(str2(str("unmatched opening curly brace in line "), uintToStr(1 + line_bcurly, 1, 10)));
     else if (level_bsquare > 0)
-        fail(str2(str("unmatched opening square bracket in line "), uintToStr(1 + line_bsquare, 10)));
+        fail(str2(str("unmatched opening square bracket in line "), uintToStr(1 + line_bsquare, 1, 10)));
 }
 
 Tokenss toksIndentBasedChunks(Tokens const toks) {
@@ -277,7 +277,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
         U8 const c = full_src.at[i];
         if (c == '\n') {
             if (state == tok_kind_lit_str_qdouble || state == tok_kind_lit_str_qsingle)
-                fail(str4(str("line-break in literal in line "), uintToStr(1 + cur_line_nr, 10), str(":\n"),
+                fail(str4(str("line-break in literal in line "), uintToStr(1 + cur_line_nr, 1, 10), str(":\n"),
                           strSub(full_src, tok_idx_start, i)));
             if (tok_idx_start != -1 && tok_idx_last == -1)
                 tok_idx_last = i - 1;

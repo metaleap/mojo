@@ -1,5 +1,6 @@
 #pragma once
 #include "metaleap.h"
+#include "std_io.h"
 #include "at_toks.h"
 
 
@@ -72,7 +73,7 @@ Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
 
 Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
     Tokens const node_toks = astNodeToks(node, ast);
-    Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 10);
+    Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 1, 10);
     Str const toks_src = toksSrc(node_toks, ast->src);
     return str5(msg_prefix, str(" in line "), line_nr, str(":\n"), toks_src);
 }
@@ -134,5 +135,62 @@ AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Boo
     return ret_tup;
 }
 
+
+void astDefPrint(AstDef const* const, Ast const* const);
+void astExprPrint(AstExpr const* const, AstDef const* const, Ast const* const, Bool const, Uint const);
+
 void astPrint(Ast const* const ast) {
+    ·forEach(AstDef, top_def, ast->top_defs, {
+        astDefPrint(top_def, ast);
+        printChr('\n');
+    });
+}
+
+void astDefPrint(AstDef const* const def, Ast const* const ast) {
+    printChr('\n');
+    astExprPrint(&def->head, def, ast, false, 0);
+    printStr(str(" :=\n    "));
+    astExprPrint(&def->body, def, ast, false, 4);
+}
+
+void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast const* const ast, Bool const is_form_item, Uint const ind) {
+    switch (expr->kind) {
+        case ast_expr_ident: {
+            printStr(expr->kind_ident);
+        } break;
+
+        case ast_expr_lit_int: {
+            printStr(uintToStr(expr->kind_lit_int, 1, 10));
+        } break;
+
+        case ast_expr_lit_str: {
+            printStr(strQuot(expr->kind_lit_str));
+        } break;
+
+        case ast_expr_form: {
+            if (is_form_item)
+                printChr('(');
+            ·forEach(AstExpr, sub_expr, expr->kind_form, {
+                if (iˇsub_expr != 0)
+                    printChr(' ');
+                astExprPrint(sub_expr, def, ast, true, ind);
+            });
+            if (is_form_item)
+                printChr(')');
+        } break;
+
+        case ast_expr_lit_bracket: {
+            printChr('[');
+            printChr(']');
+        } break;
+
+        case ast_expr_lit_braces: {
+            printChr('{');
+            printChr('}');
+        } break;
+
+        default: {
+            printStr(uintToStr(expr->kind, 1, 10));
+        } break;
+    }
 }

@@ -1,6 +1,12 @@
 #pragma once
-#include "at_toks.h"
 #include "metaleap.h"
+
+void printChr(U8 const chr) {
+    fwrite(&chr, 1, 1, stderr);
+}
+void writeChr(U8 const chr) {
+    fwrite(&chr, 1, 1, stdout);
+}
 
 Str readUntilEof(FILE* const stream) {
     const Uint buf_size = 4096;

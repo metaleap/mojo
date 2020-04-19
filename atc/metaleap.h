@@ -92,22 +92,28 @@ typedef ·SliceOf(Str) Strs;
 
 
 
+void printStr(Str const str) {
+    fwrite(&str.at[0], 1, str.len, stderr);
+}
+void writeStr(Str const str) {
+    fwrite(&str.at[0], 1, str.len, stdout);
+}
 void fail(Str const str) {
     PtrAny callstack[16];
     Uint const n_frames = backtrace(callstack, 16);
     backtrace_symbols_fd(callstack, n_frames, 2); // 2 being stderr
 
-    fwrite(str.at, 1, str.len, stderr);
+    printStr(str);
     fwrite("\n", 1, 1, stderr);
     exit(1);
 }
 
 Str str(String const);
-Str uintToStr(Uint const, Uint const);
+Str uintToStr(Uint const, Uint const, Uint const);
 Str str2(Str const, Str const);
 void failIf(int err_code) {
     if (err_code)
-        fail(str2(str("error code: "), uintToStr(err_code, 10)));
+        fail(str2(str("error code: "), uintToStr(err_code, 1, 10)));
 }
 
 void assert(Bool const pred) {
@@ -157,7 +163,7 @@ Str newStr(Uint const initial_len, Uint const max_capacity) {
     return ·ok(U64, ret_uint);
 }
 
-Str uintToStr(Uint const uint_value, Uint const base) {
+Str uintToStr(Uint const uint_value, Uint const str_min_len, Uint const base) {
     Uint num_digits = 1;
     Uint n = uint_value;
     while (n >= base) {
@@ -166,12 +172,18 @@ Str uintToStr(Uint const uint_value, Uint const base) {
     }
     n = uint_value;
 
-    Str const ret_str = newStr(num_digits, num_digits);
-    for (Uint i = ret_str.len; i > 0;) {
+    Uint const str_len = (num_digits > str_min_len) ? num_digits : str_min_len;
+    Str const ret_str = newStr(str_len, str_len + 1);
+    ret_str.at[str_len] = 0;
+    for (Uint i = 0; i < str_len - num_digits; i += 1)
+        ret_str.at[i] = '0';
+
+    Bool done = false;
+    for (Uint i = ret_str.len; i > 0 && !done;) {
         i -= 1;
         if (n < base) {
             ret_str.at[i] = 48 + n;
-            break;
+            done = true;
         } else {
             ret_str.at[i] = 48 + (n % base);
             n /= base;
@@ -189,6 +201,17 @@ Str str(String const from) {
     return (Str) {.len = str_len, .at = (U8*)from};
 }
 
+// for immediate consumption! not for keeping around
+String strZ(Str const str) {
+    if (str.at[str.len] == 0)
+        return (String)str.at;
+    U8* buf = memAlloc(1 + str.len);
+    buf[str.len] = 0;
+    for (Uint i = 0; i < str.len; i += 1)
+        buf[i] = str.at[i];
+    return (String)buf;
+}
+
 Bool strEql(Str const one, Str const two) {
     if (one.len == two.len) {
         for (Uint i = 0; i < one.len; i += 1)
@@ -204,19 +227,30 @@ Bool strEq(Str const one, String const two, ºUint const str_len) {
     return strEql(one, s2);
 }
 
-Str strSub(Str const str, Uint const idx_start, Uint const idx_end) {
-    return (Str) {.len = idx_end - idx_start, .at = str.at + idx_start};
+Str strQuot(Str const str) {
+    Str ret_str = newStr(1, 3 + (3 * str.len));
+    ret_str.at[0] = '\"';
+    for (Uint i = 0; i < str.len; i += 1) {
+        U8 const chr = str.at[i];
+        if (chr >= 32 && chr < 127) {
+            ret_str.at[ret_str.len] = chr;
+            ret_str.len += 1;
+        } else {
+            ret_str.at[ret_str.len] = '\\';
+            const Str esc_num_str = uintToStr(chr, 3, 10);
+            for (Uint c = 0; c < esc_num_str.len; c += 1)
+                ret_str.at[1 + c + ret_str.len] = esc_num_str.at[c];
+            ret_str.len += 1 + esc_num_str.len;
+        }
+    }
+    ret_str.at[ret_str.len] = '\"';
+    ret_str.len += 1;
+    ret_str.at[ret_str.len] = 0;
+    return ret_str;
 }
 
-// for immediate consumption! not for keeping around
-String strZ(Str const str) {
-    if (str.at[str.len] == 0)
-        return (String)str.at;
-    U8* buf = memAlloc(1 + str.len);
-    buf[str.len] = 0;
-    for (Uint i = 0; i < str.len; i++)
-        buf[i] = str.at[i];
-    return (String)buf;
+Str strSub(Str const str, Uint const idx_start, Uint const idx_end) {
+    return (Str) {.len = idx_end - idx_start, .at = str.at + idx_start};
 }
 
 Bool strHasChar(String const s, U8 const c) {

@@ -2,7 +2,7 @@
 
 
 main :=
-    io.writeToOut (/addr "Hello World!\010")
+    io.writeToOut "Hello World!\010"
 
     io := { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
 
