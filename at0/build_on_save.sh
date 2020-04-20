@@ -1,7 +1,7 @@
 #!/bin/sh
 
-clang -O0 -g -DBUILD_ON_SAVE -Wall -Wextra -Wpedantic -Wshadow -Wno-gnu-empty-struct -march=native -fPIE -fno-color-diagnostics -c main.c -o /tmp/atc.o \
-    && clang -O0 -g -DBUILD_ON_SAVE /tmp/atc.o -o $HOME/.local/bin/atc
+clang -O0 -g -DBUILD_ON_SAVE -Wall -Wextra -Wpedantic -Wshadow -Wno-gnu-empty-struct -march=native -fPIE -fno-color-diagnostics -c main.c -o /tmp/at0.o \
+    && clang -O0 -g -DBUILD_ON_SAVE /tmp/at0.o -o $HOME/.local/bin/at0
 
 
 
