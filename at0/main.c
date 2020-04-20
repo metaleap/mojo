@@ -1,3 +1,6 @@
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wunused-function"
+
 #include "metaleap.c"
 #include "std_io.c"
 

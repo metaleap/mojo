@@ -119,8 +119,6 @@ static ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const i
     return ·none(Uint);
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-function"
 static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Bool const must_lhs, Bool const must_rhs,
                                    Ast const* const ast) {
     AstExpr² ret_tup = (AstExpr²) {.lhs = ·none(AstExpr), .rhs = ·none(AstExpr)};
@@ -141,8 +139,6 @@ static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ide
         ·fail(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
     return ret_tup;
 }
-#pragma clang diagnostic pop
-
 
 
 
@@ -161,7 +157,9 @@ static void astDefPrint(AstDef const* const def, Ast const* const ast, Uint cons
     for (Uint i = 0; i < ind; i += 1)
         printChr(' ');
     astExprPrint(&def->head, def, ast, false, ind);
-    printStr(str(" :=\n  "));
+    printStr(str(" :=\n"));
+    for (Uint i = 0; i < 2 + ind; i += 1)
+        printChr(' ');
     astExprPrint(&def->body, def, ast, false, ind + 2);
 
     ·forEach(AstDef, sub_def, def->sub_defs, { astDefPrint(sub_def, ast, 2 + ind); });

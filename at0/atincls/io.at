@@ -2,16 +2,16 @@
 io :=
   { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
 
-  writeTo _file _str :=
+  writeTo file str :=
     @case (@or (eq n_written str_len) (eq maybe_err 0))
           { true: #ok n_written, false: #err maybe_err }
-    n_written := libc.fwrite _str 1 str_len _file
-    maybe_err := libc.ferror _file
-    str_len := @len _str
+    n_written := libc.fwrite str 1 str_len file
+    maybe_err := libc.ferror file
+    str_len := @len str
 
-  writeToOut _str := writeToStdOrDie libc.stdout _str
-  writeToErr _str := writeToStdOrDie libc.stdout _str
+  writeToOut str := writeToStdOrDie libc.stdout str
+  writeToErr str := writeToStdOrDie libc.stdout str
 
-  writeToStdOrDie _std_file _str :=
-    @case (writeTo _std_file _str)
+  writeToStdOrDie std_file str :=
+    @case (writeTo std_file str)
           { #ok: n -> n, #err: _ -> libc.abort 1 }

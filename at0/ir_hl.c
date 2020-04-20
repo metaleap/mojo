@@ -1,5 +1,6 @@
 #include "metaleap.c"
 #include "at_ast.c"
+#include "std_io.c"
 
 
 struct IrHLDef;
@@ -255,17 +256,17 @@ struct IrHLExpr {
         IrHLExprPrim of_prim;
     };
     struct {
-        AstExpr const* const origin_expr;
+        AstExpr const* origin_expr;
     } anns;
 };
 
 
 
 struct IrHLDef {
-    IrHLExpr body;
+    IrHLExpr* body;
     struct {
         Str name;
-        AstDef const* const origin_def;
+        AstDef const* origin_def;
     } anns;
 };
 
@@ -279,18 +280,21 @@ typedef struct CtxIrHLFromAst {
     IrHLProg ir;
 } CtxIrHLFromAst;
 
-static IrHLProg irHLProgFrom(Ast const* const ast) {
-    CtxIrHLFromAst ctx = (CtxIrHLFromAst) {
-        .ir =
-            (IrHLProg) {
-                .anns = {.origin_ast = ast},
-            },
-    };
+static void irHLDefFrom(CtxIrHLFromAst* const ctx, AstDef* const top_def) {
+    IrHLDef this_def = (IrHLDef) {.anns = {.origin_def = top_def, .name = top_def->anns.name}};
+    this_def.body = null; // irHLExprFromDef(top_def);
 
-    return ctx.ir;
+    ·append(ctx->ir.defs, this_def);
 }
 
-
+static IrHLProg irHLProgFrom(Ast* const ast) {
+    CtxIrHLFromAst ctx = (CtxIrHLFromAst) {.ir = (IrHLProg) {
+                                               .anns = {.origin_ast = ast},
+                                               .defs = ·make(IrHLDef, 0, ast->top_defs.len),
+                                           }};
+    ·forEach(AstDef, the_def, ast->top_defs, { irHLDefFrom(&ctx, the_def); });
+    return ctx.ir;
+}
 
 
 
@@ -309,7 +313,7 @@ static void irHLTypePrint(IrHLType const* const the_type) {
     }
 }
 
-static void irHlExprPrint(IrHLExpr const* const the_expr) {
+static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, Uint const ind) {
     return;
     switch (the_expr->kind) {
         case irhl_expr_type: {
@@ -323,11 +327,15 @@ static void irHlExprPrint(IrHLExpr const* const the_expr) {
 
 static void irHLDefPrint(IrHLDef const* const the_def) {
     printStr(the_def->anns.name);
-    printStr(str(" := "));
-
-    irHlExprPrint(&the_def->body);
+    printStr(str(" :=\n  "));
+    irHlExprPrint(the_def->body, false, 4);
+    printChr('\n');
 }
 
 static void irHLProgPrint(IrHLProg const* const the_ir_hl) {
-    ·forEach(IrHLDef, the_def, the_ir_hl->defs, { irHLDefPrint(the_def); });
+    ·forEach(IrHLDef, the_def, the_ir_hl->defs, {
+        printChr('\n');
+        irHLDefPrint(the_def);
+        printChr('\n');
+    });
 }
