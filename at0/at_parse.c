@@ -4,10 +4,10 @@
 #include "at_ast.c"
 
 
-AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* const ast);
-void parseDef(AstDef* const dst_def, Ast const* const ast);
+static AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* const ast);
+static void parseDef(AstDef* const dst_def, Ast const* const ast);
 
-Ast parse(Tokens const all_toks, Str const full_src) {
+static Ast parse(Tokens const all_toks, Str const full_src) {
     Tokenss const chunks = toksIndentBasedChunks(all_toks);
     Ast ret_ast = (Ast) {
         .src = full_src,
@@ -25,7 +25,7 @@ Ast parse(Tokens const all_toks, Str const full_src) {
     return ret_ast;
 }
 
-void parseDef(AstDef* const dst_def, Ast const* const ast) {
+static void parseDef(AstDef* const dst_def, Ast const* const ast) {
     Tokens const toks = astNodeToks(&dst_def->node_base, ast);
     ºUint const idx_tok_def = toksIndexOfIdent(toks, str(":="), ast->src);
     if ((!idx_tok_def.ok) || idx_tok_def.it == 0 || idx_tok_def.it == toks.len - 1)
@@ -65,7 +65,7 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
     });
 }
 
-AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {
+static AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {
     AstExpr ret_expr = astExpr(all_toks_idx, 1, ast_expr_lit_int);
     ºU64 const maybe = uint64Parse(tokSrc(tok, ast->src));
     if (!maybe.ok)
@@ -74,7 +74,7 @@ AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token con
     return ret_expr;
 }
 
-AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token const* const tok, U8 const quote_char) {
+static AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token const* const tok, U8 const quote_char) {
     AstExpr ret_expr = astExpr(all_toks_idx + 1, 1, ast_expr_lit_str);
     Str const lit_src = tokSrc(tok, ast->src);
 
@@ -104,7 +104,7 @@ AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token con
     return ret_expr;
 }
 
-AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
+static AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
     if (toks.len == 0)
         return (AstExprs) {.len = 0, .at = null};
     Tokenss const per_elem_toks = toksSplit(toks, tok_kind_sep);
@@ -121,7 +121,7 @@ AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKi
     return ret_exprs;
 }
 
-AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* const ast) {
+static AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* const ast) {
     ·assert(expr_toks.len != 0);
     AstExprs ret_acc = ·make(AstExpr, 0, expr_toks.len);
     Bool const whole_form_throng = (expr_toks.len > 1) && (tokThrong(expr_toks, 0, ast->src) == expr_toks.len - 1);

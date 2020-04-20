@@ -67,29 +67,29 @@ typedef struct Ast {
 
 
 
-AstNodeBase astNodeBaseFrom(Uint const toks_idx, Uint const toks_len) {
+static AstNodeBase astNodeBaseFrom(Uint const toks_idx, Uint const toks_len) {
     return (AstNodeBase) {.toks_idx = toks_idx, .toks_len = toks_len};
 }
 
-Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
+static Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
     return ·slice(Token, ast->toks, node->toks_idx, node->toks_idx + node->toks_len);
 }
 
-Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
+static Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
     Tokens const node_toks = astNodeToks(node, ast);
     Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 1, 10);
     Str const toks_src = toksSrc(node_toks, ast->src);
     return str5(msg_prefix, str(" in line "), line_nr, str(":\n"), toks_src);
 }
 
-AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
+static AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
     return (AstDef) {
         .parent_def = parent_def,
         .node_base = astNodeBaseFrom(all_toks_idx, toks_len),
     };
 }
 
-AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind) {
+static AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind) {
     return (AstExpr) {
         .node_base = astNodeBaseFrom(toks_idx, toks_len),
         .kind = expr_kind,
@@ -97,7 +97,7 @@ AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr
     };
 }
 
-AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint const idx_end) {
+static AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint const idx_end) {
     ·assert(!(idx_start == 0 && idx_end == ast_expr->of_form.len));
     ·assert(idx_end > idx_start);
     if (idx_end == idx_start + 1)
@@ -111,7 +111,7 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
     return ret_expr;
 }
 
-ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const ident) {
+static ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const ident) {
     ·forEach(AstExpr, expr, ast_expr->of_form, {
         if (expr->kind == ast_expr_ident && strEql(ident, expr->of_ident))
             return ·ok(Uint, iˇexpr);
@@ -119,7 +119,10 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
     return ·none(Uint);
 }
 
-AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Bool const must_lhs, Bool const must_rhs, Ast const* const ast) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
+static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Bool const must_lhs, Bool const must_rhs,
+                                   Ast const* const ast) {
     AstExpr² ret_tup = (AstExpr²) {.lhs = ·none(AstExpr), .rhs = ·none(AstExpr)};
 
     ºUint const pos = astExprFormIndexOfIdent(ast_expr, ident);
@@ -138,26 +141,33 @@ AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Boo
         ·fail(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
     return ret_tup;
 }
+#pragma clang diagnostic pop
 
 
-void astDefPrint(AstDef const* const, Ast const* const);
-void astExprPrint(AstExpr const* const, AstDef const* const, Ast const* const, Bool const, Uint const);
 
-void astPrint(Ast const* const ast) {
+
+static void astDefPrint(AstDef const* const, Ast const* const, Uint const);
+static void astExprPrint(AstExpr const* const, AstDef const* const, Ast const* const, Bool const, Uint const);
+
+static void astPrint(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, {
-        astDefPrint(top_def, ast);
+        astDefPrint(top_def, ast, 0);
         printChr('\n');
     });
 }
 
-void astDefPrint(AstDef const* const def, Ast const* const ast) {
+static void astDefPrint(AstDef const* const def, Ast const* const ast, Uint const ind) {
     printChr('\n');
-    astExprPrint(&def->head, def, ast, false, 0);
+    for (Uint i = 0; i < ind; i += 1)
+        printChr(' ');
+    astExprPrint(&def->head, def, ast, false, ind);
     printStr(str(" :=\n  "));
-    astExprPrint(&def->body, def, ast, false, 2);
+    astExprPrint(&def->body, def, ast, false, ind + 2);
+
+    ·forEach(AstDef, sub_def, def->sub_defs, { astDefPrint(sub_def, ast, 2 + ind); });
 }
 
-void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast const* const ast, Bool const is_form_item, Uint const ind) {
+static void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast const* const ast, Bool const is_form_item, Uint const ind) {
     for (Uint i = 0; i < expr->anns.parensed; i++)
         printChr('(');
     switch (expr->kind) {

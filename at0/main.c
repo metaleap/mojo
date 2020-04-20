@@ -25,5 +25,6 @@ int main(int const argc, String const argv[]) {
     Ast ast = parse(toks, full_src);
     astPrint(&ast);
 
-    irHLFrom(&ast);
+    IrHLProg ir_hl_prog = irHLProgFrom(&ast);
+    irHLProgPrint(&ir_hl_prog);
 }

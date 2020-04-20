@@ -17,12 +17,12 @@ typedef ·SliceOf(IrHLType) IrHLTypes;
 
 
 
-typedef struct IrHL {
+typedef struct IrHLProg {
     IrHLDefs defs;
     struct {
         Ast const* const origin_ast;
     } anns;
-} IrHL;
+} IrHLProg;
 
 
 
@@ -276,13 +276,13 @@ struct IrHLDef {
 
 
 typedef struct CtxIrHLFromAst {
-    IrHL ir;
+    IrHLProg ir;
 } CtxIrHLFromAst;
 
-IrHL irHLFrom(Ast const* const ast) {
+static IrHLProg irHLProgFrom(Ast const* const ast) {
     CtxIrHLFromAst ctx = (CtxIrHLFromAst) {
         .ir =
-            (IrHL) {
+            (IrHLProg) {
                 .anns = {.origin_ast = ast},
             },
     };
@@ -294,7 +294,7 @@ IrHL irHLFrom(Ast const* const ast) {
 
 
 
-void irHLTypePrint(IrHLType const* const the_type) {
+static void irHLTypePrint(IrHLType const* const the_type) {
     printStr(str("@T "));
     switch (the_type->kind) {
         case irhl_type_void: {
@@ -307,4 +307,27 @@ void irHLTypePrint(IrHLType const* const the_type) {
             fail(str2(str("TODO: irHLTypePrint for .kind of "), uintToStr(the_type->kind, 1, 10)));
         } break;
     }
+}
+
+static void irHlExprPrint(IrHLExpr const* const the_expr) {
+    return;
+    switch (the_expr->kind) {
+        case irhl_expr_type: {
+            irHLTypePrint(the_expr->of_type.ty_value);
+        } break;
+        default: {
+            fail(str2(str("TODO: irHlExprPrint for .kind of "), uintToStr(the_expr->kind, 1, 10)));
+        } break;
+    }
+}
+
+static void irHLDefPrint(IrHLDef const* const the_def) {
+    printStr(the_def->anns.name);
+    printStr(str(" := "));
+
+    irHlExprPrint(&the_def->body);
+}
+
+static void irHLProgPrint(IrHLProg const* const the_ir_hl) {
+    ·forEach(IrHLDef, the_def, the_ir_hl->defs, { irHLDefPrint(the_def); });
 }
