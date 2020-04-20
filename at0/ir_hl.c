@@ -262,7 +262,13 @@ struct IrHLExpr {
         IrHLExprPrim of_prim;
     };
     struct {
-        AstExpr const* origin_expr;
+        struct {
+            enum { irhl_expr_origin_def, irhl_expr_origin_expr } kind;
+            union {
+                AstExpr const* of_expr;
+                AstDef const* of_def;
+            };
+        } origin;
     } anns;
 };
 
@@ -302,15 +308,12 @@ static IrHLExpr irHLDefExpr(CtxIrHLFromAst* const ctx, AstDef* const cur_ast_def
     // def has params? turn body_expr into irhl_expr_func
     if (cur_ast_def->head.kind == ast_expr_form) {
         Uint const num_args = cur_ast_def->head.of_form.len - 1;
-        body_expr = (IrHLExpr) {
-            .anns = {.origin_expr = &cur_ast_def->head},
-            .kind = irhl_expr_func,
-            .of_func =
-                (IrHLExprFunc) {
-                    .body = irHLExprCopy(&body_expr),
-                    .params = ·make(IrHLFuncParam, num_args, 0),
-                },
-        };
+        body_expr = (IrHLExpr) {.anns = {.origin = {.kind = irhl_expr_origin_def, .of_def = cur_ast_def}},
+                                .kind = irhl_expr_func,
+                                .of_func = (IrHLExprFunc) {
+                                    .body = irHLExprCopy(&body_expr),
+                                    .params = ·make(IrHLFuncParam, num_args, num_args),
+                                }};
         ·forEach(AstExpr, param_expr, cur_ast_def->head.of_form, {
             if (iˇparam_expr > 0) {
                 ·assert(param_expr->kind == ast_expr_ident);
@@ -322,10 +325,24 @@ static IrHLExpr irHLDefExpr(CtxIrHLFromAst* const ctx, AstDef* const cur_ast_def
 
     // def has sub-defs? rewrite into `let` lambda form:
     // from `foo bar, bar := baz` into `(bar -> foo bar) baz`
-    ·forEach(AstDef, sub_def, cur_ast_def->sub_defs, {
-        IrHLExpr expr_func;
-        IrHLExpr expr_call;
-    });
+    if (cur_ast_def->sub_defs.len > 0) {
+        ·forEach(AstDef, sub_def, cur_ast_def->sub_defs, {
+            IrHLExpr expr_func = ((IrHLExpr) {.anns = {.origin = {.kind = irhl_expr_origin_def, .of_def = sub_def}},
+                                              .kind = irhl_expr_func,
+                                              .of_func = (IrHLExprFunc) {
+                                                  .body = irHLExprCopy(&body_expr),
+                                                  .params = ·make(IrHLFuncParam, 1, 1),
+                                              }});
+            expr_func.of_func.params.at[0] = (IrHLFuncParam) {.anns = {.name = sub_def->anns.name}};
+            body_expr = ((IrHLExpr) {.anns = {},
+                                     .kind = irhl_expr_call,
+                                     .of_call = (IrHLExprCall) {
+                                         .callee = irHLExprCopy(&expr_func),
+                                         .args = ·make(IrHLExpr, 1, 1),
+                                     }});
+            body_expr.of_call.args.at[0] = irHLDefExpr(ctx, sub_def);
+        });
+    }
     return body_expr;
 }
 
