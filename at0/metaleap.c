@@ -80,7 +80,7 @@ typedef ·SliceOf(Str) Strs;
     do {                                                                                                                                       \
         for (Uint iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (²the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                          \
             TItem* const iteree_ident__ = &((²the_slice_to_iter__).at[iˇ##iteree_ident__]);                                                    \
-            ¹do_block__                                                                                                                       \
+            { ¹do_block__ }                                                                                                                    \
         }                                                                                                                                      \
     } while (0)
 

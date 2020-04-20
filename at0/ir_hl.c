@@ -131,8 +131,14 @@ typedef struct IrHLExprInt {
     I64 int_value;
 } IrHLExprInt;
 
+typedef struct IrHLFuncParam {
+    struct {
+        Str name;
+    } anns;
+} IrHLFuncParam;
+typedef ·SliceOf(IrHLFuncParam) IrHLFuncParams;
 typedef struct IrHLExprFunc {
-    Strs params;
+    IrHLFuncParams params;
     IrHLExpr* body;
 } IrHLExprFunc;
 
@@ -280,6 +286,12 @@ typedef struct CtxIrHLFromAst {
     IrHLProg ir;
 } CtxIrHLFromAst;
 
+static IrHLExpr* irHLExprCopy(IrHLExpr* const src) {
+    IrHLExpr* new_expr = ·new(IrHLExpr);
+    *new_expr = *src;
+    return new_expr;
+}
+
 static IrHLExpr irHLExprFrom(CtxIrHLFromAst* const ctx, AstExpr* const ast_expr) {
     IrHLExpr* foo = ·new(IrHLExpr);
 }
@@ -287,13 +299,33 @@ static IrHLExpr irHLExprFrom(CtxIrHLFromAst* const ctx, AstExpr* const ast_expr)
 static IrHLExpr irHLDefExpr(CtxIrHLFromAst* const ctx, AstDef* const cur_ast_def) {
     IrHLExpr body_expr = irHLExprFrom(ctx, &cur_ast_def->body);
 
-    // if (cur_ast_def->head)
+    // def has params? turn body_expr into irhl_expr_func
+    if (cur_ast_def->head.kind == ast_expr_form) {
+        Uint const num_args = cur_ast_def->head.of_form.len - 1;
+        body_expr = (IrHLExpr) {
+            .anns = {.origin_expr = &cur_ast_def->head},
+            .kind = irhl_expr_func,
+            .of_func =
+                (IrHLExprFunc) {
+                    .body = irHLExprCopy(&body_expr),
+                    .params = ·make(IrHLFuncParam, num_args, 0),
+                },
+        };
+        ·forEach(AstExpr, param_expr, cur_ast_def->head.of_form, {
+            if (iˇparam_expr > 0) {
+                ·assert(param_expr->kind == ast_expr_ident);
+                IrHLFuncParam p = (IrHLFuncParam) {.anns = {.name = param_expr->of_ident}};
+                body_expr.of_func.params.at[iˇparam_expr - 1] = p;
+            }
+        });
+    }
 
-    ·forEach(AstDef, sub_def, cur_ast_def->sub_defs,
-             {
-                 //
-                 //
-             });
+    // def has sub-defs? rewrite into `let` lambda form:
+    // from `foo bar, bar := baz` into `(bar -> foo bar) baz`
+    ·forEach(AstDef, sub_def, cur_ast_def->sub_defs, {
+        IrHLExpr expr_func;
+        IrHLExpr expr_call;
+    });
     return body_expr;
 }
 
