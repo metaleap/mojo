@@ -1,7 +1,7 @@
 #pragma once
-#include "metaleap.h"
-#include "std_io.h"
-#include "at_toks.h"
+#include "metaleap.c"
+#include "std_io.c"
+#include "at_toks.c"
 
 
 typedef struct AstNodeBase {

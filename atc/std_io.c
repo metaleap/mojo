@@ -1,5 +1,6 @@
 #pragma once
-#include "metaleap.h"
+#include "metaleap.c"
+
 
 void printChr(U8 const chr) {
     fwrite(&chr, 1, 1, stderr);

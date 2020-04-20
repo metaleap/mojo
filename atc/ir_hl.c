@@ -1,6 +1,5 @@
-#pragma once
-#include "metaleap.h"
-#include "at_ast.h"
+#include "metaleap.c"
+#include "at_ast.c"
 
 
 struct IrHLDef;
@@ -99,6 +98,8 @@ struct IrHLType {
         IrHLTypeBag of_union;
         IrHLTypeType of_type;
     };
+    struct {
+    } anns;
 };
 
 
@@ -106,7 +107,6 @@ struct IrHLType {
 typedef enum IrHLExprKind {
     irhl_expr_type,
     irhl_expr_void,
-    irhl_expr_tag,
     irhl_expr_int,
     irhl_expr_func,
     irhl_expr_call,
@@ -114,22 +114,147 @@ typedef enum IrHLExprKind {
     irhl_expr_bag,
     irhl_expr_accessor,
     irhl_expr_pairing,
+    irhl_expr_tagged,
     irhl_expr_ref,
-
     irhl_expr_prim,
-    irhl_expr_prim_arith,
-    irhl_expr_prim_cmp,
-    irhl_expr_prim_extcall,
-    irhl_expr_prim_case,
-    irhl_expr_prim_len,
-    irhl_expr_prim_extfn,
-    irhl_expr_prim_extvar,
 } IrHLExprKind;
+
+typedef struct IrHLExprType {
+    IrHLType* ty_value;
+} IrHLExprType;
+
+typedef struct IrHLExprVoid {
+} IrHLExprVoid;
+
+typedef struct IrHLExprInt {
+    I64 int_value;
+} IrHLExprInt;
+
+typedef struct IrHLExprFunc {
+    Strs params;
+    IrHLExpr* body;
+} IrHLExprFunc;
+
+typedef struct IrHLExprCall {
+    IrHLExpr* callee;
+    IrHLExprs args;
+} IrHLExprCall;
+
+typedef struct IrHLExprList {
+    IrHLExprs elems;
+} IrHLExprList;
+
+typedef struct IrHLExprBag {
+    IrHLExprs elems;
+} IrHLExprBag;
+
+typedef struct IrHLExprAccessor {
+    IrHLExpr* subj;
+    IrHLExpr* selector;
+} IrHLExprAccessor;
+
+typedef struct IrHLExprPairing {
+    IrHLExpr* key;
+    IrHLExpr* val;
+} IrHLExprPairing;
+typedef ·SliceOf(IrHLExprPairing) IrHLExprPairings;
+
+typedef struct IrHLExprTagged {
+    Strs tags;
+    IrHLExpr* subj;
+} IrHLExprTagged;
+
+typedef struct IrHLExprRef {
+    Str name;
+} IrHLExprRef;
+
+typedef struct IrHLExprPrimArith {
+    IrHLExpr* lhs;
+    IrHLExpr* rhs;
+    enum {
+        irhl_arith_add,
+        irhl_arith_sub,
+        irhl_arith_mul,
+        irhl_arith_div,
+        irhl_arith_rem,
+    } kind;
+} IrHLExprPrimArith;
+
+typedef struct IrHLExprPrimCmp {
+    IrHLExpr* lhs;
+    IrHLExpr* rhs;
+    enum {
+        irhl_cmp_eq,
+        irhl_cmp_neq,
+        irhl_cmp_lt,
+        irhl_cmp_gt,
+        irhl_cmp_leq,
+        irhl_cmp_geq,
+    } kind;
+} IrHLExprPrimCmp;
+
+typedef struct IrHLExprPrimExtCall {
+    IrHLExpr* callee;
+    IrHLExprs args;
+} IrHLExprPrimExtCall;
+
+typedef struct IrHLExprPrimCase {
+    IrHLType* scrut;
+    IrHLExprPairings cases;
+    IrHLExpr* default_case;
+} IrHLExprPrimCase;
+
+typedef struct IrHLExprPrimLen {
+    IrHLExpr* subj;
+} IrHLExprPrimLen;
+
+typedef struct IrHLExprPrimExtFn {
+} IrHLExprPrimExtFn;
+
+typedef struct IrHLExprPrimExtVar {
+} IrHLExprPrimExtVar;
+
+typedef struct IrHLExprPrim {
+    Str kwd;
+    enum {
+        irhl_prim_unknown,
+        irhl_prim_arith,
+        irhl_prim_cmp,
+        irhl_prim_ext_call,
+        irhl_prim_case,
+        irhl_prim_len,
+        irhl_prim_ext_fn,
+        irhl_prim_ext_var,
+    } kind;
+    union {
+        Str of_unknown;
+        IrHLExprPrimArith of_arith;
+        IrHLExprPrimCmp of_cmp;
+        IrHLExprPrimExtCall of_ext_call;
+        IrHLExprPrimCase of_case;
+        IrHLExprPrimLen of_len;
+        IrHLExprPrimExtFn of_ext_fn;
+        IrHLExprPrimExtVar of_ext_var;
+    };
+} IrHLExprPrim;
 
 struct IrHLExpr {
     IrHLExprKind kind;
+    union {
+        IrHLExprType of_type;
+        IrHLExprVoid of_void;
+        IrHLExprInt of_int;
+        IrHLExprFunc of_func;
+        IrHLExprCall of_call;
+        IrHLExprList of_list;
+        IrHLExprBag of_bag;
+        IrHLExprAccessor of_accessor;
+        IrHLExprPairing of_pairing;
+        IrHLExprTagged of_tagged;
+        IrHLExprRef of_ref;
+        IrHLExprPrim of_prim;
+    };
     struct {
-        AstDef const* const origin_def;
         AstExpr const* const origin_expr;
     } anns;
 };
@@ -164,7 +289,6 @@ IrHL irHLFrom(Ast const* const ast) {
 
     return ctx.ir;
 }
-
 
 
 

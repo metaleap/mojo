@@ -1,5 +1,5 @@
 #pragma once
-#include "metaleap.h"
+#include "metaleap.c"
 
 
 const String tok_op_chars = "!#$%&*+-;:./<=>?@\\^~|";

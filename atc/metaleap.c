@@ -97,12 +97,12 @@ typedef ·SliceOf(Str) Strs;
     } while (0)
 
 
-#if DEBUG
+#ifndef NDEBUG
 #define ·assert(¹the_predicate)                                                                                                                \
     do {                                                                                                                                       \
         if (!(¹the_predicate)) {                                                                                                               \
             fprintf(stderr, "\n>>>>>>>>>>>>>>>>>>>>>>\n\nassert violation `%s` triggered in: %s:%d\n\n", #¹the_predicate, __FILE__, __LINE__); \
-            exit(1);                                                                                                                           \
+            abort;                                                                                                                             \
         }                                                                                                                                      \
     } while (0)
 #else
@@ -125,7 +125,7 @@ void fail(Str const str) {
 
     printStr(str);
     fwrite("\n", 1, 1, stderr);
-    exit(1);
+    abort();
 }
 
 Str str(String const);
@@ -161,7 +161,7 @@ Str newStr(Uint const initial_len, Uint const max_capacity) {
     return ret_str;
 }
 
-ºU64 uintParse(Str const str) {
+ºU64 uint64Parse(Str const str) {
     ·assert(str.len > 0);
     U64 ret_uint = 0;
     U64 mult = 1;

@@ -1,7 +1,7 @@
 #pragma once
-#include "metaleap.h"
-#include "at_toks.h"
-#include "at_ast.h"
+#include "metaleap.c"
+#include "at_toks.c"
+#include "at_ast.c"
 
 
 AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* const ast);
@@ -67,7 +67,7 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
 
 AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {
     AstExpr ret_expr = astExpr(all_toks_idx, 1, ast_expr_lit_int);
-    ºU64 const maybe = uintParse(tokSrc(tok, ast->src));
+    ºU64 const maybe = uint64Parse(tokSrc(tok, ast->src));
     if (!maybe.ok)
         ·fail(astNodeMsg(str("malformed or not-yet-supported integer literal"), &ret_expr.node_base, ast));
     ret_expr.of_lit_int = maybe.it;
@@ -89,7 +89,7 @@ AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token con
             if (!bad_esc) {
                 Str const base10digits = ·slice(U8, lit_src, i + 1, idx_end);
                 i += 3;
-                ºU64 const maybe = uintParse(base10digits);
+                ºU64 const maybe = uint64Parse(base10digits);
                 bad_esc = (!maybe.ok) || maybe.it >= 256;
                 ret_str.at[ret_str.len] = (U8)maybe.it;
             }

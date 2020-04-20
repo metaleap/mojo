@@ -5,7 +5,7 @@ libc := {
   stdout  : @extern #stdout [] (Ptr FILE),
   stderr  : @extern #stderr [] (Ptr FILE),
 
-  exit    : @extern #exit [#noreturn] V { #status: Ic },
+  abort   : @extern #abort [#noreturn] V { #status: Ic },
   fgetc   : @extern #fgetc [] Ic { #file: Ptr FILE },
   ferror  : @extern #ferror [] Ic { #file: Ptr FILE },
   fread   : @extern #fread [] Uw { #buf: Ptr U8, #size: Uw, #count: Uw, #file: Ptr FILE },

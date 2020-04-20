@@ -1,9 +1,11 @@
-#include "metaleap.h"
-#include "std_io.h"
-#include "at_toks.h"
-#include "at_ast.h"
-#include "at_parse.h"
-#include "ir_hl.h"
+#include "metaleap.c"
+#include "std_io.c"
+
+#include "at_toks.c"
+#include "at_ast.c"
+#include "at_parse.c"
+#include "ir_hl.c"
+
 
 
 int main(int const argc, String const argv[]) {
