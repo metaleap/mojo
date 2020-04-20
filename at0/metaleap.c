@@ -9,6 +9,7 @@
 #endif
 
 
+
 // macro names prefixed with '·' instead of all upper-case (I abhor SCREAM_CODE!)
 // exceptions: param-less atomic-expression macros
 
@@ -64,6 +65,17 @@ typedef ·SliceOf(Str) Strs;
 
 
 
+typedef struct Mem {
+#define mem_max (1 * 1024 * 1024)
+    U8 buf[mem_max];
+    Uint pos;
+} Mem;
+
+Mem mem = (Mem) {.pos = 0};
+
+
+
+
 #define ·nameOf(ident) (#ident)
 
 #define ·slice(TSlice__, ¹the_slice_to_reslice__, ²idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                      \
@@ -92,11 +104,13 @@ typedef ·SliceOf(Str) Strs;
 #define ·fail(¹the_msg)                                                                                                                        \
     do {                                                                                                                                       \
         fprintf(stderr, "\npanicked at: %s:%d\n", __FILE__, __LINE__);                                                                         \
-        fail(¹the_msg);                                                                                                                        \
+        abortWithBacktraceAndMsg(¹the_msg);                                                                                                    \
     } while (0)
 
 
-#ifndef NDEBUG
+#ifdef NDEBUG
+#define ·assert(¹the_predicate)
+#else
 #define ·assert(¹the_predicate)                                                                                                                \
     do {                                                                                                                                       \
         if (!(¹the_predicate)) {                                                                                                               \
@@ -105,10 +119,7 @@ typedef ·SliceOf(Str) Strs;
             abort();                                                                                                                           \
         }                                                                                                                                      \
     } while (0)
-#else
-#define ·assert(¹the_predicate)
 #endif
-
 
 
 
@@ -118,31 +129,18 @@ void printStr(Str const str) {
 void writeStr(Str const str) {
     fwrite(&str.at[0], 1, str.len, stdout);
 }
-void fail(Str const str) {
+void abortWithBacktraceAndMsg(Str const msg) {
     PtrAny callstack[16];
     Uint const n_frames = backtrace(callstack, 16);
     backtrace_symbols_fd(callstack, n_frames, 2); // 2 being stderr
 
-    printStr(str);
+    printStr(msg);
     fwrite("\n", 1, 1, stderr);
     fflush(stderr);
     abort();
 }
 
-Str str(String const);
-Str uintToStr(Uint const, Uint const, Uint const);
-Str str2(Str const, Str const);
-void failIf(int err_code) {
-    if (err_code)
-        ·fail(str2(str("error code: "), uintToStr(err_code, 1, 10)));
-}
 
-
-
-// pre-allocated fixed-size "heap"
-#define mem_max (1 * 1024 * 1024) // would `const` but triggers -Wgnu-folding-constant
-U8 mem_buf[mem_max];
-Uint mem_pos = 0;
 
 #define ·make(T, ³initial_len__, ²max_capacity__)                                                                                              \
     ((T##s) {.len = (³initial_len__),                                                                                                          \
@@ -150,12 +148,19 @@ Uint mem_pos = 0;
 
 #define ·new(T) (·make(T, 1, 1).at)
 
+Str str(String const from) {
+    Uint str_len = 0;
+    for (Uint i = 0; from[i] != 0; i += 1)
+        str_len += 1;
+    return (Str) {.len = str_len, .at = (U8*)from};
+}
+
 U8* memAlloc(Uint const num_bytes) {
-    Uint const new_pos = mem_pos + num_bytes;
+    Uint const new_pos = mem.pos + num_bytes;
     if (new_pos >= mem_max - 1)
         ·fail(str("out of memory: increase mem_max!"));
-    U8* const mem_ptr = &mem_buf[mem_pos];
-    mem_pos = new_pos;
+    U8* const mem_ptr = &mem.buf[mem.pos];
+    mem.pos = new_pos;
     return mem_ptr;
 }
 
@@ -207,13 +212,6 @@ Str uintToStr(Uint const uint_value, Uint const str_min_len, Uint const base) {
             ret_str.at[i] += 7;
     }
     return ret_str;
-}
-
-Str str(String const from) {
-    Uint str_len = 0;
-    for (Uint i = 0; from[i] != 0; i += 1)
-        str_len += 1;
-    return (Str) {.len = str_len, .at = (U8*)from};
 }
 
 // unused in principle, but kept around just in case we really do need a printf
@@ -309,4 +307,12 @@ Str str4(Str const s1, Str const s2, Str const s3, Str const s4) {
 
 Str str5(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5) {
     return strConcat((Strs) {.len = 5, .at = ((Str[]) {s1, s2, s3, s4, s5})});
+}
+
+
+
+
+void failIf(int some_err) {
+    if (some_err)
+        ·fail(str2(str("error code: "), uintToStr(some_err, 1, 10)));
 }

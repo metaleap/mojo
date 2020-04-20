@@ -24,14 +24,14 @@ static Str readUntilEof(FILE* const stream) {
         if ((ret_str.len % buf_size) == 0) // ret_str is "full"?
             dst_addr = memAlloc(buf_size); // but: reading is not done, so expand ret_str
     }
-    mem_pos -= n_bytes_over_allocated;
+    mem.pos -= n_bytes_over_allocated;
     return ret_str;
 }
 
 static Str readFile(String const file_path) {
     FILE* const file = fopen(file_path, "rb");
     if (file == NULL)
-        fail(str2(str("failed to open "), str(file_path)));
+        ·fail(str2(str("failed to open "), str(file_path)));
     Str const file_bytes = readUntilEof(file);
     fclose(file);
     return file_bytes;
