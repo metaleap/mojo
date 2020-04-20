@@ -263,7 +263,7 @@ struct IrHLExpr {
 
 
 struct IrHLDef {
-    IrHLExpr* body;
+    IrHLExpr body;
     struct {
         Str name;
         AstDef const* origin_def;
@@ -280,10 +280,26 @@ typedef struct CtxIrHLFromAst {
     IrHLProg ir;
 } CtxIrHLFromAst;
 
+static IrHLExpr irHLExprFrom(CtxIrHLFromAst* const ctx, AstExpr* const ast_expr) {
+    IrHLExpr* foo = ·new(IrHLExpr);
+}
+
+static IrHLExpr irHLDefExpr(CtxIrHLFromAst* const ctx, AstDef* const cur_ast_def) {
+    IrHLExpr body_expr = irHLExprFrom(ctx, &cur_ast_def->body);
+
+    // if (cur_ast_def->head)
+
+    ·forEach(AstDef, sub_def, cur_ast_def->sub_defs,
+             {
+                 //
+                 //
+             });
+    return body_expr;
+}
+
 static void irHLDefFrom(CtxIrHLFromAst* const ctx, AstDef* const top_def) {
     IrHLDef this_def = (IrHLDef) {.anns = {.origin_def = top_def, .name = top_def->anns.name}};
-    this_def.body = null; // irHLExprFromDef(top_def);
-
+    this_def.body = irHLDefExpr(ctx, top_def);
     ·append(ctx->ir.defs, this_def);
 }
 
@@ -328,7 +344,7 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
 static void irHLDefPrint(IrHLDef const* const the_def) {
     printStr(the_def->anns.name);
     printStr(str(" :=\n  "));
-    irHlExprPrint(the_def->body, false, 4);
+    irHlExprPrint(&the_def->body, false, 4);
     printChr('\n');
 }
 

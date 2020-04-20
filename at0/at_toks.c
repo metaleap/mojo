@@ -227,7 +227,7 @@ static ºUint toksIndexOfMatchingBracket(Tokens const toks) {
 static Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     ·assert(!tokIsBracket(tok_kind));
     if (toks.len == 0)
-        return (Tokenss) {.len = 0, .at = null};
+        return (Tokenss) {.len = 0, .at = NULL};
     Uint capacity = 1 + toksCountUnnested(toks, tok_kind);
     Tokenss ret_sub_toks = ·make(Tokens, 0, capacity);
     {

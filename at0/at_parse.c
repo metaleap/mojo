@@ -17,7 +17,7 @@ static Ast parse(Tokens const all_toks, Str const full_src) {
     Uint toks_idx = 0;
     ·forEach(Tokens, chunk_toks, chunks, {
         AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
-        *dst_def = astDef(null, toks_idx, chunk_toks->len);
+        *dst_def = astDef(NULL, toks_idx, chunk_toks->len);
         parseDef(dst_def, &ret_ast);
         ret_ast.top_defs.len += 1;
         toks_idx += chunk_toks->len;
@@ -106,7 +106,7 @@ static AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, To
 
 static AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
     if (toks.len == 0)
-        return (AstExprs) {.len = 0, .at = null};
+        return (AstExprs) {.len = 0, .at = NULL};
     Tokenss const per_elem_toks = toksSplit(toks, tok_kind_sep);
     AstExprs ret_exprs = ·make(AstExpr, 0, per_elem_toks.len);
     Uint toks_idx = all_toks_idx;

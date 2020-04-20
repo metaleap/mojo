@@ -30,7 +30,7 @@ static Str readUntilEof(FILE* const stream) {
 
 static Str readFile(String const file_path) {
     FILE* const file = fopen(file_path, "rb");
-    if (file == null)
+    if (file == NULL)
         fail(str2(str("failed to open "), str(file_path)));
     Str const file_bytes = readUntilEof(file);
     fclose(file);

@@ -63,7 +63,6 @@ typedef ·SliceOf(Str) Strs;
 
 
 
-#define null NULL
 
 #define ·nameOf(ident) (#ident)
 
@@ -102,7 +101,8 @@ typedef ·SliceOf(Str) Strs;
     do {                                                                                                                                       \
         if (!(¹the_predicate)) {                                                                                                               \
             fprintf(stderr, "\n>>>>>>>>>>>>>>>>>>>>>>\n\nassert violation `%s` triggered in: %s:%d\n\n", #¹the_predicate, __FILE__, __LINE__); \
-            abort;                                                                                                                             \
+            fflush(stderr);                                                                                                                    \
+            abort();                                                                                                                           \
         }                                                                                                                                      \
     } while (0)
 #else
@@ -125,6 +125,7 @@ void fail(Str const str) {
 
     printStr(str);
     fwrite("\n", 1, 1, stderr);
+    fflush(stderr);
     abort();
 }
 
@@ -146,6 +147,8 @@ Uint mem_pos = 0;
 #define ·make(T, ³initial_len__, ²max_capacity__)                                                                                              \
     ((T##s) {.len = (³initial_len__),                                                                                                          \
              .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
+
+#define ·new(T) (·make(T, 1, 1).at)
 
 U8* memAlloc(Uint const num_bytes) {
     Uint const new_pos = mem_pos + num_bytes;
