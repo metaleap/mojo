@@ -149,7 +149,18 @@ static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ide
     return ret_tup;
 }
 
+static Bool astExprFormIsUnaryPrefixGlyph(AstExpr const* const expr_form, Str const prefix_glyph) {
+    return expr_form->of_form.len == 2 && expr_form->of_form.at[0].kind == ast_expr_ident
+           && strEql(prefix_glyph, expr_form->of_form.at[0].of_ident);
+}
 
+static Bool astExprIsTag(AstExpr const* const expr) {
+    return expr->kind == ast_expr_form && astExprFormIsUnaryPrefixGlyph(expr, strL("#", 1));
+}
+
+static Bool astExprIsInstr(AstExpr const* const expr) {
+    return expr->kind == ast_expr_form && astExprFormIsUnaryPrefixGlyph(expr, strL("@", 1));
+}
 
 static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
     switch (expr->kind) {
@@ -157,7 +168,7 @@ static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
             return strEql(ident, expr->of_ident);
         } break;
         case ast_expr_form: {
-            if (expr->of_form.len == 2 && expr->of_form.at[0].kind == ast_expr_ident && strEql(strL("#", 1), expr->of_form.at[0].of_ident))
+            if (astExprIsTag(expr))
                 return false;
             ·forEach(AstExpr, sub_expr, expr->of_form, {
                 if (astExprHasIdent(sub_expr, ident))
@@ -234,8 +245,13 @@ static void astExprDesugarGlyphsIntoInstrs(AstExpr* const expr) {
                     expr->of_form.at[1] = (maybe.lhs_form.ok) ? maybe.lhs_form.it : astExprFormEmpty(expr->node_base);
                     expr->of_form.at[2] = (maybe.rhs_form.ok) ? maybe.rhs_form.it : astExprFormEmpty(expr->node_base);
                     switch (i) {
-                        case glyph_func: break;
-                        case glyph_kvpair: break;
+                        case glyph_func:
+                            ·forEach(AstExpr, param_expr, expr->of_form.at[1].of_form, {
+                                if (param_expr->kind == ast_expr_ident)
+                                    expr->of_form.at[i].of_form.at[iˇparam_expr] =
+                                        astExprInstrOrTag(param_expr->node_base, param_expr->of_ident, true);
+                            });
+                            break;
                         case glyph_fldacc:
                             if (expr->of_form.at[2].of_form.len == 1 && expr->of_form.at[2].of_form.at[0].kind == ast_expr_ident)
                                 expr->of_form.at[2].of_form.at[0] = astExprInstrOrTag(expr->of_form.at[2].of_form.at[0].node_base,
