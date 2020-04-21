@@ -48,6 +48,8 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
             ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
         } break;
     }
+    dst_def->anns.qname =
+        (dst_def->anns.parent_def != NULL) ? str3(dst_def->anns.parent_def->anns.qname, strL(".", 1), dst_def->anns.name) : dst_def->anns.name;
 
     Tokenss const def_body_chunks = toksIndentBasedChunks(·slice(Token, toks, idx_tok_def.it + 1, toks.len));
     dst_def->sub_defs = ·make(AstDef, 0, def_body_chunks.len - 1);

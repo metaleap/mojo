@@ -53,9 +53,10 @@ struct AstDef {
     AstExpr head;
     AstExpr body;
     AstDefs sub_defs;
-    AstDef* parent_def;
     struct {
+        AstDef* parent_def;
         Str name;
+        Str qname;
     } anns;
 };
 
@@ -90,7 +91,7 @@ static Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast c
 
 static AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
     return (AstDef) {
-        .parent_def = parent_def,
+        .anns = {.parent_def = parent_def},
         .node_base = astNodeBaseFrom(all_toks_idx, toks_len),
     };
 }
@@ -149,17 +150,11 @@ static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ide
     return ret_tup;
 }
 
-static Bool astExprFormIsUnaryPrefixGlyph(AstExpr const* const expr_form, Str const prefix_glyph) {
-    return expr_form->of_form.len == 2 && expr_form->of_form.at[0].kind == ast_expr_ident
-           && strEql(prefix_glyph, expr_form->of_form.at[0].of_ident);
-}
 
-static Bool astExprIsTag(AstExpr const* const expr) {
-    return expr->kind == ast_expr_form && astExprFormIsUnaryPrefixGlyph(expr, strL("#", 1));
-}
-
-static Bool astExprIsInstr(AstExpr const* const expr) {
-    return expr->kind == ast_expr_form && astExprFormIsUnaryPrefixGlyph(expr, strL("@", 1));
+static Bool astExprIsTagOrInstr(AstExpr const* const expr) {
+    AstExpr* const gly = &expr->of_form.at[0];
+    return expr->kind == ast_expr_form && expr->of_form.len == 2 && gly->kind == ast_expr_ident && gly->of_ident.len == 1
+           && (gly->of_ident.at[0] == '@' || gly->of_ident.at[0] == '#');
 }
 
 static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
@@ -168,7 +163,7 @@ static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
             return strEql(ident, expr->of_ident);
         } break;
         case ast_expr_form: {
-            if (astExprIsTag(expr))
+            if (astExprIsTagOrInstr(expr))
                 return false;
             ·forEach(AstExpr, sub_expr, expr->of_form, {
                 if (astExprHasIdent(sub_expr, ident))
@@ -288,6 +283,36 @@ static void astDesugarGlyphsIntoInstrs(Ast const* const ast) {
     ·forEach(AstDef, def, ast->top_defs, { astDefDesugarGlyphsIntoInstrs(def); });
 }
 
+static void astSubDefsReorder(AstDefs const defs) {
+    ·forEach(AstDef, the_def, defs, { astSubDefsReorder(the_def->sub_defs); });
+
+    Uint num_rounds = 0;
+    for (Bool again = true; again; num_rounds += 1) {
+        again = false;
+        if (num_rounds > 42 * defs.len)
+            ·fail(str2(str("Circular sub-def dependencies inside "),
+                       (defs.at[0].anns.parent_def == NULL) ? str("<top-level>") : defs.at[0].anns.parent_def->anns.name));
+        ·forEach(AstDef, the_def, defs, {
+            for (Uint i = iˇthe_def + 1; i < defs.len; i += 1) {
+                Bool const has = astDefHasIdent(&defs.at[i], the_def->anns.name);
+                if (has) {
+                    AstDef dependant = defs.at[i];
+                    defs.at[i] = *the_def;
+                    defs.at[iˇthe_def] = dependant;
+                    again = true;
+                    break;
+                }
+            }
+            if (again)
+                break;
+        });
+    }
+}
+
+static void astReorderSubDefs(Ast const* const ast) {
+    ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
+}
+
 
 
 static void astPrint(Ast const* const ast) {
@@ -307,7 +332,10 @@ static void astDefPrint(AstDef const* const def, Uint const ind) {
         printChr(' ');
     astExprPrint(&def->body, false, ind + 2);
 
-    ·forEach(AstDef, sub_def, def->sub_defs, { astDefPrint(sub_def, 2 + ind); });
+    ·forEach(AstDef, sub_def, def->sub_defs, {
+        printChr('\n');
+        astDefPrint(sub_def, 2 + ind);
+    });
 }
 
 static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uint const ind) {

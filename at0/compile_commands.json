@@ -1,6 +1,6 @@
 [
     {
         "file": "main.c",
-        "command": "clang -O0 -g -Wall -Wextra -Wpedantic -Wshadow -Wno-gnu-empty-struct -march=native -fPIE -c main.c -o /tmp/at0.o && clang -O0 g /tmp/at0.o -o /home/_/.local/bin/at0"
+        "command": "clang main.c -o ~/.local/bin/at0 -O0 -g -Wall -Wextra -Wpedantic -Wshadow -Wno-gnu-empty-struct -march=native -fPIE -fno-color-diagnostics"
     }
 ]

@@ -10,9 +10,9 @@ after glyph-desugaring:
     - a partial call to the new top def if any new params were prepended, with those names as args
     - an ident to the new top def otherwise
 
-result: all sub-defs are param-less locals. any remaining mutual-recursion found
-in them later on is an error, aka circular defs (ie. `a := b, b := a`). so they
-can be turned into "lambda-let"s and for this purpose, re-ordered correctly.
+result: all sub-defs are param-less locals. so they can be turned into "lambda
+let"s and for this purpose, re-ordered correctly. any remaining mutual-recursion
+found in them is a reportable error (circular defs ie. `a := c, b := a, c := b`).
 
 ### Detect de-facto boolish logic:
 

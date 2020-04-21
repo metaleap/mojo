@@ -494,19 +494,19 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
                 printChr(')');
         } break;
         case irhl_expr_func: {
-            printStr(str("[_ "));
+            printStr(str("[_"));
 
             ·forEach(IrHLFuncParam, param, the_expr->of_func.params, {
                 if (iˇparam > 0)
                     printChr(' ');
                 printStr(param->anns.name);
             });
-            printStr(str(" ->\n"));
+            printStr(str("->\n"));
             for (Uint i = 0; i < ind; i += 1)
                 printChr(' ');
             irHlExprPrint(the_expr->of_func.body, false, 4 + ind);
 
-            printStr(str(" _]"));
+            printStr(str("_]"));
         } break;
         default: {
             ·fail(str2(str("TODO: irHlExprPrint for .kind of "), uintToStr(the_expr->kind, 1, 10)));
