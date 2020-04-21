@@ -2,7 +2,7 @@
 #include "metaleap.c"
 
 
-const String tok_op_chars = "!#$%%&*+-;:./<=>?@\\^~|";
+const String tok_op_chars = "!#$&*+-;:./<=>?@\\^~|\x25";
 const String tok_sep_chars = "[]{}(),:";
 
 

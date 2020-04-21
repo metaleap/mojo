@@ -4,6 +4,7 @@
 #include "at_toks.c"
 
 
+
 typedef struct AstNodeBase {
     Uint toks_idx;
     Uint toks_len;
@@ -39,9 +40,9 @@ struct AstExpr {
 };
 typedef ·Maybe(AstExpr) ºAstExpr;
 typedef struct AstExpr² {
-    ºAstExpr lhs;
-    ºAstExpr rhs;
-    AstExpr const* operator;
+    ºAstExpr lhs_form;
+    ºAstExpr rhs_form;
+    AstExpr const* glyph;
 } AstExpr²;
 
 
@@ -65,6 +66,10 @@ typedef struct Ast {
     AstDefs top_defs;
 } Ast;
 
+
+
+static void astDefPrint(AstDef const* const, Uint const);
+static void astExprPrint(AstExpr const* const, Bool const, Uint const);
 
 
 
@@ -125,21 +130,21 @@ static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ide
         ·assert(ast != NULL);
     ·assert(ast_expr->kind == ast_expr_form);
 
-    AstExpr² ret_tup = (AstExpr²) {.lhs = ·none(AstExpr), .rhs = ·none(AstExpr), .operator= NULL };
+    AstExpr² ret_tup = (AstExpr²) {.lhs_form = ·none(AstExpr), .rhs_form = ·none(AstExpr), .glyph = NULL};
     ºUint const pos = astExprFormIndexOfIdent(ast_expr, ident);
     if (pos.ok) {
-        ret_tup.operator=& ast_expr->of_form.at[pos.it];
+        ret_tup.glyph = &ast_expr->of_form.at[pos.it];
         if (pos.it > 0)
-            ret_tup.lhs = ·ok(AstExpr, astExprFormSub(ast_expr, 0, pos.it));
+            ret_tup.lhs_form = ·ok(AstExpr, astExprFormSub(ast_expr, 0, pos.it));
         if (pos.it < ast_expr->of_form.len - 1)
-            ret_tup.rhs = ·ok(AstExpr, astExprFormSub(ast_expr, 1 + pos.it, ast_expr->of_form.len));
+            ret_tup.rhs_form = ·ok(AstExpr, astExprFormSub(ast_expr, 1 + pos.it, ast_expr->of_form.len));
     }
     Bool const must_both = must_lhs && must_rhs;
     if (must_both && !pos.ok)
         ·fail(astNodeMsg(str3(str("expected '"), ident, str("'")), &ast_expr->node_base, ast));
-    if (must_lhs && !ret_tup.lhs.ok)
+    if (must_lhs && !ret_tup.lhs_form.ok)
         ·fail(astNodeMsg(str3(str("expected expression before '"), ident, str("'")), &ast_expr->node_base, ast));
-    if (must_rhs && !ret_tup.rhs.ok)
+    if (must_rhs && !ret_tup.rhs_form.ok)
         ·fail(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
     return ret_tup;
 }
@@ -221,24 +226,25 @@ static void astExprDesugarGlyphsIntoInstrs(AstExpr* const expr) {
             AstExpr² maybe;
             for (Uint i = 0; i < num_glyphs && !matched; i += 1) {
                 maybe = astExprFormBreakOn(expr, glyph_names.at[i], false, false, NULL);
-                if (maybe.operator!= NULL &&(maybe.lhs.ok || maybe.rhs.ok)) {
+                if (maybe.glyph != NULL && (maybe.lhs_form.ok || maybe.rhs_form.ok)) {
                     matched = true;
                     expr->anns.toks_throng = false;
                     expr->of_form = ·make(AstExpr, 3, 3);
-                    expr->of_form.at[0] = astExprInstrOrTag(maybe.operator->node_base, glyph_names.at[i], false);
-                    expr->of_form.at[1] = (maybe.lhs.ok) ? maybe.lhs.it : astExprFormEmpty(expr->node_base);
-                    expr->of_form.at[2] = (maybe.rhs.ok) ? maybe.rhs.it : astExprFormEmpty(expr->node_base);
+                    expr->of_form.at[0] = astExprInstrOrTag(maybe.glyph->node_base, glyph_names.at[i], false);
+                    expr->of_form.at[1] = (maybe.lhs_form.ok) ? maybe.lhs_form.it : astExprFormEmpty(expr->node_base);
+                    expr->of_form.at[2] = (maybe.rhs_form.ok) ? maybe.rhs_form.it : astExprFormEmpty(expr->node_base);
                     switch (i) {
                         case glyph_func: break;
                         case glyph_kvpair: break;
                         case glyph_fldacc:
-                            if (expr->of_form.at[2].kind == ast_expr_ident)
-                                expr->of_form.at[2] = astExprInstrOrTag(expr->of_form.at[2].node_base, expr->of_form.at[2].of_ident, true);
+                            if (expr->of_form.at[2].of_form.len == 1 && expr->of_form.at[2].of_form.at[0].kind == ast_expr_ident)
+                                expr->of_form.at[2].of_form.at[0] = astExprInstrOrTag(expr->of_form.at[2].of_form.at[0].node_base,
+                                                                                      expr->of_form.at[2].of_form.at[0].of_ident, true);
                             break;
                     }
-                    if (maybe.lhs.ok)
+                    if (maybe.lhs_form.ok)
                         astExprDesugarGlyphsIntoInstrs(&expr->of_form.at[1]);
-                    if (maybe.rhs.ok)
+                    if (maybe.rhs_form.ok)
                         astExprDesugarGlyphsIntoInstrs(&expr->of_form.at[2]);
                     expr->of_form.at[1].kind = ast_expr_lit_bracket;
                     expr->of_form.at[2].kind = ast_expr_lit_bracket;
@@ -268,30 +274,27 @@ static void astDesugarGlyphsIntoInstrs(Ast const* const ast) {
 
 
 
-static void astDefPrint(AstDef const* const, Ast const* const, Uint const);
-static void astExprPrint(AstExpr const* const, AstDef const* const, Ast const* const, Bool const, Uint const);
-
 static void astPrint(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, {
-        astDefPrint(top_def, ast, 0);
+        astDefPrint(top_def, 0);
         printChr('\n');
     });
 }
 
-static void astDefPrint(AstDef const* const def, Ast const* const ast, Uint const ind) {
+static void astDefPrint(AstDef const* const def, Uint const ind) {
     printChr('\n');
     for (Uint i = 0; i < ind; i += 1)
         printChr(' ');
-    astExprPrint(&def->head, def, ast, false, ind);
+    astExprPrint(&def->head, false, ind);
     printStr(str(" :=\n"));
     for (Uint i = 0; i < 2 + ind; i += 1)
         printChr(' ');
-    astExprPrint(&def->body, def, ast, false, ind + 2);
+    astExprPrint(&def->body, false, ind + 2);
 
-    ·forEach(AstDef, sub_def, def->sub_defs, { astDefPrint(sub_def, ast, 2 + ind); });
+    ·forEach(AstDef, sub_def, def->sub_defs, { astDefPrint(sub_def, 2 + ind); });
 }
 
-static void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast const* const ast, Bool const is_form_item, Uint const ind) {
+static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uint const ind) {
     for (Uint i = 0; i < expr->anns.parensed; i++)
         printChr('(');
     switch (expr->kind) {
@@ -316,7 +319,7 @@ static void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast
             ·forEach(AstExpr, sub_expr, expr->of_form, {
                 if (iˇsub_expr != 0 && !expr->anns.toks_throng)
                     printChr(' ');
-                astExprPrint(sub_expr, def, ast, true, ind);
+                astExprPrint(sub_expr, true, ind);
             });
             if (parens)
                 printChr(')');
@@ -327,7 +330,7 @@ static void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast
             ·forEach(AstExpr, sub_expr, expr->of_bracket, {
                 if (iˇsub_expr != 0)
                     printStr(str(", "));
-                astExprPrint(sub_expr, def, ast, false, ind);
+                astExprPrint(sub_expr, false, ind);
             });
             printChr(']');
         } break;
@@ -338,7 +341,7 @@ static void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast
             ·forEach(AstExpr, sub_expr, expr->of_braces, {
                 for (Uint i = 0; i < ind_next; i += 1)
                     printChr(' ');
-                astExprPrint(sub_expr, def, ast, false, ind_next);
+                astExprPrint(sub_expr, false, ind_next);
                 printStr(str(",\n"));
             });
             for (Uint i = 0; i < ind; i += 1)
