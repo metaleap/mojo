@@ -41,6 +41,7 @@ typedef ·Maybe(AstExpr) ºAstExpr;
 typedef struct AstExpr² {
     ºAstExpr lhs;
     ºAstExpr rhs;
+    AstExpr const* operator;
 } AstExpr²;
 
 
@@ -112,6 +113,7 @@ static AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_star
 }
 
 static ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const ident) {
+    ·assert(ast_expr->kind == ast_expr_form);
     ·forEach(AstExpr, expr, ast_expr->of_form, {
         if (expr->kind == ast_expr_ident && strEql(ident, expr->of_ident))
             return ·ok(Uint, iˇexpr);
@@ -121,10 +123,14 @@ static ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const i
 
 static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ident, Bool const must_lhs, Bool const must_rhs,
                                    Ast const* const ast) {
-    AstExpr² ret_tup = (AstExpr²) {.lhs = ·none(AstExpr), .rhs = ·none(AstExpr)};
+    if (must_lhs || must_rhs)
+        ·assert(ast != NULL);
+    ·assert(ast_expr->kind == ast_expr_form);
 
+    AstExpr² ret_tup = (AstExpr²) {.lhs = ·none(AstExpr), .rhs = ·none(AstExpr), .operator= NULL };
     ºUint const pos = astExprFormIndexOfIdent(ast_expr, ident);
     if (pos.ok) {
+        ret_tup.operator=& ast_expr->of_form.at[pos.it];
         if (pos.it > 0)
             ret_tup.lhs = ·ok(AstExpr, astExprFormSub(ast_expr, 0, pos.it));
         if (pos.it < ast_expr->of_form.len - 1)
@@ -138,6 +144,120 @@ static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ide
     if (must_rhs && !ret_tup.rhs.ok)
         ·fail(astNodeMsg(str3(str("expected expression following '"), ident, str("'")), &ast_expr->node_base, ast));
     return ret_tup;
+}
+
+
+
+static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
+    switch (expr->kind) {
+        case ast_expr_ident: {
+            return strEql(ident, expr->of_ident);
+        } break;
+        case ast_expr_form: {
+            if (expr->of_form.len == 2 && expr->of_form.at[0].kind == ast_expr_ident && strEql(strL("#", 1), expr->of_form.at[0].of_ident))
+                return false;
+            ·forEach(AstExpr, sub_expr, expr->of_form, {
+                if (astExprHasIdent(sub_expr, ident))
+                    return true;
+            });
+        } break;
+        case ast_expr_lit_bracket: {
+            ·forEach(AstExpr, sub_expr, expr->of_bracket, {
+                if (astExprHasIdent(sub_expr, ident))
+                    return true;
+            });
+        } break;
+        case ast_expr_lit_braces: {
+            ·forEach(AstExpr, sub_expr, expr->of_braces, {
+                if (astExprHasIdent(sub_expr, ident))
+                    return true;
+            });
+        } break;
+        default: break;
+    }
+    return false;
+}
+
+static Bool astDefHasIdent(AstDef const* const def, Str const ident) {
+    ·forEach(AstDef, sub_def, def->sub_defs, {
+        if (astDefHasIdent(sub_def, ident))
+            return true;
+    });
+    return astExprHasIdent(&def->body, ident);
+}
+
+
+
+static AstExpr astExprInstrOrTag(AstNodeBase const from, Str const name, Bool const tag) {
+    AstExpr ret_expr = (AstExpr) {.kind = ast_expr_form, .of_form = ·make(AstExpr, 2, 2), .node_base = from, .anns = {.toks_throng = true}};
+    ret_expr.of_form.at[0] = (AstExpr) {.kind = ast_expr_ident, .of_ident = strL(tag ? "#" : "@", 1), .node_base = from};
+    ret_expr.of_form.at[1] = (AstExpr) {.kind = ast_expr_ident, .of_ident = name, .node_base = from};
+    return ret_expr;
+}
+
+static AstExpr astExprFormEmpty(AstNodeBase const from) {
+    return (AstExpr) {.kind = ast_expr_form, .of_form = ·make(AstExpr, 0, 0), .node_base = from};
+}
+
+static void astExprDesugarOperatorsIntoInstrs(AstExpr* const expr) {
+#define num_operators 3
+    static Strs operator_names = (Strs) {.at = NULL, .len = 0};
+    static Strs instr_names = (Strs) {.at = NULL, .len = 0};
+    if (operator_names.at == NULL && instr_names.at == NULL) {
+        operator_names = ·make(Str, num_operators, num_operators);
+        operator_names.at[0] = str(":");
+        operator_names.at[1] = str("->");
+        operator_names.at[2] = str(".");
+        instr_names = ·make(Str, num_operators, num_operators);
+        instr_names.at[0] = str("kvPair");
+        instr_names.at[1] = str("func");
+        instr_names.at[2] = str("fldAcc");
+    }
+
+    switch (expr->kind) {
+        case ast_expr_form: {
+            if (expr->of_form.len == 0)
+                break;
+            Bool matched = false;
+            AstExpr² maybe;
+            for (Uint i = 0; i < num_operators && !matched; i += 1) {
+                maybe = astExprFormBreakOn(expr, operator_names.at[i], false, false, NULL);
+                if (maybe.operator!= NULL) {
+                    matched = true;
+                    expr->anns.toks_throng = false;
+                    expr->of_form = ·make(AstExpr, 3, 3);
+                    expr->of_form.at[0] = astExprInstrOrTag(maybe.operator->node_base, instr_names.at[i], false);
+                    expr->of_form.at[1] = (maybe.lhs.ok) ? maybe.lhs.it : astExprFormEmpty(expr->node_base);
+                    expr->of_form.at[2] = (maybe.rhs.ok) ? maybe.rhs.it : astExprFormEmpty(expr->node_base);
+                    if (strEql(operator_names.at[i], strL("->", 1))) {
+                        // TODO!
+                    }
+                    if (strEql(operator_names.at[i], strL(".", 1)) && expr->of_form.at[2].kind == ast_expr_ident)
+                        expr->of_form.at[2] = astExprInstrOrTag(expr->of_form.at[2].node_base, expr->of_form.at[2].of_ident, true);
+                    else if (maybe.rhs.ok)
+                        astExprDesugarOperatorsIntoInstrs(&expr->of_form.at[2]);
+                }
+            }
+            if (!matched)
+                ·forEach(AstExpr, sub_expr, expr->of_form, { astExprDesugarOperatorsIntoInstrs(sub_expr); });
+        } break;
+        case ast_expr_lit_bracket: {
+            ·forEach(AstExpr, sub_expr, expr->of_bracket, { astExprDesugarOperatorsIntoInstrs(sub_expr); });
+        } break;
+        case ast_expr_lit_braces: {
+            ·forEach(AstExpr, sub_expr, expr->of_braces, { astExprDesugarOperatorsIntoInstrs(sub_expr); });
+        } break;
+        default: break;
+    }
+}
+
+static void astDefDesugarOperatorsIntoInstrs(AstDef* const def) {
+    ·forEach(AstDef, sub_def, def->sub_defs, { astDefDesugarOperatorsIntoInstrs(sub_def); });
+    astExprDesugarOperatorsIntoInstrs(&def->body);
+}
+
+static void astDesugarOperatorsIntoInstrs(Ast const* const ast) {
+    ·forEach(AstDef, def, ast->top_defs, { astDefDesugarOperatorsIntoInstrs(def); });
 }
 
 
@@ -182,6 +302,8 @@ static void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast
         } break;
 
         case ast_expr_form: {
+            if (expr->of_form.len == 0)
+                break;
             Bool const parens = is_form_item && expr->anns.parensed == 0 && !expr->anns.toks_throng;
             if (parens)
                 printChr('(');
@@ -219,7 +341,7 @@ static void astExprPrint(AstExpr const* const expr, AstDef const* const def, Ast
         } break;
 
         default: {
-            printStr(uintToStr(expr->kind, 1, 10));
+            ·fail(str2(str("TODO: astExprPrint for .kind of "), uintToStr(expr->kind, 1, 10)));
         } break;
     }
     for (Uint i = 0; i < expr->anns.parensed; i++)

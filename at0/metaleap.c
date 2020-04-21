@@ -148,11 +148,15 @@ void abortWithBacktraceAndMsg(Str const msg) {
 
 #define ·new(T) (·make(T, 1, 1).at)
 
-Str str(String const from) {
-    Uint str_len = 0;
-    for (Uint i = 0; from[i] != 0; i += 1)
-        str_len += 1;
+Str strL(String const from, Uint str_len) {
+    if (str_len == 0)
+        for (Uint i = 0; from[i] != 0; i += 1)
+            str_len += 1;
     return (Str) {.len = str_len, .at = (U8*)from};
+}
+
+Str str(String const from) {
+    return strL(from, 0);
 }
 
 U8* memAlloc(Uint const num_bytes) {

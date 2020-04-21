@@ -117,7 +117,7 @@ typedef enum IrHLExprKind {
     irhl_expr_pairing,
     irhl_expr_tagged,
     irhl_expr_ref,
-    irhl_expr_prim,
+    irhl_expr_instr,
 } IrHLExprKind;
 
 typedef struct IrHLExprType {
@@ -175,7 +175,7 @@ typedef struct IrHLExprRef {
     Str name;
 } IrHLExprRef;
 
-typedef struct IrHLExprPrimArith {
+typedef struct IrHLExprInstrArith {
     IrHLExpr* lhs;
     IrHLExpr* rhs;
     enum {
@@ -185,9 +185,9 @@ typedef struct IrHLExprPrimArith {
         irhl_arith_div,
         irhl_arith_rem,
     } kind;
-} IrHLExprPrimArith;
+} IrHLExprInstrArith;
 
-typedef struct IrHLExprPrimCmp {
+typedef struct IrHLExprInstrCmp {
     IrHLExpr* lhs;
     IrHLExpr* rhs;
     enum {
@@ -198,52 +198,52 @@ typedef struct IrHLExprPrimCmp {
         irhl_cmp_leq,
         irhl_cmp_geq,
     } kind;
-} IrHLExprPrimCmp;
+} IrHLExprInstrCmp;
 
-typedef struct IrHLExprPrimExtCall {
+typedef struct IrHLExprInstrExtCall {
     IrHLExpr* callee;
     IrHLExprs args;
-} IrHLExprPrimExtCall;
+} IrHLExprInstrExtCall;
 
-typedef struct IrHLExprPrimCase {
+typedef struct IrHLExprInstrCase {
     IrHLType* scrut;
     IrHLExprPairings cases;
     IrHLExpr* default_case;
-} IrHLExprPrimCase;
+} IrHLExprInstrCase;
 
-typedef struct IrHLExprPrimLen {
+typedef struct IrHLExprInstrLen {
     IrHLExpr* subj;
-} IrHLExprPrimLen;
+} IrHLExprInstrLen;
 
-typedef struct IrHLExprPrimExtFn {
-} IrHLExprPrimExtFn;
+typedef struct IrHLExprInstrExtFn {
+} IrHLExprInstrExtFn;
 
-typedef struct IrHLExprPrimExtVar {
-} IrHLExprPrimExtVar;
+typedef struct IrHLExprInstrExtVar {
+} IrHLExprInstrExtVar;
 
-typedef struct IrHLExprPrim {
+typedef struct IrHLExprInstr {
     Str kwd;
     enum {
-        irhl_prim_unknown,
-        irhl_prim_arith,
-        irhl_prim_cmp,
-        irhl_prim_ext_call,
-        irhl_prim_case,
-        irhl_prim_len,
-        irhl_prim_ext_fn,
-        irhl_prim_ext_var,
+        irhl_instr_unknown,
+        irhl_instr_arith,
+        irhl_instr_cmp,
+        irhl_instr_ext_call,
+        irhl_instr_case,
+        irhl_instr_len,
+        irhl_instr_ext_fn,
+        irhl_instr_ext_var,
     } kind;
     union {
         Str of_unknown;
-        IrHLExprPrimArith of_arith;
-        IrHLExprPrimCmp of_cmp;
-        IrHLExprPrimExtCall of_ext_call;
-        IrHLExprPrimCase of_case;
-        IrHLExprPrimLen of_len;
-        IrHLExprPrimExtFn of_ext_fn;
-        IrHLExprPrimExtVar of_ext_var;
+        IrHLExprInstrArith of_arith;
+        IrHLExprInstrCmp of_cmp;
+        IrHLExprInstrExtCall of_ext_call;
+        IrHLExprInstrCase of_case;
+        IrHLExprInstrLen of_len;
+        IrHLExprInstrExtFn of_ext_fn;
+        IrHLExprInstrExtVar of_ext_var;
     };
-} IrHLExprPrim;
+} IrHLExprInstr;
 
 struct IrHLExpr {
     IrHLExprKind kind;
@@ -259,7 +259,7 @@ struct IrHLExpr {
         IrHLExprPairing of_pairing;
         IrHLExprTagged of_tagged;
         IrHLExprRef of_ref;
-        IrHLExprPrim of_prim;
+        IrHLExprInstr of_instr;
     };
     struct {
         struct {
@@ -283,6 +283,10 @@ struct IrHLDef {
 };
 
 
+
+typedef struct CtxIrHLReify {
+    IrHLProg* prog;
+} CtxIrHLReify;
 
 
 
@@ -335,6 +339,7 @@ static IrHLExpr irHLExprFrom(AstExpr* const ast_expr) {
             });
         } break;
         case ast_expr_form: {
+            ·assert(ast_expr->of_form.len != 0);
             ret_expr.kind = irhl_expr_call;
             Uint const num_args = ast_expr->of_form.len - 1;
             IrHLExpr const callee = irHLExprFrom(&ast_expr->of_form.at[0]);
@@ -412,7 +417,10 @@ static IrHLProg irHLProgFrom(Ast* const ast) {
         .anns = {.origin_ast = ast},
         .defs = ·make(IrHLDef, 0, ast->top_defs.len),
     };
-    ·forEach(AstDef, the_def, ast->top_defs, { ·append(ret_prog.defs, irHLDefFrom(the_def)); });
+    ·forEach(AstDef, ast_top_def, ast->top_defs, {
+        IrHLDef ir_hl_top_def = irHLDefFrom(ast_top_def);
+        ·append(ret_prog.defs, ir_hl_top_def);
+    });
     return ret_prog;
 }
 
@@ -434,7 +442,6 @@ static void irHLTypePrint(IrHLType const* const the_type) {
 }
 
 static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, Uint const ind) {
-    static Uint counter = 0;
     AstExpr const* const orig_ast_expr = (the_expr->anns.origin.kind != irhl_expr_origin_expr) ? NULL : the_expr->anns.origin.of_expr;
     if (orig_ast_expr != NULL)
         for (Uint i = 0; i < orig_ast_expr->anns.parensed; i++)
@@ -474,7 +481,7 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
         } break;
         case irhl_expr_call: {
             Bool const clasp = orig_ast_expr != NULL && orig_ast_expr->anns.toks_throng;
-            Bool const parens = true; // is_callee_or_arg && (orig_ast_expr == NULL || (orig_ast_expr->anns.parensed == 0 && !clasp));
+            Bool const parens = is_callee_or_arg && (orig_ast_expr == NULL || (orig_ast_expr->anns.parensed == 0 && !clasp));
             if (parens)
                 printChr('(');
             irHlExprPrint(the_expr->of_call.callee, true, ind);
@@ -487,11 +494,7 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
                 printChr(')');
         } break;
         case irhl_expr_func: {
-            counter += 1;
-            printStr(str("["));
-            // printStr(uintToStr(counter, 1, 10));
-            // printStr(str("__  "));
-            // printChr(' ');
+            printStr(str("[_ "));
 
             ·forEach(IrHLFuncParam, param, the_expr->of_func.params, {
                 if (iˇparam > 0)
@@ -503,11 +506,7 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
                 printChr(' ');
             irHlExprPrint(the_expr->of_func.body, false, 4 + ind);
 
-            // printChr(' ');
-            // printStr(str("  __"));
-            // printStr(uintToStr(counter, 1, 10));
-            printStr(str("]"));
-            counter -= 1;
+            printStr(str(" _]"));
         } break;
         default: {
             ·fail(str2(str("TODO: irHlExprPrint for .kind of "), uintToStr(the_expr->kind, 1, 10)));
