@@ -27,7 +27,8 @@ int main(int const argc, String const argv[]) {
 
     Ast ast = parse(toks, full_src);
     astDesugarGlyphsIntoInstrs(&ast);
-    astReorderSubDefs(&ast);
+    astHoistFuncsToTop(&ast);
+    // astReorderSubDefs(&ast);
     // astPrint(&ast);
 
     IrHLProg ir_hl_prog = irHLProgFrom(&ast);

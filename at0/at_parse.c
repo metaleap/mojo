@@ -8,6 +8,12 @@ static AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* 
 static void parseDef(AstDef* const dst_def, Ast const* const ast);
 
 static Ast parse(Tokens const all_toks, Str const full_src) {
+    Uint num_arrows = 0;
+    for (Uint i = 1; i < full_src.len; i += 1)
+        if (full_src.at[i - 1] == '-' && full_src.at[i] == '>')
+            num_arrows += 1;
+    ·fail(uintToStr(num_arrows, 1, 10));
+
     Tokenss const chunks = toksIndentBasedChunks(all_toks);
     Ast ret_ast = (Ast) {
         .src = full_src,

@@ -313,6 +313,9 @@ static void astReorderSubDefs(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
 }
 
+static void astHoistFuncsToTop(Ast const* const ast) {
+}
+
 
 
 static void astPrint(Ast const* const ast) {
