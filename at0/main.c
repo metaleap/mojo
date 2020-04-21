@@ -26,7 +26,7 @@ int main(int const argc, String const argv[]) {
     toksCheckBrackets(toks);
 
     Ast ast = parse(toks, full_src);
-    astDesugarOperatorsIntoInstrs(&ast);
+    astDesugarGlyphsIntoInstrs(&ast);
     astPrint(&ast);
 
     // IrHLProg ir_hl_prog = irHLProgFrom(&ast);
