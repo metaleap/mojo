@@ -34,7 +34,7 @@ struct AstExpr {
         AstExprs of_braces;  // {expr1, expr2, expr3, ..., exprN}     (always: .len >= 0)
     };
     struct {
-        Uint parensed;
+        U8 parensed;
         Bool toks_throng;
     } anns;
 };
@@ -86,7 +86,11 @@ static Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast c
     Tokens const node_toks = astNodeToks(node, ast);
     Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 1, 10);
     Str const toks_src = toksSrc(node_toks, ast->src);
-    return str5(msg_prefix, str(" in line "), line_nr, str(":\n"), toks_src);
+    return str8(node_toks.at[0].file_name, str(":"), line_nr, str(": "), msg_prefix, str(":\n"), toks_src, str("\n"));
+}
+
+static Str astNodeSrc(AstNodeBase const* const node, Ast const* const ast) {
+    return toksSrc(astNodeToks(node, ast), ast->src);
 }
 
 static AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
@@ -151,10 +155,11 @@ static AstExpr² astExprFormBreakOn(AstExpr const* const ast_expr, Str const ide
 }
 
 
-static Bool astExprIsTagOrInstr(AstExpr const* const expr) {
+static Bool astExprIsTagOrInstr(AstExpr const* const expr, Bool const check_is_tag, Bool const check_is_instr) {
     AstExpr* const gly = &expr->of_form.at[0];
     return expr->kind == ast_expr_form && expr->of_form.len == 2 && gly->kind == ast_expr_ident && gly->of_ident.len == 1
-           && (gly->of_ident.at[0] == '@' || gly->of_ident.at[0] == '#');
+           && ((check_is_instr && gly->of_ident.at[0] == '@' && expr->of_form.at[1].kind == ast_expr_ident)
+               || (check_is_tag && gly->of_ident.at[0] == '#'));
 }
 
 static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
@@ -163,7 +168,7 @@ static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
             return strEql(ident, expr->of_ident);
         } break;
         case ast_expr_form: {
-            if (astExprIsTagOrInstr(expr))
+            if (astExprIsTagOrInstr(expr, true, true))
                 return false;
             ·forEach(AstExpr, sub_expr, expr->of_form, {
                 if (astExprHasIdent(sub_expr, ident))
@@ -243,9 +248,9 @@ static void astExprDesugarGlyphsIntoInstrs(AstExpr* const expr) {
                         case glyph_func:
                             ·forEach(AstExpr, param_expr, expr->of_form.at[1].of_form, {
                                 if (param_expr->kind == ast_expr_ident)
-                                    expr->of_form.at[i].of_form.at[iˇparam_expr] =
-                                        astExprInstrOrTag(param_expr->node_base, param_expr->of_ident, true);
+                                    *param_expr = astExprInstrOrTag(param_expr->node_base, param_expr->of_ident, true);
                             });
+                            expr->of_form.at[1].kind = ast_expr_lit_bracket;
                             break;
                         case glyph_fldacc:
                             if (expr->of_form.at[2].of_form.len == 1 && expr->of_form.at[2].of_form.at[0].kind == ast_expr_ident)
@@ -253,12 +258,16 @@ static void astExprDesugarGlyphsIntoInstrs(AstExpr* const expr) {
                                                                                       expr->of_form.at[2].of_form.at[0].of_ident, true);
                             break;
                     }
-                    if (maybe.lhs_form.ok)
+                    if (maybe.lhs_form.ok) {
+                        if (i != glyph_func && expr->of_form.at[1].of_form.len == 1)
+                            expr->of_form.at[1] = expr->of_form.at[1].of_form.at[0];
                         astExprDesugarGlyphsIntoInstrs(&expr->of_form.at[1]);
-                    if (maybe.rhs_form.ok)
+                    }
+                    if (maybe.rhs_form.ok) {
+                        if (expr->of_form.at[2].of_form.len == 1)
+                            expr->of_form.at[2] = expr->of_form.at[2].of_form.at[0];
                         astExprDesugarGlyphsIntoInstrs(&expr->of_form.at[2]);
-                    expr->of_form.at[1].kind = ast_expr_lit_bracket;
-                    expr->of_form.at[2].kind = ast_expr_lit_bracket;
+                    }
                 }
             }
             if (!matched)
@@ -313,7 +322,72 @@ static void astReorderSubDefs(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
 }
 
-static void astHoistFuncsToTop(Ast const* const ast) {
+static void astDefHoistFuncsExprsToNewTopDefs(AstDef const* const def) {
+    ·forEach(AstDef, sub_def, def->sub_defs, { astDefHoistFuncsExprsToNewTopDefs(sub_def); });
+}
+
+static void astHoistFuncsExprsToNewTopDefs(Ast const* const ast) {
+    ·forEach(AstDef, top_def, ast->top_defs, { astDefHoistFuncsExprsToNewTopDefs(top_def); });
+}
+
+static void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, Uint const names_stack_capacity, Ast const* const ast) {
+    if (astExprIsTagOrInstr(expr, true, true))
+        return;
+    switch (expr->kind) {
+        case ast_expr_lit_bracket: {
+            ·forEach(AstExpr, sub_expr, expr->of_bracket, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
+        } break;
+        case ast_expr_lit_braces: {
+            ·forEach(AstExpr, sub_expr, expr->of_braces, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
+        } break;
+        case ast_expr_form: {
+            AstExpr* const callee = &expr->of_form.at[0];
+            if (astExprIsTagOrInstr(callee, false, true) && strEql(strL("->", 2), callee->of_form.at[1].of_ident)) {
+                ·assert(expr->of_form.at[1].kind == ast_expr_lit_bracket);
+                AstExprs const params = expr->of_form.at[1].of_bracket;
+                ·forEach(AstExpr, param, params, {
+                    ·assert(astExprIsTagOrInstr(param, true, false));
+                    Str const param_name = param->of_form.at[1].of_ident;
+                    for (Uint j = 0; j < names_stack.len; j += 1)
+                        if (strEql(names_stack.at[j], param_name))
+                            ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &param->node_base, ast));
+                    ·append(names_stack, param_name);
+                });
+                astExprVerifyNoShadowings(&expr->of_form.at[2], names_stack, names_stack_capacity, ast);
+            } else
+                ·forEach(AstExpr, sub_expr, expr->of_form, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
+        } break;
+        default: break;
+    }
+}
+
+static void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint const names_stack_capacity, Ast const* const ast) {
+    ·forEach(AstDef, def, defs, {
+        for (Uint i = 0; i < names_stack.len; i += 1)
+            if (strEql(names_stack.at[i], def->anns.name))
+                ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->head.node_base, ast));
+        if (names_stack_capacity == names_stack.len)
+            ·fail(str("astDefsVerifyNoShadowings: TODO pre-allocate a bigger names_stack"));
+        ·append(names_stack, def->anns.name);
+    });
+    ·forEach(AstDef, def, defs, {
+        Uint num_params = 0;
+        if (def->head.kind == ast_expr_form) {
+            num_params = def->head.of_form.len - 1;
+            for (Uint i = 1; i <= num_params; i += 1) {
+                ·assert(def->head.of_form.at[i].kind == ast_expr_ident);
+                Str const param_name = def->head.of_form.at[i].of_ident;
+                for (Uint j = 0; j < names_stack.len; j += 1)
+                    if (strEql(names_stack.at[j], param_name))
+                        ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->head.of_form.at[i].node_base, ast));
+
+                ·append(names_stack, param_name);
+            }
+        }
+        astDefsVerifyNoShadowings(def->sub_defs, names_stack, names_stack_capacity, ast);
+        astExprVerifyNoShadowings(&def->body, names_stack, names_stack_capacity, ast);
+        names_stack.len -= num_params;
+    });
 }
 
 
@@ -342,7 +416,7 @@ static void astDefPrint(AstDef const* const def, Uint const ind) {
 }
 
 static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uint const ind) {
-    for (Uint i = 0; i < expr->anns.parensed; i++)
+    for (Uint i = 0; i < expr->anns.parensed; i += 1)
         printChr('(');
     switch (expr->kind) {
         case ast_expr_ident: {
@@ -400,6 +474,6 @@ static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uin
             ·fail(str2(str("TODO: astExprPrint for .kind of "), uintToStr(expr->kind, 1, 10)));
         } break;
     }
-    for (Uint i = 0; i < expr->anns.parensed; i++)
+    for (Uint i = 0; i < expr->anns.parensed; i += 1)
         printChr(')');
 }

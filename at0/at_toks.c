@@ -28,6 +28,7 @@ typedef struct Token {
     Uint char_pos_line_start;
     Uint char_pos;
     Uint str_len;
+    Str file_name;
 } Token;
 typedef ·SliceOf(Token) Tokens;
 typedef ·SliceOf(Tokens) Tokenss;
@@ -247,7 +248,7 @@ static Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     return ret_sub_toks;
 }
 
-static Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
+static Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str file_name) {
     Tokens toks = ·make(Token, 0, full_src.len);
 
     TokenKind state = tok_kind_nope;
@@ -363,8 +364,17 @@ static Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                 } break;
             }
         }
+        Bool reset_line_nr = false;
         if (tok_idx_last != -1) {
             ·assert(state != tok_kind_nope && tok_idx_start != -1);
+            if (state == tok_kind_comment) {
+                Str const full_comment_src = ·slice(U8, full_src, tok_idx_start, tok_idx_last + 1);
+                Str const suff = strPrefSuff(full_comment_src, str("//AT_TOKS_SRC_FILE:"));
+                if (suff.at != NULL) {
+                    file_name = suff;
+                    reset_line_nr = true;
+                }
+            }
             if (state != tok_kind_comment || keep_comment_toks)
                 ·append(toks, ((Token) {
                                   .kind = state,
@@ -372,13 +382,14 @@ static Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                                   .char_pos_line_start = cur_line_idx,
                                   .char_pos = (Uint)(tok_idx_start),
                                   .str_len = (Uint)(1 + (tok_idx_last - tok_idx_start)),
+                                  .file_name = file_name,
                               }));
             state = tok_kind_nope;
             tok_idx_start = -1;
             tok_idx_last = -1;
         }
         if (c == '\n') {
-            cur_line_nr += 1;
+            cur_line_nr = reset_line_nr ? 0 : cur_line_nr + 1;
             cur_line_idx = i + 1;
         }
     }
@@ -391,6 +402,7 @@ static Tokens tokenize(Str const full_src, Bool const keep_comment_toks) {
                               .char_pos_line_start = cur_line_idx,
                               .char_pos = (Uint)(tok_idx_start),
                               .str_len = i - tok_idx_start,
+                              .file_name = file_name,
                           }));
     }
     return toks;

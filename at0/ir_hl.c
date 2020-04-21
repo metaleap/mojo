@@ -444,7 +444,7 @@ static void irHLTypePrint(IrHLType const* const the_type) {
 static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, Uint const ind) {
     AstExpr const* const orig_ast_expr = (the_expr->anns.origin.kind != irhl_expr_origin_expr) ? NULL : the_expr->anns.origin.of_expr;
     if (orig_ast_expr != NULL)
-        for (Uint i = 0; i < orig_ast_expr->anns.parensed; i++)
+        for (Uint i = 0; i < orig_ast_expr->anns.parensed; i += 1)
             printChr('(');
 
     switch (the_expr->kind) {
@@ -514,7 +514,7 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
     }
 
     if (orig_ast_expr != NULL)
-        for (Uint i = 0; i < orig_ast_expr->anns.parensed; i++)
+        for (Uint i = 0; i < orig_ast_expr->anns.parensed; i += 1)
             printChr(')');
 }
 

@@ -134,6 +134,7 @@ void abortWithBacktraceAndMsg(Str const msg) {
     Uint const n_frames = backtrace(callstack, 16);
     backtrace_symbols_fd(callstack, n_frames, 2); // 2 being stderr
 
+    fwrite("\n", 1, 1, stderr);
     printStr(msg);
     fwrite("\n", 1, 1, stderr);
     fflush(stderr);
@@ -148,15 +149,15 @@ void abortWithBacktraceAndMsg(Str const msg) {
 
 #define ·new(T) (·make(T, 1, 1).at)
 
-Str strL(String const from, Uint str_len) {
+Str strL(String const c_str, Uint str_len) {
     if (str_len == 0)
-        for (Uint i = 0; from[i] != 0; i += 1)
+        for (Uint i = 0; c_str[i] != 0; i += 1)
             str_len += 1;
-    return (Str) {.len = str_len, .at = (U8*)from};
+    return (Str) {.len = str_len, .at = (U8*)c_str};
 }
 
-Str str(String const from) {
-    return strL(from, 0);
+Str str(String const c_str) {
+    return strL(c_str, 0);
 }
 
 U8* memAlloc(Uint const num_bytes) {
@@ -218,6 +219,14 @@ Str uintToStr(Uint const uint_value, Uint const str_min_len, Uint const base) {
     return ret_str;
 }
 
+Str strCopy(String const c_str) {
+    Str const ptr_ref = str(c_str);
+    Str copy = newStr(ptr_ref.len, ptr_ref.len);
+    for (Uint i = 0; i < copy.len; i += 1)
+        copy.at[i] = ptr_ref.at[i];
+    return copy;
+}
+
 // unused in principle, but kept around just in case we really do need a printf
 // occasionally while debugging. result for immediate consumption! not for keeping.
 String strZ(Str const str) {
@@ -238,6 +247,14 @@ Bool strEql(Str const one, Str const two) {
         return true;
     }
     return false;
+}
+
+Str strPrefSuff(Str const str, Str const prefix) {
+    Str ret_str = (Str) {.len = 0, .at = NULL};
+    if (str.len >= prefix.len)
+        if (strEql(prefix, ·slice(U8, str, 0, prefix.len)))
+            return ·slice(U8, str, prefix.len, str.len);
+    return ret_str;
 }
 
 Bool strEq(Str const one, String const two, ºUint const str_len) {
@@ -311,6 +328,18 @@ Str str4(Str const s1, Str const s2, Str const s3, Str const s4) {
 
 Str str5(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5) {
     return strConcat((Strs) {.len = 5, .at = ((Str[]) {s1, s2, s3, s4, s5})});
+}
+
+Str str6(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5, Str const s6) {
+    return strConcat((Strs) {.len = 6, .at = ((Str[]) {s1, s2, s3, s4, s5, s6})});
+}
+
+Str str7(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5, Str const s6, Str const s7) {
+    return strConcat((Strs) {.len = 7, .at = ((Str[]) {s1, s2, s3, s4, s5, s6, s7})});
+}
+
+Str str8(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5, Str const s6, Str const s7, Str const s8) {
+    return strConcat((Strs) {.len = 8, .at = ((Str[]) {s1, s2, s3, s4, s5, s6, s7, s8})});
 }
 
 

@@ -8,17 +8,16 @@ static AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* 
 static void parseDef(AstDef* const dst_def, Ast const* const ast);
 
 static Ast parse(Tokens const all_toks, Str const full_src) {
-    Uint num_arrows = 0;
+    Uint num_func_arrows = 0; // count all `->` occurrences in full_src:
     for (Uint i = 1; i < full_src.len; i += 1)
         if (full_src.at[i - 1] == '-' && full_src.at[i] == '>')
-            num_arrows += 1;
-    ·fail(uintToStr(num_arrows, 1, 10));
+            num_func_arrows += 1; // they'll get hoisted to top-defs eventually, so want to reserve that space now
 
     Tokenss const chunks = toksIndentBasedChunks(all_toks);
     Ast ret_ast = (Ast) {
         .src = full_src,
         .toks = all_toks,
-        .top_defs = ·make(AstDef, 0, chunks.len),
+        .top_defs = ·make(AstDef, 0, chunks.len + num_func_arrows),
     };
     Uint toks_idx = 0;
     ·forEach(Tokens, chunk_toks, chunks, {
@@ -179,7 +178,7 @@ static AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast co
                             ·append(ret_acc, expr_ident);
                         } else {
                             AstExpr expr_inside_parens = parseExpr(toks_inside_parens, all_toks_idx + i + 1, ast);
-                            expr_inside_parens.anns.parensed += 1;
+                            expr_inside_parens.anns.parensed += (expr_inside_parens.anns.parensed < 255) ? 1 : 0;
                             // still want the parens toks captured in node base:
                             expr_inside_parens.node_base.toks_idx = all_toks_idx + i;
                             expr_inside_parens.node_base.toks_len += 2;
