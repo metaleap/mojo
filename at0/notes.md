@@ -1,3 +1,19 @@
+### Hoisting:
+
+after glyph-desugaring:
+- for each func-expr that isnt the value of a top-def-body
+  - first process its body with this sequence of steps, then:
+  - determine new-top-name
+  - gather all refs-to-locals
+  - make new top-def with these prepended as params
+  - rewrite the encountered func-expr with:
+    - a partial call to the new top def if any new params were prepended, with those names as args
+    - an ident to the new top def otherwise
+
+result: all sub-defs are param-less locals. any remaining mutual-recursion found
+in them later on is an error, aka circular defs (ie. `a := b, b := a`). so they
+can be turned into "lambda-let"s and for this purpose, re-ordered correctly.
+
 ### Detect de-facto boolish logic:
 
 Consider
