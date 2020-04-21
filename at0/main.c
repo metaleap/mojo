@@ -14,27 +14,39 @@
 int main(int const argc, String const argv[]) {
     ·assert(argc > 1);
 
+
+    // read and concat together all input source files specified via args
     Str full_src = (Str) {.at = NULL, .len = 0};
     for (int i = 1; i < argc; i += 1) {
-        Str const comment1 = strCopy("//AT_TOKS_SRC_FILE:");
-        Str const comment2 = strCopy(argv[i]);
-        Str const comment3 = strCopy("\n");
+        // a tad hacky: all allocs in this loop (strCopy and readFile) are contiguous in memory,
+        // so our `full_src` bytes-slice just gets the starting addr and its `len` increased
+        Str const comment_part_1 = strCopy("//AT_TOKS_SRC_FILE:");
+        Str const comment_part_2 = strCopy(argv[i]);
+        Str const comment_part_3 = strCopy("\n");
         Str const this_file_src = readFile(argv[i]);
-        full_src.len += comment1.len + comment2.len + comment3.len + this_file_src.len;
-        if (i == 1)
-            full_src.at = comment1.at;
+        full_src.len += comment_part_1.len + comment_part_2.len + comment_part_3.len + this_file_src.len;
+        if (full_src.at == NULL)
+            full_src.at = comment_part_1.at;
     }
 
-    Tokens const toks = tokenize(full_src, false, str(""));
-    toksCheckBrackets(toks);
 
+    // tokenize
+    Tokens const toks = tokenize(full_src, false, str(""));
+    toksVerifyBrackets(toks);
+
+
+    // parse into a rudimentary raw context-free generic AST first
     Ast ast = parse(toks, full_src);
-    astDesugarGlyphsIntoInstrs(&ast);
+    astRewriteGlyphsIntoInstrs(&ast);
     astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
     astHoistFuncsExprsToNewTopDefs(&ast);
     // astReorderSubDefs(&ast);
     // astPrint(&ast);
 
+
+    // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
+    // HL = high level (though desugared). if success, pre-reduce all defs in a
+    // strict / non-lazy call-by-value tree-walking manner, no short-circuiting.
     IrHLProg ir_hl_prog = irHLProgFrom(&ast);
     irHLProgPrint(&ir_hl_prog);
 }

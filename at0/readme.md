@@ -8,7 +8,6 @@ anticipate the various early-stage limitations and reflect them in this code bas
   - hence crude minimal own implementations like uintToStr, uintParse, strEql etc.
 - use of macros limited to (eventual) WIP-lang meta-programming / generic powers
 - all would-be `malloc`s replaced by global fixed-size backing buffer allocation
-- naming / casing conventions follow WIP-lang rather than C customs
 - no zero-terminated "C strings", all array uses via (macro) `·SliceOf(T)` types
 
 We want here to merely reach the "execute-input-sources-or-die" stage. No bells &

@@ -91,7 +91,7 @@ static Uint toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
     return ret_num;
 }
 
-static void toksCheckBrackets(Tokens const toks) {
+static void toksVerifyBrackets(Tokens const toks) {
     Int level_bparen = 0, level_bsquare = 0, level_bcurly = 0;
     Int line_bparen = -1, line_bsquare = -1, line_bcurly = -1;
     ·forEach(Token, tok, toks, {
