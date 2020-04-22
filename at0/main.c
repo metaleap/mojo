@@ -36,9 +36,9 @@ int main(int const argc, String const argv[]) {
 
     // parse into a rudimentary raw context-free generic AST first
     Ast ast = parse(toks, full_src);
-    astRewriteGlyphsIntoInstrs(&ast);
-    astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
-    astHoistFuncsExprsToNewTopDefs(&ast);
+    // astRewriteGlyphsIntoInstrs(&ast);
+    // astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
+    // astHoistFuncsExprsToNewTopDefs(&ast);
     // astReorderSubDefs(&ast);
     astPrint(&ast);
 

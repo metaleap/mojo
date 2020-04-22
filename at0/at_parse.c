@@ -37,26 +37,6 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
     if ((!idx_tok_def.ok) || idx_tok_def.it == 0 || idx_tok_def.it == toks.len - 1)
         ·fail(astNodeMsg(str("expected '<head_expr> := <body_expr>'"), &dst_def->node_base, ast));
 
-    dst_def->head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
-    switch (dst_def->head.kind) {
-        case ast_expr_ident: {
-            dst_def->anns.name = dst_def->head.of_ident;
-        } break;
-        case ast_expr_form: {
-            if (dst_def->head.of_exprs.at[0].kind != ast_expr_ident)
-                ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
-            dst_def->anns.name = dst_def->head.of_exprs.at[0].of_ident;
-            for (Uint i = 1; i < dst_def->head.of_exprs.len; i += 1)
-                if (dst_def->head.of_exprs.at[i].kind != ast_expr_ident)
-                    ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
-        } break;
-        default: {
-            ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
-        } break;
-    }
-    dst_def->anns.qname =
-        (dst_def->anns.parent_def != NULL) ? str3(dst_def->anns.parent_def->anns.qname, strL("-", 1), dst_def->anns.name) : dst_def->anns.name;
-
     Tokenss const def_body_chunks = toksIndentBasedChunks(·slice(Token, toks, idx_tok_def.it + 1, toks.len));
     dst_def->sub_defs = ·make(AstDef, 0, def_body_chunks.len - 1);
     Uint all_toks_idx = dst_def->node_base.toks_idx + idx_tok_def.it + 1;
@@ -65,12 +45,43 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
             dst_def->body = parseExpr(*chunk_toks, all_toks_idx, ast);
         else {
             AstDef* const sub_def = &dst_def->sub_defs.at[dst_def->sub_defs.len];
+            dst_def->sub_defs.len += 1;
             *sub_def = astDef(dst_def, all_toks_idx, chunk_toks->len);
             parseDef(sub_def, ast);
-            dst_def->sub_defs.len += 1;
         }
         all_toks_idx += chunk_toks->len;
     });
+
+    AstExpr head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
+    switch (head.kind) {
+        case ast_expr_ident: {
+            dst_def->name = head.of_ident;
+        } break;
+        case ast_expr_form: {
+            if (head.of_exprs.at[0].kind != ast_expr_ident)
+                ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
+            dst_def->name = head.of_exprs.at[0].of_ident;
+
+            AstExpr fn = astExpr(dst_def->node_base.toks_idx, dst_def->node_base.toks_len, ast_expr_form);
+            fn.of_exprs = ·make(AstExpr, 3, 3);
+            fn.of_exprs.at[0] = astExprInstrOrTag(head.node_base, strL("->", 2), false);
+            fn.of_exprs.at[2] = dst_def->body;
+            fn.of_exprs.at[1] = astExpr(head.of_exprs.at[1].node_base.toks_idx, head.node_base.toks_len - 1, ast_expr_lit_bracket);
+            fn.of_exprs.at[1].of_exprs = ·make(AstExpr, head.of_exprs.len - 1, 0);
+            for (Uint i = 1; i < head.of_exprs.len; i += 1)
+                if (head.of_exprs.at[i].kind != ast_expr_ident)
+                    ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
+                else
+                    fn.of_exprs.at[1].of_exprs.at[i - 1] = astExprInstrOrTag(head.of_exprs.at[i].node_base, head.of_exprs.at[i].of_ident, true);
+            dst_def->body = fn;
+        } break;
+        default: {
+            ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
+        } break;
+    }
+    dst_def->head = (head.kind == ast_expr_ident) ? head : head.of_exprs.at[0];
+    dst_def->anns.qname =
+        (dst_def->anns.parent_def != NULL) ? str3(dst_def->anns.parent_def->anns.qname, strL("-", 1), dst_def->name) : dst_def->name;
 }
 
 static AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {

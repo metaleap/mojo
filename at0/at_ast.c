@@ -49,11 +49,11 @@ typedef ·SliceOf(AstDef) AstDefs;
 struct AstDef {
     AstNodeBase node_base;
     AstExpr head;
+    Str name;
     AstExpr body;
     AstDefs sub_defs;
     struct {
         AstDef* parent_def;
-        Str name;
         Str qname;
     } anns;
 };
@@ -316,10 +316,10 @@ static void astSubDefsReorder(AstDefs const defs) {
         again = false;
         if (num_rounds > 42 * defs.len)
             ·fail(str2(str("Circular sub-def dependencies inside "),
-                       (defs.at[0].anns.parent_def == NULL) ? str("<top-level>") : defs.at[0].anns.parent_def->anns.name));
+                       (defs.at[0].anns.parent_def == NULL) ? str("<top-level>") : defs.at[0].anns.parent_def->name));
         ·forEach(AstDef, the_def, defs, {
             for (Uint i = iˇthe_def + 1; i < defs.len; i += 1) {
-                Bool const has = astDefHasIdent(&defs.at[i], the_def->anns.name);
+                Bool const has = astDefHasIdent(&defs.at[i], the_def->name);
                 if (has) {
                     AstDef dependant = defs.at[i];
                     defs.at[i] = *the_def;
@@ -371,7 +371,7 @@ static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qn
                 AstDef* new_top_def = &ast->top_defs.at[ast->top_defs.len];
                 ast->top_defs.len += 1;
                 *new_top_def = astDef(NULL, node_base.toks_idx, node_base.toks_len);
-                new_top_def->anns.name = qname;
+                new_top_def->name = qname;
                 new_top_def->anns.qname = qname;
                 new_top_def->body = *expr;
 
@@ -409,7 +409,7 @@ static void astDefHoistFuncsExprsToNewTopDefs(AstDef* const cur_def, Strs const 
 
 static void astHoistFuncsExprsToNewTopDefs(Ast* const ast) {
     Strs top_def_names = ·make(Str, 0, ast->top_defs.len);
-    ·forEach(AstDef, top_def, ast->top_defs, { ·append(top_def_names, top_def->anns.name); });
+    ·forEach(AstDef, top_def, ast->top_defs, { ·append(top_def_names, top_def->name); });
 
     Uint const n = ast->top_defs.len; // we append to top_defs: no need to process the new ones
     for (Uint i = 0; i < n; i += 1)
@@ -449,11 +449,11 @@ static void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stac
 static void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint const names_stack_capacity, Ast const* const ast) {
     ·forEach(AstDef, def, defs, {
         for (Uint i = 0; i < names_stack.len; i += 1)
-            if (strEql(names_stack.at[i], def->anns.name))
+            if (strEql(names_stack.at[i], def->name))
                 ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->head.node_base, ast));
         if (names_stack_capacity == names_stack.len)
             ·fail(str("astDefsVerifyNoShadowings: TODO pre-allocate a bigger names_stack"));
-        ·append(names_stack, def->anns.name);
+        ·append(names_stack, def->name);
     });
     ·forEach(AstDef, def, defs, {
         Uint num_params = 0;

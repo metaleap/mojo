@@ -373,7 +373,7 @@ static IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
                                                   .body = irHLExprCopy(&body_expr),
                                                   .params = ·make(IrHLFuncParam, 1, 1),
                                               }});
-            expr_func.of_func.params.at[0] = (IrHLFuncParam) {.anns = {.name = sub_def->anns.name}};
+            expr_func.of_func.params.at[0] = (IrHLFuncParam) {.anns = {.name = sub_def->name}};
             body_expr = ((IrHLExpr) {.anns = {.origin = {.kind = irhl_expr_origin_def, .of_def = sub_def}},
                                      .kind = irhl_expr_call,
                                      .of_call = (IrHLExprCall) {
@@ -406,7 +406,7 @@ static IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
 
 static IrHLDef irHLDefFrom(AstDef* const top_def) {
     IrHLDef this_def = (IrHLDef) {
-        .anns = {.origin_def = top_def, .name = top_def->anns.name},
+        .anns = {.origin_def = top_def, .name = top_def->name},
         .body = irHLDefExpr(top_def),
     };
     return this_def;
