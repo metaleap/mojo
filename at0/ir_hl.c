@@ -157,7 +157,7 @@ typedef struct IrHLExprBag {
 
 typedef struct IrHLExprSelector {
     IrHLExpr* subj;
-    IrHLExpr* selector;
+    IrHLExpr* member;
 } IrHLExprSelector;
 
 typedef struct IrHLExprPairing {
@@ -222,9 +222,8 @@ typedef struct IrHLExprInstrExtVar {
 } IrHLExprInstrExtVar;
 
 typedef struct IrHLExprInstr {
-    Str kwd;
     enum {
-        irhl_instr_unknown,
+        irhl_instr_named,
         irhl_instr_arith,
         irhl_instr_cmp,
         irhl_instr_ext_call,
@@ -234,7 +233,7 @@ typedef struct IrHLExprInstr {
         irhl_instr_ext_var,
     } kind;
     union {
-        Str of_unknown;
+        Str of_named;
         IrHLExprInstrArith of_arith;
         IrHLExprInstrCmp of_cmp;
         IrHLExprInstrExtCall of_ext_call;
@@ -282,7 +281,7 @@ struct IrHLDef {
 
 
 
-static void irHLReifyExpr(IrHLExpr* expr) {
+static void irHLReifyExpr(IrHLProg* ctx, IrHLExpr* expr) {
     // as per `irHLExprFrom` and `irHLDefExpr`, the only `IrHLExprKind` to encounter here are:
     //      irhl_expr_call, irhl_expr_list, irhl_expr_bag, irhl_expr_ref, irhl_expr_int, irhl_expr_func
     // to be potentially-discovered are possibly-those-above or any of the refined ones:
@@ -294,22 +293,75 @@ static void irHLReifyExpr(IrHLExpr* expr) {
                 expr->kind = irhl_expr_void;
         } break;
         case irhl_expr_func: {
-            irHLReifyExpr(expr->of_func.body);
+            irHLReifyExpr(ctx, expr->of_func.body);
         } break;
         case irhl_expr_list: {
-            ·forEach(IrHLExpr, sub_expr, expr->of_list.items, { irHLReifyExpr(sub_expr); });
+            ·forEach(IrHLExpr, sub_expr, expr->of_list.items, { irHLReifyExpr(ctx, sub_expr); });
         } break;
         case irhl_expr_bag: {
-            ·forEach(IrHLExpr, sub_expr, expr->of_bag.items, { irHLReifyExpr(sub_expr); });
+            ·forEach(IrHLExpr, sub_expr, expr->of_bag.items, { irHLReifyExpr(ctx, sub_expr); });
         } break;
         case irhl_expr_call: {
+            ·forEach(IrHLExpr, sub_expr, expr->of_call.args, { irHLReifyExpr(ctx, sub_expr); });
+            irHLReifyExpr(ctx, expr->of_call.callee);
             Bool reified = false;
+            AstExpr const* const ast_expr = expr->anns.origin.ast_expr;
+            Ast const* const ast = ctx->anns.origin_ast;
+            AstNodeBase const* const node = &ast_expr->node_base;
+            ·assert(ast_expr != NULL);
 
-            // if (astExprIsInstrOrTag(expr->of_call.callee->anns.origin.of_expr,false,true,false))
+            if ((!reified) && astExprIsInstrOrTag(ast_expr, false, true, false)) {
+                reified = true;
+                if (ast_expr->of_exprs.at[1].kind != ast_expr_ident)
+                    ·fail(astNodeMsg(str("TODO: non-ident tags"), node, ast));
+                expr->kind = irhl_expr_tagged;
+                expr->of_tagged = (IrHLExprTagged) {.subj = NULL, .tags = ·make(Str, 1, 1)};
+                expr->of_tagged.tags.at[0] = ast_expr->of_exprs.at[1].of_ident;
+            }
 
-            if (!reified) {
-                ·forEach(IrHLExpr, sub_expr, expr->of_call.args, { irHLReifyExpr(sub_expr); });
-                irHLReifyExpr(expr->of_call.callee);
+            if ((!reified) && astExprIsInstrOrTag(ast_expr, true, false, false)) {
+                reified = true;
+                Str const instr_name = ast_expr->of_exprs.at[1].of_ident;
+                expr->kind = irhl_expr_instr;
+                expr->of_instr = (IrHLExprInstr) {.kind = irhl_instr_named, .of_named = instr_name};
+            }
+
+            if ((!reified) && expr->of_call.callee->kind == irhl_expr_instr && expr->of_call.callee->of_instr.kind == irhl_instr_named) {
+                reified = true;
+                Str const instr_name = expr->of_call.callee->of_instr.of_named;
+                if (strEql(str(":"), instr_name)) {
+                    if (expr->of_call.args.len != 2)
+                        ·fail(astNodeMsg(str("instruction '@:' requires 2 args"), node, ast));
+                    expr->kind = irhl_expr_pairing;
+                    expr->of_pairing = (IrHLExprPairing) {.key = &expr->of_call.args.at[0], .val = &expr->of_call.args.at[1]};
+                } else if (strEql(str("."), instr_name)) {
+                    if (expr->of_call.args.len != 2)
+                        ·fail(astNodeMsg(str("instruction '@.' requires 2 args"), node, ast));
+                    expr->kind = irhl_expr_selector;
+                    expr->of_selector = (IrHLExprSelector) {.subj = &expr->of_call.args.at[0], .member = &expr->of_call.args.at[1]};
+                } else if (strEql(str("->"), instr_name)) {
+                    if (expr->of_call.args.len != 2)
+                        ·fail(astNodeMsg(str("instruction '@->' requires 2 args"), node, ast));
+                    ·assert(expr->of_call.args.at[0].kind == irhl_expr_list);
+                    IrHLExprFunc fn_expr = (IrHLExprFunc) {.body = &expr->of_call.args.at[1],
+                                                           .params = ·make(IrHLFuncParam, expr->of_call.args.at[0].of_list.items.len, 0)};
+                    for (Uint i = 0; i < fn_expr.params.len; i += 1) {
+                        IrHLExpr* param = &expr->of_call.args.at[0].of_list.items.at[i];
+                        if (param->kind != irhl_expr_tagged || param->of_tagged.subj != NULL || param->of_tagged.tags.len != 1)
+                            ·fail(astNodeMsg(str("unsupported expression for func param"), &param->anns.origin.ast_expr->node_base, ast));
+                        fn_expr.params.at[i].anns.name = param->of_tagged.tags.at[0];
+                    }
+                    expr->kind = irhl_expr_func;
+                    expr->of_func = fn_expr;
+                } else if (strEql(str("extern"), instr_name)) {
+                } else if (strEql(str("case"), instr_name)) {
+                } else if (strEql(str("cmp"), instr_name)) {
+                } else if (strEql(str("len"), instr_name)) {
+                } else if (strEql(str("or"), instr_name)) {
+                } else if (strEql(str("T"), instr_name)) {
+                } else {
+                    ·fail(astNodeMsg(str3(str("unknown instruction '@"), instr_name, str("' in")), node, ast));
+                }
             }
         } break;
         default: break;
@@ -317,7 +369,7 @@ static void irHLReifyExpr(IrHLExpr* expr) {
 }
 
 static void irHLReifyProg(IrHLProg* prog) {
-    ·forEach(IrHLDef, def, prog->defs, { irHLReifyExpr(&def->body); });
+    ·forEach(IrHLDef, def, prog->defs, { irHLReifyExpr(prog, &def->body); });
 }
 
 

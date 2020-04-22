@@ -211,12 +211,12 @@ static AstExpr astExprInstrOrTag(AstNodeBase const from, Str const name, Bool co
 }
 
 static AstExpr astExprFormEmpty(AstNodeBase const from) {
-    return (AstExpr) {.kind = ast_expr_form, .of_exprs = ·make(AstExpr, 0, 0), .node_base = from};
+    return (AstExpr) {.kind = ast_expr_form, .of_exprs = (AstExprs) {.at = NULL, .len = 0}, .node_base = from};
 }
 
 
 
-static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
+static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
     enum InstrGlyph {
         glyph_kvpair = 0,
         glyph_func = 1,
@@ -233,9 +233,9 @@ static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
     }
 
     if (expr->kind == ast_expr_lit_bracket || expr->kind == ast_expr_lit_braces)
-        ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr); });
+        ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast); });
     else if (astExprIsFunc(expr))
-        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2]);
+        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast);
     else if (expr->kind == ast_expr_form && expr->of_exprs.len != 0) {
         Bool matched = false;
         AstExpr² maybe;
@@ -249,7 +249,12 @@ static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
             expr->of_exprs.at[0] = astExprInstrOrTag(maybe.glyph->node_base, glyph_names.at[i], false);
             expr->of_exprs.at[1] = (maybe.lhs_form.ok) ? maybe.lhs_form.it : astExprFormEmpty(expr->node_base);
             expr->of_exprs.at[2] = (maybe.rhs_form.ok) ? maybe.rhs_form.it : astExprFormEmpty(expr->node_base);
+            if (i != glyph_func && !(maybe.lhs_form.ok && maybe.rhs_form.ok))
+                ·fail(astNodeMsg(str3(str("expected both left-hand-side and right-hand-side for infix '"), glyph_names.at[i], str("' in")),
+                                 &expr->node_base, ast));
             if (i == glyph_func) {
+                if (!maybe.rhs_form.ok)
+                    ·fail(astNodeMsg(str3(str("expected function body to follow '"), glyph_names.at[i], str("' in")), &expr->node_base, ast));
                 ·forEach(AstExpr, param_expr, expr->of_exprs.at[1].of_exprs, {
                     if (param_expr->kind == ast_expr_ident)
                         *param_expr = astExprInstrOrTag(param_expr->node_base, param_expr->of_ident, true);
@@ -263,26 +268,26 @@ static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
             if (maybe.lhs_form.ok) {
                 if (i != glyph_func && expr->of_exprs.at[1].of_exprs.len == 1)
                     expr->of_exprs.at[1] = expr->of_exprs.at[1].of_exprs.at[0];
-                astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[1]);
+                astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[1], ast);
             }
             if (maybe.rhs_form.ok) {
                 if (expr->of_exprs.at[2].of_exprs.len == 1)
                     expr->of_exprs.at[2] = expr->of_exprs.at[2].of_exprs.at[0];
-                astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2]);
+                astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast);
             }
         }
         if (!matched)
-            ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr); });
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast); });
     }
 }
 
-static void astDefRewriteGlyphsIntoInstrs(AstDef* const def) {
-    ·forEach(AstDef, sub_def, def->sub_defs, { astDefRewriteGlyphsIntoInstrs(sub_def); });
-    astExprRewriteGlyphsIntoInstrs(&def->body);
+static void astDefRewriteGlyphsIntoInstrs(AstDef* const def, Ast const* const ast) {
+    ·forEach(AstDef, sub_def, def->sub_defs, { astDefRewriteGlyphsIntoInstrs(sub_def, ast); });
+    astExprRewriteGlyphsIntoInstrs(&def->body, ast);
 }
 
 static void astRewriteGlyphsIntoInstrs(Ast const* const ast) {
-    ·forEach(AstDef, def, ast->top_defs, { astDefRewriteGlyphsIntoInstrs(def); });
+    ·forEach(AstDef, def, ast->top_defs, { astDefRewriteGlyphsIntoInstrs(def, ast); });
 }
 
 
@@ -334,7 +339,8 @@ static void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stac
                 ·assert(expr->of_exprs.at[1].kind == ast_expr_lit_bracket);
                 AstExprs const params = expr->of_exprs.at[1].of_exprs;
                 ·forEach(AstExpr, param, params, {
-                    ·assert(astExprIsInstrOrTag(param, false, true, true));
+                    if (!astExprIsInstrOrTag(param, false, true, true))
+                        ·fail(astNodeMsg(str("unsupported expression for func param"), &expr->node_base, ast));
                     Str const param_name = param->of_exprs.at[1].of_ident;
                     for (Uint j = 0; j < names_stack.len; j += 1)
                         if (strEql(names_stack.at[j], param_name))
