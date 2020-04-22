@@ -18,7 +18,7 @@ int main(int const argc, String const argv[]) {
     // read and concat together all input source files specified via args
     Str full_src = (Str) {.at = NULL, .len = 0};
     for (int i = 1; i < argc; i += 1) {
-        // a tad hacky: all allocs in this loop (strCopy and readFile) are contiguous in memory,
+        // hacky: all allocs in this loop (strCopy and readFile) are contiguous in memory,
         // so our `full_src` bytes-slice just gets the starting addr and its `len` increased
         Str const comment_part_1 = strCopy("//AT_TOKS_SRC_FILE:");
         Str const comment_part_2 = strCopy(argv[i]);
@@ -45,8 +45,6 @@ int main(int const argc, String const argv[]) {
 
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
-    // HL = high level (though desugared). if success, pre-reduce all defs in a
-    // strict / non-lazy call-by-value tree-walking manner, no short-circuiting.
     IrHLProg ir_hl_prog = irHLProgFrom(&ast);
     irHLProgPrint(&ir_hl_prog);
 }

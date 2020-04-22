@@ -311,8 +311,15 @@ static void astReorderSubDefs(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
 }
 
+static void astExprHoistFuncsExprsToNewTopDefs(AstExpr const* const expr) {
+    switch (expr->kind) {
+        default: break;
+    }
+}
+
 static void astDefHoistFuncsExprsToNewTopDefs(AstDef const* const def) {
     ·forEach(AstDef, sub_def, def->sub_defs, { astDefHoistFuncsExprsToNewTopDefs(sub_def); });
+    astExprHoistFuncsExprsToNewTopDefs(&def->body);
 }
 
 static void astHoistFuncsExprsToNewTopDefs(Ast const* const ast) {
