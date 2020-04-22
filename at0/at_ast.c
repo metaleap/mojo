@@ -227,8 +227,6 @@ static Bool astDefHasIdent(AstDef const* const def, Str const ident) {
     return astExprHasIdent(&def->body, ident);
 }
 
-
-
 static AstExpr astExprInstrOrTag(AstNodeBase const from, Str const name, Bool const tag) {
     AstExpr ret_expr = (AstExpr) {.kind = ast_expr_form, .of_exprs = ·make(AstExpr, 2, 2), .node_base = from, .anns = {.toks_throng = true}};
     ret_expr.of_exprs.at[0] = (AstExpr) {.kind = ast_expr_ident, .of_ident = strL(tag ? "#" : "@", 1), .node_base = from};
@@ -239,6 +237,8 @@ static AstExpr astExprInstrOrTag(AstNodeBase const from, Str const name, Bool co
 static AstExpr astExprFormEmpty(AstNodeBase const from) {
     return (AstExpr) {.kind = ast_expr_form, .of_exprs = ·make(AstExpr, 0, 0), .node_base = from};
 }
+
+
 
 static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
     enum InstrGlyph {
@@ -307,6 +307,7 @@ static void astRewriteGlyphsIntoInstrs(Ast const* const ast) {
     ·forEach(AstDef, def, ast->top_defs, { astDefRewriteGlyphsIntoInstrs(def); });
 }
 
+
 static void astSubDefsReorder(AstDefs const defs) {
     ·forEach(AstDef, the_def, defs, { astSubDefsReorder(the_def->sub_defs); });
 
@@ -336,6 +337,7 @@ static void astSubDefsReorder(AstDefs const defs) {
 static void astReorderSubDefs(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
 }
+
 
 static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qname, Strs const top_def_names, Ast* const ast) {
     switch (expr->kind) {
@@ -413,6 +415,7 @@ static void astHoistFuncsExprsToNewTopDefs(Ast* const ast) {
     for (Uint i = 0; i < n; i += 1)
         astDefHoistFuncsExprsToNewTopDefs(&ast->top_defs.at[i], top_def_names, ast);
 }
+
 
 static void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, Uint const names_stack_capacity, Ast const* const ast) {
     if (astExprIsInstrOrTag(expr, true, true, true))
