@@ -101,11 +101,6 @@ static AstDef astDef(AstDef const* const parent_def, Uint const all_toks_idx, Ui
     };
 }
 
-static AstExpr* astDefEffectiveBody(AstDef* const def, Bool const locals_like_paramless) {
-    Bool const body_ok = (def->anns.param_names.at == NULL || (locals_like_paramless && def->anns.parent_def != NULL));
-    return body_ok ? (&def->body) : (&def->body.of_exprs.at[2]);
-}
-
 static AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind) {
     return (AstExpr) {
         .node_base = astNodeBaseFrom(toks_idx, toks_len),
@@ -322,111 +317,6 @@ static void astRewriteGlyphsIntoInstrs(Ast const* const ast) {
 }
 
 
-static void astSubDefsReorder(AstDefs const defs) {
-    ·forEach(AstDef, the_def, defs, { astSubDefsReorder(the_def->sub_defs); });
-
-    Uint num_rounds = 0;
-    for (Bool again = true; again; num_rounds += 1) {
-        again = false;
-        if (num_rounds > 42 * defs.len)
-            ·fail(str2(str("Circular sub-def dependencies inside "),
-                       (defs.at[0].anns.parent_def == NULL) ? str("<top-level>") : defs.at[0].anns.parent_def->name));
-        ·forEach(AstDef, the_def, defs, {
-            for (Uint i = iˇthe_def + 1; i < defs.len; i += 1) {
-                Bool const has = astDefHasIdent(&defs.at[i], the_def->name);
-                if (has) {
-                    AstDef dependant = defs.at[i];
-                    defs.at[i] = *the_def;
-                    defs.at[iˇthe_def] = dependant;
-                    again = true;
-                    break;
-                }
-            }
-            if (again)
-                break;
-        });
-    }
-}
-
-static void astReorderSubDefs(Ast const* const ast) {
-    ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
-}
-
-
-static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qname, Strs const top_def_names, Ast* const ast) {
-    switch (expr->kind) {
-        case ast_expr_lit_bracket: // fall through to:
-        case ast_expr_lit_braces: {
-            ·forEach(AstExpr, sub_expr, expr->of_exprs, {
-                Str const item_qname = str3(qname, strL("-", 1), uintToStr(iˇsub_expr, 1, 16));
-                astExprHoistFuncsExprsToNewTopDefs(sub_expr, item_qname, top_def_names, ast);
-            });
-        } break;
-        case ast_expr_form: {
-            if (!astExprIsFunc(expr)) {
-                ·forEach(AstExpr, sub_expr, expr->of_exprs, {
-                    Str const item_qname = str3(qname, strL("-", 1), uintToStr(iˇsub_expr, 1, 16));
-                    astExprHoistFuncsExprsToNewTopDefs(sub_expr, item_qname, top_def_names, ast);
-                });
-            } else {
-                astExprHoistFuncsExprsToNewTopDefs(&expr->of_exprs.at[2], str2(qname, strL("-f", 2)), top_def_names, ast);
-
-                Strs param_names = ·make(Str, 0, expr->of_exprs.at[1].of_exprs.len);
-                ·forEach(AstExpr, expr_param, expr->of_exprs.at[1].of_exprs, {
-                    ·assert(astExprIsInstrOrTag(expr_param, false, true, true));
-                    ·append(param_names, expr_param->of_exprs.at[1].of_ident);
-                });
-
-                Strs free_vars = astExprGatherNonOpIdentsNotIn(&expr->of_exprs.at[2], ·make(Str, 0, 4), 4, top_def_names, param_names);
-                AstNodeBase const node_base = expr->node_base;
-
-                Str const new_top_def_name = str3(qname, strL(".", 1), uintToStr(free_vars.len, 1, 16));
-                AstDef new_top_def = astDef(NULL, node_base.toks_idx, node_base.toks_len);
-                new_top_def.name = new_top_def_name;
-                new_top_def.anns.qname = new_top_def_name;
-                new_top_def.body = *expr;
-                // *expr = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
-                // expr->of_ident = new_top_def_name;
-                if (free_vars.len > 0) {
-                    AstExprs const old_params = new_top_def.body.of_exprs.at[1].of_exprs;
-                    Uint const new_params_len = free_vars.len + old_params.len;
-                    AstExprs new_params = ·make(AstExpr, new_params_len, new_params_len);
-                    for (Uint i = 0; i < free_vars.len; i += 1)
-                        new_params.at[i] = astExprInstrOrTag(node_base, free_vars.at[i], true);
-                    for (Uint i = 0; i < old_params.len; i += 1)
-                        new_params.at[i + free_vars.len] = old_params.at[i];
-                    new_top_def.body.of_exprs.at[1].of_exprs = new_params;
-
-                    expr->kind = ast_expr_form;
-                    expr->of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
-                    expr->of_exprs.at[0] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
-                    expr->of_exprs.at[0].of_ident = new_top_def_name;
-                    for (Uint i = 0; i < free_vars.len; i += 1) {
-                        expr->of_exprs.at[1 + i] = astExpr(0, 0, ast_expr_ident);
-                        expr->of_exprs.at[1 + i].of_ident = free_vars.at[i];
-                    }
-                }
-                ·append(ast->top_defs, new_top_def);
-            }
-        } break;
-        default: break;
-    }
-}
-
-static void astDefHoistFuncsExprsToNewTopDefs(AstDef* const cur_def, Strs const top_def_names, Ast* const ast) {
-    ·forEach(AstDef, sub_def, cur_def->sub_defs, { astDefHoistFuncsExprsToNewTopDefs(sub_def, top_def_names, ast); });
-    astExprHoistFuncsExprsToNewTopDefs(astDefEffectiveBody(cur_def, true), cur_def->anns.qname, top_def_names, ast);
-}
-
-static void astHoistFuncsExprsToNewTopDefs(Ast* const ast) {
-    Strs top_def_names = ·make(Str, 0, ast->top_defs.len);
-    ·forEach(AstDef, top_def, ast->top_defs, { ·append(top_def_names, top_def->name); });
-
-    Uint const n = ast->top_defs.len; // we append to top_defs: no need to process the new ones
-    for (Uint i = 0; i < n; i += 1)
-        astDefHoistFuncsExprsToNewTopDefs(&ast->top_defs.at[i], top_def_names, ast);
-}
-
 
 static void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, Uint const names_stack_capacity, Ast const* const ast) {
     if (astExprIsInstrOrTag(expr, true, true, true))
@@ -478,7 +368,8 @@ static void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint
             ·append(names_stack, param_name);
         }
         astDefsVerifyNoShadowings(def->sub_defs, names_stack, names_stack_capacity, ast);
-        astExprVerifyNoShadowings(astDefEffectiveBody(def, false), names_stack, names_stack_capacity, ast);
+        astExprVerifyNoShadowings((def->anns.param_names.at == NULL) ? (&def->body) : (&def->body.of_exprs.at[2]), names_stack,
+                                  names_stack_capacity, ast);
         names_stack.len -= num_params;
     });
 }
