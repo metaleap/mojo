@@ -53,6 +53,7 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
     });
 
     AstExpr head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
+    dst_def->anns.head_node_base = head.node_base;
     switch (head.kind) {
         case ast_expr_ident: {
             dst_def->name = head.of_ident;
@@ -79,7 +80,6 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
             ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
         } break;
     }
-    dst_def->head = (head.kind == ast_expr_ident) ? head : head.of_exprs.at[0];
     dst_def->anns.qname =
         (dst_def->anns.parent_def != NULL) ? str3(dst_def->anns.parent_def->anns.qname, strL("-", 1), dst_def->name) : dst_def->name;
 }

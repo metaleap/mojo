@@ -19,6 +19,6 @@ libc := {
 dummy d :=
   foo bar
 
-  bar x := x (@-> [] d)
+  bar := x (@-> [#libc] d)
   foo f := f d baz
     baz   := bar d f

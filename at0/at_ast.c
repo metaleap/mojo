@@ -48,11 +48,11 @@ typedef struct AstDef AstDef;
 typedef ·SliceOf(AstDef) AstDefs;
 struct AstDef {
     AstNodeBase node_base;
-    AstExpr head;
     Str name;
     AstExpr body;
     AstDefs sub_defs;
     struct {
+        AstNodeBase head_node_base;
         AstDef* parent_def;
         Str qname;
     } anns;
@@ -163,6 +163,8 @@ static Bool astExprIsFunc(AstExpr const* const expr) {
     if (expr->kind != ast_expr_form)
         return false;
     AstExpr* const callee = &expr->of_exprs.at[0];
+    if (callee->kind == ast_expr_ident)
+        return strEql(strL("@->", 3), callee->of_ident);
     return astExprIsInstrOrTag(callee, true, false, false) && strEql(strL("->", 2), callee->of_exprs.at[1].of_ident);
 }
 
@@ -258,6 +260,8 @@ static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
 
     if (expr->kind == ast_expr_lit_bracket || expr->kind == ast_expr_lit_braces)
         ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr); });
+    else if (astExprIsFunc(expr))
+        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2]);
     else if (expr->kind == ast_expr_form && expr->of_exprs.len != 0) {
         Bool matched = false;
         AstExpr² maybe;
@@ -375,16 +379,16 @@ static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qn
                 new_top_def->anns.qname = qname;
                 new_top_def->body = *expr;
 
-                new_top_def->head.kind = ast_expr_form;
-                new_top_def->head.of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
-                new_top_def->head.of_exprs.at[0] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
-                new_top_def->head.of_exprs.at[0].of_ident = qname;
-                for (Uint i = 0; i < free_vars.len; i += 1) {
-                    new_top_def->head.of_exprs.at[1 + i] = astExpr(0, 0, ast_expr_ident);
-                    new_top_def->head.of_exprs.at[1 + i].of_ident = free_vars.at[i];
-                }
-                if (free_vars.len == 0)
-                    new_top_def->head = new_top_def->head.of_exprs.at[0];
+                // new_top_def->head.kind = ast_expr_form;
+                // new_top_def->head.of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
+                // new_top_def->head.of_exprs.at[0] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
+                // new_top_def->head.of_exprs.at[0].of_ident = qname;
+                // for (Uint i = 0; i < free_vars.len; i += 1) {
+                //     new_top_def->head.of_exprs.at[1 + i] = astExpr(0, 0, ast_expr_ident);
+                //     new_top_def->head.of_exprs.at[1 + i].of_ident = free_vars.at[i];
+                // }
+                // if (free_vars.len == 0)
+                //     new_top_def->head = new_top_def->head.of_exprs.at[0];
 
                 expr->kind = ast_expr_form;
                 expr->of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
@@ -450,28 +454,14 @@ static void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint
     ·forEach(AstDef, def, defs, {
         for (Uint i = 0; i < names_stack.len; i += 1)
             if (strEql(names_stack.at[i], def->name))
-                ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->head.node_base, ast));
+                ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->anns.head_node_base, ast));
         if (names_stack_capacity == names_stack.len)
             ·fail(str("astDefsVerifyNoShadowings: TODO pre-allocate a bigger names_stack"));
         ·append(names_stack, def->name);
     });
     ·forEach(AstDef, def, defs, {
-        Uint num_params = 0;
-        if (def->head.kind == ast_expr_form) {
-            num_params = def->head.of_exprs.len - 1;
-            for (Uint i = 1; i <= num_params; i += 1) {
-                ·assert(def->head.of_exprs.at[i].kind == ast_expr_ident);
-                Str const param_name = def->head.of_exprs.at[i].of_ident;
-                for (Uint j = 0; j < names_stack.len; j += 1)
-                    if (strEql(names_stack.at[j], param_name))
-                        ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->head.of_exprs.at[i].node_base, ast));
-
-                ·append(names_stack, param_name);
-            }
-        }
         astDefsVerifyNoShadowings(def->sub_defs, names_stack, names_stack_capacity, ast);
         astExprVerifyNoShadowings(&def->body, names_stack, names_stack_capacity, ast);
-        names_stack.len -= num_params;
     });
 }
 
@@ -488,7 +478,7 @@ static void astDefPrint(AstDef const* const def, Uint const ind) {
     printChr('\n');
     for (Uint i = 0; i < ind; i += 1)
         printChr(' ');
-    astExprPrint(&def->head, false, ind);
+    printStr(def->name);
     printStr(str(" :=\n"));
     for (Uint i = 0; i < 2 + ind; i += 1)
         printChr(' ');
