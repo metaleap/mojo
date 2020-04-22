@@ -8,17 +8,20 @@ static AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* 
 static void parseDef(AstDef* const dst_def, Ast const* const ast);
 
 static Ast parse(Tokens const all_toks, Str const full_src) {
-    Uint num_func_arrows = 0;        // count all `->` / `@->` occurrences in full_src:
+    Uint func_count_estimate = 0;    // count all `->` / `@->` / `:=` occurrences in full_src:
     ·forEach(Token, tok, all_toks, { // to reserve extra room for later-on top-hoisted defs
-        if (tok->kind == tok_kind_ident && strSuff(tokSrc(tok, full_src), strL("->", 2)))
-            num_func_arrows += 1;
+        if (tok->kind == tok_kind_ident) {
+            Str const tok_src = tokSrc(tok, full_src);
+            if (strEql(tok_src, strL(":=", 2)) || strSuff(tok_src, strL("->", 2)))
+                func_count_estimate += 1;
+        }
     });
 
     Tokenss const chunks = toksIndentBasedChunks(all_toks);
     Ast ret_ast = (Ast) {
         .src = full_src,
         .toks = all_toks,
-        .top_defs = ·make(AstDef, 0, chunks.len + num_func_arrows),
+        .top_defs = ·make(AstDef, 0, chunks.len + func_count_estimate),
     };
     Uint toks_idx = 0;
     ·forEach(Tokens, chunk_toks, chunks, {
@@ -40,17 +43,7 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
     Tokenss const def_body_chunks = toksIndentBasedChunks(·slice(Token, toks, idx_tok_def.it + 1, toks.len));
     dst_def->sub_defs = ·make(AstDef, 0, def_body_chunks.len - 1);
     Uint all_toks_idx = dst_def->node_base.toks_idx + idx_tok_def.it + 1;
-    ·forEach(Tokens, chunk_toks, def_body_chunks, {
-        if (iˇchunk_toks == 0)
-            dst_def->body = parseExpr(*chunk_toks, all_toks_idx, ast);
-        else {
-            AstDef* const sub_def = &dst_def->sub_defs.at[dst_def->sub_defs.len];
-            dst_def->sub_defs.len += 1;
-            *sub_def = astDef(dst_def, all_toks_idx, chunk_toks->len);
-            parseDef(sub_def, ast);
-        }
-        all_toks_idx += chunk_toks->len;
-    });
+    dst_def->body = parseExpr(def_body_chunks.at[0], all_toks_idx, ast);
 
     AstExpr head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
     dst_def->anns.head_node_base = head.node_base;
@@ -85,6 +78,16 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
     }
     dst_def->anns.qname =
         (dst_def->anns.parent_def != NULL) ? str3(dst_def->anns.parent_def->anns.qname, strL("-", 1), dst_def->name) : dst_def->name;
+
+    ·forEach(Tokens, chunk_toks, def_body_chunks, {
+        if (iˇchunk_toks != 0) {
+            AstDef* const sub_def = &dst_def->sub_defs.at[dst_def->sub_defs.len];
+            dst_def->sub_defs.len += 1;
+            *sub_def = astDef(dst_def, all_toks_idx, chunk_toks->len);
+            parseDef(sub_def, ast);
+        }
+        all_toks_idx += chunk_toks->len;
+    });
 }
 
 static AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {

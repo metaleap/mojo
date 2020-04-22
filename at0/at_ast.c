@@ -54,7 +54,7 @@ struct AstDef {
     struct {
         Strs param_names;
         AstNodeBase head_node_base;
-        AstDef* parent_def;
+        AstDef const* parent_def;
         Str qname;
     } anns;
 };
@@ -92,13 +92,18 @@ static Str astNodeSrc(AstNodeBase const* const node, Ast const* const ast) {
     return toksSrc(astNodeToks(node, ast), ast->src);
 }
 
-static AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
+static AstDef astDef(AstDef const* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
     AstNodeBase node_base = astNodeBaseFrom(all_toks_idx, toks_len);
     return (AstDef) {
         .sub_defs = (AstDefs) {.at = NULL, .len = 0},
         .anns = {.parent_def = parent_def, .head_node_base = node_base, .param_names = (Strs) {.len = 0, .at = NULL}},
         .node_base = node_base,
     };
+}
+
+static AstExpr* astDefEffectiveBody(AstDef* const def, Bool const locals_like_paramless) {
+    Bool const body_ok = (def->anns.param_names.at == NULL || (locals_like_paramless && def->anns.parent_def != NULL));
+    return body_ok ? (&def->body) : (&def->body.of_exprs.at[2]);
 }
 
 static AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind) {
@@ -170,14 +175,15 @@ static Bool astExprIsFunc(AstExpr const* const expr) {
     return astExprIsInstrOrTag(callee, true, false, false) && strEql(strL("->", 2), callee->of_exprs.at[1].of_ident);
 }
 
-static Strs astExprGatherNonOpIdentsNotIn(AstExpr const* const expr, Strs gather_into, Strs const skip1, Strs const skip2) {
+static Strs astExprGatherNonOpIdentsNotIn(AstExpr const* const expr, Strs gather_into, Uint const gather_max, Strs const skip1,
+                                          Strs const skip2) {
     switch (expr->kind) {
         case ast_expr_lit_bracket: // fall through to:
         case ast_expr_lit_braces:  // fall through to:
         case ast_expr_form: {
             if (!astExprIsInstrOrTag(expr, true, true, true))
                 ·forEach(AstExpr, sub_expr, expr->of_exprs,
-                         { gather_into = astExprGatherNonOpIdentsNotIn(sub_expr, gather_into, skip1, skip2); });
+                         { gather_into = astExprGatherNonOpIdentsNotIn(sub_expr, gather_into, gather_max, skip1, skip2); });
         } break;
         case ast_expr_ident: {
             if (strHasChar(tok_op_chars, expr->of_ident.at[0]))
@@ -191,6 +197,8 @@ static Strs astExprGatherNonOpIdentsNotIn(AstExpr const* const expr, Strs gather
             for (Uint i = 0; i < gather_into.len; i += 1)
                 if (strEql(gather_into.at[i], expr->of_ident))
                     return gather_into;
+            if (gather_into.len == gather_max)
+                ·fail(str("astExprGatherNonOpIdentsNotIn: TODO increase gather_max"));
             ·append(gather_into, expr->of_ident);
         } break;
         default: break;
@@ -355,14 +363,12 @@ static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qn
             });
         } break;
         case ast_expr_form: {
-            if (!astExprIsFunc(expr))
+            if (!astExprIsFunc(expr)) {
                 ·forEach(AstExpr, sub_expr, expr->of_exprs, {
                     Str const item_qname = str3(qname, strL("-", 1), uintToStr(iˇsub_expr, 1, 16));
                     astExprHoistFuncsExprsToNewTopDefs(sub_expr, item_qname, top_def_names, ast);
                 });
-            else {
-                ·assert(expr->of_exprs.len == 3);
-                ·assert(expr->of_exprs.at[1].kind == ast_expr_lit_bracket);
+            } else {
                 astExprHoistFuncsExprsToNewTopDefs(&expr->of_exprs.at[2], str2(qname, strL("-f", 2)), top_def_names, ast);
 
                 Strs param_names = ·make(Str, 0, expr->of_exprs.at[1].of_exprs.len);
@@ -371,34 +377,36 @@ static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qn
                     ·append(param_names, expr_param->of_exprs.at[1].of_ident);
                 });
 
-                Strs free_vars = astExprGatherNonOpIdentsNotIn(&expr->of_exprs.at[2], ·make(Str, 0, 1), top_def_names, param_names);
+                Strs free_vars = astExprGatherNonOpIdentsNotIn(&expr->of_exprs.at[2], ·make(Str, 0, 4), 4, top_def_names, param_names);
                 AstNodeBase const node_base = expr->node_base;
 
-                AstDef* new_top_def = &ast->top_defs.at[ast->top_defs.len];
-                ast->top_defs.len += 1;
-                *new_top_def = astDef(NULL, node_base.toks_idx, node_base.toks_len);
-                new_top_def->name = qname;
-                new_top_def->anns.qname = qname;
+                Str const new_top_def_name = str3(qname, strL(".", 1), uintToStr(free_vars.len, 1, 16));
+                AstDef new_top_def = astDef(NULL, node_base.toks_idx, node_base.toks_len);
+                new_top_def.name = new_top_def_name;
+                new_top_def.anns.qname = new_top_def_name;
+                new_top_def.body = *expr;
+                // *expr = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
+                // expr->of_ident = new_top_def_name;
+                if (free_vars.len > 0) {
+                    AstExprs const old_params = new_top_def.body.of_exprs.at[1].of_exprs;
+                    Uint const new_params_len = free_vars.len + old_params.len;
+                    AstExprs new_params = ·make(AstExpr, new_params_len, new_params_len);
+                    for (Uint i = 0; i < free_vars.len; i += 1)
+                        new_params.at[i] = astExprInstrOrTag(node_base, free_vars.at[i], true);
+                    for (Uint i = 0; i < old_params.len; i += 1)
+                        new_params.at[i + free_vars.len] = old_params.at[i];
+                    new_top_def.body.of_exprs.at[1].of_exprs = new_params;
 
-                new_top_def->body = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_form);
-                new_top_def->body.of_exprs = ·make(AstExpr, 3, 3);
-                new_top_def->body.of_exprs.at[0] = astExprInstrOrTag(node_base, strL("->", 2), false);
-                new_top_def->body.of_exprs.at[2] = *expr;
-                new_top_def->body.of_exprs.at[1] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_lit_bracket);
-                new_top_def->body.of_exprs.at[1].of_exprs = ·make(AstExpr, free_vars.len, free_vars.len);
-                for (Uint i = 0; i < free_vars.len; i += 1)
-                    new_top_def->body.of_exprs.at[1].of_exprs.at[i] = astExprInstrOrTag(node_base, free_vars.at[i], true);
-
-                expr->kind = ast_expr_form;
-                expr->of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
-                expr->of_exprs.at[0] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
-                expr->of_exprs.at[0].of_ident = qname;
-                for (Uint i = 0; i < free_vars.len; i += 1) {
-                    expr->of_exprs.at[1 + i] = astExpr(0, 0, ast_expr_ident);
-                    expr->of_exprs.at[1 + i].of_ident = free_vars.at[i];
+                    expr->kind = ast_expr_form;
+                    expr->of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
+                    expr->of_exprs.at[0] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
+                    expr->of_exprs.at[0].of_ident = new_top_def_name;
+                    for (Uint i = 0; i < free_vars.len; i += 1) {
+                        expr->of_exprs.at[1 + i] = astExpr(0, 0, ast_expr_ident);
+                        expr->of_exprs.at[1 + i].of_ident = free_vars.at[i];
+                    }
                 }
-                if (free_vars.len == 0)
-                    *expr = expr->of_exprs.at[0];
+                ·append(ast->top_defs, new_top_def);
             }
         } break;
         default: break;
@@ -407,7 +415,7 @@ static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qn
 
 static void astDefHoistFuncsExprsToNewTopDefs(AstDef* const cur_def, Strs const top_def_names, Ast* const ast) {
     ·forEach(AstDef, sub_def, cur_def->sub_defs, { astDefHoistFuncsExprsToNewTopDefs(sub_def, top_def_names, ast); });
-    astExprHoistFuncsExprsToNewTopDefs(&cur_def->body, cur_def->anns.qname, top_def_names, ast);
+    astExprHoistFuncsExprsToNewTopDefs(astDefEffectiveBody(cur_def, true), cur_def->anns.qname, top_def_names, ast);
 }
 
 static void astHoistFuncsExprsToNewTopDefs(Ast* const ast) {
@@ -470,10 +478,7 @@ static void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint
             ·append(names_stack, param_name);
         }
         astDefsVerifyNoShadowings(def->sub_defs, names_stack, names_stack_capacity, ast);
-        if (def->anns.param_names.at == NULL)
-            astExprVerifyNoShadowings(&def->body, names_stack, names_stack_capacity, ast);
-        else
-            astExprVerifyNoShadowings(&def->body.of_exprs.at[2], names_stack, names_stack_capacity, ast);
+        astExprVerifyNoShadowings(astDefEffectiveBody(def, false), names_stack, names_stack_capacity, ast);
         names_stack.len -= num_params;
     });
 }
@@ -522,11 +527,12 @@ static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uin
         case ast_expr_form: {
             if (expr->of_exprs.len == 0)
                 break;
-            Bool const parens = is_form_item && expr->anns.parensed == 0 && !expr->anns.toks_throng;
+            Bool const parens = (!astExprIsInstrOrTag(expr, true, true, true)) && is_form_item
+                                && (expr->node_base.toks_len == 0 || (expr->anns.parensed == 0 && !expr->anns.toks_throng));
             if (parens)
                 printChr('(');
             ·forEach(AstExpr, sub_expr, expr->of_exprs, {
-                if (iˇsub_expr != 0 && !expr->anns.toks_throng)
+                if (iˇsub_expr != 0 && (expr->node_base.toks_len == 0 || !expr->anns.toks_throng))
                     printChr(' ');
                 astExprPrint(sub_expr, true, ind);
             });
@@ -545,17 +551,21 @@ static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uin
         } break;
 
         case ast_expr_lit_braces: {
-            printStr(str("{\n"));
-            Uint const ind_next = 2 + ind;
-            ·forEach(AstExpr, sub_expr, expr->of_exprs, {
-                for (Uint i = 0; i < ind_next; i += 1)
+            if (expr->of_exprs.len == 0)
+                printStr(strL("{}", 2));
+            else {
+                printStr(str("{\n"));
+                Uint const ind_next = 2 + ind;
+                ·forEach(AstExpr, sub_expr, expr->of_exprs, {
+                    for (Uint i = 0; i < ind_next; i += 1)
+                        printChr(' ');
+                    astExprPrint(sub_expr, false, ind_next);
+                    printStr(str(",\n"));
+                });
+                for (Uint i = 0; i < ind; i += 1)
                     printChr(' ');
-                astExprPrint(sub_expr, false, ind_next);
-                printStr(str(",\n"));
-            });
-            for (Uint i = 0; i < ind; i += 1)
-                printChr(' ');
-            printChr('}');
+                printChr('}');
+            }
         } break;
 
         default: {

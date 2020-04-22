@@ -38,7 +38,7 @@ int main(int const argc, String const argv[]) {
     Ast ast = parse(toks, full_src);
     astRewriteGlyphsIntoInstrs(&ast);
     astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
-    // astHoistFuncsExprsToNewTopDefs(&ast);
+    astHoistFuncsExprsToNewTopDefs(&ast);
     // astReorderSubDefs(&ast);
     astPrint(&ast);
 

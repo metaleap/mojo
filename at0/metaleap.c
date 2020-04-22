@@ -10,9 +10,7 @@
 
 
 
-// macro names prefixed with '·' instead of all upper-case (I abhor SCREAM_CODE!)
-// exceptions: param-less atomic-expression macros
-
+// macro names prefixed with '·' instead of all upper-case (avoids SCREAM_CODE)
 
 #define ·SliceOf(T)                                                                                                                            \
     struct {                                                                                                                                   \
@@ -25,20 +23,6 @@
         T it;                                                                                                                                  \
         Bool ok;                                                                                                                               \
     }
-
-#define ·Tup2(T0, T1)                                                                                                                          \
-    struct {                                                                                                                                   \
-        T0 _0;                                                                                                                                 \
-        T1 _1;                                                                                                                                 \
-    }
-
-#define ·Tup3(T0, T1, T2)                                                                                                                      \
-    struct {                                                                                                                                   \
-        T0 _0;                                                                                                                                 \
-        T1 _1;                                                                                                                                 \
-        T2 _2;                                                                                                                                 \
-    }
-
 
 typedef bool Bool;
 typedef u_int8_t U8;
@@ -54,24 +38,19 @@ typedef size_t Uint;
 typedef void* PtrAny;
 typedef const char* String;
 
-typedef ·Maybe(Int) ºInt;
 typedef ·Maybe(Uint) ºUint;
 typedef ·Maybe(U64) ºU64;
-typedef ·SliceOf(Uint) Uints;
 typedef ·SliceOf(U8) U8s;
 typedef U8s Str;
 typedef ·SliceOf(Str) Strs;
 
 
 
-
-typedef struct Mem {
 #define mem_max (1 * 1024 * 1024)
+struct Mem {
     U8 buf[mem_max];
     Uint pos;
-} Mem;
-
-Mem mem = (Mem) {.pos = 0};
+} mem = {.pos = 0};
 
 
 
@@ -123,6 +102,7 @@ Mem mem = (Mem) {.pos = 0};
 
 
 
+
 void printStr(Str const str) {
     fwrite(&str.at[0], 1, str.len, stderr);
 }
@@ -132,7 +112,7 @@ void writeStr(Str const str) {
 void abortWithBacktraceAndMsg(Str const msg) {
     PtrAny callstack[16];
     Uint const n_frames = backtrace(callstack, 16);
-    backtrace_symbols_fd(callstack, n_frames, 2); // 2 being stderr
+    backtrace_symbols_fd(callstack, n_frames, 2); // 2 = stderr
 
     fwrite("\n", 1, 1, stderr);
     printStr(msg);
