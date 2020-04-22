@@ -12,12 +12,12 @@ typedef struct AstNodeBase {
 
 
 typedef enum AstExprKind {
-    ast_expr_lit_int = 1,
-    ast_expr_lit_str = 2,
-    ast_expr_ident = 3,
-    ast_expr_form = 4,
-    ast_expr_lit_bracket = 5,
-    ast_expr_lit_braces = 6,
+    ast_expr_lit_int = 1,     // 123
+    ast_expr_lit_str = 2,     // "123"
+    ast_expr_ident = 3,       // anyIdentifier                         (also operators)
+    ast_expr_form = 4,        // expr1 expr2 expr3 ... exprN           (always: .len >= 2)
+    ast_expr_lit_bracket = 5, // [expr1, expr2, expr3, ..., exprN]     (always: .len >= 0)
+    ast_expr_lit_braces = 6,  // {expr1, expr2, expr3, ..., exprN}     (always: .len >= 0)
 } AstExprKind;
 
 typedef struct AstExpr AstExpr;
@@ -26,12 +26,10 @@ struct AstExpr {
     AstNodeBase node_base;
     AstExprKind kind;
     union {
-        U64 of_lit_int;      // 123
-        Str of_lit_str;      // "123"
-        Str of_ident;        // anyIdentifier                         (also operators)
-        AstExprs of_form;    // expr1 expr2 expr3 ... exprN           (always: .len >= 2)
-        AstExprs of_bracket; // [expr1, expr2, expr3, ..., exprN]     (always: .len >= 0)
-        AstExprs of_braces;  // {expr1, expr2, expr3, ..., exprN}     (always: .len >= 0)
+        U64 of_lit_int;
+        Str of_lit_str;
+        Str of_ident;
+        AstExprs of_exprs;
     };
     struct {
         U8 parensed;
@@ -95,6 +93,7 @@ static Str astNodeSrc(AstNodeBase const* const node, Ast const* const ast) {
 
 static AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
     return (AstDef) {
+        .sub_defs = (AstDefs) {.at = NULL, .len = 0},
         .anns = {.parent_def = parent_def},
         .node_base = astNodeBaseFrom(all_toks_idx, toks_len),
     };
@@ -109,20 +108,20 @@ static AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind con
 }
 
 static AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint const idx_end) {
-    ·assert(!(idx_start == 0 && idx_end == ast_expr->of_form.len));
+    ·assert(!(idx_start == 0 && idx_end == ast_expr->of_exprs.len));
     ·assert(idx_end > idx_start);
 
-    AstExpr ret_expr = astExpr(ast_expr->of_form.at[idx_start].node_base.toks_idx, 0, ast_expr_form);
+    AstExpr ret_expr = astExpr(ast_expr->of_exprs.at[idx_start].node_base.toks_idx, 0, ast_expr_form);
     ret_expr.anns.toks_throng = ast_expr->anns.toks_throng;
-    ret_expr.of_form = ·slice(AstExpr, ast_expr->of_form, idx_start, idx_end);
+    ret_expr.of_exprs = ·slice(AstExpr, ast_expr->of_exprs, idx_start, idx_end);
     for (Uint i = idx_start; i < idx_end; i += 1)
-        ret_expr.node_base.toks_len += ast_expr->of_form.at[i].node_base.toks_len;
+        ret_expr.node_base.toks_len += ast_expr->of_exprs.at[i].node_base.toks_len;
     return ret_expr;
 }
 
 static ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const ident) {
     ·assert(ast_expr->kind == ast_expr_form);
-    ·forEach(AstExpr, expr, ast_expr->of_form, {
+    ·forEach(AstExpr, expr, ast_expr->of_exprs, {
         if (expr->kind == ast_expr_ident && strEql(ident, expr->of_ident))
             return ·ok(Uint, iˇexpr);
     });
@@ -137,11 +136,11 @@ static AstExpr² astExprFormBreakOn(AstExpr const* const expr, Str const ident, 
     AstExpr² ret_tup = (AstExpr²) {.lhs_form = ·none(AstExpr), .rhs_form = ·none(AstExpr), .glyph = NULL};
     ºUint const pos = astExprFormIndexOfIdent(expr, ident);
     if (pos.ok) {
-        ret_tup.glyph = &expr->of_form.at[pos.it];
+        ret_tup.glyph = &expr->of_exprs.at[pos.it];
         if (pos.it > 0)
             ret_tup.lhs_form = ·ok(AstExpr, astExprFormSub(expr, 0, pos.it));
-        if (pos.it < expr->of_form.len - 1)
-            ret_tup.rhs_form = ·ok(AstExpr, astExprFormSub(expr, 1 + pos.it, expr->of_form.len));
+        if (pos.it < expr->of_exprs.len - 1)
+            ret_tup.rhs_form = ·ok(AstExpr, astExprFormSub(expr, 1 + pos.it, expr->of_exprs.len));
     }
     Bool const must_both = must_lhs && must_rhs;
     if (must_both && !pos.ok)
@@ -153,12 +152,46 @@ static AstExpr² astExprFormBreakOn(AstExpr const* const expr, Str const ident, 
     return ret_tup;
 }
 
+static Bool astExprIsInstrOrTag(AstExpr const* const expr, Bool const check_is_instr, Bool const check_is_tag, Bool const check_is_tag_ident) {
+    AstExpr* const gly = &expr->of_exprs.at[0];
+    return expr->kind == ast_expr_form && expr->of_exprs.len == 2 && gly->kind == ast_expr_ident && gly->of_ident.len == 1
+           && ((check_is_instr && gly->of_ident.at[0] == '@' && expr->of_exprs.at[1].kind == ast_expr_ident)
+               || (check_is_tag && gly->of_ident.at[0] == '#' && (expr->of_exprs.at[1].kind == ast_expr_ident || !check_is_tag_ident)));
+}
 
-static Bool astExprIsTagOrInstr(AstExpr const* const expr, Bool const check_is_tag, Bool const check_is_instr) {
-    AstExpr* const gly = &expr->of_form.at[0];
-    return expr->kind == ast_expr_form && expr->of_form.len == 2 && gly->kind == ast_expr_ident && gly->of_ident.len == 1
-           && ((check_is_instr && gly->of_ident.at[0] == '@' && expr->of_form.at[1].kind == ast_expr_ident)
-               || (check_is_tag && gly->of_ident.at[0] == '#'));
+static Bool astExprIsFunc(AstExpr const* const expr) {
+    if (expr->kind != ast_expr_form)
+        return false;
+    AstExpr* const callee = &expr->of_exprs.at[0];
+    return astExprIsInstrOrTag(callee, true, false, false) && strEql(strL("->", 2), callee->of_exprs.at[1].of_ident);
+}
+
+static Strs astExprGatherNonOpIdentsNotIn(AstExpr const* const expr, Strs gather_into, Strs const skip1, Strs const skip2) {
+    switch (expr->kind) {
+        case ast_expr_lit_bracket: // fall through to:
+        case ast_expr_lit_braces:  // fall through to:
+        case ast_expr_form: {
+            if (!astExprIsInstrOrTag(expr, true, true, true))
+                ·forEach(AstExpr, sub_expr, expr->of_exprs,
+                         { gather_into = astExprGatherNonOpIdentsNotIn(sub_expr, gather_into, skip1, skip2); });
+        } break;
+        case ast_expr_ident: {
+            if (strHasChar(tok_op_chars, expr->of_ident.at[0]))
+                return gather_into;
+            for (Uint i = 0; i < skip1.len; i += 1)
+                if (strEql(skip1.at[i], expr->of_ident))
+                    return gather_into;
+            for (Uint i = 0; i < skip2.len; i += 1)
+                if (strEql(skip2.at[i], expr->of_ident))
+                    return gather_into;
+            for (Uint i = 0; i < gather_into.len; i += 1)
+                if (strEql(gather_into.at[i], expr->of_ident))
+                    return gather_into;
+            ·append(gather_into, expr->of_ident);
+        } break;
+        default: break;
+    }
+    return gather_into;
 }
 
 static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
@@ -167,21 +200,16 @@ static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
             return strEql(ident, expr->of_ident);
         } break;
         case ast_expr_form: {
-            if (astExprIsTagOrInstr(expr, true, true))
+            if (astExprIsInstrOrTag(expr, true, true, true))
                 return false;
-            ·forEach(AstExpr, sub_expr, expr->of_form, {
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, {
                 if (astExprHasIdent(sub_expr, ident))
                     return true;
             });
         } break;
-        case ast_expr_lit_bracket: {
-            ·forEach(AstExpr, sub_expr, expr->of_bracket, {
-                if (astExprHasIdent(sub_expr, ident))
-                    return true;
-            });
-        } break;
+        case ast_expr_lit_bracket: // fall through to:
         case ast_expr_lit_braces: {
-            ·forEach(AstExpr, sub_expr, expr->of_braces, {
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, {
                 if (astExprHasIdent(sub_expr, ident))
                     return true;
             });
@@ -202,14 +230,14 @@ static Bool astDefHasIdent(AstDef const* const def, Str const ident) {
 
 
 static AstExpr astExprInstrOrTag(AstNodeBase const from, Str const name, Bool const tag) {
-    AstExpr ret_expr = (AstExpr) {.kind = ast_expr_form, .of_form = ·make(AstExpr, 2, 2), .node_base = from, .anns = {.toks_throng = true}};
-    ret_expr.of_form.at[0] = (AstExpr) {.kind = ast_expr_ident, .of_ident = strL(tag ? "#" : "@", 1), .node_base = from};
-    ret_expr.of_form.at[1] = (AstExpr) {.kind = ast_expr_ident, .of_ident = name, .node_base = from};
+    AstExpr ret_expr = (AstExpr) {.kind = ast_expr_form, .of_exprs = ·make(AstExpr, 2, 2), .node_base = from, .anns = {.toks_throng = true}};
+    ret_expr.of_exprs.at[0] = (AstExpr) {.kind = ast_expr_ident, .of_ident = strL(tag ? "#" : "@", 1), .node_base = from};
+    ret_expr.of_exprs.at[1] = (AstExpr) {.kind = ast_expr_ident, .of_ident = name, .node_base = from};
     return ret_expr;
 }
 
 static AstExpr astExprFormEmpty(AstNodeBase const from) {
-    return (AstExpr) {.kind = ast_expr_form, .of_form = ·make(AstExpr, 0, 0), .node_base = from};
+    return (AstExpr) {.kind = ast_expr_form, .of_exprs = ·make(AstExpr, 0, 0), .node_base = from};
 }
 
 static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
@@ -228,11 +256,9 @@ static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
         glyph_names.at[glyph_fldacc] = str(".");
     }
 
-    if (expr->kind == ast_expr_lit_bracket)
-        ·forEach(AstExpr, sub_expr, expr->of_bracket, { astExprRewriteGlyphsIntoInstrs(sub_expr); });
-    else if (expr->kind == ast_expr_lit_braces)
-        ·forEach(AstExpr, sub_expr, expr->of_braces, { astExprRewriteGlyphsIntoInstrs(sub_expr); });
-    else if (expr->kind == ast_expr_form && expr->of_form.len != 0) {
+    if (expr->kind == ast_expr_lit_bracket || expr->kind == ast_expr_lit_braces)
+        ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr); });
+    else if (expr->kind == ast_expr_form && expr->of_exprs.len != 0) {
         Bool matched = false;
         AstExpr² maybe;
         for (Uint i = 0; i < num_glyphs && !matched; i += 1) {
@@ -241,34 +267,34 @@ static void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr) {
                 continue;
             matched = true;
             expr->anns.toks_throng = false;
-            expr->of_form = ·make(AstExpr, 3, 3);
-            expr->of_form.at[0] = astExprInstrOrTag(maybe.glyph->node_base, glyph_names.at[i], false);
-            expr->of_form.at[1] = (maybe.lhs_form.ok) ? maybe.lhs_form.it : astExprFormEmpty(expr->node_base);
-            expr->of_form.at[2] = (maybe.rhs_form.ok) ? maybe.rhs_form.it : astExprFormEmpty(expr->node_base);
+            expr->of_exprs = ·make(AstExpr, 3, 3);
+            expr->of_exprs.at[0] = astExprInstrOrTag(maybe.glyph->node_base, glyph_names.at[i], false);
+            expr->of_exprs.at[1] = (maybe.lhs_form.ok) ? maybe.lhs_form.it : astExprFormEmpty(expr->node_base);
+            expr->of_exprs.at[2] = (maybe.rhs_form.ok) ? maybe.rhs_form.it : astExprFormEmpty(expr->node_base);
             if (i == glyph_func) {
-                ·forEach(AstExpr, param_expr, expr->of_form.at[1].of_form, {
+                ·forEach(AstExpr, param_expr, expr->of_exprs.at[1].of_exprs, {
                     if (param_expr->kind == ast_expr_ident)
                         *param_expr = astExprInstrOrTag(param_expr->node_base, param_expr->of_ident, true);
                 });
-                expr->of_form.at[1].kind = ast_expr_lit_bracket;
+                expr->of_exprs.at[1].kind = ast_expr_lit_bracket;
             } else if (i == glyph_fldacc) {
-                if (expr->of_form.at[2].of_form.len == 1 && expr->of_form.at[2].of_form.at[0].kind == ast_expr_ident)
-                    expr->of_form.at[2].of_form.at[0] =
-                        astExprInstrOrTag(expr->of_form.at[2].of_form.at[0].node_base, expr->of_form.at[2].of_form.at[0].of_ident, true);
+                if (expr->of_exprs.at[2].of_exprs.len == 1 && expr->of_exprs.at[2].of_exprs.at[0].kind == ast_expr_ident)
+                    expr->of_exprs.at[2].of_exprs.at[0] =
+                        astExprInstrOrTag(expr->of_exprs.at[2].of_exprs.at[0].node_base, expr->of_exprs.at[2].of_exprs.at[0].of_ident, true);
             }
             if (maybe.lhs_form.ok) {
-                if (i != glyph_func && expr->of_form.at[1].of_form.len == 1)
-                    expr->of_form.at[1] = expr->of_form.at[1].of_form.at[0];
-                astExprRewriteGlyphsIntoInstrs(&expr->of_form.at[1]);
+                if (i != glyph_func && expr->of_exprs.at[1].of_exprs.len == 1)
+                    expr->of_exprs.at[1] = expr->of_exprs.at[1].of_exprs.at[0];
+                astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[1]);
             }
             if (maybe.rhs_form.ok) {
-                if (expr->of_form.at[2].of_form.len == 1)
-                    expr->of_form.at[2] = expr->of_form.at[2].of_form.at[0];
-                astExprRewriteGlyphsIntoInstrs(&expr->of_form.at[2]);
+                if (expr->of_exprs.at[2].of_exprs.len == 1)
+                    expr->of_exprs.at[2] = expr->of_exprs.at[2].of_exprs.at[0];
+                astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2]);
             }
         }
         if (!matched)
-            ·forEach(AstExpr, sub_expr, expr->of_form, { astExprRewriteGlyphsIntoInstrs(sub_expr); });
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr); });
     }
 }
 
@@ -311,47 +337,107 @@ static void astReorderSubDefs(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
 }
 
-static void astExprHoistFuncsExprsToNewTopDefs(AstExpr const* const expr) {
+static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qname, Strs const top_def_names, Ast* const ast) {
     switch (expr->kind) {
+        case ast_expr_lit_bracket: // fall through to:
+        case ast_expr_lit_braces: {
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, {
+                Str const item_qname = str3(qname, strL("-", 1), uintToStr(iˇsub_expr, 1, 16));
+                astExprHoistFuncsExprsToNewTopDefs(sub_expr, item_qname, top_def_names, ast);
+            });
+        } break;
+        case ast_expr_form: {
+            if (!astExprIsFunc(expr))
+                ·forEach(AstExpr, sub_expr, expr->of_exprs, {
+                    Str const item_qname = str3(qname, strL("-", 1), uintToStr(iˇsub_expr, 1, 16));
+                    astExprHoistFuncsExprsToNewTopDefs(sub_expr, item_qname, top_def_names, ast);
+                });
+            else {
+                ·assert(expr->of_exprs.len == 3);
+                ·assert(expr->of_exprs.at[1].kind == ast_expr_lit_bracket);
+                astExprHoistFuncsExprsToNewTopDefs(&expr->of_exprs.at[2], str2(qname, strL("-f", 2)), top_def_names, ast);
+
+                Strs param_names = ·make(Str, 0, expr->of_exprs.at[1].of_exprs.len);
+                ·forEach(AstExpr, expr_param, expr->of_exprs.at[1].of_exprs, {
+                    ·assert(astExprIsInstrOrTag(expr_param, false, true, true));
+                    ·append(param_names, expr_param->of_exprs.at[1].of_ident);
+                });
+
+                Strs free_vars = astExprGatherNonOpIdentsNotIn(&expr->of_exprs.at[2], ·make(Str, 0, 1), top_def_names, param_names);
+                AstNodeBase const node_base = expr->node_base;
+
+                AstDef* new_top_def = &ast->top_defs.at[ast->top_defs.len];
+                ast->top_defs.len += 1;
+                *new_top_def = astDef(NULL, node_base.toks_idx, node_base.toks_len);
+                new_top_def->anns.name = qname;
+                new_top_def->anns.qname = qname;
+                new_top_def->body = *expr;
+
+                new_top_def->head.kind = ast_expr_form;
+                new_top_def->head.of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
+                new_top_def->head.of_exprs.at[0] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
+                new_top_def->head.of_exprs.at[0].of_ident = qname;
+                for (Uint i = 0; i < free_vars.len; i += 1) {
+                    new_top_def->head.of_exprs.at[1 + i] = astExpr(0, 0, ast_expr_ident);
+                    new_top_def->head.of_exprs.at[1 + i].of_ident = free_vars.at[i];
+                }
+                if (free_vars.len == 0)
+                    new_top_def->head = new_top_def->head.of_exprs.at[0];
+
+                expr->kind = ast_expr_form;
+                expr->of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
+                expr->of_exprs.at[0] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
+                expr->of_exprs.at[0].of_ident = qname;
+                for (Uint i = 0; i < free_vars.len; i += 1) {
+                    expr->of_exprs.at[1 + i] = astExpr(0, 0, ast_expr_ident);
+                    expr->of_exprs.at[1 + i].of_ident = free_vars.at[i];
+                }
+                if (free_vars.len == 0)
+                    *expr = expr->of_exprs.at[0];
+            }
+        } break;
         default: break;
     }
 }
 
-static void astDefHoistFuncsExprsToNewTopDefs(AstDef const* const def) {
-    ·forEach(AstDef, sub_def, def->sub_defs, { astDefHoistFuncsExprsToNewTopDefs(sub_def); });
-    astExprHoistFuncsExprsToNewTopDefs(&def->body);
+static void astDefHoistFuncsExprsToNewTopDefs(AstDef* const cur_def, Strs const top_def_names, Ast* const ast) {
+    ·forEach(AstDef, sub_def, cur_def->sub_defs, { astDefHoistFuncsExprsToNewTopDefs(sub_def, top_def_names, ast); });
+    astExprHoistFuncsExprsToNewTopDefs(&cur_def->body, cur_def->anns.qname, top_def_names, ast);
 }
 
-static void astHoistFuncsExprsToNewTopDefs(Ast const* const ast) {
-    ·forEach(AstDef, top_def, ast->top_defs, { astDefHoistFuncsExprsToNewTopDefs(top_def); });
+static void astHoistFuncsExprsToNewTopDefs(Ast* const ast) {
+    Strs top_def_names = ·make(Str, 0, ast->top_defs.len);
+    ·forEach(AstDef, top_def, ast->top_defs, { ·append(top_def_names, top_def->anns.name); });
+
+    Uint const n = ast->top_defs.len; // we append to top_defs: no need to process the new ones
+    for (Uint i = 0; i < n; i += 1)
+        astDefHoistFuncsExprsToNewTopDefs(&ast->top_defs.at[i], top_def_names, ast);
 }
 
 static void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, Uint const names_stack_capacity, Ast const* const ast) {
-    if (astExprIsTagOrInstr(expr, true, true))
+    if (astExprIsInstrOrTag(expr, true, true, true))
         return;
     switch (expr->kind) {
+        case ast_expr_lit_braces: // fall through to:
         case ast_expr_lit_bracket: {
-            ·forEach(AstExpr, sub_expr, expr->of_bracket, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
-        } break;
-        case ast_expr_lit_braces: {
-            ·forEach(AstExpr, sub_expr, expr->of_braces, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
         } break;
         case ast_expr_form: {
-            AstExpr* const callee = &expr->of_form.at[0];
-            if (astExprIsTagOrInstr(callee, false, true) && strEql(strL("->", 2), callee->of_form.at[1].of_ident)) {
-                ·assert(expr->of_form.at[1].kind == ast_expr_lit_bracket);
-                AstExprs const params = expr->of_form.at[1].of_bracket;
+            if (!astExprIsFunc(expr))
+                ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
+            else {
+                ·assert(expr->of_exprs.at[1].kind == ast_expr_lit_bracket);
+                AstExprs const params = expr->of_exprs.at[1].of_exprs;
                 ·forEach(AstExpr, param, params, {
-                    ·assert(astExprIsTagOrInstr(param, true, false));
-                    Str const param_name = param->of_form.at[1].of_ident;
+                    ·assert(astExprIsInstrOrTag(param, false, true, true));
+                    Str const param_name = param->of_exprs.at[1].of_ident;
                     for (Uint j = 0; j < names_stack.len; j += 1)
                         if (strEql(names_stack.at[j], param_name))
                             ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &param->node_base, ast));
                     ·append(names_stack, param_name);
                 });
-                astExprVerifyNoShadowings(&expr->of_form.at[2], names_stack, names_stack_capacity, ast);
-            } else
-                ·forEach(AstExpr, sub_expr, expr->of_form, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
+                astExprVerifyNoShadowings(&expr->of_exprs.at[2], names_stack, names_stack_capacity, ast);
+            }
         } break;
         default: break;
     }
@@ -369,13 +455,13 @@ static void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint
     ·forEach(AstDef, def, defs, {
         Uint num_params = 0;
         if (def->head.kind == ast_expr_form) {
-            num_params = def->head.of_form.len - 1;
+            num_params = def->head.of_exprs.len - 1;
             for (Uint i = 1; i <= num_params; i += 1) {
-                ·assert(def->head.of_form.at[i].kind == ast_expr_ident);
-                Str const param_name = def->head.of_form.at[i].of_ident;
+                ·assert(def->head.of_exprs.at[i].kind == ast_expr_ident);
+                Str const param_name = def->head.of_exprs.at[i].of_ident;
                 for (Uint j = 0; j < names_stack.len; j += 1)
                     if (strEql(names_stack.at[j], param_name))
-                        ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->head.of_form.at[i].node_base, ast));
+                        ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->head.of_exprs.at[i].node_base, ast));
 
                 ·append(names_stack, param_name);
             }
@@ -428,12 +514,12 @@ static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uin
         } break;
 
         case ast_expr_form: {
-            if (expr->of_form.len == 0)
+            if (expr->of_exprs.len == 0)
                 break;
             Bool const parens = is_form_item && expr->anns.parensed == 0 && !expr->anns.toks_throng;
             if (parens)
                 printChr('(');
-            ·forEach(AstExpr, sub_expr, expr->of_form, {
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, {
                 if (iˇsub_expr != 0 && !expr->anns.toks_throng)
                     printChr(' ');
                 astExprPrint(sub_expr, true, ind);
@@ -444,7 +530,7 @@ static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uin
 
         case ast_expr_lit_bracket: {
             printChr('[');
-            ·forEach(AstExpr, sub_expr, expr->of_bracket, {
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, {
                 if (iˇsub_expr != 0)
                     printStr(str(", "));
                 astExprPrint(sub_expr, false, ind);
@@ -455,7 +541,7 @@ static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uin
         case ast_expr_lit_braces: {
             printStr(str("{\n"));
             Uint const ind_next = 2 + ind;
-            ·forEach(AstExpr, sub_expr, expr->of_braces, {
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, {
                 for (Uint i = 0; i < ind_next; i += 1)
                     printChr(' ');
                 astExprPrint(sub_expr, false, ind_next);

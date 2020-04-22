@@ -241,9 +241,12 @@ String strZ(Str const str) {
 
 Bool strEql(Str const one, Str const two) {
     if (one.len == two.len) {
-        for (Uint i = 0; i < one.len; i += 1)
-            if (one.at[i] != two.at[i])
-                return false;
+        if (one.len > 0) {
+            Uint i_middle = 1 + (one.len / 2);
+            for (Uint i = 0, j = one.len - 1; i < i_middle; i += 1, j -= 1)
+                if (one.at[i] != two.at[i] || one.at[j] != two.at[j])
+                    return false;
+        }
         return true;
     }
     return false;
@@ -293,6 +296,20 @@ Bool strHasChar(String const s, U8 const c) {
         if (s[i] == c)
             return true;
     return false;
+}
+
+ºUint strIndexOf(Str const haystack, Str const needle) {
+    if (haystack.len != 0 && needle.len != 0 && haystack.len >= needle.len)
+        for (Uint i = 0; i < 1 + (haystack.len - needle.len); i += 1) {
+            Str const h_sub = ·slice(U8, haystack, i, i + needle.len);
+            if (strEql(needle, h_sub))
+                return ·ok(Uint, i);
+        }
+    return ·none(Uint);
+}
+
+Bool strSuff(Str const str, Str const suff) {
+    return suff.len != 0 && str.len >= suff.len && strEql(suff, ·slice(U8, str, str.len - suff.len, str.len));
 }
 
 Str strConcat(Strs const strs) {

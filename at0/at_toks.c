@@ -7,19 +7,19 @@ const String tok_sep_chars = "[]{}(),:";
 
 
 typedef enum TokenKind {
-    tok_kind_nope = 0,               // used for state machine inside `tokenize`, never produced to consumers
-    tok_kind_comment = 1,            // double-slash comments, until EOL
-    tok_kind_ident = 2,              // fallback for all otherwise-unmatched tokens
-    tok_kind_lit_num_prefixed = 3,   // any tokens starting with '0'-'9'
-    tok_kind_lit_str_qdouble = 4,    // "string-ish quote marks"
-    tok_kind_lit_str_qsingle = 5,    // 'char-ish quote marks'
-    tok_kind_sep_bparen_open = 6,    // (
-    tok_kind_sep_bparen_close = 7,   // )
-    tok_kind_sep_bcurly_open = 8,    // {
-    tok_kind_sep_bcurly_close = 9,   // }
-    tok_kind_sep_bsquare_open = 10,  // [
-    tok_kind_sep_bsquare_close = 11, // ]
-    tok_kind_sep_comma = 12,         // ,
+    tok_kind_nope,              // used for state machine inside `tokenize`, never produced to consumers
+    tok_kind_comment,           // double-slash comments, until EOL
+    tok_kind_ident,             // fallback for all otherwise-unmatched tokens
+    tok_kind_lit_num_prefixed,  // any tokens starting with '0'-'9'
+    tok_kind_lit_str_qdouble,   // "string-ish quote marks"
+    tok_kind_lit_str_qsingle,   // 'char-ish quote marks'
+    tok_kind_sep_bparen_open,   // (
+    tok_kind_sep_bparen_close,  // )
+    tok_kind_sep_bcurly_open,   // {
+    tok_kind_sep_bcurly_close,  // }
+    tok_kind_sep_bsquare_open,  // [
+    tok_kind_sep_bsquare_close, // ]
+    tok_kind_sep_comma,         // ,
 } TokenKind;
 
 typedef struct Token {

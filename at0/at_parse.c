@@ -8,10 +8,11 @@ static AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* 
 static void parseDef(AstDef* const dst_def, Ast const* const ast);
 
 static Ast parse(Tokens const all_toks, Str const full_src) {
-    Uint num_func_arrows = 0; // count all `->` occurrences in full_src:
-    for (Uint i = 1; i < full_src.len; i += 1)
-        if (full_src.at[i - 1] == '-' && full_src.at[i] == '>')
-            num_func_arrows += 1; // they'll get hoisted to top-defs eventually, so want to reserve that space now
+    Uint num_func_arrows = 0;        // count all `->` / `@->` occurrences in full_src:
+    ·forEach(Token, tok, all_toks, { // to reserve extra room for later-on top-hoisted defs
+        if (tok->kind == tok_kind_ident && strSuff(tokSrc(tok, full_src), strL("->", 2)))
+            num_func_arrows += 1;
+    });
 
     Tokenss const chunks = toksIndentBasedChunks(all_toks);
     Ast ret_ast = (Ast) {
@@ -42,11 +43,11 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
             dst_def->anns.name = dst_def->head.of_ident;
         } break;
         case ast_expr_form: {
-            if (dst_def->head.of_form.at[0].kind != ast_expr_ident)
+            if (dst_def->head.of_exprs.at[0].kind != ast_expr_ident)
                 ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
-            dst_def->anns.name = dst_def->head.of_form.at[0].of_ident;
-            for (Uint i = 1; i < dst_def->head.of_form.len; i += 1)
-                if (dst_def->head.of_form.at[i].kind != ast_expr_ident)
+            dst_def->anns.name = dst_def->head.of_exprs.at[0].of_ident;
+            for (Uint i = 1; i < dst_def->head.of_exprs.len; i += 1)
+                if (dst_def->head.of_exprs.at[i].kind != ast_expr_ident)
                     ·fail(astNodeMsg(str("unsupported def header form"), &dst_def->head.node_base, ast));
         } break;
         default: {
@@ -54,7 +55,7 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
         } break;
     }
     dst_def->anns.qname =
-        (dst_def->anns.parent_def != NULL) ? str3(dst_def->anns.parent_def->anns.qname, strL(".", 1), dst_def->anns.name) : dst_def->anns.name;
+        (dst_def->anns.parent_def != NULL) ? str3(dst_def->anns.parent_def->anns.qname, strL("-", 1), dst_def->anns.name) : dst_def->anns.name;
 
     Tokenss const def_body_chunks = toksIndentBasedChunks(·slice(Token, toks, idx_tok_def.it + 1, toks.len));
     dst_def->sub_defs = ·make(AstDef, 0, def_body_chunks.len - 1);
@@ -192,10 +193,7 @@ static AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast co
                         ·assert(is_braces || is_bracket); // always true right now obviously, but for future overpaced refactorers..
                         AstExpr expr_brac =
                             astExpr(all_toks_idx + i, 1 + (idx_closing.it - i), is_bracket ? ast_expr_lit_bracket : ast_expr_lit_braces);
-                        if (is_braces)
-                            expr_brac.of_braces = exprs_inside;
-                        else
-                            expr_brac.of_bracket = exprs_inside;
+                        expr_brac.of_exprs = exprs_inside;
                         ·append(ret_acc, expr_brac);
                     }
                     i = idx_closing.it;
@@ -220,7 +218,7 @@ static AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast co
         return ret_acc.at[0];
 
     AstExpr ret_expr = astExpr(all_toks_idx, expr_toks.len, ast_expr_form);
-    ret_expr.of_form = ret_acc;
+    ret_expr.of_exprs = ret_acc;
     ret_expr.anns.toks_throng = whole_form_throng;
     return ret_expr;
 }

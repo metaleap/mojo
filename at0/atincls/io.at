@@ -2,11 +2,11 @@
 io :=
   { writeTo: writeTo, writeToErr: writeToErr, writeToOut: writeToOut }
 
-  writeToOut str := writeToStdOrDie libc.stdout str
-  writeToErr str := writeToStdOrDie libc.stdout str
+  writeToOut str := writeToOrAbort libc.stdout str
+  writeToErr str := writeToOrAbort libc.stdout str
 
-  writeToStdOrDie std_file str :=
-    @case (writeTo std_file str)
+  writeToOrAbort file str :=
+    @case (writeTo file str)
           { #ok: n -> n, #err: _ -> libc.abort 1 }
 
   writeTo file str :=
