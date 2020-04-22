@@ -52,6 +52,7 @@ struct AstDef {
     AstExpr body;
     AstDefs sub_defs;
     struct {
+        Strs param_names;
         AstNodeBase head_node_base;
         AstDef* parent_def;
         Str qname;
@@ -92,10 +93,11 @@ static Str astNodeSrc(AstNodeBase const* const node, Ast const* const ast) {
 }
 
 static AstDef astDef(AstDef* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
+    AstNodeBase node_base = astNodeBaseFrom(all_toks_idx, toks_len);
     return (AstDef) {
         .sub_defs = (AstDefs) {.at = NULL, .len = 0},
-        .anns = {.parent_def = parent_def},
-        .node_base = astNodeBaseFrom(all_toks_idx, toks_len),
+        .anns = {.parent_def = parent_def, .head_node_base = node_base, .param_names = (Strs) {.len = 0, .at = NULL}},
+        .node_base = node_base,
     };
 }
 
@@ -377,18 +379,15 @@ static void astExprHoistFuncsExprsToNewTopDefs(AstExpr* const expr, Str const qn
                 *new_top_def = astDef(NULL, node_base.toks_idx, node_base.toks_len);
                 new_top_def->name = qname;
                 new_top_def->anns.qname = qname;
-                new_top_def->body = *expr;
 
-                // new_top_def->head.kind = ast_expr_form;
-                // new_top_def->head.of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
-                // new_top_def->head.of_exprs.at[0] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_ident);
-                // new_top_def->head.of_exprs.at[0].of_ident = qname;
-                // for (Uint i = 0; i < free_vars.len; i += 1) {
-                //     new_top_def->head.of_exprs.at[1 + i] = astExpr(0, 0, ast_expr_ident);
-                //     new_top_def->head.of_exprs.at[1 + i].of_ident = free_vars.at[i];
-                // }
-                // if (free_vars.len == 0)
-                //     new_top_def->head = new_top_def->head.of_exprs.at[0];
+                new_top_def->body = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_form);
+                new_top_def->body.of_exprs = ·make(AstExpr, 3, 3);
+                new_top_def->body.of_exprs.at[0] = astExprInstrOrTag(node_base, strL("->", 2), false);
+                new_top_def->body.of_exprs.at[2] = *expr;
+                new_top_def->body.of_exprs.at[1] = astExpr(node_base.toks_idx, node_base.toks_len, ast_expr_lit_bracket);
+                new_top_def->body.of_exprs.at[1].of_exprs = ·make(AstExpr, free_vars.len, free_vars.len);
+                for (Uint i = 0; i < free_vars.len; i += 1)
+                    new_top_def->body.of_exprs.at[1].of_exprs.at[i] = astExprInstrOrTag(node_base, free_vars.at[i], true);
 
                 expr->kind = ast_expr_form;
                 expr->of_exprs = ·make(AstExpr, 1 + free_vars.len, 0);
@@ -440,7 +439,9 @@ static void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stac
                     Str const param_name = param->of_exprs.at[1].of_ident;
                     for (Uint j = 0; j < names_stack.len; j += 1)
                         if (strEql(names_stack.at[j], param_name))
-                            ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &param->node_base, ast));
+                            ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), param_name), &param->node_base, ast));
+                    if (names_stack_capacity == names_stack.len)
+                        ·fail(str("astExprVerifyNoShadowings: TODO pre-allocate a bigger names_stack"));
                     ·append(names_stack, param_name);
                 });
                 astExprVerifyNoShadowings(&expr->of_exprs.at[2], names_stack, names_stack_capacity, ast);
@@ -454,14 +455,26 @@ static void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint
     ·forEach(AstDef, def, defs, {
         for (Uint i = 0; i < names_stack.len; i += 1)
             if (strEql(names_stack.at[i], def->name))
-                ·fail(astNodeMsg(str("shadowing earlier definition of the same name"), &def->anns.head_node_base, ast));
+                ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), def->name), &def->anns.head_node_base, ast));
         if (names_stack_capacity == names_stack.len)
             ·fail(str("astDefsVerifyNoShadowings: TODO pre-allocate a bigger names_stack"));
         ·append(names_stack, def->name);
     });
     ·forEach(AstDef, def, defs, {
+        Uint num_params = def->anns.param_names.len;
+        for (Uint i = 0; i < def->anns.param_names.len; i += 1) {
+            Str const param_name = def->anns.param_names.at[i];
+            for (Uint j = 0; j < names_stack.len; j += 1)
+                if (strEql(names_stack.at[j], param_name))
+                    ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), param_name), &def->anns.head_node_base, ast));
+            ·append(names_stack, param_name);
+        }
         astDefsVerifyNoShadowings(def->sub_defs, names_stack, names_stack_capacity, ast);
-        astExprVerifyNoShadowings(&def->body, names_stack, names_stack_capacity, ast);
+        if (def->anns.param_names.at == NULL)
+            astExprVerifyNoShadowings(&def->body, names_stack, names_stack_capacity, ast);
+        else
+            astExprVerifyNoShadowings(&def->body.of_exprs.at[2], names_stack, names_stack_capacity, ast);
+        names_stack.len -= num_params;
     });
 }
 

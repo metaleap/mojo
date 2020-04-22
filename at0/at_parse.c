@@ -69,11 +69,14 @@ static void parseDef(AstDef* const dst_def, Ast const* const ast) {
             fn.of_exprs.at[2] = dst_def->body;
             fn.of_exprs.at[1] = astExpr(head.of_exprs.at[1].node_base.toks_idx, head.node_base.toks_len - 1, ast_expr_lit_bracket);
             fn.of_exprs.at[1].of_exprs = ·make(AstExpr, head.of_exprs.len - 1, 0);
+            dst_def->anns.param_names = ·make(Str, fn.of_exprs.at[1].of_exprs.len, 0);
             for (Uint i = 1; i < head.of_exprs.len; i += 1)
                 if (head.of_exprs.at[i].kind != ast_expr_ident)
                     ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
-                else
+                else {
+                    dst_def->anns.param_names.at[i - 1] = head.of_exprs.at[i].of_ident;
                     fn.of_exprs.at[1].of_exprs.at[i - 1] = astExprInstrOrTag(head.of_exprs.at[i].node_base, head.of_exprs.at[i].of_ident, true);
+                }
             dst_def->body = fn;
         } break;
         default: {

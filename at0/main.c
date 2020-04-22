@@ -40,7 +40,7 @@ int main(int const argc, String const argv[]) {
     astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
     // astHoistFuncsExprsToNewTopDefs(&ast);
     // astReorderSubDefs(&ast);
-    // astPrint(&ast);
+    astPrint(&ast);
 
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
