@@ -38,10 +38,10 @@ int main(int const argc, String const argv[]) {
     Ast ast = parse(toks, full_src);
     astRewriteGlyphsIntoInstrs(&ast);
     astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
-    astPrint(&ast);
+    astReorderSubDefs(&ast);
 
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
-    // IrHLProg ir_hl_prog = irHLProgFrom(&ast);
-    // irHLProgPrint(&ir_hl_prog);
+    IrHLProg ir_hl_prog = irHLProgFrom(&ast);
+    irHLProgPrint(&ir_hl_prog);
 }
