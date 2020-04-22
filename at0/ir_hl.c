@@ -113,7 +113,7 @@ typedef enum IrHLExprKind {
     irhl_expr_call,
     irhl_expr_list,
     irhl_expr_bag,
-    irhl_expr_accessor,
+    irhl_expr_selector,
     irhl_expr_pairing,
     irhl_expr_tagged,
     irhl_expr_ref,
@@ -155,10 +155,10 @@ typedef struct IrHLExprBag {
     IrHLExprs items;
 } IrHLExprBag;
 
-typedef struct IrHLExprAccessor {
+typedef struct IrHLExprSelector {
     IrHLExpr* subj;
     IrHLExpr* selector;
-} IrHLExprAccessor;
+} IrHLExprSelector;
 
 typedef struct IrHLExprPairing {
     IrHLExpr* key;
@@ -255,7 +255,7 @@ struct IrHLExpr {
         IrHLExprCall of_call;
         IrHLExprList of_list;
         IrHLExprBag of_bag;
-        IrHLExprAccessor of_accessor;
+        IrHLExprSelector of_selector;
         IrHLExprPairing of_pairing;
         IrHLExprTagged of_tagged;
         IrHLExprRef of_ref;
@@ -263,11 +263,8 @@ struct IrHLExpr {
     };
     struct {
         struct {
-            enum { irhl_expr_origin_def, irhl_expr_origin_expr } kind;
-            union {
-                AstExpr const* of_expr;
-                AstDef const* of_def;
-            };
+            AstExpr const* ast_expr;
+            AstDef const* ast_def;
         } origin;
     } anns;
 };
@@ -284,10 +281,44 @@ struct IrHLDef {
 
 
 
-typedef struct CtxIrHLReify {
-    IrHLProg* prog;
-} CtxIrHLReify;
 
+static void irHLReifyExpr(IrHLExpr* expr) {
+    // as per `irHLExprFrom` and `irHLDefExpr`, the only `IrHLExprKind` to encounter here are:
+    //      irhl_expr_call, irhl_expr_list, irhl_expr_bag, irhl_expr_ref, irhl_expr_int, irhl_expr_func
+    // to be potentially-discovered are possibly-those-above or any of the refined ones:
+    //      irhl_expr_type, irhl_expr_void, irhl_expr_selector,
+    //      irhl_expr_pairing, irhl_expr_tagged, irhl_expr_instr
+    switch (expr->kind) {
+        case irhl_expr_ref: {
+            if (strEql(strL("()", 2), expr->of_ref.name))
+                expr->kind = irhl_expr_void;
+        } break;
+        case irhl_expr_func: {
+            irHLReifyExpr(expr->of_func.body);
+        } break;
+        case irhl_expr_list: {
+            ·forEach(IrHLExpr, sub_expr, expr->of_list.items, { irHLReifyExpr(sub_expr); });
+        } break;
+        case irhl_expr_bag: {
+            ·forEach(IrHLExpr, sub_expr, expr->of_bag.items, { irHLReifyExpr(sub_expr); });
+        } break;
+        case irhl_expr_call: {
+            Bool reified = false;
+
+            // if (astExprIsInstrOrTag(expr->of_call.callee->anns.origin.of_expr,false,true,false))
+
+            if (!reified) {
+                ·forEach(IrHLExpr, sub_expr, expr->of_call.args, { irHLReifyExpr(sub_expr); });
+                irHLReifyExpr(expr->of_call.callee);
+            }
+        } break;
+        default: break;
+    }
+}
+
+static void irHLReifyProg(IrHLProg* prog) {
+    ·forEach(IrHLDef, def, prog->defs, { irHLReifyExpr(&def->body); });
+}
 
 
 
@@ -298,8 +329,8 @@ static IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
     return new_expr;
 }
 
-static IrHLExpr irHLExprFrom(AstExpr* const ast_expr) {
-    IrHLExpr ret_expr = (IrHLExpr) {.anns = {.origin = {.kind = irhl_expr_origin_expr, .of_expr = ast_expr}}};
+static IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
+    IrHLExpr ret_expr = (IrHLExpr) {.anns = {.origin = {.ast_def = ast_def, .ast_expr = ast_expr}}};
     switch (ast_expr->kind) {
         case ast_expr_lit_int: {
             ret_expr.kind = irhl_expr_int;
@@ -311,7 +342,7 @@ static IrHLExpr irHLExprFrom(AstExpr* const ast_expr) {
             ret_expr.of_list = (IrHLExprList) {.items = ·make(IrHLExpr, str_len, str_len)};
             for (Uint i = 0; i < str_len; i += 1)
                 ret_expr.of_list.items.at[i] = (IrHLExpr) {
-                    .anns = {.origin = {.kind = irhl_expr_origin_expr, .of_expr = ast_expr}},
+                    .anns = {.origin = {.ast_def = ast_def, .ast_expr = ast_expr}},
                     .kind = irhl_expr_int,
                     .of_int = (IrHLExprInt) {.int_value = ast_expr->of_lit_str.at[i]},
                 };
@@ -325,7 +356,7 @@ static IrHLExpr irHLExprFrom(AstExpr* const ast_expr) {
             Uint const list_len = ast_expr->of_exprs.len;
             ret_expr.of_list = (IrHLExprList) {.items = ·make(IrHLExpr, list_len, list_len)};
             ·forEach(AstExpr, item_expr, ast_expr->of_exprs, {
-                IrHLExpr list_item_expr = irHLExprFrom(item_expr);
+                IrHLExpr list_item_expr = irHLExprFrom(item_expr, ast_def);
                 ret_expr.of_list.items.at[iˇitem_expr] = list_item_expr;
             });
         } break;
@@ -334,7 +365,7 @@ static IrHLExpr irHLExprFrom(AstExpr* const ast_expr) {
             Uint const bag_len = ast_expr->of_exprs.len;
             ret_expr.of_bag = (IrHLExprBag) {.items = ·make(IrHLExpr, bag_len, bag_len)};
             ·forEach(AstExpr, item_expr, ast_expr->of_exprs, {
-                IrHLExpr bag_item_expr = irHLExprFrom(item_expr);
+                IrHLExpr bag_item_expr = irHLExprFrom(item_expr, ast_def);
                 ret_expr.of_bag.items.at[iˇitem_expr] = bag_item_expr;
             });
         } break;
@@ -342,14 +373,14 @@ static IrHLExpr irHLExprFrom(AstExpr* const ast_expr) {
             ·assert(ast_expr->of_exprs.len != 0);
             ret_expr.kind = irhl_expr_call;
             Uint const num_args = ast_expr->of_exprs.len - 1;
-            IrHLExpr const callee = irHLExprFrom(&ast_expr->of_exprs.at[0]);
+            IrHLExpr const callee = irHLExprFrom(&ast_expr->of_exprs.at[0], ast_def);
             ret_expr.of_call = (IrHLExprCall) {
                 .callee = irHLExprCopy(&callee),
                 .args = ·make(IrHLExpr, num_args, num_args),
             };
             ·forEach(AstExpr, arg_expr, ast_expr->of_exprs, {
                 if (iˇarg_expr > 0)
-                    ret_expr.of_call.args.at[iˇarg_expr - 1] = irHLExprFrom(arg_expr);
+                    ret_expr.of_call.args.at[iˇarg_expr - 1] = irHLExprFrom(arg_expr, ast_def);
             });
         } break;
         default: {
@@ -360,21 +391,21 @@ static IrHLExpr irHLExprFrom(AstExpr* const ast_expr) {
 }
 
 static IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
-    // simplest case: param-less def with no sub-defs:
-    IrHLExpr body_expr = irHLExprFrom(&cur_ast_def->body);
+    IrHLExpr body_expr = irHLExprFrom(&cur_ast_def->body, cur_ast_def);
 
     // def has sub-defs? rewrite into `let` lambda form:
-    // from `foo bar, bar := baz` into `(bar -> foo bar) baz`. will bite us soon, then we revisit.
+    // from `foo bar, bar := baz` into `(bar -> foo bar) baz`.  naive approach
+    // of doing so will bite us soon, then we revisit (if the bite really hurts).
     if (cur_ast_def->sub_defs.len > 0) {
         ·forEach(AstDef, sub_def, cur_ast_def->sub_defs, {
-            IrHLExpr expr_func = ((IrHLExpr) {.anns = {.origin = {.kind = irhl_expr_origin_def, .of_def = sub_def}},
+            IrHLExpr expr_func = ((IrHLExpr) {.anns = {.origin = {.ast_expr = NULL, .ast_def = sub_def}},
                                               .kind = irhl_expr_func,
                                               .of_func = (IrHLExprFunc) {
                                                   .body = irHLExprCopy(&body_expr),
                                                   .params = ·make(IrHLFuncParam, 1, 1),
                                               }});
             expr_func.of_func.params.at[0] = (IrHLFuncParam) {.anns = {.name = sub_def->name}};
-            body_expr = ((IrHLExpr) {.anns = {.origin = {.kind = irhl_expr_origin_def, .of_def = sub_def}},
+            body_expr = ((IrHLExpr) {.anns = {.origin = {.ast_expr = &cur_ast_def->body, .ast_def = sub_def}},
                                      .kind = irhl_expr_call,
                                      .of_call = (IrHLExprCall) {
                                          .callee = irHLExprCopy(&expr_func),
@@ -383,24 +414,6 @@ static IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
             body_expr.of_call.args.at[0] = irHLDefExpr(sub_def);
         });
     }
-
-    // def has params? turn body_expr into irhl_expr_func
-    // if (cur_ast_def->head.kind == ast_expr_form) {
-    //     Uint const num_args = cur_ast_def->head.of_exprs.len - 1;
-    //     body_expr = (IrHLExpr) {.anns = {.origin = {.kind = irhl_expr_origin_def, .of_def = cur_ast_def}},
-    //                             .kind = irhl_expr_func,
-    //                             .of_func = (IrHLExprFunc) {
-    //                                 .body = irHLExprCopy(&body_expr),
-    //                                 .params = ·make(IrHLFuncParam, num_args, num_args),
-    //                             }};
-    //     ·forEach(AstExpr, param_expr, cur_ast_def->head.of_exprs, {
-    //         if (iˇparam_expr > 0) {
-    //             ·assert(param_expr->kind == ast_expr_ident);
-    //             IrHLFuncParam p = (IrHLFuncParam) {.anns = {.name = param_expr->of_ident}};
-    //             body_expr.of_func.params.at[iˇparam_expr - 1] = p;
-    //         }
-    //     });
-    // }
     return body_expr;
 }
 
@@ -421,6 +434,7 @@ static IrHLProg irHLProgFrom(Ast* const ast) {
         IrHLDef ir_hl_top_def = irHLDefFrom(ast_top_def);
         ·append(ret_prog.defs, ir_hl_top_def);
     });
+    irHLReifyProg(&ret_prog);
     return ret_prog;
 }
 
@@ -442,7 +456,7 @@ static void irHLTypePrint(IrHLType const* const the_type) {
 }
 
 static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, Uint const ind) {
-    AstExpr const* const orig_ast_expr = (the_expr->anns.origin.kind != irhl_expr_origin_expr) ? NULL : the_expr->anns.origin.of_expr;
+    AstExpr const* const orig_ast_expr = the_expr->anns.origin.ast_expr;
     if (orig_ast_expr != NULL)
         for (Uint i = 0; i < orig_ast_expr->anns.parensed; i += 1)
             printChr('(');

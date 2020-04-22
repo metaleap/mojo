@@ -170,37 +170,6 @@ static Bool astExprIsFunc(AstExpr const* const expr) {
     return astExprIsInstrOrTag(callee, true, false, false) && strEql(strL("->", 2), callee->of_exprs.at[1].of_ident);
 }
 
-static Strs astExprGatherNonOpIdentsNotIn(AstExpr const* const expr, Strs gather_into, Uint const gather_max, Strs const skip1,
-                                          Strs const skip2) {
-    switch (expr->kind) {
-        case ast_expr_lit_bracket: // fall through to:
-        case ast_expr_lit_braces:  // fall through to:
-        case ast_expr_form: {
-            if (!astExprIsInstrOrTag(expr, true, true, true))
-                ·forEach(AstExpr, sub_expr, expr->of_exprs,
-                         { gather_into = astExprGatherNonOpIdentsNotIn(sub_expr, gather_into, gather_max, skip1, skip2); });
-        } break;
-        case ast_expr_ident: {
-            if (strHasChar(tok_op_chars, expr->of_ident.at[0]))
-                return gather_into;
-            for (Uint i = 0; i < skip1.len; i += 1)
-                if (strEql(skip1.at[i], expr->of_ident))
-                    return gather_into;
-            for (Uint i = 0; i < skip2.len; i += 1)
-                if (strEql(skip2.at[i], expr->of_ident))
-                    return gather_into;
-            for (Uint i = 0; i < gather_into.len; i += 1)
-                if (strEql(gather_into.at[i], expr->of_ident))
-                    return gather_into;
-            if (gather_into.len == gather_max)
-                ·fail(str("astExprGatherNonOpIdentsNotIn: TODO increase gather_max"));
-            ·append(gather_into, expr->of_ident);
-        } break;
-        default: break;
-    }
-    return gather_into;
-}
-
 static Bool astExprHasIdent(AstExpr const* const expr, Str const ident) {
     switch (expr->kind) {
         case ast_expr_ident: {
@@ -475,7 +444,7 @@ static void astExprPrint(AstExpr const* const expr, Bool const is_form_item, Uin
 
         case ast_expr_lit_braces: {
             if (expr->of_exprs.len == 0)
-                printStr(strL("{}", 2));
+                printStr(str("{}"));
             else {
                 printStr(str("{\n"));
                 Uint const ind_next = 2 + ind;
