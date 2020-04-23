@@ -110,9 +110,14 @@ AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr
     };
 }
 
+AstExpr astExprFormEmpty(AstNodeBase const from) {
+    return (AstExpr) {.kind = ast_expr_form, .of_exprs = (AstExprs) {.at = NULL, .len = 0}, .node_base = from};
+}
+
 AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint const idx_end) {
     ·assert(!(idx_start == 0 && idx_end == ast_expr->of_exprs.len));
-    ·assert(idx_end > idx_start);
+    if (idx_end == idx_start)
+        return astExprFormEmpty(ast_expr->node_base);
 
     AstExpr ret_expr = astExpr(ast_expr->of_exprs.at[idx_start].node_base.toks_idx, 0, ast_expr_form, 0);
     ret_expr.anns.toks_throng = ast_expr->anns.toks_throng;
@@ -149,6 +154,8 @@ AstExprs astExprFormSplit(AstExpr const* const expr, Str const ident, Str const 
         ·assert(ret_exprs.len <= 1 + indices.len);
         idx_start = 1 + indices.at[i];
     }
+    if (idx_start == 0)
+        return (AstExprs) {.len = 1, .at = (AstExpr*)expr};
     ·append(ret_exprs, astExprFormSub(expr, idx_start, expr->of_exprs.len));
     ·assert(ret_exprs.len <= 1 + indices.len);
     return ret_exprs;
@@ -240,10 +247,6 @@ AstExpr astExprInstrOrTag(AstNodeBase const from, Str const name, Bool const tag
     return ret_expr;
 }
 
-AstExpr astExprFormEmpty(AstNodeBase const from) {
-    return (AstExpr) {.kind = ast_expr_form, .of_exprs = (AstExprs) {.at = NULL, .len = 0}, .node_base = from};
-}
-
 void astExprFormNorm(AstExpr* const expr, ºAstExpr const case_of_empty) {
     if (expr->kind == ast_expr_form) {
         if (expr->of_exprs.len == 1)
@@ -287,11 +290,15 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
             // @case-instr cases
             AstExpr q_follow = astExprFormSub(expr, 1 + idx_qmark.it, expr->of_exprs.len);
             if (q_follow.of_exprs.len < 3)
-                ·fail(astNodeMsg(str("insufficient tokens following '?'"), &expr->node_base, ast));
+                ·fail(astNodeMsg(str("insufficient cases following '?'"), &expr->node_base, ast));
             AstExprs const cases = astExprFormSplit(&q_follow, strL("|", 1), strL("?", 1));
+            if (cases.len <= 1)
+                ·fail(astNodeMsg(str("insufficient cases following '?'"), &expr->node_base, ast));
             instr.of_exprs.at[2] = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_lit_braces, cases.len);
             Uint count_arrows = 0;
             ·forEach(AstExpr, case_expr, cases, {
+                if (case_expr->kind == ast_expr_form && case_expr->of_exprs.len == 0)
+                    ·fail(astNodeMsg(str("expected expression in case"), &case_expr->node_base, ast));
                 AstExpr² arrow = astExprFormBreakOn(case_expr, strL("=>", 2), false, false, ast);
                 AstExpr expr_case = *case_expr;
                 if (arrow.glyph != NULL) {
@@ -303,13 +310,13 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                     expr_case.of_exprs.at[1] = arrow.lhs_form.it;
                     astExprFormNorm(&expr_case.of_exprs.at[1], ·none(AstExpr));
                     if (!arrow.rhs_form.ok)
-                        ·fail(astNodeMsg(str("expected expression following '=>'"), &case_expr->node_base, ast));
+                        ·fail(astNodeMsg(str("expected expression after '=>'"), &case_expr->node_base, ast));
                     expr_case.of_exprs.at[2] = arrow.rhs_form.it;
                     astExprFormNorm(&expr_case.of_exprs.at[2], ·none(AstExpr));
                 }
                 instr.of_exprs.at[2].of_exprs.at[iˇcase_expr] = expr_case;
             });
-            if (count_arrows == 0 && cases.len == 2) {
+            if (count_arrows == 0 && cases.len == 2 && idx_qmark.it > 0) {
                 AstExprs const* const new_cases = &instr.of_exprs.at[2].of_exprs;
                 AstExpr case_true = new_cases->at[0];
                 AstExpr case_false = new_cases->at[1];

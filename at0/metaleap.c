@@ -83,7 +83,7 @@ struct Mem {
 
 #define ·fail(¹the_msg)                                                                                                                        \
     do {                                                                                                                                       \
-        fprintf(stderr, "\npanicked at: %s:%d\n", __FILE__, __LINE__);                                                                         \
+        fprintf(stderr, "panicked at: %s:%d\n", __FILE__, __LINE__);                                                                           \
         abortWithBacktraceAndMsg(¹the_msg);                                                                                                    \
     } while (0)
 
@@ -94,9 +94,8 @@ struct Mem {
 #define ·assert(¹the_predicate)                                                                                                                \
     do {                                                                                                                                       \
         if (!(¹the_predicate)) {                                                                                                               \
-            fprintf(stderr, "\n>>>>>>>>>>>>>>>>>>>>>>\n\nassert violation `%s` triggered in: %s:%d\n\n", #¹the_predicate, __FILE__, __LINE__); \
-            fflush(stderr);                                                                                                                    \
-            abort();                                                                                                                           \
+            fprintf(stderr, "condition `%s` violated in: %s:%d\n\n", #¹the_predicate, __FILE__, __LINE__);                                     \
+            abortWithBacktraceAndMsg((Str) {.len = 0, .at = NULL});                                                                            \
         }                                                                                                                                      \
     } while (0)
 #endif
