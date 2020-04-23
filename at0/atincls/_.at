@@ -26,8 +26,8 @@ false := #false
 xor b1 b2 :=
     neq b1 b2
 not b :=
-    @case b { true: false, false: true }
+    b ? false | true
 eq a b :=
-    @case (@cmp #eq a b) { 1: true, 0: false }
-neq a b :=
-    @case (@cmp #neq a b) { 1: true, 0: false }
+    @cmp #eq a b
+neq a b := // see notes.md
+    not (eq a b)

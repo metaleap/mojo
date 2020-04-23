@@ -11,14 +11,3 @@ libc := {
   fread   : @extern #fread [] Uw { #buf: Ptr U8, #size: Uw, #count: Uw, #file: Ptr FILE },
   fwrite  : @extern #fwrite [] Uw { #buf: Ptr U8, #size: Uw, #count: Uw, #file: Ptr FILE },
 }
-
-
-
-
-
-dummy d :=
-  foo bar
-
-  bar   := x (fo -> d)
-  foo f := f d baz
-    baz   := bar d f
