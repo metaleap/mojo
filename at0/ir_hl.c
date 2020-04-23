@@ -288,7 +288,7 @@ struct IrHLDef {
 
 
 
-static void irHLPreduceExpr(IrHLProg* ctx, IrHLExpr* expr) {
+void irHLPreduceExpr(IrHLProg* ctx, IrHLExpr* expr) {
     // as per `irHLExprFrom` and `irHLDefExpr`, the only `IrHLExprKind` to encounter here are:
     //      atoms: irhl_expr_tag, irhl_expr_int, irhl_expr_void, irhl_expr_instr of irhl_instr_named.
     //      aggrs: irhl_expr_call, irhl_expr_list, irhl_expr_bag, irhl_expr_ref, irhl_expr_func.
@@ -313,20 +313,20 @@ static void irHLPreduceExpr(IrHLProg* ctx, IrHLExpr* expr) {
     }
 }
 
-static void irHLPreduceProg(IrHLProg* prog) {
+void irHLPreduceProg(IrHLProg* prog) {
     ·forEach(IrHLDef, def, prog->defs, { irHLPreduceExpr(prog, &def->body); });
 }
 
 
 
 
-static IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
+IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
     IrHLExpr* new_expr = ·new(IrHLExpr);
     *new_expr = *src;
     return new_expr;
 }
 
-static IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
+IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
     IrHLExpr ret_expr = (IrHLExpr) {.anns = {.origin = {.ast_def = ast_def, .ast_expr = ast_expr}}};
     switch (ast_expr->kind) {
         case ast_expr_lit_int: {
@@ -403,7 +403,7 @@ static IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
     return ret_expr;
 }
 
-static IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
+IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
     IrHLExpr body_expr = irHLExprFrom(&cur_ast_def->body, cur_ast_def);
 
     // def has sub-defs? rewrite into `let` lambda form:
@@ -430,7 +430,7 @@ static IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
     return body_expr;
 }
 
-static IrHLDef irHLDefFrom(AstDef* const top_def) {
+IrHLDef irHLDefFrom(AstDef* const top_def) {
     IrHLDef this_def = (IrHLDef) {
         .anns = {.origin_def = top_def, .name = top_def->name},
         .body = irHLDefExpr(top_def),
@@ -438,7 +438,7 @@ static IrHLDef irHLDefFrom(AstDef* const top_def) {
     return this_def;
 }
 
-static IrHLProg irHLProgFrom(Ast* const ast) {
+IrHLProg irHLProgFrom(Ast* const ast) {
     IrHLProg ret_prog = (IrHLProg) {
         .anns = {.origin_ast = ast},
         .defs = ·make(IrHLDef, 0, ast->top_defs.len),
@@ -453,7 +453,7 @@ static IrHLProg irHLProgFrom(Ast* const ast) {
 
 
 
-static void irHLTypePrint(IrHLType const* const the_type) {
+void irHLPrintType(IrHLType const* const the_type) {
     printStr(str("@T "));
     switch (the_type->kind) {
         case irhl_type_void: {
@@ -463,12 +463,12 @@ static void irHLTypePrint(IrHLType const* const the_type) {
             printStr(str("#tag"));
         } break;
         default: {
-            ·fail(str2(str("TODO: irHLTypePrint for .kind of "), uintToStr(the_type->kind, 1, 10)));
+            ·fail(str2(str("TODO: irHLPrintType for .kind of "), uintToStr(the_type->kind, 1, 10)));
         } break;
     }
 }
 
-static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, Uint const ind) {
+void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, Uint const ind) {
     AstExpr const* const orig_ast_expr = the_expr->anns.origin.ast_expr;
     if (orig_ast_expr != NULL)
         for (Uint i = 0; i < orig_ast_expr->anns.parensed; i += 1)
@@ -476,10 +476,17 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
 
     switch (the_expr->kind) {
         case irhl_expr_type: {
-            irHLTypePrint(the_expr->of_type.ty_value);
+            irHLPrintType(the_expr->of_type.ty_value);
         } break;
         case irhl_expr_int: {
             printStr(uintToStr(the_expr->of_int.int_value, 1, 10));
+        } break;
+        case irhl_expr_void: {
+            printStr(str("…"));
+        } break;
+        case irhl_expr_tag: {
+            printChr('#');
+            printStr(the_expr->of_tag.tag_ident);
         } break;
         case irhl_expr_ref: {
             printStr(the_expr->of_ref.name);
@@ -489,7 +496,7 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
             ·forEach(IrHLExpr, sub_expr, the_expr->of_list.items, {
                 if (iˇsub_expr != 0)
                     printStr(str(", "));
-                irHlExprPrint(sub_expr, false, ind);
+                irHLPrintExpr(sub_expr, false, ind);
             });
             printChr(']');
         } break;
@@ -499,7 +506,7 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
             ·forEach(IrHLExpr, sub_expr, the_expr->of_bag.items, {
                 for (Uint i = 0; i < ind_next; i += 1)
                     printChr(' ');
-                irHlExprPrint(sub_expr, false, ind_next);
+                irHLPrintExpr(sub_expr, false, ind_next);
                 printStr(str(",\n"));
             });
             for (Uint i = 0; i < ind; i += 1)
@@ -511,17 +518,17 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
             Bool const parens = is_callee_or_arg && (orig_ast_expr == NULL || (orig_ast_expr->anns.parensed == 0 && !clasp));
             if (parens)
                 printChr('(');
-            irHlExprPrint(the_expr->of_call.callee, true, ind);
+            irHLPrintExpr(the_expr->of_call.callee, true, ind);
             ·forEach(IrHLExpr, sub_expr, the_expr->of_call.args, {
                 if (!clasp)
                     printChr(' ');
-                irHlExprPrint(sub_expr, true, ind);
+                irHLPrintExpr(sub_expr, true, ind);
             });
             if (parens)
                 printChr(')');
         } break;
         case irhl_expr_func: {
-            printStr(str("[_"));
+            printStr(str(" \\_"));
 
             ·forEach(IrHLFuncParam, param, the_expr->of_func.params, {
                 if (iˇparam > 0)
@@ -531,12 +538,19 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
             printStr(str("->\n"));
             for (Uint i = 0; i < ind; i += 1)
                 printChr(' ');
-            irHlExprPrint(the_expr->of_func.body, false, 4 + ind);
+            irHLPrintExpr(the_expr->of_func.body, false, 4 + ind);
 
-            printStr(str("_]"));
+            printStr(str("_/ "));
+        } break;
+        case irhl_expr_instr: {
+            if (the_expr->of_instr.kind == irhl_instr_named) {
+                printChr('@');
+                printStr(the_expr->of_instr.of_named);
+            } else
+                ·fail(str2(str("TODO: irHLPrintInstr for .kind of "), uintToStr(the_expr->of_instr.kind, 1, 10)));
         } break;
         default: {
-            ·fail(str2(str("TODO: irHlExprPrint for .kind of "), uintToStr(the_expr->kind, 1, 10)));
+            ·fail(str2(str("TODO: irHLPrintExpr for .kind of "), uintToStr(the_expr->kind, 1, 10)));
         } break;
     }
 
@@ -545,17 +559,17 @@ static void irHlExprPrint(IrHLExpr const* const the_expr, Bool const is_callee_o
             printChr(')');
 }
 
-static void irHLDefPrint(IrHLDef const* const the_def) {
+void irHLPrintDef(IrHLDef const* const the_def) {
     printStr(the_def->anns.name);
     printStr(str(" :=\n  "));
-    irHlExprPrint(&the_def->body, false, 4);
+    irHLPrintExpr(&the_def->body, false, 4);
     printChr('\n');
 }
 
-static void irHLProgPrint(IrHLProg const* const the_ir_hl) {
+void irHLPrintProg(IrHLProg const* const the_ir_hl) {
     ·forEach(IrHLDef, the_def, the_ir_hl->defs, {
         printChr('\n');
-        irHLDefPrint(the_def);
+        irHLPrintDef(the_def);
         printChr('\n');
     });
 }

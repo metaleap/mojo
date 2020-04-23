@@ -11,6 +11,8 @@
 
 
 
+void readLnLoop(IrHLProg const* const);
+
 int main(int const argc, String const argv[]) {
     ·assert(argc > 1);
 
@@ -28,11 +30,9 @@ int main(int const argc, String const argv[]) {
             full_src.at = comment_part_1.at;
     }
 
-
     // tokenize
     Tokens const toks = tokenize(full_src, false, str(""));
     toksVerifyBrackets(toks);
-
 
     // parse into a rudimentary raw context-free generic AST first
     Ast ast = parse(toks, full_src);
@@ -41,8 +41,51 @@ int main(int const argc, String const argv[]) {
     astReorderSubDefs(&ast);
     // astPrint(&ast);
 
-
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
     IrHLProg ir_hl_prog = irHLProgFrom(&ast);
-    irHLProgPrint(&ir_hl_prog);
+    // irHLPrintProg(&ir_hl_prog);
+
+    readLnLoop(&ir_hl_prog);
+    return 0;
+}
+
+void readLnOnInput(IrHLProg const* const prog, Str const input) {
+    writeStr(str("————————————————————————————————————————————————————————————\n"));
+    if (strEql(str("?"), input))
+        ·forEach(IrHLDef, def, prog->defs, {
+            writeStr(def->anns.name);
+            writeStr(str("\n"));
+        });
+    else {
+        IrHLDef const* found = NULL;
+        ·forEach(IrHLDef, def, prog->defs, {
+            if (strEql(def->anns.name, input))
+                found = def;
+        });
+        if (found == NULL)
+            writeStr(str("‹unknown def name›\n"));
+        else
+            irHLPrintDef(found);
+    }
+    writeStr(str("————————————————————————————————————————————————————————————\n"));
+}
+
+void readLnLoop(IrHLProg const* const prog) {
+#define buf_size 8
+    Str buf = newStr(0, buf_size);
+    while (true) {
+        int chr = fgetc(stdin);
+        if (chr < 1 || chr > 255)
+            exit((feof(stdin) != 0) ? 0 : 1);
+        if (chr == '\n') {
+            if (buf.len != 0)
+                readLnOnInput(prog, buf);
+            buf.len = 0;
+        } else {
+            buf.at[buf.len] = (U8)chr;
+            buf.len += 1;
+            if (buf.len == buf_size)
+                ·fail(str("TODO: moar buf_size"));
+        }
+    }
 }

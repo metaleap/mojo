@@ -2,11 +2,11 @@
 #include "metaleap.c"
 
 
-static void printChr(U8 const chr) {
+void printChr(U8 const chr) {
     fwrite(&chr, 1, 1, stderr);
 }
 
-static Str readUntilEof(FILE* const stream) {
+Str readUntilEof(FILE* const stream) {
     const Uint buf_size = 4096;
     Str ret_str = {.len = 0, .at = memAlloc(buf_size)};
     Uint n_bytes_over_allocated = 0;
@@ -28,7 +28,7 @@ static Str readUntilEof(FILE* const stream) {
     return ret_str;
 }
 
-static Str readFile(String const file_path) {
+Str readFile(String const file_path) {
     FILE* const file = fopen(file_path, "rb");
     if (file == NULL)
         ·fail(str2(str("failed to open "), str(file_path)));
