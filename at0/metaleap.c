@@ -40,6 +40,7 @@ typedef const char* String;
 
 typedef ·Maybe(Uint) ºUint;
 typedef ·Maybe(U64) ºU64;
+typedef ·SliceOf(Uint) Uints;
 typedef ·SliceOf(U8) U8s;
 typedef U8s Str;
 typedef ·SliceOf(Str) Strs;

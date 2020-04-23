@@ -19,8 +19,9 @@ int main(int const argc, String const argv[]) {
     // read and concat together all input source files specified via args
     Str full_src = (Str) {.at = NULL, .len = 0};
     for (int i = 1; i < argc; i += 1) {
-        // hacky: all allocs in this loop (strCopy and readFile) are contiguous in memory,
-        // so our `full_src` bytes-slice just gets the starting addr and its `len` increased
+        // hacky: all allocs in this loop (strCopy and readFile) are contiguous in `mem`,
+        // so our `full_src` bytes-slice just gets the starting addr and its `len` increased.
+        // this means to never introduce any calls in here that also alloc from `mem`!
         Str const comment_part_1 = strCopy("//AT_TOKS_SRC_FILE:");
         Str const comment_part_2 = strCopy(argv[i]);
         Str const comment_part_3 = strCopy("\n");
@@ -38,14 +39,14 @@ int main(int const argc, String const argv[]) {
     Ast ast = parse(toks, full_src);
     astRewriteGlyphsIntoInstrs(&ast);
     astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
-    astReorderSubDefs(&ast);
-    // astPrint(&ast);
+    // astReorderSubDefs(&ast);
+    astPrint(&ast);
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
-    IrHLProg ir_hl_prog = irHLProgFrom(&ast);
+    // IrHLProg ir_hl_prog = irHLProgFrom(&ast);
     // irHLPrintProg(&ir_hl_prog);
 
-    readLnLoop(&ir_hl_prog);
+    // readLnLoop(&ir_hl_prog);
     return 0;
 }
 

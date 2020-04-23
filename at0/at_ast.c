@@ -101,11 +101,12 @@ AstDef astDef(AstDef const* const parent_def, Uint const all_toks_idx, Uint cons
     };
 }
 
-AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind) {
+AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind, Uint const len_if_non_atomic) {
     return (AstExpr) {
         .node_base = astNodeBaseFrom(toks_idx, toks_len),
         .kind = expr_kind,
         .anns = {.parensed = 0, .toks_throng = false},
+        .of_exprs = ·make(AstExpr, len_if_non_atomic, len_if_non_atomic),
     };
 }
 
@@ -113,7 +114,7 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
     ·assert(!(idx_start == 0 && idx_end == ast_expr->of_exprs.len));
     ·assert(idx_end > idx_start);
 
-    AstExpr ret_expr = astExpr(ast_expr->of_exprs.at[idx_start].node_base.toks_idx, 0, ast_expr_form);
+    AstExpr ret_expr = astExpr(ast_expr->of_exprs.at[idx_start].node_base.toks_idx, 0, ast_expr_form, 0);
     ret_expr.anns.toks_throng = ast_expr->anns.toks_throng;
     ret_expr.of_exprs = ·slice(AstExpr, ast_expr->of_exprs, idx_start, idx_end);
     for (Uint i = idx_start; i < idx_end; i += 1)
@@ -128,6 +129,29 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
             return ·ok(Uint, iˇexpr);
     });
     return ·none(Uint);
+}
+
+AstExprs astExprFormSplit(AstExpr const* const expr, Str const ident, Str const ident_stop) {
+    ·assert(expr->kind == ast_expr_form);
+    Uints indices = ·make(Uint, 0, expr->of_exprs.len);
+    ·forEach(AstExpr, sub_expr, expr->of_exprs, {
+        if (sub_expr->kind == ast_expr_ident) {
+            if (strEql(ident, ident_stop))
+                break;
+            if (strEql(ident, sub_expr->of_ident))
+                ·append(indices, iˇsub_expr);
+        }
+    });
+    AstExprs ret_exprs = ·make(AstExpr, 0, 1 + indices.len);
+    Uint idx_start = 0;
+    for (Uint i = 0; i < indices.len; i += 1) {
+        ·append(ret_exprs, astExprFormSub(expr, idx_start, indices.at[i]));
+        ·assert(ret_exprs.len <= 1 + indices.len);
+        idx_start = 1 + indices.at[i];
+    }
+    ·append(ret_exprs, astExprFormSub(expr, idx_start, expr->of_exprs.len));
+    ·assert(ret_exprs.len <= 1 + indices.len);
+    return ret_exprs;
 }
 
 AstExpr² astExprFormBreakOn(AstExpr const* const expr, Str const ident, Bool const must_lhs, Bool const must_rhs, Ast const* const ast) {
@@ -203,10 +227,16 @@ Bool astDefHasIdent(AstDef const* const def, Str const ident) {
     return astExprHasIdent(&def->body, ident);
 }
 
+AstExpr astExprIdent(Uint const toks_idx, Uint const toks_len, Str const name) {
+    AstExpr ret_expr = astExpr(toks_idx, toks_len, ast_expr_ident, 0);
+    ret_expr.of_ident = name;
+    return ret_expr;
+}
+
 AstExpr astExprInstrOrTag(AstNodeBase const from, Str const name, Bool const tag) {
     AstExpr ret_expr = (AstExpr) {.kind = ast_expr_form, .of_exprs = ·make(AstExpr, 2, 2), .node_base = from, .anns = {.toks_throng = true}};
-    ret_expr.of_exprs.at[0] = (AstExpr) {.kind = ast_expr_ident, .of_ident = strL(tag ? "#" : "@", 1), .node_base = from};
-    ret_expr.of_exprs.at[1] = (AstExpr) {.kind = ast_expr_ident, .of_ident = name, .node_base = from};
+    ret_expr.of_exprs.at[0] = astExprIdent(from.toks_idx, from.toks_len, strL(tag ? "#" : "@", 1));
+    ret_expr.of_exprs.at[1] = astExprIdent(from.toks_idx, from.toks_len, name);
     return ret_expr;
 }
 
@@ -214,47 +244,107 @@ AstExpr astExprFormEmpty(AstNodeBase const from) {
     return (AstExpr) {.kind = ast_expr_form, .of_exprs = (AstExprs) {.at = NULL, .len = 0}, .node_base = from};
 }
 
+void astExprFormNorm(AstExpr* const expr, ºAstExpr const case_of_empty) {
+    if (expr->kind == ast_expr_form) {
+        if (expr->of_exprs.len == 1)
+            *expr = expr->of_exprs.at[0];
+        if (expr->of_exprs.len == 0 && case_of_empty.ok)
+            *expr = case_of_empty.it;
+    }
+}
+
 
 
 void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
+    // x + y == z || z * x /= y ? #true => x | _ => y - z
     enum InstrGlyph {
         glyph_kvpair = 0,
         glyph_func = 1,
         glyph_fldacc = 2,
-
         num_glyphs = 3,
     };
-    static Strs glyph_names = (Strs) {.at = NULL, .len = 0};
-    if (glyph_names.at == NULL) {
-        glyph_names = ·make(Str, num_glyphs, num_glyphs);
-        glyph_names.at[glyph_kvpair] = str(":");
-        glyph_names.at[glyph_func] = str("->");
-        glyph_names.at[glyph_fldacc] = str(".");
-    }
+    static String glyph_names[] = {":", "->", "."};
 
     if (expr->kind == ast_expr_lit_bracket || expr->kind == ast_expr_lit_braces)
         ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast); });
+
     else if (astExprIsFunc(expr))
         astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast);
+
     else if (expr->kind == ast_expr_form && expr->of_exprs.len != 0) {
         Bool matched = false;
+
+        ºUint idx_qmark = astExprFormIndexOfIdent(expr, strL("?", 1));
+        if (idx_qmark.ok) {
+            matched = true;
+            AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
+            // @case-instr callee
+            instr.of_exprs.at[0] = astExprInstrOrTag(expr->node_base, strL("case", 4), false);
+            // @case-instr cond
+            instr.of_exprs.at[1] = astExprFormSub(expr, 0, idx_qmark.it);
+            astExprFormNorm(&instr.of_exprs.at[1], ·ok(AstExpr, astExprInstrOrTag(expr->node_base, strL("true", 4), true)));
+            astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast);
+            // @case-instr cases
+            AstExpr q_follow = astExprFormSub(expr, 1 + idx_qmark.it, expr->of_exprs.len);
+            if (q_follow.of_exprs.len < 3)
+                ·fail(astNodeMsg(str("insufficient tokens following '?'"), &expr->node_base, ast));
+            AstExprs const cases = astExprFormSplit(&q_follow, strL("|", 1), strL("?", 1));
+            instr.of_exprs.at[2] = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_lit_braces, cases.len);
+            Uint count_arrows = 0;
+            ·forEach(AstExpr, case_expr, cases, {
+                AstExpr² arrow = astExprFormBreakOn(case_expr, strL("=>", 2), false, false, ast);
+                AstExpr expr_case = *case_expr;
+                if (arrow.glyph != NULL) {
+                    count_arrows += 1;
+                    expr_case = astExpr(case_expr->node_base.toks_idx, case_expr->node_base.toks_len, ast_expr_form, 3);
+                    expr_case.of_exprs.at[0] = astExprInstrOrTag(arrow.glyph->node_base, strL(":", 2), false);
+                    if (!arrow.lhs_form.ok)
+                        ·fail(astNodeMsg(str("expected expression before '=>'"), &case_expr->node_base, ast));
+                    expr_case.of_exprs.at[1] = arrow.lhs_form.it;
+                    astExprFormNorm(&expr_case.of_exprs.at[1], ·none(AstExpr));
+                    if (!arrow.rhs_form.ok)
+                        ·fail(astNodeMsg(str("expected expression following '=>'"), &case_expr->node_base, ast));
+                    expr_case.of_exprs.at[2] = arrow.rhs_form.it;
+                    astExprFormNorm(&expr_case.of_exprs.at[2], ·none(AstExpr));
+                }
+                instr.of_exprs.at[2].of_exprs.at[iˇcase_expr] = expr_case;
+            });
+            if (count_arrows == 0 && cases.len == 2) {
+                AstExprs const* const new_cases = &instr.of_exprs.at[2].of_exprs;
+                AstExpr case_true = new_cases->at[0];
+                AstExpr case_false = new_cases->at[1];
+                new_cases->at[0] = astExpr(case_true.node_base.toks_idx, case_true.node_base.toks_len, ast_expr_form, 3);
+                new_cases->at[0].of_exprs.at[0] = astExprInstrOrTag(case_true.node_base, strL(":", 2), false);
+                new_cases->at[0].of_exprs.at[1] = astExprInstrOrTag(expr->node_base, strL("true", 4), true);
+                new_cases->at[0].of_exprs.at[2] = case_true;
+                new_cases->at[1] = astExpr(case_false.node_base.toks_idx, case_false.node_base.toks_len, ast_expr_form, 3);
+                new_cases->at[1].of_exprs.at[0] = astExprInstrOrTag(case_false.node_base, strL(":", 2), false);
+                new_cases->at[1].of_exprs.at[1] = astExprInstrOrTag(expr->node_base, strL("false", 5), true);
+                new_cases->at[1].of_exprs.at[2] = case_false;
+            } else if (count_arrows != cases.len)
+                ·fail(astNodeMsg(str("some cases are lacking '=>'"), &expr->node_base, ast));
+            astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast);
+            *expr = instr;
+        }
+
         AstExpr² maybe;
         for (Uint i = 0; i < num_glyphs && !matched; i += 1) {
-            maybe = astExprFormBreakOn(expr, glyph_names.at[i], false, false, NULL);
+            Str glyph_name = strL(glyph_names[i], (i == glyph_func) ? 2 : 1);
+            maybe = astExprFormBreakOn(expr, glyph_name, false, false, NULL);
             if (!(maybe.glyph != NULL && (maybe.lhs_form.ok || maybe.rhs_form.ok)))
                 continue;
             matched = true;
             expr->anns.toks_throng = false;
             expr->of_exprs = ·make(AstExpr, 3, 3);
-            expr->of_exprs.at[0] = astExprInstrOrTag(maybe.glyph->node_base, glyph_names.at[i], false);
+            expr->of_exprs.at[0] = astExprInstrOrTag(maybe.glyph->node_base, glyph_name, false);
             expr->of_exprs.at[1] = (maybe.lhs_form.ok) ? maybe.lhs_form.it : astExprFormEmpty(expr->node_base);
             expr->of_exprs.at[2] = (maybe.rhs_form.ok) ? maybe.rhs_form.it : astExprFormEmpty(expr->node_base);
             if (i != glyph_func && !(maybe.lhs_form.ok && maybe.rhs_form.ok))
-                ·fail(astNodeMsg(str3(str("expected both left-hand-side and right-hand-side for infix '"), glyph_names.at[i], str("' in")),
+                ·fail(astNodeMsg(str3(str("expected both left-hand-side and right-hand-side for infix '"), glyph_name, str("' in")),
                                  &expr->node_base, ast));
             if (i == glyph_func) {
                 if (!maybe.rhs_form.ok)
-                    ·fail(astNodeMsg(str3(str("expected function body to follow '"), glyph_names.at[i], str("' in")), &expr->node_base, ast));
+                    ·fail(astNodeMsg(str3(str("expected function body to follow '"), glyph_name, str("' in")), &expr->node_base, ast));
                 ·forEach(AstExpr, param_expr, expr->of_exprs.at[1].of_exprs, {
                     if (param_expr->kind == ast_expr_ident)
                         *param_expr = astExprInstrOrTag(param_expr->node_base, param_expr->of_ident, true);

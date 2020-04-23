@@ -107,7 +107,7 @@ struct IrHLType {
 
 typedef enum IrHLExprKind {
     irhl_expr_type,
-    irhl_expr_void,
+    irhl_expr_nilish,
     irhl_expr_int,
     irhl_expr_func,
     irhl_expr_call,
@@ -125,8 +125,13 @@ typedef struct IrHLExprType {
     IrHLType* ty_value;
 } IrHLExprType;
 
-typedef struct IrHLExprVoid {
-} IrHLExprVoid;
+typedef struct IrHLExprNilish {
+    enum {
+        lack,
+        unit,
+        blank,
+    } kind;
+} IrHLExprNilish;
 
 typedef struct IrHLExprInt {
     I64 int_value;
@@ -254,7 +259,7 @@ struct IrHLExpr {
     IrHLExprKind kind;
     union {
         IrHLExprType of_type;
-        IrHLExprVoid of_void;
+        IrHLExprNilish of_nilish;
         IrHLExprInt of_int;
         IrHLExprFunc of_func;
         IrHLExprCall of_call;
@@ -288,38 +293,6 @@ struct IrHLDef {
 
 
 
-void irHLPreduceExpr(IrHLProg* ctx, IrHLExpr* expr) {
-    // as per `irHLExprFrom` and `irHLDefExpr`, the only `IrHLExprKind` to encounter here are:
-    //      atoms: irhl_expr_tag, irhl_expr_int, irhl_expr_void, irhl_expr_instr of irhl_instr_named.
-    //      aggrs: irhl_expr_call, irhl_expr_list, irhl_expr_bag, irhl_expr_ref, irhl_expr_func.
-    // to be potentially-discovered are possibly-those-above or any of the refined ones:
-    //      irhl_expr_type, irhl_expr_void, irhl_expr_selector,
-    //      irhl_expr_pairing, irhl_expr_tagged, irhl_expr_instr
-    switch (expr->kind) {
-        case irhl_expr_func: {
-            irHLPreduceExpr(ctx, expr->of_func.body);
-        } break;
-        case irhl_expr_list: {
-            ·forEach(IrHLExpr, sub_expr, expr->of_list.items, { irHLPreduceExpr(ctx, sub_expr); });
-        } break;
-        case irhl_expr_bag: {
-            ·forEach(IrHLExpr, sub_expr, expr->of_bag.items, { irHLPreduceExpr(ctx, sub_expr); });
-        } break;
-        case irhl_expr_call: {
-            ·forEach(IrHLExpr, sub_expr, expr->of_call.args, { irHLPreduceExpr(ctx, sub_expr); });
-            irHLPreduceExpr(ctx, expr->of_call.callee);
-        } break;
-        default: break;
-    }
-}
-
-void irHLPreduceProg(IrHLProg* prog) {
-    ·forEach(IrHLDef, def, prog->defs, { irHLPreduceExpr(prog, &def->body); });
-}
-
-
-
-
 IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
     IrHLExpr* new_expr = ·new(IrHLExpr);
     *new_expr = *src;
@@ -345,9 +318,13 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
                 };
         } break;
         case ast_expr_ident: {
-            if (strEql(strL("()", 2), ast_expr->of_ident))
-                ret_expr.kind = irhl_expr_void;
-            else {
+            if (strEql(strL("()", 2), ast_expr->of_ident)) {
+                ret_expr.kind = irhl_expr_nilish;
+                ret_expr.of_nilish = (IrHLExprNilish) {.kind = unit};
+            } else if (strEql(strL("_", 2), ast_expr->of_ident)) {
+                ret_expr.kind = irhl_expr_nilish;
+                ret_expr.of_nilish = (IrHLExprNilish) {.kind = blank};
+            } else {
                 ret_expr.kind = irhl_expr_ref;
                 ret_expr.of_ref = (IrHLExprRef) {.name = ast_expr->of_ident};
             }
@@ -371,8 +348,11 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
             });
         } break;
         case ast_expr_form: {
-            ·assert(ast_expr->of_exprs.len != 0);
-
+            if (ast_expr->of_exprs.len == 0) {
+                ret_expr.kind = irhl_expr_nilish;
+                ret_expr.of_nilish = (IrHLExprNilish) {.kind = lack};
+                break;
+            }
             if (astExprIsInstrOrTag(ast_expr, false, true, true)) {
                 ret_expr.kind = irhl_expr_tag;
                 ret_expr.of_tag = (IrHLExprTag) {.tag_ident = ast_expr->of_exprs.at[1].of_ident};
@@ -447,7 +427,6 @@ IrHLProg irHLProgFrom(Ast* const ast) {
         IrHLDef ir_hl_top_def = irHLDefFrom(ast_top_def);
         ·append(ret_prog.defs, ir_hl_top_def);
     });
-    irHLPreduceProg(&ret_prog);
     return ret_prog;
 }
 
@@ -481,8 +460,13 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
         case irhl_expr_int: {
             printStr(uintToStr(the_expr->of_int.int_value, 1, 10));
         } break;
-        case irhl_expr_void: {
-            printStr(str("…"));
+        case irhl_expr_nilish: {
+            switch (the_expr->of_nilish.kind) {
+                case blank: printChr('_'); break;
+                case unit: printStr(str("()")); break;
+                case lack: printStr(str("…")); break;
+                default: printStr(str("…?!?!?!…")); break;
+            }
         } break;
         case irhl_expr_tag: {
             printChr('#');

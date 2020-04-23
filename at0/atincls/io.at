@@ -10,8 +10,10 @@ io :=
           { #ok: n -> n, #err: _ -> libc.abort 1 }
 
   writeTo file str :=
-    @case (@or (eq n_written str_len) (eq maybe_err 0))
-          { true: #ok n_written, false: #err maybe_err }
+    (@or (eq n_written str_len) (eq maybe_err 0)) ? #ok n_written | #err maybe_err
+    // @case (@or (eq n_written str_len) (eq maybe_err 0))
+    //       { true: #ok n_written, false: #err maybe_err }
+    // (n_written == str.len || maybe_err == 0 ) ? #ok n_written | #err maybe_err
     n_written := libc.fwrite str 1 str_len file
     maybe_err := libc.ferror file
     str_len := @len str
