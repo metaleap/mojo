@@ -2,8 +2,8 @@
 #include "metaleap.c"
 
 
-const String tok_op_chars = "!#$&*+-;:./<=>?@\\^~|\x25";
-const String tok_sep_chars = "[]{}(),:";
+const CStr tok_op_chars = "!#$&*+-;:./<=>?@\\^~|\x25";
+const CStr tok_sep_chars = "[]{}(),:";
 
 
 typedef enum TokenKind {
@@ -24,10 +24,10 @@ typedef enum TokenKind {
 
 typedef struct Token {
     TokenKind kind;
-    Uint line_nr;
-    Uint char_pos_line_start;
-    Uint char_pos;
-    Uint str_len;
+    UInt line_nr;
+    UInt char_pos_line_start;
+    UInt char_pos;
+    UInt str_len;
     Str file_name;
 } Token;
 typedef ·SliceOf(Token) Tokens;
@@ -46,7 +46,7 @@ Bool tokIsBracket(TokenKind const tok_kind) {
     return tokIsOpeningBracket(tok_kind) || tokIsClosingBracket(tok_kind);
 }
 
-Uint tokPosCol(Token const* const tok) {
+UInt tokPosCol(Token const* const tok) {
     return tok->char_pos - tok->char_pos_line_start;
 }
 
@@ -55,10 +55,10 @@ Bool tokCanThrong(Token const* const tok, Str const full_src) {
            || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && (full_src.at[tok->char_pos] != '=' || tok->str_len > 1));
 }
 
-Uint tokThrong(Tokens const toks, Uint const tok_idx, Str const full_src) {
-    Uint ret_idx = tok_idx;
+UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
+    UInt ret_idx = tok_idx;
     if (tokCanThrong(&toks.at[tok_idx], full_src)) {
-        for (Uint i = tok_idx + 1; i < toks.len; i += 1)
+        for (UInt i = tok_idx + 1; i < toks.len; i += 1)
             if (toks.at[i].char_pos == toks.at[i - 1].char_pos + toks.at[i - 1].str_len && tokCanThrong(&toks.at[i], full_src))
                 ret_idx = i;
             else
@@ -76,9 +76,9 @@ Str toksSrc(Tokens const toks, Str const full_src) {
     return strSub(full_src, toks.at[0].char_pos, tok_last->char_pos + tok_last->str_len);
 }
 
-Uint toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
+UInt toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
     ·assert(!tokIsBracket(tok_kind));
-    Uint ret_num = 0;
+    UInt ret_num = 0;
     Int level = 0;
     ·forEach(Token, tok, toks, {
         if (tok->kind == tok_kind && level == 0)
@@ -129,27 +129,27 @@ void toksVerifyBrackets(Tokens const toks) {
             default: break;
         }
         if (level_bparen < 0)
-            ·fail(str2(str("unmatched closing parenthesis in line "), uintToStr(1 + tok->line_nr, 1, 10)));
+            ·fail(str2(str("unmatched closing parenthesis in line "), uIntToStr(1 + tok->line_nr, 1, 10)));
         else if (level_bcurly < 0)
-            ·fail(str2(str("unmatched closing curly brace in line "), uintToStr(1 + tok->line_nr, 1, 10)));
+            ·fail(str2(str("unmatched closing curly brace in line "), uIntToStr(1 + tok->line_nr, 1, 10)));
         else if (level_bsquare < 0)
-            ·fail(str2(str("unmatched closing square bracket in line "), uintToStr(1 + tok->line_nr, 1, 10)));
+            ·fail(str2(str("unmatched closing square bracket in line "), uIntToStr(1 + tok->line_nr, 1, 10)));
     });
     if (level_bparen > 0)
-        ·fail(str2(str("unmatched opening parenthesis in line "), uintToStr(1 + line_bparen, 1, 10)));
+        ·fail(str2(str("unmatched opening parenthesis in line "), uIntToStr(1 + line_bparen, 1, 10)));
     else if (level_bcurly > 0)
-        ·fail(str2(str("unmatched opening curly brace in line "), uintToStr(1 + line_bcurly, 1, 10)));
+        ·fail(str2(str("unmatched opening curly brace in line "), uIntToStr(1 + line_bcurly, 1, 10)));
     else if (level_bsquare > 0)
-        ·fail(str2(str("unmatched opening square bracket in line "), uintToStr(1 + line_bsquare, 1, 10)));
+        ·fail(str2(str("unmatched opening square bracket in line "), uIntToStr(1 + line_bsquare, 1, 10)));
 }
 
 Tokenss toksIndentBasedChunks(Tokens const toks) {
     ·assert(toks.len > 0);
-    Uint cmp_pos_col = tokPosCol(&toks.at[0]);
+    UInt cmp_pos_col = tokPosCol(&toks.at[0]);
     Int level = 0;
     ·forEach(Token, tok, toks, {
         if (level == 0) {
-            Uint const pos_col = tokPosCol(tok);
+            UInt const pos_col = tokPosCol(tok);
             if (pos_col < cmp_pos_col)
                 cmp_pos_col = pos_col;
         }
@@ -160,7 +160,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     });
     ·assert(level == 0);
 
-    Uint num_chunks = 0;
+    UInt num_chunks = 0;
     ·forEach(Token, tok, toks, {
         if (level == 0) {
             if (iˇtok == 0 || tokPosCol(tok) <= cmp_pos_col)
@@ -194,15 +194,15 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     return ret_chunks;
 }
 
-ºUint toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
+ºUInt toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
     ·forEach(Token, tok, toks, {
         if (tok->kind == tok_kind_ident && strEql(ident, tokSrc(tok, full_src)))
-            return ·ok(Uint, iˇtok);
+            return ·ok(UInt, iˇtok);
     });
-    return ·none(Uint);
+    return ·none(UInt);
 }
 
-ºUint toksIndexOfMatchingBracket(Tokens const toks) {
+ºUInt toksIndexOfMatchingBracket(Tokens const toks) {
     TokenKind const tok_open_kind = toks.at[0].kind;
     TokenKind tok_close_kind;
     switch (tok_open_kind) {
@@ -219,21 +219,21 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
         else if (tok->kind == tok_close_kind) {
             level -= 1;
             if (level == 0)
-                return ·ok(Uint, iˇtok);
+                return ·ok(UInt, iˇtok);
         }
     });
-    return ·none(Uint);
+    return ·none(UInt);
 }
 
 Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     ·assert(!tokIsBracket(tok_kind));
     if (toks.len == 0)
         return (Tokenss) {.len = 0, .at = NULL};
-    Uint capacity = 1 + toksCountUnnested(toks, tok_kind);
+    UInt capacity = 1 + toksCountUnnested(toks, tok_kind);
     Tokenss ret_sub_toks = ·make(Tokens, 0, capacity);
     {
         Int level = 0;
-        Uint start_from = 0;
+        UInt start_from = 0;
         ·forEach(Token, tok, toks, {
             if (tok->kind == tok_kind && level == 0) {
                 ·append(ret_sub_toks, ·slice(Token, toks, start_from, iˇtok));
@@ -252,12 +252,12 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str file_name)
     Tokens toks = ·make(Token, 0, full_src.len);
 
     TokenKind state = tok_kind_nope;
-    Uint cur_line_nr = 0;
-    Uint cur_line_idx = 0;
+    UInt cur_line_nr = 0;
+    UInt cur_line_idx = 0;
     Int tok_idx_start = -1;
     Int tok_idx_last = -1;
 
-    Uint i = 0;
+    UInt i = 0;
     // shebang? #!
     if (full_src.len > 2 && full_src.at[0] == '#' && full_src.at[1] == '!') {
         state = tok_kind_comment;
@@ -269,7 +269,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str file_name)
         U8 const c = full_src.at[i];
         if (c == '\n') {
             if (state == tok_kind_lit_str_qdouble || state == tok_kind_lit_str_qsingle)
-                ·fail(str4(str("line-break in literal in line "), uintToStr(1 + cur_line_nr, 1, 10), str(":\n"),
+                ·fail(str4(str("line-break in literal in line "), uIntToStr(1 + cur_line_nr, 1, 10), str(":\n"),
                            strSub(full_src, tok_idx_start, i)));
             if (tok_idx_start != -1 && tok_idx_last == -1)
                 tok_idx_last = i - 1;
@@ -277,9 +277,9 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str file_name)
             switch (state) {
                 case tok_kind_lit_num_prefixed:
                 case tok_kind_ident:
-                    if (c == ' ' || c == '\t' || c == '\"' || c == '\'' || strHasChar(tok_sep_chars, c)
-                        || (strHasChar(tok_op_chars, c) && !strHasChar(tok_op_chars, full_src.at[i - 1]))
-                        || (strHasChar(tok_op_chars, full_src.at[i - 1]) && !strHasChar(tok_op_chars, c))) {
+                    if (c == ' ' || c == '\t' || c == '\"' || c == '\'' || cStrHasChar(tok_sep_chars, c)
+                        || (cStrHasChar(tok_op_chars, c) && !cStrHasChar(tok_op_chars, full_src.at[i - 1]))
+                        || (cStrHasChar(tok_op_chars, full_src.at[i - 1]) && !cStrHasChar(tok_op_chars, c))) {
                         i -= 1;
                         tok_idx_last = i;
                     }
@@ -380,8 +380,8 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str file_name)
                                   .kind = state,
                                   .line_nr = cur_line_nr,
                                   .char_pos_line_start = cur_line_idx,
-                                  .char_pos = (Uint)(tok_idx_start),
-                                  .str_len = (Uint)(1 + (tok_idx_last - tok_idx_start)),
+                                  .char_pos = (UInt)(tok_idx_start),
+                                  .str_len = (UInt)(1 + (tok_idx_last - tok_idx_start)),
                                   .file_name = file_name,
                               }));
             state = tok_kind_nope;
@@ -400,7 +400,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str file_name)
                               .kind = state,
                               .line_nr = cur_line_nr,
                               .char_pos_line_start = cur_line_idx,
-                              .char_pos = (Uint)(tok_idx_start),
+                              .char_pos = (UInt)(tok_idx_start),
                               .str_len = i - tok_idx_start,
                               .file_name = file_name,
                           }));

@@ -13,3 +13,4 @@ io :=
     n_written := libc.fwrite str 1 str# file
     maybe_err := libc.ferror file
     foo := c1 == (c2 == c3)
+    bar := x+y * a-b * c/d

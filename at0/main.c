@@ -13,7 +13,7 @@
 
 void readLnLoop(IrHLProg const* const);
 
-int main(int const argc, String const argv[]) {
+int main(int const argc, CStr const argv[]) {
     ·assert(argc > 1);
 
     // read and concat together all input source files specified via args

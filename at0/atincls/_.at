@@ -27,7 +27,3 @@ xor b1 b2 :=
     neq b1 b2
 not b :=
     b ? false | true
-eq a b :=
-    @cmp #eq a b
-neq a b := // see notes.md
-    not (eq a b)

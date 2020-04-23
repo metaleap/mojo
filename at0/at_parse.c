@@ -4,11 +4,11 @@
 #include "at_ast.c"
 
 
-AstExpr parseExpr(Tokens const toks, Uint const all_toks_idx, Ast const* const ast);
+AstExpr parseExpr(Tokens const toks, UInt const all_toks_idx, Ast const* const ast);
 void parseDef(AstDef* const dst_def, Ast const* const ast);
 
 Ast parse(Tokens const all_toks, Str const full_src) {
-    Uint func_count_estimate = 0;    // count all `->` / `@->` / `:=` occurrences in full_src:
+    UInt func_count_estimate = 0;    // count all `->` / `@->` / `:=` occurrences in full_src:
     ·forEach(Token, tok, all_toks, { // to reserve extra room for later-on top-hoisted defs
         if (tok->kind == tok_kind_ident) {
             Str const tok_src = tokSrc(tok, full_src);
@@ -23,7 +23,7 @@ Ast parse(Tokens const all_toks, Str const full_src) {
         .toks = all_toks,
         .top_defs = ·make(AstDef, 0, chunks.len + func_count_estimate),
     };
-    Uint toks_idx = 0;
+    UInt toks_idx = 0;
     ·forEach(Tokens, chunk_toks, chunks, {
         AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
         *dst_def = astDef(NULL, toks_idx, chunk_toks->len);
@@ -36,13 +36,13 @@ Ast parse(Tokens const all_toks, Str const full_src) {
 
 void parseDef(AstDef* const dst_def, Ast const* const ast) {
     Tokens const toks = astNodeToks(&dst_def->node_base, ast);
-    ºUint const idx_tok_def = toksIndexOfIdent(toks, str(":="), ast->src);
+    ºUInt const idx_tok_def = toksIndexOfIdent(toks, str(":="), ast->src);
     if ((!idx_tok_def.ok) || idx_tok_def.it == 0 || idx_tok_def.it == toks.len - 1)
         ·fail(astNodeMsg(str("expected '<head_expr> := <body_expr>'"), &dst_def->node_base, ast));
 
     Tokenss const def_body_chunks = toksIndentBasedChunks(·slice(Token, toks, idx_tok_def.it + 1, toks.len));
     dst_def->sub_defs = ·make(AstDef, 0, def_body_chunks.len - 1);
-    Uint all_toks_idx = dst_def->node_base.toks_idx + idx_tok_def.it + 1;
+    UInt all_toks_idx = dst_def->node_base.toks_idx + idx_tok_def.it + 1;
     dst_def->body = parseExpr(def_body_chunks.at[0], all_toks_idx, ast);
 
     AstExpr head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
@@ -62,7 +62,7 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
             fn.of_exprs.at[1] =
                 astExpr(head.of_exprs.at[1].node_base.toks_idx, head.node_base.toks_len - 1, ast_expr_lit_bracket, head.of_exprs.len - 1);
             dst_def->anns.param_names = ·make(Str, fn.of_exprs.at[1].of_exprs.len, 0);
-            for (Uint i = 1; i < head.of_exprs.len; i += 1)
+            for (UInt i = 1; i < head.of_exprs.len; i += 1)
                 if (head.of_exprs.at[i].kind != ast_expr_ident)
                     ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
                 else {
@@ -89,31 +89,31 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
     });
 }
 
-AstExpr parseExprLitInt(Uint const all_toks_idx, Ast const* const ast, Token const* const tok) {
+AstExpr parseExprLitInt(UInt const all_toks_idx, Ast const* const ast, Token const* const tok) {
     AstExpr ret_expr = astExpr(all_toks_idx, 1, ast_expr_lit_int, 0);
-    ºU64 const maybe = uint64Parse(tokSrc(tok, ast->src));
+    ºU64 const maybe = uInt64Parse(tokSrc(tok, ast->src));
     if (!maybe.ok)
         ·fail(astNodeMsg(str("malformed or not-yet-supported integer literal"), &ret_expr.node_base, ast));
     ret_expr.of_lit_int = maybe.it;
     return ret_expr;
 }
 
-AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token const* const tok, U8 const quote_char) {
+AstExpr parseExprLitStr(UInt const all_toks_idx, Ast const* const ast, Token const* const tok, U8 const quote_char) {
     AstExpr ret_expr = astExpr(all_toks_idx + 1, 1, ast_expr_lit_str, 0);
     Str const lit_src = tokSrc(tok, ast->src);
 
     ·assert(lit_src.len >= 2 && lit_src.at[0] == quote_char && lit_src.at[lit_src.len - 1] == quote_char);
     Str ret_str = newStr(0, lit_src.len - 1);
-    for (Uint i = 1; i < lit_src.len - 1; i += 1) {
+    for (UInt i = 1; i < lit_src.len - 1; i += 1) {
         if (lit_src.at[i] != '\\')
             ret_str.at[ret_str.len] = lit_src.at[i];
         else {
-            Uint const idx_end = i + 4;
+            UInt const idx_end = i + 4;
             Bool bad_esc = idx_end > lit_src.len - 1;
             if (!bad_esc) {
                 Str const base10digits = ·slice(U8, lit_src, i + 1, idx_end);
                 i += 3;
-                ºU64 const maybe = uint64Parse(base10digits);
+                ºU64 const maybe = uInt64Parse(base10digits);
                 bad_esc = (!maybe.ok) || maybe.it >= 256;
                 ret_str.at[ret_str.len] = (U8)maybe.it;
             }
@@ -128,12 +128,12 @@ AstExpr parseExprLitStr(Uint const all_toks_idx, Ast const* const ast, Token con
     return ret_expr;
 }
 
-AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
+AstExprs parseExprsDelimited(Tokens const toks, UInt const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
     if (toks.len == 0)
         return (AstExprs) {.len = 0, .at = NULL};
     Tokenss const per_elem_toks = toksSplit(toks, tok_kind_sep);
     AstExprs ret_exprs = ·make(AstExpr, 0, per_elem_toks.len);
-    Uint toks_idx = all_toks_idx;
+    UInt toks_idx = all_toks_idx;
     ·forEach(Tokens, this_elem_toks, per_elem_toks, {
         if (this_elem_toks->len == 0)
             toks_idx += 1; // 1 for eaten delimiter
@@ -145,13 +145,13 @@ AstExprs parseExprsDelimited(Tokens const toks, Uint const all_toks_idx, TokenKi
     return ret_exprs;
 }
 
-AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* const ast) {
+AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* const ast) {
     ·assert(expr_toks.len != 0);
     AstExprs ret_acc = ·make(AstExpr, 0, expr_toks.len);
     Bool const whole_form_throng = (expr_toks.len > 1) && (tokThrong(expr_toks, 0, ast->src) == expr_toks.len - 1);
 
-    for (Uint i = 0; i < expr_toks.len; i += 1) {
-        Uint const idx_throng_end = whole_form_throng ? i : tokThrong(expr_toks, i, ast->src);
+    for (UInt i = 0; i < expr_toks.len; i += 1) {
+        UInt const idx_throng_end = whole_form_throng ? i : tokThrong(expr_toks, i, ast->src);
         if (idx_throng_end > i) {
             ·append(ret_acc, parseExpr(·slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast));
             i = idx_throng_end; // loop header will increment
@@ -184,7 +184,7 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
                 case tok_kind_sep_bsquare_open: // fall through to:
                 case tok_kind_sep_bparen_open: {
                     TokenKind const tok_kind = expr_toks.at[i].kind;
-                    ºUint idx_closing = toksIndexOfMatchingBracket(·slice(Token, expr_toks, i, expr_toks.len));
+                    ºUInt idx_closing = toksIndexOfMatchingBracket(·slice(Token, expr_toks, i, expr_toks.len));
                     ·assert(idx_closing.ok); // the other-case will have been caught already by toksCheckBrackets
                     idx_closing.it += i;
                     if (tok_kind == tok_kind_sep_bparen_open) {
@@ -220,7 +220,7 @@ AstExpr parseExpr(Tokens const expr_toks, Uint const all_toks_idx, Ast const* co
                 } break;
 
                 default: {
-                    ·fail(str4(str("unrecognized token in line "), uintToStr(expr_toks.at[i].line_nr + 1, 1, 10), str(": "),
+                    ·fail(str4(str("unrecognized token in line "), uIntToStr(expr_toks.at[i].line_nr + 1, 1, 10), str(": "),
                                tokSrc(&expr_toks.at[i], ast->src)));
                 } break;
             }

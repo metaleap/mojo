@@ -7,11 +7,11 @@ void printChr(U8 const chr) {
 }
 
 Str readUntilEof(FILE* const stream) {
-    const Uint buf_size = 4096;
+    const UInt buf_size = 4096;
     Str ret_str = {.len = 0, .at = memAlloc(buf_size)};
-    Uint n_bytes_over_allocated = 0;
+    UInt n_bytes_over_allocated = 0;
     for (PtrAny dst_addr = ret_str.at; true;) {
-        Uint const n_read = fread(dst_addr, 1, buf_size, stream);
+        UInt const n_read = fread(dst_addr, 1, buf_size, stream);
         ret_str.len += n_read;
 
         if (n_read != buf_size) {
@@ -28,7 +28,7 @@ Str readUntilEof(FILE* const stream) {
     return ret_str;
 }
 
-Str readFile(String const file_path) {
+Str readFile(CStr const file_path) {
     FILE* const file = fopen(file_path, "rb");
     if (file == NULL)
         ·fail(str2(str("failed to open "), str(file_path)));

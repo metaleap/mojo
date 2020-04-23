@@ -6,8 +6,8 @@
 
 
 typedef struct AstNodeBase {
-    Uint toks_idx;
-    Uint toks_len;
+    UInt toks_idx;
+    UInt toks_len;
 } AstNodeBase;
 
 
@@ -68,12 +68,12 @@ typedef struct Ast {
 
 
 
-void astPrintDef(AstDef const* const, Uint const);
-void astPrintExpr(AstExpr const* const, Bool const, Uint const);
+void astPrintDef(AstDef const* const, UInt const);
+void astPrintExpr(AstExpr const* const, Bool const, UInt const);
 
 
 
-AstNodeBase astNodeBaseFrom(Uint const toks_idx, Uint const toks_len) {
+AstNodeBase astNodeBaseFrom(UInt const toks_idx, UInt const toks_len) {
     return (AstNodeBase) {.toks_idx = toks_idx, .toks_len = toks_len};
 }
 
@@ -83,7 +83,7 @@ Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
 
 Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
     Tokens const node_toks = astNodeToks(node, ast);
-    Str const line_nr = uintToStr(1 + node_toks.at[0].line_nr, 1, 10);
+    Str const line_nr = uIntToStr(1 + node_toks.at[0].line_nr, 1, 10);
     Str const toks_src = toksSrc(node_toks, ast->src);
     return str8(node_toks.at[0].file_name, str(":"), line_nr, str(": "), msg_prefix, str(":\n"), toks_src, str("\n"));
 }
@@ -92,7 +92,7 @@ Str astNodeSrc(AstNodeBase const* const node, Ast const* const ast) {
     return toksSrc(astNodeToks(node, ast), ast->src);
 }
 
-AstDef astDef(AstDef const* const parent_def, Uint const all_toks_idx, Uint const toks_len) {
+AstDef astDef(AstDef const* const parent_def, UInt const all_toks_idx, UInt const toks_len) {
     AstNodeBase node_base = astNodeBaseFrom(all_toks_idx, toks_len);
     return (AstDef) {
         .sub_defs = (AstDefs) {.at = NULL, .len = 0},
@@ -101,7 +101,7 @@ AstDef astDef(AstDef const* const parent_def, Uint const all_toks_idx, Uint cons
     };
 }
 
-AstExpr astExpr(Uint const toks_idx, Uint const toks_len, AstExprKind const expr_kind, Uint const len_if_non_atomic) {
+AstExpr astExpr(UInt const toks_idx, UInt const toks_len, AstExprKind const expr_kind, UInt const len_if_non_atomic) {
     return (AstExpr) {
         .node_base = astNodeBaseFrom(toks_idx, toks_len),
         .kind = expr_kind,
@@ -114,7 +114,7 @@ AstExpr astExprFormEmpty(AstNodeBase const from) {
     return (AstExpr) {.kind = ast_expr_form, .of_exprs = (AstExprs) {.at = NULL, .len = 0}, .node_base = from};
 }
 
-AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint const idx_end) {
+AstExpr astExprFormSub(AstExpr const* const ast_expr, UInt const idx_start, UInt const idx_end) {
     ·assert(!(idx_start == 0 && idx_end == ast_expr->of_exprs.len));
     if (idx_end == idx_start)
         return astExprFormEmpty(ast_expr->node_base);
@@ -122,23 +122,23 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, Uint const idx_start, Uint
     AstExpr ret_expr = astExpr(ast_expr->of_exprs.at[idx_start].node_base.toks_idx, 0, ast_expr_form, 0);
     ret_expr.anns.toks_throng = ast_expr->anns.toks_throng;
     ret_expr.of_exprs = ·slice(AstExpr, ast_expr->of_exprs, idx_start, idx_end);
-    for (Uint i = idx_start; i < idx_end; i += 1)
+    for (UInt i = idx_start; i < idx_end; i += 1)
         ret_expr.node_base.toks_len += ast_expr->of_exprs.at[i].node_base.toks_len;
     return ret_expr;
 }
 
-ºUint astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const ident) {
+ºUInt astExprFormIndexOfIdent(AstExpr const* const ast_expr, Str const ident) {
     ·assert(ast_expr->kind == ast_expr_form);
     ·forEach(AstExpr, expr, ast_expr->of_exprs, {
         if (expr->kind == ast_expr_ident && strEql(ident, expr->of_ident))
-            return ·ok(Uint, iˇexpr);
+            return ·ok(UInt, iˇexpr);
     });
-    return ·none(Uint);
+    return ·none(UInt);
 }
 
 AstExprs astExprFormSplit(AstExpr const* const expr, Str const ident, ºStr const ident_stop) {
     ·assert(expr->kind == ast_expr_form);
-    Uints indices = ·make(Uint, 0, expr->of_exprs.len);
+    UInts indices = ·make(UInt, 0, expr->of_exprs.len);
     ·forEach(AstExpr, sub_expr, expr->of_exprs, {
         if (sub_expr->kind == ast_expr_ident) {
             if (ident_stop.ok && strEql(ident_stop.it, sub_expr->of_ident))
@@ -148,8 +148,8 @@ AstExprs astExprFormSplit(AstExpr const* const expr, Str const ident, ºStr cons
         }
     });
     AstExprs ret_exprs = ·make(AstExpr, 0, 1 + indices.len);
-    Uint idx_start = 0;
-    for (Uint i = 0; i < indices.len; i += 1) {
+    UInt idx_start = 0;
+    for (UInt i = 0; i < indices.len; i += 1) {
         ·append(ret_exprs, astExprFormSub(expr, idx_start, indices.at[i]));
         ·assert(ret_exprs.len <= 1 + indices.len);
         idx_start = 1 + indices.at[i];
@@ -162,13 +162,13 @@ AstExprs astExprFormSplit(AstExpr const* const expr, Str const ident, ºStr cons
 }
 
 AstExpr² astExprFormBreakOn(AstExpr const* const expr, Str const ident, Bool const must_lhs, Bool const must_rhs,
-                            ºUint const must_be_before_idx, Ast const* const ast) {
+                            ºUInt const must_be_before_idx, Ast const* const ast) {
     if (must_lhs || must_rhs)
         ·assert(ast != NULL);
     ·assert(expr->kind == ast_expr_form);
 
     AstExpr² ret_tup = (AstExpr²) {.lhs_form = ·none(AstExpr), .rhs_form = ·none(AstExpr), .glyph = NULL};
-    ºUint pos = astExprFormIndexOfIdent(expr, ident);
+    ºUInt pos = astExprFormIndexOfIdent(expr, ident);
     if (pos.ok && must_be_before_idx.ok && pos.it >= must_be_before_idx.it)
         pos.ok = false;
     if (pos.ok) {
@@ -237,7 +237,7 @@ Bool astDefHasIdent(AstDef const* const def, Str const ident) {
     return astExprHasIdent(&def->body, ident);
 }
 
-AstExpr astExprIdent(Uint const toks_idx, Uint const toks_len, Str const name) {
+AstExpr astExprIdent(UInt const toks_idx, UInt const toks_len, Str const name) {
     AstExpr ret_expr = astExpr(toks_idx, toks_len, ast_expr_ident, 0);
     ret_expr.of_ident = name;
     return ret_expr;
@@ -263,10 +263,10 @@ void astExprFormNorm(AstExpr* const expr, ºAstExpr const if_empty) {
 
 void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast);
 
-Bool astExprRewriteGlyphIntroInstr(AstExpr* const expr, Str const glyph_name, Bool const must_lhs, Bool const must_rhs, Bool const is_func,
-                                   Bool const is_sel, Ast const* const ast) {
+Bool astExprRewriteGlyphIntoInstr(AstExpr* const expr, Str const glyph_name, Bool const must_lhs, Bool const must_rhs, Bool const is_func,
+                                  Bool const is_sel, Ast const* const ast) {
     AstExpr² maybe;
-    maybe = astExprFormBreakOn(expr, glyph_name, false, false, ·none(Uint), ast);
+    maybe = astExprFormBreakOn(expr, glyph_name, false, false, ·none(UInt), ast);
     if (maybe.glyph == NULL)
         return false;
     if (must_lhs && !maybe.lhs_form.ok)
@@ -301,6 +301,35 @@ Bool astExprRewriteGlyphIntroInstr(AstExpr* const expr, Str const glyph_name, Bo
     return true;
 }
 
+void astExprRewriteOpIntoInstr(AstExpr* const expr, Str const op, Bool const can_nest, Str const op_desc, Ast const* const ast) {
+    AstExprs const subjs = astExprFormSplit(expr, op, ·none(Str));
+    if (subjs.len < 2)
+        ·fail(astNodeMsg(str3(str("expected operands on both sides of '"), op, str("'")), &expr->node_base, ast));
+    if (subjs.len > 2 && !can_nest)
+        ·fail(astNodeMsg(str3(str("multiple "), op_desc, str(" operators, clarify intent with parens")), &expr->node_base, ast));
+    ·forEach(AstExpr, subj, subjs, {
+        if (subj->kind == ast_expr_form && subj->of_exprs.len == 0)
+            ·fail(astNodeMsg(str3(str("expected operands on both sides of '"), op, str("'")), &expr->node_base, ast));
+    });
+    AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
+    instr.of_exprs.at[0] = astExprInstrOrTag(expr->node_base, op, false);
+    instr.of_exprs.at[1] = subjs.at[0];
+    instr.of_exprs.at[2] = subjs.at[1];
+    astExprFormNorm(&instr.of_exprs.at[1], ·none(AstExpr));
+    astExprFormNorm(&instr.of_exprs.at[2], ·none(AstExpr));
+    for (UInt i = 2; i < subjs.len; i += 1) {
+        AstExpr sub_instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
+        sub_instr.of_exprs.at[0] = astExprInstrOrTag(expr->node_base, op, false);
+        sub_instr.of_exprs.at[1] = instr;
+        sub_instr.of_exprs.at[2] = subjs.at[i];
+        astExprFormNorm(&sub_instr.of_exprs.at[2], ·none(AstExpr));
+        instr = sub_instr;
+    }
+    astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast);
+    astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast);
+    *expr = instr;
+}
+
 void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
     // x + y == z || z * x /= y ? #true => x | _ => y - z
 
@@ -314,12 +343,12 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         Bool matched = false;
         // check for `:` key-value-pair sugar { usually: inside, struct: literals, .. }
         if (!matched)
-            matched = astExprRewriteGlyphIntroInstr(expr, strL(":", 1), true, true, false, false, ast);
+            matched = astExprRewriteGlyphIntoInstr(expr, strL(":", 1), true, true, false, false, ast);
         // check for `.` field-selector sugar (foo.bar.baz)
         if (!matched)
-            matched = astExprRewriteGlyphIntroInstr(expr, strL(".", 1), true, true, false, true, ast);
+            matched = astExprRewriteGlyphIntoInstr(expr, strL(".", 1), true, true, false, true, ast);
         // check for `? |` sugar
-        ºUint const idx_qmark = astExprFormIndexOfIdent(expr, strL("?", 1));
+        ºUInt const idx_qmark = astExprFormIndexOfIdent(expr, strL("?", 1));
         if ((!matched) && idx_qmark.ok) {
             matched = true;
             AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
@@ -336,7 +365,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
             if (cases.len <= 1)
                 ·fail(astNodeMsg(str("insufficient cases following '?'"), &expr->node_base, ast));
             instr.of_exprs.at[2] = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_lit_braces, cases.len);
-            Uint count_arrows = 0;
+            UInt count_arrows = 0;
             ·forEach(AstExpr, case_expr, cases, {
                 if (case_expr->kind == ast_expr_form && case_expr->of_exprs.len == 0)
                     ·fail(astNodeMsg(str("expected expression in case"), &case_expr->node_base, ast));
@@ -378,79 +407,54 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         }
         // check for anon-func sugar `->`
         if (!matched)
-            matched = astExprRewriteGlyphIntroInstr(expr, strL("->", 2), false, true, true, false, ast);
-        // check for `&&` / `||`
+            matched = astExprRewriteGlyphIntoInstr(expr, strL("->", 2), false, true, true, false, ast);
+        // check for logical operators
         if (!matched) {
-            ºUint const idx_and = astExprFormIndexOfIdent(expr, strL("&&", 2));
-            ºUint const idx_or = astExprFormIndexOfIdent(expr, strL("||", 2));
+            ºUInt const idx_and = astExprFormIndexOfIdent(expr, strL("&&", 2));
+            ºUInt const idx_or = astExprFormIndexOfIdent(expr, strL("||", 2));
             if (idx_and.ok && idx_or.ok)
                 ·fail(astNodeMsg(str("same precedence for '&&' and '||', clarify intent with parens"), &expr->node_base, ast));
             if (idx_and.ok || idx_or.ok) {
                 matched = true;
                 Str const op = strL(idx_and.ok ? "&&" : "||", 2);
-                AstExprs const subjs = astExprFormSplit(expr, op, ·none(Str));
-                if (subjs.len < 2)
-                    ·fail(astNodeMsg(str3(str("expected operands on both sides of '"), op, str("'")), &expr->node_base, ast));
-                ·forEach(AstExpr, subj, subjs, {
-                    if (subj->kind == ast_expr_form && subj->of_exprs.len == 0)
-                        ·fail(astNodeMsg(str3(str("expected operands on both sides of '"), op, str("'")), &expr->node_base, ast));
-                });
-                AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
-                instr.of_exprs.at[0] = astExprInstrOrTag(expr->node_base, op, false);
-                instr.of_exprs.at[1] = subjs.at[0];
-                instr.of_exprs.at[2] = subjs.at[1];
-                astExprFormNorm(&instr.of_exprs.at[1], ·none(AstExpr));
-                astExprFormNorm(&instr.of_exprs.at[2], ·none(AstExpr));
-                for (Uint i = 2; i < subjs.len; i += 1) {
-                    AstExpr sub_instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
-                    sub_instr.of_exprs.at[0] = astExprInstrOrTag(expr->node_base, op, false);
-                    sub_instr.of_exprs.at[1] = instr;
-                    sub_instr.of_exprs.at[2] = subjs.at[i];
-                    astExprFormNorm(&sub_instr.of_exprs.at[2], ·none(AstExpr));
-                    instr = sub_instr;
-                }
-                astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast);
-                astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast);
-                *expr = instr;
+                astExprRewriteOpIntoInstr(expr, op, true, str("logical"), ast);
             }
         }
         // check for comparison operators
         if (!matched) {
-            ºUint const idx_eq = astExprFormIndexOfIdent(expr, strL("==", 2));
-            ºUint const idx_neq = astExprFormIndexOfIdent(expr, strL("/=", 2));
-            ºUint const idx_geq = astExprFormIndexOfIdent(expr, strL(">=", 2));
-            ºUint const idx_leq = astExprFormIndexOfIdent(expr, strL("<=", 2));
-            ºUint const idx_gt = astExprFormIndexOfIdent(expr, strL(">", 1));
-            ºUint const idx_lt = astExprFormIndexOfIdent(expr, strL("<", 1));
-            int n = idx_eq.ok + idx_neq.ok + idx_geq.ok + idx_leq.ok + idx_gt.ok + idx_lt.ok;
+            ºUInt const idx_eq = astExprFormIndexOfIdent(expr, strL("==", 2));
+            ºUInt const idx_neq = astExprFormIndexOfIdent(expr, strL("/=", 2));
+            ºUInt const idx_geq = astExprFormIndexOfIdent(expr, strL(">=", 2));
+            ºUInt const idx_leq = astExprFormIndexOfIdent(expr, strL("<=", 2));
+            ºUInt const idx_gt = astExprFormIndexOfIdent(expr, strL(">", 1));
+            ºUInt const idx_lt = astExprFormIndexOfIdent(expr, strL("<", 1));
+            CInt const n = idx_eq.ok + idx_neq.ok + idx_geq.ok + idx_leq.ok + idx_gt.ok + idx_lt.ok;
             if (n > 1)
                 ·fail(astNodeMsg(str("mix of comparison operators, clarify intent with parens"), &expr->node_base, ast));
             else if (n != 0) {
                 matched = true;
                 Str const op = (idx_gt.ok || idx_lt.ok) ? strL(idx_gt.ok ? ">" : "<", 1)
                                                         : strL(idx_neq.ok ? "/=" : idx_leq.ok ? "<=" : idx_geq.ok ? ">=" : "==", 2);
-                AstExprs const subjs = astExprFormSplit(expr, op, ·none(Str));
-                if (subjs.len < 2)
-                    ·fail(astNodeMsg(str3(str("expected operands on both sides of '"), op, str("'")), &expr->node_base, ast));
-                if (subjs.len > 2)
-                    ·fail(astNodeMsg(str("multiple comparison operators, clarify intent with parens"), &expr->node_base, ast));
-                ·forEach(AstExpr, subj, subjs, {
-                    if (subj->kind == ast_expr_form && subj->of_exprs.len == 0)
-                        ·fail(astNodeMsg(str3(str("expected operands on both sides of '"), op, str("'")), &expr->node_base, ast));
-                });
-                AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
-                instr.of_exprs.at[0] = astExprInstrOrTag(expr->node_base, op, false);
-                instr.of_exprs.at[1] = subjs.at[0];
-                instr.of_exprs.at[2] = subjs.at[1];
-                astExprFormNorm(&instr.of_exprs.at[1], ·none(AstExpr));
-                astExprFormNorm(&instr.of_exprs.at[2], ·none(AstExpr));
-                astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast);
-                astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast);
-                *expr = instr;
+                astExprRewriteOpIntoInstr(expr, op, false, str("comparison"), ast);
             }
         }
-        // check for arithmetic operators
-
+        // check for int arithmetic operators
+        if (!matched) {
+            ºUInt const idx_add = astExprFormIndexOfIdent(expr, strL("+", 1));
+            ºUInt const idx_sub = astExprFormIndexOfIdent(expr, strL("-", 1));
+            ºUInt const idx_mul = astExprFormIndexOfIdent(expr, strL("*", 1));
+            ºUInt const idx_div = astExprFormIndexOfIdent(expr, strL("/", 1));
+            ºUInt const idx_rem = astExprFormIndexOfIdent(expr, strL("\x25", 1));
+            CInt const n = idx_add.ok + idx_sub.ok + idx_mul.ok + idx_div.ok + idx_rem.ok;
+            if (n > 1)
+                ·fail(astNodeMsg(str("mix of arithmetic operators, clarify intent with parens"), &expr->node_base, ast));
+            else if (n != 0) {
+                matched = true;
+                Str op = strL(idx_add.ok ? "+" : idx_sub.ok ? "-" : idx_mul.ok ? "*" : idx_div.ok ? "/" : "\x25", 1);
+                astExprRewriteOpIntoInstr(expr, op, idx_mul.ok || idx_add.ok, str("arithmetic"), ast);
+            }
+        }
+        // nothing desugared, traverse normally into form
         if (!matched)
             ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast); });
     }
@@ -470,14 +474,14 @@ void astRewriteGlyphsIntoInstrs(Ast const* const ast) {
 void astSubDefsReorder(AstDefs const defs) {
     ·forEach(AstDef, the_def, defs, { astSubDefsReorder(the_def->sub_defs); });
 
-    Uint num_rounds = 0;
+    UInt num_rounds = 0;
     for (Bool again = true; again; num_rounds += 1) {
         again = false;
         if (num_rounds > 42 * defs.len)
             ·fail(str2(str("Circular sub-def dependencies inside "),
                        (defs.at[0].anns.parent_def == NULL) ? str("<top-level>") : defs.at[0].anns.parent_def->name));
         ·forEach(AstDef, the_def, defs, {
-            for (Uint i = iˇthe_def + 1; i < defs.len; i += 1) {
+            for (UInt i = iˇthe_def + 1; i < defs.len; i += 1) {
                 Bool const has = astDefHasIdent(&defs.at[i], the_def->name);
                 if (has) {
                     AstDef dependant = defs.at[i];
@@ -499,7 +503,7 @@ void astReorderSubDefs(Ast const* const ast) {
 
 
 
-void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, Uint const names_stack_capacity, Ast const* const ast) {
+void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, UInt const names_stack_capacity, Ast const* const ast) {
     if (astExprIsInstrOrTag(expr, true, true, true))
         return;
     switch (expr->kind) {
@@ -517,7 +521,7 @@ void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, Uint
                     if (!astExprIsInstrOrTag(param, false, true, true))
                         ·fail(astNodeMsg(str("unsupported expression for func param"), &expr->node_base, ast));
                     Str const param_name = param->of_exprs.at[1].of_ident;
-                    for (Uint j = 0; j < names_stack.len; j += 1)
+                    for (UInt j = 0; j < names_stack.len; j += 1)
                         if (strEql(names_stack.at[j], param_name))
                             ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), param_name), &param->node_base, ast));
                     if (names_stack_capacity == names_stack.len)
@@ -531,9 +535,9 @@ void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, Uint
     }
 }
 
-void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint const names_stack_capacity, Ast const* const ast) {
+void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, UInt const names_stack_capacity, Ast const* const ast) {
     ·forEach(AstDef, def, defs, {
-        for (Uint i = 0; i < names_stack.len; i += 1)
+        for (UInt i = 0; i < names_stack.len; i += 1)
             if (strEql(names_stack.at[i], def->name))
                 ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), def->name), &def->anns.head_node_base, ast));
         if (names_stack_capacity == names_stack.len)
@@ -541,10 +545,10 @@ void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, Uint const 
         ·append(names_stack, def->name);
     });
     ·forEach(AstDef, def, defs, {
-        Uint num_params = def->anns.param_names.len;
-        for (Uint i = 0; i < def->anns.param_names.len; i += 1) {
+        UInt num_params = def->anns.param_names.len;
+        for (UInt i = 0; i < def->anns.param_names.len; i += 1) {
             Str const param_name = def->anns.param_names.at[i];
-            for (Uint j = 0; j < names_stack.len; j += 1)
+            for (UInt j = 0; j < names_stack.len; j += 1)
                 if (strEql(names_stack.at[j], param_name))
                     ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), param_name), &def->anns.head_node_base, ast));
             ·append(names_stack, param_name);
@@ -565,13 +569,13 @@ void astPrint(Ast const* const ast) {
     });
 }
 
-void astPrintDef(AstDef const* const def, Uint const ind) {
+void astPrintDef(AstDef const* const def, UInt const ind) {
     printChr('\n');
-    for (Uint i = 0; i < ind; i += 1)
+    for (UInt i = 0; i < ind; i += 1)
         printChr(' ');
     printStr(def->name);
     printStr(str(" :=\n"));
-    for (Uint i = 0; i < 2 + ind; i += 1)
+    for (UInt i = 0; i < 2 + ind; i += 1)
         printChr(' ');
     astPrintExpr(&def->body, false, ind + 2);
 
@@ -581,8 +585,8 @@ void astPrintDef(AstDef const* const def, Uint const ind) {
     });
 }
 
-void astPrintExpr(AstExpr const* const expr, Bool const is_form_item, Uint const ind) {
-    for (Uint i = 0; i < expr->anns.parensed; i += 1)
+void astPrintExpr(AstExpr const* const expr, Bool const is_form_item, UInt const ind) {
+    for (UInt i = 0; i < expr->anns.parensed; i += 1)
         printChr('(');
     switch (expr->kind) {
         case ast_expr_ident: {
@@ -590,7 +594,7 @@ void astPrintExpr(AstExpr const* const expr, Bool const is_form_item, Uint const
         } break;
 
         case ast_expr_lit_int: {
-            printStr(uintToStr(expr->of_lit_int, 1, 10));
+            printStr(uIntToStr(expr->of_lit_int, 1, 10));
         } break;
 
         case ast_expr_lit_str: {
@@ -628,23 +632,23 @@ void astPrintExpr(AstExpr const* const expr, Bool const is_form_item, Uint const
                 printStr(str("{}"));
             else {
                 printStr(str("{\n"));
-                Uint const ind_next = 2 + ind;
+                UInt const ind_next = 2 + ind;
                 ·forEach(AstExpr, sub_expr, expr->of_exprs, {
-                    for (Uint i = 0; i < ind_next; i += 1)
+                    for (UInt i = 0; i < ind_next; i += 1)
                         printChr(' ');
                     astPrintExpr(sub_expr, false, ind_next);
                     printStr(str(",\n"));
                 });
-                for (Uint i = 0; i < ind; i += 1)
+                for (UInt i = 0; i < ind; i += 1)
                     printChr(' ');
                 printChr('}');
             }
         } break;
 
         default: {
-            ·fail(str2(str("TODO: astPrintExpr for .kind of "), uintToStr(expr->kind, 1, 10)));
+            ·fail(str2(str("TODO: astPrintExpr for .kind of "), uIntToStr(expr->kind, 1, 10)));
         } break;
     }
-    for (Uint i = 0; i < expr->anns.parensed; i += 1)
+    for (UInt i = 0; i < expr->anns.parensed; i += 1)
         printChr(')');
 }

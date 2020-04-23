@@ -64,7 +64,7 @@ typedef struct IrHLTypePtr {
 
 typedef struct IrHLTypeArr {
     IrHLType* ty;
-    Uint size;
+    UInt size;
 } IrHLTypeArr;
 
 typedef struct IrHLTypeFunc {
@@ -308,9 +308,9 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
         } break;
         case ast_expr_lit_str: {
             ret_expr.kind = irhl_expr_list;
-            Uint const str_len = ast_expr->of_lit_str.len;
+            UInt const str_len = ast_expr->of_lit_str.len;
             ret_expr.of_list = (IrHLExprList) {.items = ·make(IrHLExpr, str_len, str_len)};
-            for (Uint i = 0; i < str_len; i += 1)
+            for (UInt i = 0; i < str_len; i += 1)
                 ret_expr.of_list.items.at[i] = (IrHLExpr) {
                     .anns = {.origin = {.ast_def = ast_def, .ast_expr = ast_expr}},
                     .kind = irhl_expr_int,
@@ -331,7 +331,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
         } break;
         case ast_expr_lit_bracket: {
             ret_expr.kind = irhl_expr_list;
-            Uint const list_len = ast_expr->of_exprs.len;
+            UInt const list_len = ast_expr->of_exprs.len;
             ret_expr.of_list = (IrHLExprList) {.items = ·make(IrHLExpr, list_len, list_len)};
             ·forEach(AstExpr, item_expr, ast_expr->of_exprs, {
                 IrHLExpr list_item_expr = irHLExprFrom(item_expr, ast_def);
@@ -340,7 +340,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
         } break;
         case ast_expr_lit_braces: {
             ret_expr.kind = irhl_expr_bag;
-            Uint const bag_len = ast_expr->of_exprs.len;
+            UInt const bag_len = ast_expr->of_exprs.len;
             ret_expr.of_bag = (IrHLExprBag) {.items = ·make(IrHLExpr, bag_len, bag_len)};
             ·forEach(AstExpr, item_expr, ast_expr->of_exprs, {
                 IrHLExpr bag_item_expr = irHLExprFrom(item_expr, ast_def);
@@ -365,7 +365,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
             }
 
             ret_expr.kind = irhl_expr_call;
-            Uint const num_args = ast_expr->of_exprs.len - 1;
+            UInt const num_args = ast_expr->of_exprs.len - 1;
             IrHLExpr const callee = irHLExprFrom(&ast_expr->of_exprs.at[0], ast_def);
             ret_expr.of_call = (IrHLExprCall) {
                 .callee = irHLExprCopy(&callee),
@@ -377,7 +377,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
             });
         } break;
         default: {
-            ·fail(str2(str("TODO: irHLExprFrom for .kind of "), uintToStr(ast_expr->kind, 1, 10)));
+            ·fail(str2(str("TODO: irHLExprFrom for .kind of "), uIntToStr(ast_expr->kind, 1, 10)));
         } break;
     }
     return ret_expr;
@@ -442,15 +442,15 @@ void irHLPrintType(IrHLType const* const the_type) {
             printStr(str("#tag"));
         } break;
         default: {
-            ·fail(str2(str("TODO: irHLPrintType for .kind of "), uintToStr(the_type->kind, 1, 10)));
+            ·fail(str2(str("TODO: irHLPrintType for .kind of "), uIntToStr(the_type->kind, 1, 10)));
         } break;
     }
 }
 
-void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, Uint const ind) {
+void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, UInt const ind) {
     AstExpr const* const orig_ast_expr = the_expr->anns.origin.ast_expr;
     if (orig_ast_expr != NULL)
-        for (Uint i = 0; i < orig_ast_expr->anns.parensed; i += 1)
+        for (UInt i = 0; i < orig_ast_expr->anns.parensed; i += 1)
             printChr('(');
 
     switch (the_expr->kind) {
@@ -458,7 +458,7 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
             irHLPrintType(the_expr->of_type.ty_value);
         } break;
         case irhl_expr_int: {
-            printStr(uintToStr(the_expr->of_int.int_value, 1, 10));
+            printStr(uIntToStr(the_expr->of_int.int_value, 1, 10));
         } break;
         case irhl_expr_nilish: {
             switch (the_expr->of_nilish.kind) {
@@ -486,14 +486,14 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
         } break;
         case irhl_expr_bag: {
             printStr(str("{\n"));
-            Uint const ind_next = 2 + ind;
+            UInt const ind_next = 2 + ind;
             ·forEach(IrHLExpr, sub_expr, the_expr->of_bag.items, {
-                for (Uint i = 0; i < ind_next; i += 1)
+                for (UInt i = 0; i < ind_next; i += 1)
                     printChr(' ');
                 irHLPrintExpr(sub_expr, false, ind_next);
                 printStr(str(",\n"));
             });
-            for (Uint i = 0; i < ind; i += 1)
+            for (UInt i = 0; i < ind; i += 1)
                 printChr(' ');
             printChr('}');
         } break;
@@ -520,7 +520,7 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
                 printStr(param->anns.name);
             });
             printStr(str("->\n"));
-            for (Uint i = 0; i < ind; i += 1)
+            for (UInt i = 0; i < ind; i += 1)
                 printChr(' ');
             irHLPrintExpr(the_expr->of_func.body, false, 4 + ind);
 
@@ -531,15 +531,15 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
                 printChr('@');
                 printStr(the_expr->of_instr.of_named);
             } else
-                ·fail(str2(str("TODO: irHLPrintInstr for .kind of "), uintToStr(the_expr->of_instr.kind, 1, 10)));
+                ·fail(str2(str("TODO: irHLPrintInstr for .kind of "), uIntToStr(the_expr->of_instr.kind, 1, 10)));
         } break;
         default: {
-            ·fail(str2(str("TODO: irHLPrintExpr for .kind of "), uintToStr(the_expr->kind, 1, 10)));
+            ·fail(str2(str("TODO: irHLPrintExpr for .kind of "), uIntToStr(the_expr->kind, 1, 10)));
         } break;
     }
 
     if (orig_ast_expr != NULL)
-        for (Uint i = 0; i < orig_ast_expr->anns.parensed; i += 1)
+        for (UInt i = 0; i < orig_ast_expr->anns.parensed; i += 1)
             printChr(')');
 }
 

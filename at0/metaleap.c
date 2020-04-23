@@ -15,7 +15,7 @@
 #define ·SliceOf(T)                                                                                                                            \
     struct {                                                                                                                                   \
         T* at;                                                                                                                                 \
-        Uint len;                                                                                                                              \
+        UInt len;                                                                                                                              \
     }
 
 #define ·Maybe(T)                                                                                                                              \
@@ -34,13 +34,14 @@ typedef int16_t I16;
 typedef int32_t I32;
 typedef int64_t I64;
 typedef ssize_t Int;
-typedef size_t Uint;
+typedef size_t UInt;
+typedef int CInt;
 typedef void* PtrAny;
-typedef const char* String;
+typedef const char* CStr;
 
-typedef ·Maybe(Uint) ºUint;
+typedef ·Maybe(UInt) ºUInt;
 typedef ·Maybe(U64) ºU64;
-typedef ·SliceOf(Uint) Uints;
+typedef ·SliceOf(UInt) UInts;
 typedef ·SliceOf(U8) U8s;
 typedef U8s Str;
 typedef ·Maybe(Str) ºStr;
@@ -51,7 +52,7 @@ typedef ·SliceOf(Str) Strs;
 #define mem_max (1 * 1024 * 1024)
 struct Mem {
     U8 buf[mem_max];
-    Uint pos;
+    UInt pos;
 } mem = {.pos = 0};
 
 
@@ -71,7 +72,7 @@ struct Mem {
 
 #define ·forEach(TItem, iteree_ident__, ²the_slice_to_iter__, ¹do_block__)                                                                     \
     do {                                                                                                                                       \
-        for (Uint iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (²the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                          \
+        for (UInt iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (²the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                          \
             TItem* const iteree_ident__ = &((²the_slice_to_iter__).at[iˇ##iteree_ident__]);                                                    \
             { ¹do_block__ }                                                                                                                    \
         }                                                                                                                                      \
@@ -112,7 +113,7 @@ void writeStr(Str const str) {
 }
 void abortWithBacktraceAndMsg(Str const msg) {
     PtrAny callstack[16];
-    Uint const n_frames = backtrace(callstack, 16);
+    UInt const n_frames = backtrace(callstack, 16);
     backtrace_symbols_fd(callstack, n_frames, 2); // 2 = stderr
 
     fwrite("\n", 1, 1, stderr);
@@ -130,19 +131,19 @@ void abortWithBacktraceAndMsg(Str const msg) {
 
 #define ·new(T) (·make(T, 1, 1).at)
 
-Str strL(String const c_str, Uint str_len) {
+Str strL(CStr const c_str, UInt str_len) {
     if (str_len == 0)
-        for (Uint i = 0; c_str[i] != 0; i += 1)
+        for (UInt i = 0; c_str[i] != 0; i += 1)
             str_len += 1;
     return (Str) {.len = str_len, .at = (U8*)c_str};
 }
 
-Str str(String const c_str) {
+Str str(CStr const c_str) {
     return strL(c_str, 0);
 }
 
-U8* memAlloc(Uint const num_bytes) {
-    Uint const new_pos = mem.pos + num_bytes;
+U8* memAlloc(UInt const num_bytes) {
+    UInt const new_pos = mem.pos + num_bytes;
     if (new_pos >= mem_max - 1)
         ·fail(str("out of memory: increase mem_max!"));
     U8* const mem_ptr = &mem.buf[mem.pos];
@@ -150,42 +151,42 @@ U8* memAlloc(Uint const num_bytes) {
     return mem_ptr;
 }
 
-Str newStr(Uint const initial_len, Uint const max_capacity) {
+Str newStr(UInt const initial_len, UInt const max_capacity) {
     Str ret_str = (Str) {.len = initial_len, .at = memAlloc(max_capacity)};
     return ret_str;
 }
 
-ºU64 uint64Parse(Str const str) {
+ºU64 uInt64Parse(Str const str) {
     ·assert(str.len > 0);
-    U64 ret_uint = 0;
+    U64 ret_uInt = 0;
     U64 mult = 1;
-    for (Uint i = str.len; i > 0;) {
+    for (UInt i = str.len; i > 0;) {
         i -= 1;
         if (str.at[i] < '0' || str.at[i] > '9')
             return ·none(U64);
-        ret_uint += mult * (str.at[i] - 48);
+        ret_uInt += mult * (str.at[i] - 48);
         mult *= 10;
     }
-    return ·ok(U64, ret_uint);
+    return ·ok(U64, ret_uInt);
 }
 
-Str uintToStr(Uint const uint_value, Uint const str_min_len, Uint const base) {
-    Uint num_digits = 1;
-    Uint n = uint_value;
+Str uIntToStr(UInt const uInt_value, UInt const str_min_len, UInt const base) {
+    UInt num_digits = 1;
+    UInt n = uInt_value;
     while (n >= base) {
         num_digits += 1;
         n /= base;
     }
-    n = uint_value;
+    n = uInt_value;
 
-    Uint const str_len = (num_digits > str_min_len) ? num_digits : str_min_len;
+    UInt const str_len = (num_digits > str_min_len) ? num_digits : str_min_len;
     Str const ret_str = newStr(str_len, str_len + 1);
     ret_str.at[str_len] = 0;
-    for (Uint i = 0; i < str_len - num_digits; i += 1)
+    for (UInt i = 0; i < str_len - num_digits; i += 1)
         ret_str.at[i] = '0';
 
     Bool done = false;
-    for (Uint i = ret_str.len; i > 0 && !done;) {
+    for (UInt i = ret_str.len; i > 0 && !done;) {
         i -= 1;
         if (n < base) {
             ret_str.at[i] = 48 + n;
@@ -200,31 +201,31 @@ Str uintToStr(Uint const uint_value, Uint const str_min_len, Uint const base) {
     return ret_str;
 }
 
-Str strCopy(String const c_str) {
+Str strCopy(CStr const c_str) {
     Str const ptr_ref = str(c_str);
     Str copy = newStr(ptr_ref.len, ptr_ref.len);
-    for (Uint i = 0; i < copy.len; i += 1)
+    for (UInt i = 0; i < copy.len; i += 1)
         copy.at[i] = ptr_ref.at[i];
     return copy;
 }
 
 // unused in principle, but kept around just in case we really do need a printf
 // occasionally while debugging. result for immediate consumption! not for keeping.
-String strZ(Str const str) {
+CStr strZ(Str const str) {
     if (str.at[str.len] == 0)
-        return (String)str.at;
+        return (CStr)str.at;
     U8* buf = memAlloc(1 + str.len);
     buf[str.len] = 0;
-    for (Uint i = 0; i < str.len; i += 1)
+    for (UInt i = 0; i < str.len; i += 1)
         buf[i] = str.at[i];
-    return (String)buf;
+    return (CStr)buf;
 }
 
 Bool strEql(Str const one, Str const two) {
     if (one.len == two.len) {
         if (one.len > 0) {
-            Uint i_middle = 1 + (one.len / 2);
-            for (Uint i = 0, j = one.len - 1; i < i_middle; i += 1, j -= 1)
+            UInt i_middle = 1 + (one.len / 2);
+            for (UInt i = 0, j = one.len - 1; i < i_middle; i += 1, j -= 1)
                 if (one.at[i] != two.at[i] || one.at[j] != two.at[j])
                     return false;
         }
@@ -241,7 +242,7 @@ Str strPrefSuff(Str const str, Str const prefix) {
     return ret_str;
 }
 
-Bool strEq(Str const one, String const two, ºUint const str_len) {
+Bool strEq(Str const one, CStr const two, ºUInt const str_len) {
     Str const s2 = (!str_len.ok) ? str(two) : ((Str) {.len = str_len.it, .at = (U8*)two});
     return strEql(one, s2);
 }
@@ -249,15 +250,15 @@ Bool strEq(Str const one, String const two, ºUint const str_len) {
 Str strQuot(Str const str) {
     Str ret_str = newStr(1, 3 + (3 * str.len));
     ret_str.at[0] = '\"';
-    for (Uint i = 0; i < str.len; i += 1) {
+    for (UInt i = 0; i < str.len; i += 1) {
         U8 const chr = str.at[i];
         if (chr >= 32 && chr < 127) {
             ret_str.at[ret_str.len] = chr;
             ret_str.len += 1;
         } else {
             ret_str.at[ret_str.len] = '\\';
-            const Str esc_num_str = uintToStr(chr, 3, 10);
-            for (Uint c = 0; c < esc_num_str.len; c += 1)
+            const Str esc_num_str = uIntToStr(chr, 3, 10);
+            for (UInt c = 0; c < esc_num_str.len; c += 1)
                 ret_str.at[1 + c + ret_str.len] = esc_num_str.at[c];
             ret_str.len += 1 + esc_num_str.len;
         }
@@ -268,25 +269,25 @@ Str strQuot(Str const str) {
     return ret_str;
 }
 
-Str strSub(Str const str, Uint const idx_start, Uint const idx_end) {
+Str strSub(Str const str, UInt const idx_start, UInt const idx_end) {
     return (Str) {.len = idx_end - idx_start, .at = str.at + idx_start};
 }
 
-Bool strHasChar(String const s, U8 const c) {
-    for (Uint i = 0; s[i] != 0; i += 1)
+Bool cStrHasChar(CStr const s, U8 const c) {
+    for (UInt i = 0; s[i] != 0; i += 1)
         if (s[i] == c)
             return true;
     return false;
 }
 
-ºUint strIndexOf(Str const haystack, Str const needle) {
+ºUInt strIndexOf(Str const haystack, Str const needle) {
     if (haystack.len != 0 && needle.len != 0 && haystack.len >= needle.len)
-        for (Uint i = 0; i < 1 + (haystack.len - needle.len); i += 1) {
+        for (UInt i = 0; i < 1 + (haystack.len - needle.len); i += 1) {
             Str const h_sub = ·slice(U8, haystack, i, i + needle.len);
             if (strEql(needle, h_sub))
-                return ·ok(Uint, i);
+                return ·ok(UInt, i);
         }
-    return ·none(Uint);
+    return ·none(UInt);
 }
 
 Bool strSuff(Str const str, Str const suff) {
@@ -294,13 +295,13 @@ Bool strSuff(Str const str, Str const suff) {
 }
 
 Str strConcat(Strs const strs) {
-    Uint str_len = 0;
+    UInt str_len = 0;
     ·forEach(Str, str, strs, { str_len += str->len; });
 
     Str ret_str = newStr(0, 1 + str_len);
     ret_str.at[str_len] = 0;
     ·forEach(Str, str, strs, {
-        for (Uint i = 0; i < str->len; i += 1)
+        for (UInt i = 0; i < str->len; i += 1)
             ret_str.at[i + ret_str.len] = str->at[i];
         ret_str.len += str->len;
     });
@@ -345,5 +346,5 @@ Str str8(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5, S
 
 void failIf(int some_err) {
     if (some_err)
-        ·fail(str2(str("error code: "), uintToStr(some_err, 1, 10)));
+        ·fail(str2(str("error code: "), uIntToStr(some_err, 1, 10)));
 }
