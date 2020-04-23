@@ -312,13 +312,13 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
 
     else if (expr->kind == ast_expr_form && expr->of_exprs.len != 0 && !astExprIsInstrOrTag(expr, true, true, true)) {
         Bool matched = false;
-        // check for `:` key-value pairing { usually: inside, struct: literals, .. }
+        // check for `:` key-value-pair sugar { usually: inside, struct: literals, .. }
         if (!matched)
             matched = astExprRewriteGlyphIntroInstr(expr, strL(":", 1), true, true, false, false, ast);
-        // check for `.` field selector (foo.bar.baz)
+        // check for `.` field-selector sugar (foo.bar.baz)
         if (!matched)
             matched = astExprRewriteGlyphIntroInstr(expr, strL(".", 1), true, true, false, true, ast);
-        // check for `? |` construct
+        // check for `? |` sugar
         ºUint const idx_qmark = astExprFormIndexOfIdent(expr, strL("?", 1));
         if ((!matched) && idx_qmark.ok) {
             matched = true;
@@ -376,7 +376,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
             astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast);
             *expr = instr;
         }
-        // check for func literal `foo bar -> (foo baz) (bar faz)`
+        // check for anon-func sugar `->`
         if (!matched)
             matched = astExprRewriteGlyphIntroInstr(expr, strL("->", 2), false, true, true, false, ast);
         // check for `&&` / `||`
@@ -414,6 +414,42 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                 *expr = instr;
             }
         }
+        // check for comparison operators
+        if (!matched) {
+            ºUint const idx_eq = astExprFormIndexOfIdent(expr, strL("==", 2));
+            ºUint const idx_neq = astExprFormIndexOfIdent(expr, strL("/=", 2));
+            ºUint const idx_geq = astExprFormIndexOfIdent(expr, strL(">=", 2));
+            ºUint const idx_leq = astExprFormIndexOfIdent(expr, strL("<=", 2));
+            ºUint const idx_gt = astExprFormIndexOfIdent(expr, strL(">", 1));
+            ºUint const idx_lt = astExprFormIndexOfIdent(expr, strL("<", 1));
+            int n = idx_eq.ok + idx_neq.ok + idx_geq.ok + idx_leq.ok + idx_gt.ok + idx_lt.ok;
+            if (n > 1)
+                ·fail(astNodeMsg(str("mix of comparison operators, clarify intent with parens"), &expr->node_base, ast));
+            else if (n != 0) {
+                matched = true;
+                Str const op = (idx_gt.ok || idx_lt.ok) ? strL(idx_gt.ok ? ">" : "<", 1)
+                                                        : strL(idx_neq.ok ? "/=" : idx_leq.ok ? "<=" : idx_geq.ok ? ">=" : "==", 2);
+                AstExprs const subjs = astExprFormSplit(expr, op, ·none(Str));
+                if (subjs.len < 2)
+                    ·fail(astNodeMsg(str3(str("expected operands on both sides of '"), op, str("'")), &expr->node_base, ast));
+                if (subjs.len > 2)
+                    ·fail(astNodeMsg(str("multiple comparison operators, clarify intent with parens"), &expr->node_base, ast));
+                ·forEach(AstExpr, subj, subjs, {
+                    if (subj->kind == ast_expr_form && subj->of_exprs.len == 0)
+                        ·fail(astNodeMsg(str3(str("expected operands on both sides of '"), op, str("'")), &expr->node_base, ast));
+                });
+                AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
+                instr.of_exprs.at[0] = astExprInstrOrTag(expr->node_base, op, false);
+                instr.of_exprs.at[1] = subjs.at[0];
+                instr.of_exprs.at[2] = subjs.at[1];
+                astExprFormNorm(&instr.of_exprs.at[1], ·none(AstExpr));
+                astExprFormNorm(&instr.of_exprs.at[2], ·none(AstExpr));
+                astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast);
+                astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast);
+                *expr = instr;
+            }
+        }
+        // check for arithmetic operators
 
         if (!matched)
             ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast); });

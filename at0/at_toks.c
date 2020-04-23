@@ -52,7 +52,7 @@ Uint tokPosCol(Token const* const tok) {
 
 Bool tokCanThrong(Token const* const tok, Str const full_src) {
     return tok->kind == tok_kind_lit_num_prefixed || tok->kind == tok_kind_lit_str_qdouble || tok->kind == tok_kind_lit_str_qsingle
-           || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && full_src.at[tok->char_pos] != '=');
+           || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && (full_src.at[tok->char_pos] != '=' || tok->str_len > 1));
 }
 
 Uint tokThrong(Tokens const toks, Uint const tok_idx, Str const full_src) {

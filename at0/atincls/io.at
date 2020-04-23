@@ -12,4 +12,4 @@ io :=
     eq n_written str# || eq maybe_err 0 ? #ok n_written | #err maybe_err
     n_written := libc.fwrite str 1 str# file
     maybe_err := libc.ferror file
-    foo := c1 && || c2 && c3 && c4
+    foo := c1 == (c2 == c3)
