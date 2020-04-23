@@ -9,7 +9,7 @@ io :=
     writeTo file str ? #ok => n -> n | #err => _ -> libc.abort 1
 
   writeTo file str :=
-    eq n_written str_len || eq maybe_err 0 ? #ok n_written | #err maybe_err
-    n_written := libc.fwrite str 1 str_len file
+    eq n_written str# || eq maybe_err 0 ? #ok n_written | #err maybe_err
+    n_written := libc.fwrite str 1 str# file
     maybe_err := libc.ferror file
-    str_len := @len str
+    foo := c1 && || c2 && c3 && c4
