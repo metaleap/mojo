@@ -44,5 +44,5 @@ int main(int const argc, String const argv[]) {
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
     IrHLProg ir_hl_prog = irHLProgFrom(&ast);
-    // irHLProgPrint(&ir_hl_prog);
+    irHLProgPrint(&ir_hl_prog);
 }
