@@ -489,14 +489,29 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
                 ret_expr.of_nilish = (IrHLExprNilish) {.kind = lack};
                 break;
             }
-            if (astExprIsInstrOrTag(ast_expr, false, true, true)) {
-                ret_expr.kind = irhl_expr_tag;
-                ret_expr.of_tag = (IrHLExprTag) {.tag_ident = ast_expr->of_exprs.at[1].of_ident};
-                break;
-            } else if (astExprIsInstrOrTag(ast_expr, true, false, false)) {
+            if (astExprIsInstrOrTag(ast_expr, true, false, false)) {
                 Str const instr_name = ast_expr->of_exprs.at[1].of_ident;
                 ret_expr.kind = irhl_expr_instr;
                 ret_expr.of_instr = (IrHLExprInstr) {.kind = irhl_instr_named, .of_named = instr_name};
+                break;
+            }
+            if (astExprIsInstrOrTag(ast_expr, false, true, false)) {
+                AstExpr const* const tag_along = &ast_expr->of_exprs.at[1];
+                switch (tag_along->kind) {
+                    case ast_expr_ident:
+                        ret_expr.kind = irhl_expr_tag;
+                        ret_expr.of_tag = (IrHLExprTag) {.tag_ident = tag_along->of_ident};
+                        break;
+                    case ast_expr_lit_str:
+                        ret_expr.kind = irhl_expr_tag;
+                        ret_expr.of_tag = (IrHLExprTag) {.tag_ident = tag_along->of_lit_str};
+                        break;
+                    case ast_expr_lit_int:
+                        ret_expr.kind = irhl_expr_tag;
+                        ret_expr.of_tag = (IrHLExprTag) {.tag_ident = uIntToStr(tag_along->of_lit_int, 1, 10)};
+                        break;
+                    default: break;
+                }
                 break;
             }
 
@@ -617,8 +632,9 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
             irHLPrintExpr(the_expr->of_selector.member, false, ind);
         } break;
         case irhl_expr_tag: {
-            printChr('#');
+            printStr(str("#`"));
             printStr(the_expr->of_tag.tag_ident);
+            printStr(str("`"));
         } break;
         case irhl_expr_ref: {
             printStr(the_expr->of_ref.name);
