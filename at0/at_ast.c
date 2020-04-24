@@ -263,15 +263,16 @@ void astExprFormNorm(AstExpr* const expr, ºAstExpr const if_empty) {
 
 void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast);
 
-Bool astExprRewriteGlyphIntoInstr(AstExpr* const expr, Str const glyph_name, Bool const must_lhs, Bool const must_rhs, Bool const is_func,
-                                  Bool const is_sel, Ast const* const ast) {
+Bool astExprRewriteFirstGlyphIntoInstr(AstExpr* const expr, Str const glyph_name, Bool const must_lhs, Bool const must_rhs, Bool const is_func,
+                                       Bool const is_sel, Ast const* const ast) {
     AstExpr² maybe;
     maybe = astExprFormBreakOn(expr, glyph_name, false, false, ·none(UInt), ast);
     if (maybe.glyph == NULL)
         return false;
     if (must_lhs && !maybe.lhs_form.ok)
-        ·fail(astNodeMsg(str3(str("expected both left-hand-side and right-hand-side operands for infix '"), glyph_name, str("' in")),
-                         &expr->node_base, ast));
+        ·fail(astNodeMsg(str3(str("expected left-hand-side operand for '"), glyph_name, str("' in")), &expr->node_base, ast));
+    if (must_rhs && !maybe.rhs_form.ok)
+        ·fail(astNodeMsg(str3(str("expected right-hand-side operand for '"), glyph_name, str("' in")), &expr->node_base, ast));
     expr->anns.toks_throng = false;
     expr->of_exprs = ·make(AstExpr, 3, 3);
     expr->of_exprs.at[0] = astExprInstrOrTag(maybe.glyph->node_base, glyph_name, false);
@@ -341,15 +342,19 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         Bool matched = false;
         // check for `:` key-value-pair sugar { usually: inside, struct: literals, .. }
         if (!matched)
-            matched = astExprRewriteGlyphIntoInstr(expr, strL(":", 1), true, true, false, false, ast);
+            matched = astExprRewriteFirstGlyphIntoInstr(expr, strL(":", 1), true, true, false, false, ast);
         // check for `.` field-selector sugar (foo.bar.baz)
-        if (!matched)
-            matched = astExprRewriteGlyphIntoInstr(expr, strL(".", 1), true, true, false, true, ast);
+        if (!matched) {
+            ºUInt const idx_dot = astExprFormIndexOfIdent(expr, strL(".", 1));
+            matched = idx_dot.ok;
+            if (idx_dot.ok)
+                astExprRewriteOpIntoInstr(expr, strL(".", 1), true, strL("", 0), ast);
+        }
         // check for `? |` but any earlier `->` has prio
         ºUInt const idx_qmark = astExprFormIndexOfIdent(expr, strL("?", 1));
         ºUInt const idx_func = astExprFormIndexOfIdent(expr, strL("->", 2));
         if ((!matched) && idx_qmark.ok && idx_func.ok && idx_func.it < idx_qmark.it)
-            matched = astExprRewriteGlyphIntoInstr(expr, strL("->", 2), false, true, true, false, ast);
+            matched = astExprRewriteFirstGlyphIntoInstr(expr, strL("->", 2), false, true, true, false, ast);
         if ((!matched) && idx_qmark.ok) {
             matched = true;
             AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
@@ -408,7 +413,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         }
         // check for anon-func sugar `->`
         if ((!matched) && idx_func.ok)
-            matched = astExprRewriteGlyphIntoInstr(expr, strL("->", 2), false, true, true, false, ast);
+            matched = astExprRewriteFirstGlyphIntoInstr(expr, strL("->", 2), false, true, true, false, ast);
         // check for logical operators
         if (!matched) {
             ºUInt const idx_and = astExprFormIndexOfIdent(expr, strL("&&", 2));
@@ -516,7 +521,8 @@ void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, UInt
             if (!astExprIsFunc(expr))
                 ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
             else {
-                ·assert(expr->of_exprs.at[1].kind == ast_expr_lit_bracket);
+                if (expr->of_exprs.at[1].kind != ast_expr_lit_bracket)
+                    ·fail(astNodeMsg(str("unsupported expression for func params"), &expr->node_base, ast));
                 AstExprs const params = expr->of_exprs.at[1].of_exprs;
                 ·forEach(AstExpr, param, params, {
                     if (!astExprIsInstrOrTag(param, false, true, true))

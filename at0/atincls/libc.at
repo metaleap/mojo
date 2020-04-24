@@ -1,13 +1,13 @@
 libc := {
-  FILE    : @T #extern "FILE",
+  FILE    : Ptr (@T #extern "FILE"),
 
-  stdin   : @extern "stdin" [] (Ptr FILE),
-  stdout  : @extern "stdout" [] (Ptr FILE),
-  stderr  : @extern "stderr" [] (Ptr FILE),
+  stdin   : @extern "stdin" [] (FILE),
+  stdout  : @extern "stdout" [] (FILE),
+  stderr  : @extern "stderr" [] (FILE),
 
   abort   : @extern "abort" [#noreturn] V { #_: V },
-  fgetc   : @extern "fgetc" [] Ic { #file: Ptr FILE },
-  ferror  : @extern "ferror" [] Ic { #file: Ptr FILE },
-  fread   : @extern "fread" [] Uw { #buf: Ptr U8, #size: Uw, #count: Uw, #file: Ptr FILE },
-  fwrite  : @extern "fwrite" [] Uw { #buf: Ptr U8, #size: Uw, #count: Uw, #file: Ptr FILE },
+  fgetc   : @extern "fgetc" [] Ic { #file: FILE },
+  ferror  : @extern "ferror" [] Ic { #file: FILE },
+  fread   : @extern "fread" [] Uw { #buf: Ptr U8, #size: Uw, #count: Uw, #file: FILE },
+  fwrite  : @extern "fwrite" [] Uw { #buf: Ptr U8, #size: Uw, #count: Uw, #file: FILE },
 }
