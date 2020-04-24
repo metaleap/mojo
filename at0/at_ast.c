@@ -347,8 +347,13 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         if (!matched) {
             ºUInt const idx_dot = astExprFormIndexOfIdent(expr, strL(".", 1));
             matched = idx_dot.ok;
-            if (idx_dot.ok)
+            if (idx_dot.ok) {
                 astExprRewriteOpIntoInstr(expr, strL(".", 1), true, strL("", 0), ast);
+                ·assert(expr->of_exprs.len == 3);
+                if (expr->of_exprs.at[2].kind != ast_expr_ident)
+                    ·fail(astNodeMsg(str("invalid '.' right-hand side"), &expr->node_base, ast));
+                expr->of_exprs.at[2] = astExprInstrOrTag(expr->of_exprs.at[2].node_base, expr->of_exprs.at[2].of_ident, true);
+            }
         }
         // check for `? |` but any earlier `->` has prio
         ºUInt const idx_qmark = astExprFormIndexOfIdent(expr, strL("?", 1));
@@ -458,6 +463,17 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                 matched = true;
                 Str op = strL(idx_add.ok ? "+" : idx_sub.ok ? "-" : idx_mul.ok ? "*" : idx_div.ok ? "/" : "\x25", 1);
                 astExprRewriteOpIntoInstr(expr, op, idx_mul.ok || idx_add.ok, str("arithmetic"), ast);
+            }
+        }
+        // extra sugars
+        if (!matched) {
+            if (expr->of_exprs.len == 2 && expr->of_exprs.at[1].kind == ast_expr_ident
+                && strEql(strL(".#", 2), expr->of_exprs.at[1].of_ident)) {
+                AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 2);
+                instr.of_exprs.at[0] = astExprInstrOrTag(expr->of_exprs.at[1].node_base, strL("#", 1), false);
+                instr.of_exprs.at[1] = expr->of_exprs.at[0];
+                *expr = instr;
+                astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[1], ast);
             }
         }
         // nothing desugared, traverse normally into form

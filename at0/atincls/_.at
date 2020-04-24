@@ -1,29 +1,29 @@
 
-V           := @T #void
-U8          := @T #integer { #bit_width: 8, #signed: false }
-U16         := @T #integer { #bit_width: 16, #signed: false }
-U32         := @T #integer { #bit_width: 32, #signed: false }
-U64         := @T #integer { #bit_width: 64, #signed: false }
-Uw          := @T #integer { #bit_width: #word, #signed: false }
-Uc          := @T #integer { #bit_width: #extc, #signed: false }
-I8          := @T #integer { #bit_width: 8, #signed: true }
-I16         := @T #integer { #bit_width: 16, #signed: true }
-I32         := @T #integer { #bit_width: 32, #signed: true }
-I64         := @T #integer { #bit_width: 64, #signed: true }
-Iw          := @T #integer { #bit_width: #word, #signed: true }
-Ic          := @T #integer { #bit_width: #extc, #signed: true }
-Bool        := @T #union { #tagged: true, #fields: { true: V, false: V } }
-Str n       := Arr n U8
-Ptr of      := @T #ptr { #ty: of }
-Arr n of    := @T #arr { #size: n, #ty: of }
+// V           := @T #void
+// U8          := @T #integer { #bit_width: 8, #signed: false }
+// U16         := @T #integer { #bit_width: 16, #signed: false }
+// U32         := @T #integer { #bit_width: 32, #signed: false }
+// U64         := @T #integer { #bit_width: 64, #signed: false }
+// Uw          := @T #integer { #bit_width: #word, #signed: false }
+// Uc          := @T #integer { #bit_width: #extc, #signed: false }
+// I8          := @T #integer { #bit_width: 8, #signed: true }
+// I16         := @T #integer { #bit_width: 16, #signed: true }
+// I32         := @T #integer { #bit_width: 32, #signed: true }
+// I64         := @T #integer { #bit_width: 64, #signed: true }
+// Iw          := @T #integer { #bit_width: #word, #signed: true }
+// Ic          := @T #integer { #bit_width: #extc, #signed: true }
+// Bool        := @T #union { #tagged: true, #fields: { true: V, false: V } }
+// Str n       := Arr n U8
+// Ptr of      := @T #ptr { #ty: of }
+// Arr n of    := @T #arr { #size: n, #ty: of }
 
 
-true := #true
-false := #false
+// true := #true
+// false := #false
 
 
 
-xor b1 b2 :=
-    neq b1 b2
-not b :=
-    b ? false | true
+// xor b1 b2 :=
+//     neq b1 b2
+// not b :=
+//     b ? false | true
