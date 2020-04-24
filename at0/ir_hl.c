@@ -542,20 +542,15 @@ IrHLExpr irHLDefExpr(AstDef* const cur_ast_def, Ast const* const ast) {
     if (def_count == 0)
         return body_expr;
 
-    IrHLExpr lets_bag = (IrHLExpr) {.kind = irhl_expr_bag, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
-    lets_bag.of_bag = (IrHLExprBag) {.items = ·make(IrHLExpr, 0, def_count)};
+    IrHLExpr lets = (IrHLExpr) {.kind = irhl_expr_let, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
+    lets.of_let = (IrHLExprLet) {.body = irHLExprKeep(body_expr), .lets = ·make(IrHLLet, 0, def_count)};
     ·forEach(AstDef, sub_def, cur_ast_def->sub_defs, {
-        IrHLExpr kvp = ((IrHLExpr) {.kind = irhl_expr_kvpair, .anns = {.origin = {.ast_expr = NULL, .ast_def = sub_def}}});
-        kvp.of_kvpair.key = irHLExprKeep((IrHLExpr) {.kind = irhl_expr_tag, .anns = {.origin = {.ast_expr = NULL, .ast_def = sub_def}}});
-        kvp.of_kvpair.key->of_tag.tag_ident = sub_def->name;
-        kvp.of_kvpair.val = irHLExprKeep(irHLDefExpr(sub_def, ast));
-        ·append(lets_bag.of_bag.items, kvp);
+        ·append(lets.of_let.lets, ((IrHLLet) {
+                                      .name = sub_def->name,
+                                      .expr = irHLExprKeep(irHLDefExpr(sub_def, ast)),
+                                  }));
     });
-    IrHLExpr let_call = (IrHLExpr) {.kind = irhl_expr_call, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
-    let_call.of_call.callee = irHLExprCopy(&lets_bag);
-    let_call.of_call.args = ·make(IrHLExpr, 1, 1);
-    let_call.of_call.args.at[0] = body_expr;
-    return let_call;
+    return lets;
 }
 
 IrHLDef irHLDefFrom(AstDef* const top_def, Ast const* const ast) {
@@ -613,8 +608,13 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
                 case blank: printChr('_'); break;
                 case unit: printStr(str("()")); break;
                 case lack: printStr(str("…")); break;
-                default: printStr(str("…?!?!?!…")); break;
+                default: ·fail(str2(str("TODO: irHLPrintExprNilish for .kind of "), uIntToStr(the_expr->of_nilish.kind, 1, 10))); break;
             }
+        } break;
+        case irhl_expr_selector: {
+            irHLPrintExpr(the_expr->of_selector.subj, false, ind);
+            printChr('.');
+            irHLPrintExpr(the_expr->of_selector.member, false, ind);
         } break;
         case irhl_expr_tag: {
             printChr('#');
@@ -650,6 +650,24 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
                 printChr(' ');
             printChr('}');
         } break;
+        case irhl_expr_let: {
+            IrHLExpr bag = (IrHLExpr) {.kind = irhl_expr_bag, .of_bag = {.items = ·make(IrHLExpr, 0, the_expr->of_let.lets.len)}};
+            ·forEach(IrHLLet, let, the_expr->of_let.lets, {
+                ·append(bag.of_bag.items, ((IrHLExpr) {.kind = irhl_expr_kvpair,
+                                                       .of_kvpair = {.key = irHLExprKeep((IrHLExpr) {
+                                                                         .kind = irhl_expr_tag,
+                                                                         .of_tag = (IrHLExprTag) {.tag_ident = let->name},
+                                                                     }),
+                                                                     .val = let->expr}}));
+            });
+            IrHLExpr faux = (IrHLExpr) {.kind = irhl_expr_call,
+                                        .of_call = {
+                                            .callee = &bag,
+                                            .args = ·make(IrHLExpr, 1, 1),
+                                        }};
+            faux.of_call.args.at[0] = *the_expr->of_let.body;
+            irHLPrintExpr(&faux, false, ind);
+        } break;
         case irhl_expr_call: {
             Bool const clasp = orig_ast_expr != NULL && orig_ast_expr->anns.toks_throng;
             Bool const parens = is_callee_or_arg && (orig_ast_expr == NULL || (orig_ast_expr->anns.parensed == 0 && !clasp));
@@ -666,17 +684,15 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
         } break;
         case irhl_expr_func: {
             printStr(str(" \\_"));
-
             ·forEach(IrHLFuncParam, param, the_expr->of_func.params, {
                 if (iˇparam > 0)
                     printChr(' ');
                 printStr(param->name);
             });
             printStr(str("->\n"));
-            for (UInt i = 0; i < ind; i += 1)
+            for (UInt i = 0; i < 4 + ind; i += 1)
                 printChr(' ');
             irHLPrintExpr(the_expr->of_func.body, false, 4 + ind);
-
             printStr(str("_/ "));
         } break;
         case irhl_expr_instr: {
