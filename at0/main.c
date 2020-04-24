@@ -38,7 +38,7 @@ int main(int const argc, CStr const argv[]) {
     // parse into a rudimentary raw context-free generic AST first
     Ast ast = parse(toks, full_src);
     astRewriteGlyphsIntoInstrs(&ast);
-    astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
+    // astDefsVerifyNoShadowings(ast.top_defs, ·make(Str, 0, 64), 64, &ast);
     // astPrint(&ast);
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
@@ -53,13 +53,13 @@ void readLnOnInput(IrHLProg const* const prog, Str const input) {
     writeStr(str("————————————————————————————————————————————————————————————\n"));
     if (strEql(str("?"), input))
         ·forEach(IrHLDef, def, prog->defs, {
-            writeStr(def->anns.name);
+            writeStr(def->name);
             writeStr(str("\n"));
         });
     else {
         IrHLDef const* found = NULL;
         ·forEach(IrHLDef, def, prog->defs, {
-            if (strEql(def->anns.name, input))
+            if (strEql(def->name, input))
                 found = def;
         });
         if (found == NULL)

@@ -509,66 +509,6 @@ void astReorderSubDefs(Ast const* const ast) {
 
 
 
-void astExprVerifyNoShadowings(AstExpr const* const expr, Strs names_stack, UInt const names_stack_capacity, Ast const* const ast) {
-    if (astExprIsInstrOrTag(expr, true, true, true))
-        return;
-    switch (expr->kind) {
-        case ast_expr_lit_braces: // fall through to:
-        case ast_expr_lit_bracket: {
-            ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
-        } break;
-        case ast_expr_form: {
-            if (!astExprIsFunc(expr))
-                ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprVerifyNoShadowings(sub_expr, names_stack, names_stack_capacity, ast); });
-            else {
-                if (expr->of_exprs.at[1].kind != ast_expr_lit_bracket)
-                    ·fail(astNodeMsg(str("unsupported expression for func params"), &expr->node_base, ast));
-                AstExprs const params = expr->of_exprs.at[1].of_exprs;
-                ·forEach(AstExpr, param, params, {
-                    if (!astExprIsInstrOrTag(param, false, true, true))
-                        ·fail(astNodeMsg(str("unsupported expression for func param"), &expr->node_base, ast));
-                    Str const param_name = param->of_exprs.at[1].of_ident;
-                    for (UInt j = 0; j < names_stack.len; j += 1)
-                        if (strEql(names_stack.at[j], param_name))
-                            ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), param_name), &param->node_base, ast));
-                    if (names_stack_capacity == names_stack.len)
-                        ·fail(str("astExprVerifyNoShadowings: TODO pre-allocate a bigger names_stack"));
-                    ·append(names_stack, param_name);
-                });
-                astExprVerifyNoShadowings(&expr->of_exprs.at[2], names_stack, names_stack_capacity, ast);
-            }
-        } break;
-        default: break;
-    }
-}
-
-void astDefsVerifyNoShadowings(AstDefs const defs, Strs names_stack, UInt const names_stack_capacity, Ast const* const ast) {
-    ·forEach(AstDef, def, defs, {
-        for (UInt i = 0; i < names_stack.len; i += 1)
-            if (strEql(names_stack.at[i], def->name))
-                ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), def->name), &def->anns.head_node_base, ast));
-        if (names_stack_capacity == names_stack.len)
-            ·fail(str("astDefsVerifyNoShadowings: TODO pre-allocate a bigger names_stack"));
-        ·append(names_stack, def->name);
-    });
-    ·forEach(AstDef, def, defs, {
-        UInt num_params = def->anns.param_names.len;
-        for (UInt i = 0; i < def->anns.param_names.len; i += 1) {
-            Str const param_name = def->anns.param_names.at[i];
-            for (UInt j = 0; j < names_stack.len; j += 1)
-                if (strEql(names_stack.at[j], param_name))
-                    ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), param_name), &def->anns.head_node_base, ast));
-            ·append(names_stack, param_name);
-        }
-        astDefsVerifyNoShadowings(def->sub_defs, names_stack, names_stack_capacity, ast);
-        astExprVerifyNoShadowings((def->anns.param_names.at == NULL) ? (&def->body) : (&def->body.of_exprs.at[2]), names_stack,
-                                  names_stack_capacity, ast);
-        names_stack.len -= num_params;
-    });
-}
-
-
-
 void astPrint(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, {
         astPrintDef(top_def, 0);
