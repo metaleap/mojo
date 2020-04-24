@@ -331,8 +331,6 @@ void astExprRewriteOpIntoInstr(AstExpr* const expr, Str const op, Bool const can
 }
 
 void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
-    // x + y == z || z * x /= y ? #true => x | _ => y - z
-
     if (expr->kind == ast_expr_lit_bracket || expr->kind == ast_expr_lit_braces)
         ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast); });
 
@@ -347,8 +345,11 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         // check for `.` field-selector sugar (foo.bar.baz)
         if (!matched)
             matched = astExprRewriteGlyphIntoInstr(expr, strL(".", 1), true, true, false, true, ast);
-        // check for `? |` sugar
+        // check for `? |` but any earlier `->` has prio
         ºUInt const idx_qmark = astExprFormIndexOfIdent(expr, strL("?", 1));
+        ºUInt const idx_func = astExprFormIndexOfIdent(expr, strL("->", 2));
+        if ((!matched) && idx_qmark.ok && idx_func.ok && idx_func.it < idx_qmark.it)
+            matched = astExprRewriteGlyphIntoInstr(expr, strL("->", 2), false, true, true, false, ast);
         if ((!matched) && idx_qmark.ok) {
             matched = true;
             AstExpr instr = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 3);
@@ -406,7 +407,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
             *expr = instr;
         }
         // check for anon-func sugar `->`
-        if (!matched)
+        if ((!matched) && idx_func.ok)
             matched = astExprRewriteGlyphIntoInstr(expr, strL("->", 2), false, true, true, false, ast);
         // check for logical operators
         if (!matched) {

@@ -114,7 +114,7 @@ typedef enum IrHLExprKind {
     irhl_expr_list,
     irhl_expr_bag,
     irhl_expr_selector,
-    irhl_expr_pairing,
+    irhl_expr_kvpair,
     irhl_expr_tag,
     irhl_expr_tagged,
     irhl_expr_ref,
@@ -166,11 +166,11 @@ typedef struct IrHLExprSelector {
     IrHLExpr* member;
 } IrHLExprSelector;
 
-typedef struct IrHLExprPairing {
+typedef struct IrHLExprKVPair {
     IrHLExpr* key;
     IrHLExpr* val;
-} IrHLExprPairing;
-typedef ·SliceOf(IrHLExprPairing) IrHLExprPairings;
+} IrHLExprKVPair;
+typedef ·SliceOf(IrHLExprKVPair) IrHLExprKVPairs;
 
 typedef struct IrHLExprTag {
     Str tag_ident;
@@ -218,7 +218,7 @@ typedef struct IrHLExprInstrExtCall {
 
 typedef struct IrHLExprInstrCase {
     IrHLType* scrut;
-    IrHLExprPairings cases;
+    IrHLExprKVPairs cases;
     IrHLExpr* default_case;
 } IrHLExprInstrCase;
 
@@ -266,7 +266,7 @@ struct IrHLExpr {
         IrHLExprList of_list;
         IrHLExprBag of_bag;
         IrHLExprSelector of_selector;
-        IrHLExprPairing of_pairing;
+        IrHLExprKVPair of_kvpair;
         IrHLExprTag of_tag;
         IrHLExprTagged of_tagged;
         IrHLExprRef of_ref;
@@ -292,6 +292,12 @@ struct IrHLDef {
 
 
 
+
+IrHLExpr* irHLExprKeep(IrHLExpr const src) {
+    IrHLExpr* new_expr = ·new(IrHLExpr);
+    *new_expr = src;
+    return new_expr;
+}
 
 IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
     IrHLExpr* new_expr = ·new(IrHLExpr);
@@ -384,30 +390,28 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
 }
 
 IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
-    IrHLExpr body_expr = irHLExprFrom(&cur_ast_def->body, cur_ast_def);
+    IrHLExpr const body_expr = irHLExprFrom(&cur_ast_def->body, cur_ast_def);
 
-    // def has sub-defs? rewrite into `let` lambda form:
-    // from `foo bar, bar := baz` into `(bar -> foo bar) baz`.  naive approach
-    // of doing so will bite us soon, then we revisit (if the bite really hurts).
-    if (cur_ast_def->sub_defs.len > 0) {
-        ·forEach(AstDef, sub_def, cur_ast_def->sub_defs, {
-            IrHLExpr expr_func = ((IrHLExpr) {.anns = {.origin = {.ast_expr = NULL, .ast_def = sub_def}},
-                                              .kind = irhl_expr_func,
-                                              .of_func = (IrHLExprFunc) {
-                                                  .body = irHLExprCopy(&body_expr),
-                                                  .params = ·make(IrHLFuncParam, 1, 1),
-                                              }});
-            expr_func.of_func.params.at[0] = (IrHLFuncParam) {.anns = {.name = sub_def->name}};
-            body_expr = ((IrHLExpr) {.anns = {.origin = {.ast_expr = &cur_ast_def->body, .ast_def = sub_def}},
-                                     .kind = irhl_expr_call,
-                                     .of_call = (IrHLExprCall) {
-                                         .callee = irHLExprCopy(&expr_func),
-                                         .args = ·make(IrHLExpr, 1, 1),
-                                     }});
-            body_expr.of_call.args.at[0] = irHLDefExpr(sub_def);
-        });
-    }
-    return body_expr;
+    // def has no sub-defs? we're done:
+    UInt const def_count = cur_ast_def->sub_defs.len;
+    if (def_count == 0)
+        return body_expr;
+
+    // def does have sub-defs: rewrite into `let`-struct form
+    IrHLExpr lets = (IrHLExpr) {.kind = irhl_expr_bag, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
+    lets.of_bag = (IrHLExprBag) {.items = ·make(IrHLExpr, 0, def_count)};
+    ·forEach(AstDef, sub_def, cur_ast_def->sub_defs, {
+        IrHLExpr kvp = ((IrHLExpr) {.kind = irhl_expr_kvpair, .anns = {.origin = {.ast_expr = NULL, .ast_def = sub_def}}});
+        kvp.of_kvpair.key = irHLExprKeep((IrHLExpr) {.kind = irhl_expr_tag, .anns = {.origin = {.ast_expr = NULL, .ast_def = sub_def}}});
+        kvp.of_kvpair.key->of_tag.tag_ident = sub_def->name;
+        kvp.of_kvpair.val = irHLExprKeep(irHLDefExpr(sub_def));
+        ·append(lets.of_bag.items, kvp);
+    });
+    IrHLExpr let = (IrHLExpr) {.kind = irhl_expr_call, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
+    let.of_call.callee = irHLExprCopy(&lets);
+    let.of_call.args = ·make(IrHLExpr, 1, 1);
+    let.of_call.args.at[0] = body_expr;
+    return let;
 }
 
 IrHLDef irHLDefFrom(AstDef* const top_def) {
@@ -474,6 +478,11 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
         } break;
         case irhl_expr_ref: {
             printStr(the_expr->of_ref.name);
+        } break;
+        case irhl_expr_kvpair: {
+            irHLPrintExpr(the_expr->of_kvpair.key, false, ind);
+            printStr(str(": "));
+            irHLPrintExpr(the_expr->of_kvpair.val, false, ind);
         } break;
         case irhl_expr_list: {
             printChr('[');
@@ -545,7 +554,7 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
 
 void irHLPrintDef(IrHLDef const* const the_def) {
     printStr(the_def->anns.name);
-    printStr(str(" :=\n  "));
+    printStr(str(" :=\n    "));
     irHLPrintExpr(&the_def->body, false, 4);
     printChr('\n');
 }

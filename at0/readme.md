@@ -11,9 +11,9 @@ anticipate the various early-stage limitations and reflect them in this code bas
 - no zero-terminated "C strings", all array uses via (macro) `·SliceOf(T)` types
 
 We want here to merely reach the "execute-input-sources-or-die" stage. No bells &
-whistles, no *fancy* type stuff, no syntax sugars (not even operators, we endure
-prim calls). No nifty optimizations, no proper byte code, will be slow. Wasteful on
-RAM, no `free`ing. Not even cross-source-file-imports, too bad. But must focus:
+whistles, no *fancy* type stuff, not a lot of syntax sugars. No nifty optimizations,
+no proper byte code, will be slow. Wasteful on RAM, no `free`ing. Not even
+cross-source-file-imports, too bad. But must focus:
 
 Once the "basic interpreter" destination is reached, build it out to where the
 interpreter itself can be fully redone in WIP-lang, interpreter-in-interpreter.

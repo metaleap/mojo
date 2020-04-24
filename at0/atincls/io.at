@@ -9,8 +9,9 @@ io :=
     writeTo file str ? #ok => n -> n | #err => _ -> libc.abort 1
 
   writeTo file str :=
-    eq n_written str# || eq maybe_err 0 ? #ok n_written | #err maybe_err
-    n_written := libc.fwrite str 1 str# file
+    { e: maybe_err } (n_written == str.# || e == 0 ? #ok n_written | #err e)
+
+    n_written := libc.fwrite str 1 str.# file
     maybe_err := libc.ferror file
     foo := c1 == (c2 == c3)
     bar := x+y * a-b * c/d
