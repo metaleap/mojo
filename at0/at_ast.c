@@ -1,5 +1,5 @@
 #pragma once
-#include "metaleap.c"
+#include "utils_and_libc_deps.c"
 #include "std_io.c"
 #include "at_toks.c"
 
@@ -375,7 +375,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
             AstExprs const cases = astExprFormSplit(&q_follow, strL("|", 1), ·ok(Str, strL("?", 1)));
             if (cases.len <= 1)
                 ·fail(astNodeMsg(str("insufficient cases following '?'"), &expr->node_base, ast));
-            instr.of_exprs.at[2] = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_lit_braces, cases.len);
+            instr.of_exprs.at[2] = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_lit_bracket, cases.len);
             UInt count_arrows = 0;
             ·forEach(AstExpr, case_expr, cases, {
                 if (case_expr->kind == ast_expr_form && case_expr->of_exprs.len == 0)

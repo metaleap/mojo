@@ -1,7 +1,7 @@
 #pragma clang diagnostic ignored "-Wunused-parameter"
 #pragma clang diagnostic ignored "-Wunused-function"
 
-#include "metaleap.c"
+#include "utils_and_libc_deps.c"
 #include "std_io.c"
 
 #include "at_toks.c"
@@ -41,10 +41,11 @@ int main(int const argc, CStr const argv[]) {
     // astPrint(&ast);
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
-    IrHLProg ir_hl_prog = irHLProgFrom(&ast);
-    // irHLPrintProg(&ir_hl_prog);
+    IrHLProg ir_hl = irHLInitFrom(&ast);
+    irHLProcessIdents(&ir_hl);
+    irHLPrintProg(&ir_hl);
 
-    // readLnLoop(&ir_hl_prog);
+    // readLnLoop(&ir_hl);
     return 0;
 }
 

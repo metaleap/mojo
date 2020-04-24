@@ -59,8 +59,6 @@ struct Mem {
 
 
 
-#define ·nameOf(ident) (#ident)
-
 #define ·make(T, ³initial_len__, ²max_capacity__)                                                                                              \
     ((T##s) {.len = (³initial_len__),                                                                                                          \
              .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
@@ -91,7 +89,7 @@ struct Mem {
 
 #define ·fail(¹the_msg)                                                                                                                        \
     do {                                                                                                                                       \
-        fprintf(stderr, "panicked at: %s:%d\n", __FILE__, __LINE__);                                                                           \
+        fprintf(stderr, "\n——————————————————————————————————————————\npanicked at: %s:%d\n", __FILE__, __LINE__);                             \
         abortWithBacktraceAndMsg(¹the_msg);                                                                                                    \
     } while (0)
 
@@ -102,7 +100,8 @@ struct Mem {
 #define ·assert(¹the_predicate)                                                                                                                \
     do {                                                                                                                                       \
         if (!(¹the_predicate)) {                                                                                                               \
-            fprintf(stderr, "condition `%s` violated in: %s:%d\n\n", #¹the_predicate, __FILE__, __LINE__);                                     \
+            fprintf(stderr, "\n——————————————————————————————————————————\ncondition `%s` violated in: %s:%d\n\n", #¹the_predicate, __FILE__,  \
+                    __LINE__);                                                                                                                 \
             abortWithBacktraceAndMsg((Str) {.len = 0, .at = NULL});                                                                            \
         }                                                                                                                                      \
     } while (0)
@@ -209,11 +208,8 @@ Str strCopy(CStr const c_str) {
     return copy;
 }
 
-// unused in principle, but kept around just in case we really do need a printf
-// occasionally while debugging. result for immediate consumption! not for keeping.
+// unused in principle, but kept around for the occasional temporary printf.
 CStr strZ(Str const str) {
-    if (str.at[str.len] == 0)
-        return (CStr)str.at;
     U8* buf = memAlloc(1 + str.len);
     buf[str.len] = 0;
     for (UInt i = 0; i < str.len; i += 1)
