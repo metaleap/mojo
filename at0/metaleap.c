@@ -39,6 +39,7 @@ typedef int CInt;
 typedef void* PtrAny;
 typedef const char* CStr;
 
+typedef ·Maybe(Bool) ºBool;
 typedef ·Maybe(UInt) ºUInt;
 typedef ·Maybe(U64) ºU64;
 typedef ·SliceOf(UInt) UInts;
@@ -59,6 +60,12 @@ struct Mem {
 
 
 #define ·nameOf(ident) (#ident)
+
+#define ·make(T, ³initial_len__, ²max_capacity__)                                                                                              \
+    ((T##s) {.len = (³initial_len__),                                                                                                          \
+             .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
+
+#define ·new(T) (·make(T, 1, 1).at)
 
 #define ·slice(TSlice__, ¹the_slice_to_reslice__, ²idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                      \
     ((TSlice__##s) {.len = (¹idx_end_to_reslice_until__) - (²idx_start_reslice_from__),                                                        \
@@ -81,7 +88,6 @@ struct Mem {
 #define ·ok(T, ¹the_value__) ((º##T) {.ok = true, .it = (¹the_value__)})
 
 #define ·none(T) ((º##T) {.ok = false})
-
 
 #define ·fail(¹the_msg)                                                                                                                        \
     do {                                                                                                                                       \
@@ -124,12 +130,6 @@ void abortWithBacktraceAndMsg(Str const msg) {
 }
 
 
-
-#define ·make(T, ³initial_len__, ²max_capacity__)                                                                                              \
-    ((T##s) {.len = (³initial_len__),                                                                                                          \
-             .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
-
-#define ·new(T) (·make(T, 1, 1).at)
 
 Str strL(CStr const c_str, UInt str_len) {
     if (str_len == 0)

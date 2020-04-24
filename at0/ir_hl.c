@@ -51,6 +51,7 @@ typedef struct IrHLTypeInt {
     struct {
         Bool word;
         Bool extc;
+        Bool sign;
     } anns;
 } IrHLTypeInt;
 
@@ -99,8 +100,6 @@ struct IrHLType {
         IrHLTypeBag of_union;
         IrHLTypeType of_type;
     };
-    struct {
-    } anns;
 };
 
 
@@ -292,6 +291,36 @@ struct IrHLDef {
 
 
 
+ºBool irHLExprTagBool(IrHLExpr const* const expr) {
+    if (expr->kind == irhl_expr_tag) {
+        if (strEql(strL("true", 4), expr->of_tag.tag_ident))
+            return ·ok(Bool, true);
+        else if (strEql(strL("false", 5), expr->of_tag.tag_ident))
+            return ·ok(Bool, false);
+    }
+    return ·none(Bool);
+}
+
+IrHLExpr* irHLBagFieldOrFail(IrHLExpr const* const expr_bag, Str const field_name, Ast const* const ast) {
+    ·forEach(IrHLExpr, item, expr_bag->of_bag.items, {
+        if (item->kind == irhl_expr_kvpair && item->of_kvpair.key->kind == irhl_expr_tag
+            && strEql(field_name, item->of_kvpair.key->of_tag.tag_ident))
+            return item->of_kvpair.val;
+    });
+    ·fail(astNodeMsg(str3(str("expected field named '"), field_name, str("'")), &expr_bag->anns.origin.ast_expr->node_base, ast));
+    return NULL;
+}
+
+Bool irHLBagFieldBoolOrFail(IrHLExpr const* const expr_bag, Str const field_name, Ast const* const ast) {
+    IrHLExpr const* const kvp_val = irHLBagFieldOrFail(expr_bag, field_name, ast);
+    if (kvp_val->kind == irhl_expr_tag) {
+        ºBool const maybe = irHLExprTagBool(kvp_val);
+        if (maybe.ok)
+            return maybe.it;
+    }
+    ·fail(astNodeMsg(str3(str("expected #true or #false for '"), field_name, str("'")), &kvp_val->anns.origin.ast_expr->node_base, ast));
+    return false;
+}
 
 IrHLExpr* irHLExprKeep(IrHLExpr const src) {
     IrHLExpr* new_expr = ·new(IrHLExpr);
@@ -305,7 +334,59 @@ IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
     return new_expr;
 }
 
-IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
+IrHLExpr irHLExprTypeFrom(IrHLExpr const* const instr, Ast const* const ast) {
+    AstNodeBase const* const err_node = &instr->anns.origin.ast_expr->node_base;
+    if (instr->of_call.args.len < 1)
+        ·fail(astNodeMsg(str("'@T' requires type #tag"), err_node, ast));
+    if (instr->of_call.args.len > 2)
+        ·fail(astNodeMsg(str("'@T' expects 1 or 2 args"), err_node, ast));
+    IrHLExpr const* const arg_tag = &instr->of_call.args.at[0];
+    IrHLExpr const* const arg_opt = (instr->of_call.args.len > 1) ? &instr->of_call.args.at[1] : NULL;
+    if (arg_tag->kind != irhl_expr_tag)
+        ·fail(astNodeMsg(str("'@T' requires type #tag"), err_node, ast));
+
+    IrHLType* ty = ·new(IrHLType);
+    if (strEql(arg_tag->of_tag.tag_ident, str("void"))) {
+        ty->kind = irhl_type_void;
+
+    } else if (strEql(arg_tag->of_tag.tag_ident, str("integer"))) {
+        if (arg_opt == NULL || arg_opt->kind != irhl_expr_bag)
+            ·fail(astNodeMsg(str("'@T #integer' requires 2nd arg to be {}"), err_node, ast));
+        ty->kind = irhl_type_int;
+        ty->of_int = (IrHLTypeInt) {.bit_width = 0,
+                                    .anns = {.word = false, .extc = false, .sign = irHLBagFieldBoolOrFail(arg_opt, strL("signed", 6), ast)}};
+        IrHLExpr const* const bit_width = irHLBagFieldOrFail(arg_opt, str("bit_width"), ast);
+        if (bit_width->kind == irhl_expr_int) {
+            if (bit_width->of_int.int_value < 1 || bit_width->of_int.int_value > 64)
+                ·fail(astNodeMsg(str("'@T #integer' requires a mainstream #bit_width for now"), err_node, ast));
+            ty->of_int.bit_width = bit_width->of_int.int_value;
+        } else if (bit_width->kind == irhl_expr_tag) {
+            ty->of_int.anns.word = strEql(str("word"), bit_width->of_tag.tag_ident);
+            ty->of_int.anns.extc = strEql(str("extc"), bit_width->of_tag.tag_ident);
+        }
+        if (ty->of_int.bit_width == 0 && !(ty->of_int.anns.word || ty->of_int.anns.extc))
+            ·fail(astNodeMsg(str("'@T #integer' requires a mainstream #bit_width for now"), err_node, ast));
+
+    } else
+        ·fail(astNodeMsg(str3(str("'@T' with unrecognized type #tag '"), arg_tag->of_tag.tag_ident, str("'")), err_node, ast));
+    return (IrHLExpr) {.anns = instr->anns, .kind = irhl_expr_type, .of_type = (IrHLExprType) {.ty_value = ty}};
+}
+
+IrHLExpr irHLExprKvPairFrom(IrHLExpr const* const instr, Ast const* const ast) {
+    AstNodeBase const* const err_node = &instr->anns.origin.ast_expr->node_base;
+    if (instr->of_call.args.len != 2)
+        ·fail(astNodeMsg(str("'@:' expects 2 args"), err_node, ast));
+
+    IrHLExpr ret_expr = (IrHLExpr) {.kind = irhl_expr_kvpair,
+                                    .anns = ret_expr.anns,
+                                    .of_kvpair = (IrHLExprKVPair) {
+                                        .key = &instr->of_call.args.at[0],
+                                        .val = &instr->of_call.args.at[1],
+                                    }};
+    return ret_expr;
+}
+
+IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const* const ast) {
     IrHLExpr ret_expr = (IrHLExpr) {.anns = {.origin = {.ast_def = ast_def, .ast_expr = ast_expr}}};
     switch (ast_expr->kind) {
         case ast_expr_lit_int: {
@@ -340,7 +421,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
             UInt const list_len = ast_expr->of_exprs.len;
             ret_expr.of_list = (IrHLExprList) {.items = ·make(IrHLExpr, list_len, list_len)};
             ·forEach(AstExpr, item_expr, ast_expr->of_exprs, {
-                IrHLExpr list_item_expr = irHLExprFrom(item_expr, ast_def);
+                IrHLExpr list_item_expr = irHLExprFrom(item_expr, ast_def, ast);
                 ret_expr.of_list.items.at[iˇitem_expr] = list_item_expr;
             });
         } break;
@@ -349,7 +430,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
             UInt const bag_len = ast_expr->of_exprs.len;
             ret_expr.of_bag = (IrHLExprBag) {.items = ·make(IrHLExpr, bag_len, bag_len)};
             ·forEach(AstExpr, item_expr, ast_expr->of_exprs, {
-                IrHLExpr bag_item_expr = irHLExprFrom(item_expr, ast_def);
+                IrHLExpr bag_item_expr = irHLExprFrom(item_expr, ast_def, ast);
                 ret_expr.of_bag.items.at[iˇitem_expr] = bag_item_expr;
             });
         } break;
@@ -372,15 +453,56 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
 
             ret_expr.kind = irhl_expr_call;
             UInt const num_args = ast_expr->of_exprs.len - 1;
-            IrHLExpr const callee = irHLExprFrom(&ast_expr->of_exprs.at[0], ast_def);
+            IrHLExpr const callee = irHLExprFrom(&ast_expr->of_exprs.at[0], ast_def, ast);
             ret_expr.of_call = (IrHLExprCall) {
                 .callee = irHLExprCopy(&callee),
                 .args = ·make(IrHLExpr, num_args, num_args),
             };
             ·forEach(AstExpr, arg_expr, ast_expr->of_exprs, {
                 if (iˇarg_expr > 0)
-                    ret_expr.of_call.args.at[iˇarg_expr - 1] = irHLExprFrom(arg_expr, ast_def);
+                    ret_expr.of_call.args.at[iˇarg_expr - 1] = irHLExprFrom(arg_expr, ast_def, ast);
             });
+
+            if (ret_expr.of_call.callee->kind == irhl_expr_instr && ret_expr.of_call.callee->of_instr.kind == irhl_instr_named) {
+                Str const instr_name = ret_expr.of_call.callee->of_instr.of_named;
+                Bool matched = false;
+                if ((!matched) && strEql(strL("T", 1), instr_name)) {
+                    matched = true;
+                    ret_expr = irHLExprTypeFrom(&ret_expr, ast);
+                }
+                if ((!matched) && strEql(strL("extern", 6), instr_name)) {
+                    matched = true;
+                }
+                if ((!matched) && strEql(strL(":", 1), instr_name)) {
+                    matched = true;
+                    ret_expr = irHLExprKvPairFrom(&ret_expr, ast);
+                }
+                if ((!matched) && strEql(strL(".", 1), instr_name)) {
+                    matched = true;
+                }
+                if ((!matched) && strEql(strL("->", 2), instr_name)) {
+                    matched = true;
+                }
+                if ((!matched) && strEql(strL("?", 1), instr_name)) {
+                    matched = true;
+                }
+                if ((!matched) && strEql(strL("|", 1), instr_name)) {
+                    matched = true;
+                }
+                if ((!matched) && (strEql(strL("&&", 2), instr_name) || strEql(strL("||", 2), instr_name))) {
+                    matched = true;
+                }
+                if ((!matched) && (strEql(strL("==", 2), instr_name) || strEql(strL("/=", 2), instr_name))) {
+                    matched = true;
+                }
+                if ((!matched)
+                    && (strEql(strL("+", 1), instr_name) || strEql(strL("-", 1), instr_name) || strEql(strL("*", 1), instr_name)
+                        || strEql(strL("/", 1), instr_name) || strEql(strL("\x25", 1), instr_name))) {
+                    matched = true;
+                }
+                if (!matched)
+                    ·fail(astNodeMsg(str3(str("instruction '"), instr_name, str("' not recognized")), &ast_expr->node_base, ast));
+            }
         } break;
         default: {
             ·fail(str2(str("TODO: irHLExprFrom for .kind of "), uIntToStr(ast_expr->kind, 1, 10)));
@@ -389,35 +511,32 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def) {
     return ret_expr;
 }
 
-IrHLExpr irHLDefExpr(AstDef* const cur_ast_def) {
-    IrHLExpr const body_expr = irHLExprFrom(&cur_ast_def->body, cur_ast_def);
-
-    // def has no sub-defs? we're done:
+IrHLExpr irHLDefExpr(AstDef* const cur_ast_def, Ast const* const ast) {
+    IrHLExpr const body_expr = irHLExprFrom(&cur_ast_def->body, cur_ast_def, ast);
     UInt const def_count = cur_ast_def->sub_defs.len;
     if (def_count == 0)
         return body_expr;
 
-    // def does have sub-defs: rewrite into `let`-struct form
-    IrHLExpr lets = (IrHLExpr) {.kind = irhl_expr_bag, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
-    lets.of_bag = (IrHLExprBag) {.items = ·make(IrHLExpr, 0, def_count)};
+    IrHLExpr lets_bag = (IrHLExpr) {.kind = irhl_expr_bag, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
+    lets_bag.of_bag = (IrHLExprBag) {.items = ·make(IrHLExpr, 0, def_count)};
     ·forEach(AstDef, sub_def, cur_ast_def->sub_defs, {
         IrHLExpr kvp = ((IrHLExpr) {.kind = irhl_expr_kvpair, .anns = {.origin = {.ast_expr = NULL, .ast_def = sub_def}}});
         kvp.of_kvpair.key = irHLExprKeep((IrHLExpr) {.kind = irhl_expr_tag, .anns = {.origin = {.ast_expr = NULL, .ast_def = sub_def}}});
         kvp.of_kvpair.key->of_tag.tag_ident = sub_def->name;
-        kvp.of_kvpair.val = irHLExprKeep(irHLDefExpr(sub_def));
-        ·append(lets.of_bag.items, kvp);
+        kvp.of_kvpair.val = irHLExprKeep(irHLDefExpr(sub_def, ast));
+        ·append(lets_bag.of_bag.items, kvp);
     });
-    IrHLExpr let = (IrHLExpr) {.kind = irhl_expr_call, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
-    let.of_call.callee = irHLExprCopy(&lets);
-    let.of_call.args = ·make(IrHLExpr, 1, 1);
-    let.of_call.args.at[0] = body_expr;
-    return let;
+    IrHLExpr let_call = (IrHLExpr) {.kind = irhl_expr_call, .anns = {.origin = {.ast_expr = NULL, .ast_def = cur_ast_def}}};
+    let_call.of_call.callee = irHLExprCopy(&lets_bag);
+    let_call.of_call.args = ·make(IrHLExpr, 1, 1);
+    let_call.of_call.args.at[0] = body_expr;
+    return let_call;
 }
 
-IrHLDef irHLDefFrom(AstDef* const top_def) {
+IrHLDef irHLDefFrom(AstDef* const top_def, Ast const* const ast) {
     IrHLDef this_def = (IrHLDef) {
         .anns = {.origin_def = top_def, .name = top_def->name},
-        .body = irHLDefExpr(top_def),
+        .body = irHLDefExpr(top_def, ast),
     };
     return this_def;
 }
@@ -428,7 +547,7 @@ IrHLProg irHLProgFrom(Ast* const ast) {
         .defs = ·make(IrHLDef, 0, ast->top_defs.len),
     };
     ·forEach(AstDef, ast_top_def, ast->top_defs, {
-        IrHLDef ir_hl_top_def = irHLDefFrom(ast_top_def);
+        IrHLDef ir_hl_top_def = irHLDefFrom(ast_top_def, ast);
         ·append(ret_prog.defs, ir_hl_top_def);
     });
     return ret_prog;
