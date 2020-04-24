@@ -379,28 +379,25 @@ void irHLExprProcessIdents(IrHLExpr* const expr, Strs names_stack, IrHLRefs ref_
             irHLExprProcessIdents(expr->of_let.body, names_stack, ref_stack, cur_def, prog);
         } break;
         case irhl_expr_ref: {
-            Bool found = (expr->of_ref.path.at != NULL);
             Str const ident = expr->of_ref.name_or_qname;
-            printf("IDENT\t%s\t%zu\t%zu\n", strZ(ident), ref_stack.len, names_stack.len);
-            if (!found)
+            if (expr->of_ref.path.at == NULL)
                 ·forEach(IrHLDef, def, prog->defs, {
                     if (strEql(def->name, ident)) {
                         expr->of_ref.path = ·make(IrHLRef, 1, 1);
                         expr->of_ref.path.at[0] = ((IrHLRef) {.kind = irhl_ref_def, .of_def = def});
-                        found = true;
                         break;
                     }
                 });
-            if (!found) {
-                for (UInt i = ref_stack.len - 1; (!found) && i > 0; i -= 1) { // dont need the 0th entry, its the cur_def
-                    printf("\t%s\t%zu\n", strZ(ident), i);
+            if (expr->of_ref.path.at == NULL) {
+                for (UInt i = ref_stack.len - 1; i > 0 && expr->of_ref.path.at == NULL; i -= 1) { // dont need the 0th entry, its the cur_def
                     IrHLRef* ref = &ref_stack.at[i];
                     switch (ref->kind) {
                         case irhl_ref_expr_func: {
                             ·forEach(IrHLFuncParam, param, ref->of_expr_func->of_func.params, {
                                 if (strEql(param->name, ident)) {
-                                    found = true;
-                                    printf("\t\t--is--param--at--%zu/%zu--\n", i, ref_stack.len);
+                                    expr->of_ref.path = ·make(IrHLRef, 1 + i, 0);
+                                    for (UInt j = 0; j <= i; j += 1)
+                                        expr->of_ref.path.at[j] = ref_stack.at[j];
                                     break;
                                 }
                             });
@@ -408,8 +405,9 @@ void irHLExprProcessIdents(IrHLExpr* const expr, Strs names_stack, IrHLRefs ref_
                         case irhl_ref_expr_let: {
                             ·forEach(IrHLLet, let, ref->of_expr_let->of_let.lets, {
                                 if (strEql(let->name, ident)) {
-                                    found = true;
-                                    printf("\t\t--is--let--at--%zu/%zu--\n", i, ref_stack.len);
+                                    expr->of_ref.path = ·make(IrHLRef, 1 + i, 0);
+                                    for (UInt j = 0; j <= i; j += 1)
+                                        expr->of_ref.path.at[j] = ref_stack.at[j];
                                     break;
                                 }
                             });
@@ -418,7 +416,8 @@ void irHLExprProcessIdents(IrHLExpr* const expr, Strs names_stack, IrHLRefs ref_
                     }
                 }
             }
-            printf("\t%d\n", found);
+            if (expr->of_ref.path.at == NULL)
+                ·fail(astNodeMsg(str("identifier not in scope"), &expr->anns.origin.ast_expr->node_base, prog->anns.origin_ast));
         } break;
         default: {
         } break;
