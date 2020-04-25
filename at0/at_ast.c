@@ -95,8 +95,8 @@ Str astNodeSrc(AstNodeBase const* const node, Ast const* const ast) {
 AstDef astDef(AstDef const* const parent_def, UInt const all_toks_idx, UInt const toks_len) {
     AstNodeBase node_base = astNodeBaseFrom(all_toks_idx, toks_len);
     return (AstDef) {
-        .sub_defs = (AstDefs) {.at = NULL, .len = 0},
-        .anns = {.parent_def = parent_def, .head_node_base = node_base, .param_names = (Strs) {.len = 0, .at = NULL}},
+        .sub_defs = ·len0(AstDef),
+        .anns = {.parent_def = parent_def, .head_node_base = node_base, .param_names = ·len0(Str)},
         .node_base = node_base,
     };
 }
@@ -111,7 +111,7 @@ AstExpr astExpr(UInt const toks_idx, UInt const toks_len, AstExprKind const expr
 }
 
 AstExpr astExprFormEmpty(AstNodeBase const from) {
-    return (AstExpr) {.kind = ast_expr_form, .of_exprs = (AstExprs) {.at = NULL, .len = 0}, .node_base = from};
+    return (AstExpr) {.kind = ast_expr_form, .of_exprs = ·len0(AstExpr), .node_base = from};
 }
 
 AstExpr astExprFormSub(AstExpr const* const ast_expr, UInt const idx_start, UInt const idx_end) {

@@ -322,7 +322,7 @@ struct IrHLExpr {
 
 struct IrHLDef {
     Str name;
-    IrHLExpr body;
+    IrHLExpr* body;
     struct {
         AstDef const* origin_ast_def;
     } anns;
@@ -442,7 +442,41 @@ void irHLProcessIdents(IrHLProg const* const prog) {
              { irHLProcessIdentsPush(&names_stack, def->name, &def->anns.origin_ast_def->anns.head_node_base, prog->anns.origin_ast); });
     ·forEach(IrHLDef, def, prog->defs, {
         ref_stack.at[0] = ((IrHLRef) {.kind = irhl_ref_def, .of_def = def});
-        irHLExprProcessIdents(&def->body, names_stack, ref_stack, def, prog);
+        irHLExprProcessIdents(def->body, names_stack, ref_stack, def, prog);
+    });
+}
+
+
+
+struct IrHLPreduceVal;
+typedef struct IrHLPreduceVal IrHLPreduceVal;
+typedef ·SliceOf(IrHLPreduceVal) IrHLPreduceVals;
+struct IrHLPreduceVal {
+    IrHLExpr* expr;
+    IrHLPreduceVals env;
+};
+typedef struct CtxIrHLPreduce {
+    IrHLProg* prog;
+    IrHLDef* cur_def;
+    IrHLPreduceVals env;
+} CtxIrHLPreduce;
+#define irhl_preduce_env_cap 2
+
+IrHLPreduceVal irHLPreduceExpr(CtxIrHLPreduce const* const ctx, IrHLExpr* const expr) {
+    IrHLPreduceVal ret_val = (IrHLPreduceVal) {.expr = expr, .env = ·len0(IrHLPreduceVal)};
+    switch (expr->kind) {
+        default: break;
+    }
+    return ret_val;
+}
+
+void irHLPreduce(IrHLProg* const prog) {
+    CtxIrHLPreduce ctx = (CtxIrHLPreduce) {.prog = prog, .env = ·make(IrHLPreduceVal, 0, irhl_preduce_env_cap)};
+    ·forEach(IrHLDef, def, prog->defs, {
+        ctx.cur_def = def;
+        IrHLPreduceVal const result = irHLPreduceExpr(&ctx, def->body);
+        if (result.env.len == 0 && result.expr != NULL)
+            def->body = result.expr;
     });
 }
 
@@ -611,7 +645,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
                 ret_expr.of_tag = (IrHLExprTag) {.tag_ident = ·slice(U8, ast_expr->of_ident, 1, ast_expr->of_ident.len)};
             } else {
                 ret_expr.kind = irhl_expr_ref;
-                ret_expr.of_ref = (IrHLExprRef) {.path = {.at = NULL, .len = 0}, .name_or_qname = ast_expr->of_ident};
+                ret_expr.of_ref = (IrHLExprRef) {.path = ·len0(IrHLRef), .name_or_qname = ast_expr->of_ident};
             }
         } break;
         case ast_expr_lit_bracket: {
@@ -732,7 +766,11 @@ IrHLExpr irHLDefExpr(AstDef* const cur_ast_def, Ast const* const ast) {
 }
 
 IrHLDef irHLDefFrom(AstDef* const top_def, Ast const* const ast) {
-    IrHLDef this_def = (IrHLDef) {.name = top_def->name, .anns = {.origin_ast_def = top_def}, .body = irHLDefExpr(top_def, ast)};
+    IrHLDef this_def = (IrHLDef) {
+        .name = top_def->name,
+        .anns = {.origin_ast_def = top_def},
+        .body = irHLExprKeep(irHLDefExpr(top_def, ast)),
+    };
     return this_def;
 }
 
@@ -742,8 +780,8 @@ IrHLProg irHLInitFrom(Ast* const ast) {
         .defs = ·make(IrHLDef, 0, ast->top_defs.len),
     };
     ·forEach(AstDef, ast_top_def, ast->top_defs, {
-        IrHLDef ir_hl_top_def = irHLDefFrom(ast_top_def, ast);
-        ·append(ret_prog.defs, ir_hl_top_def);
+        IrHLDef irhl_top_def = irHLDefFrom(ast_top_def, ast);
+        ·append(ret_prog.defs, irhl_top_def);
     });
     return ret_prog;
 }
@@ -906,7 +944,7 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
 void irHLPrintDef(IrHLDef const* const the_def) {
     printStr(the_def->name);
     printStr(str(" :=\n    "));
-    irHLPrintExpr(&the_def->body, false, 4);
+    irHLPrintExpr(the_def->body, false, 4);
     printChr('\n');
 }
 

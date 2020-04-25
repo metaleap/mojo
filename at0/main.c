@@ -17,7 +17,7 @@ int main(int const argc, CStr const argv[]) {
     ·assert(argc > 1);
 
     // read and concat together all input source files specified via args
-    Str full_src = (Str) {.at = NULL, .len = 0};
+    Str full_src = ·len0(U8);
     for (int i = 1; i < argc; i += 1) {
         // hacky: all allocs in this loop (strCopy and readFile) are contiguous in `mem`,
         // so our `full_src` bytes-slice just gets the starting addr and its `len` increased.
@@ -43,6 +43,7 @@ int main(int const argc, CStr const argv[]) {
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
     IrHLProg ir_hl = irHLInitFrom(&ast);
     irHLProcessIdents(&ir_hl);
+    irHLPreduce(&ir_hl);
     irHLPrintProg(&ir_hl);
 
     // readLnLoop(&ir_hl);

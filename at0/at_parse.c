@@ -130,7 +130,7 @@ AstExpr parseExprLitStr(UInt const all_toks_idx, Ast const* const ast, Token con
 
 AstExprs parseExprsDelimited(Tokens const toks, UInt const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
     if (toks.len == 0)
-        return (AstExprs) {.len = 0, .at = NULL};
+        return ·len0(AstExpr);
     Tokenss const per_elem_toks = toksSplit(toks, tok_kind_sep);
     AstExprs ret_exprs = ·make(AstExpr, 0, per_elem_toks.len);
     UInt toks_idx = all_toks_idx;

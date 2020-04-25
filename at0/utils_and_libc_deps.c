@@ -63,6 +63,8 @@ struct Mem {
     ((T##s) {.len = (³initial_len__),                                                                                                          \
              .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
 
+#define ·len0(T) ((T##s) {.len = 0, .at = NULL})
+
 #define ·new(T) (·make(T, 1, 1).at)
 
 #define ·slice(TSlice__, ¹the_slice_to_reslice__, ²idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                      \
@@ -102,7 +104,7 @@ struct Mem {
         if (!(¹the_predicate)) {                                                                                                               \
             fprintf(stderr, "\n——————————————————————————————————————————\ncondition `%s` violated in: %s:%d\n\n", #¹the_predicate, __FILE__,  \
                     __LINE__);                                                                                                                 \
-            abortWithBacktraceAndMsg((Str) {.len = 0, .at = NULL});                                                                            \
+            abortWithBacktraceAndMsg(·len0(U8));                                                                                               \
         }                                                                                                                                      \
     } while (0)
 #endif
@@ -231,7 +233,7 @@ Bool strEql(Str const one, Str const two) {
 }
 
 Str strPrefSuff(Str const str, Str const prefix) {
-    Str ret_str = (Str) {.len = 0, .at = NULL};
+    Str ret_str = ·len0(U8);
     if (str.len >= prefix.len)
         if (strEql(prefix, ·slice(U8, str, 0, prefix.len)))
             return ·slice(U8, str, prefix.len, str.len);
