@@ -172,6 +172,7 @@ typedef struct IrHLExprList {
 
 typedef struct IrHLExprBag {
     IrHLExprs items;
+    Bool listish;
 } IrHLExprBag;
 
 typedef struct IrHLExprSelector {
@@ -330,6 +331,20 @@ struct IrHLDef {
 
 
 
+IrHLExpr* irHLExprKeep(IrHLExpr const src) {
+    IrHLExpr* new_expr = ·new(IrHLExpr);
+    *new_expr = src;
+    return new_expr;
+}
+
+IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
+    IrHLExpr* new_expr = ·new(IrHLExpr);
+    *new_expr = *src;
+    return new_expr;
+}
+
+
+
 #define process_idents_stack_capacity 40
 void irHLProcessIdentsPush(Strs* const names_stack, Str const name, AstNodeBase const* const node, Ast const* const ast) {
     for (UInt i = 0; i < names_stack->len; i += 1)
@@ -379,11 +394,7 @@ void irHLExprProcessIdents(IrHLExpr* const expr, Strs names_stack, IrHLRefs ref_
             ·forEach(IrHLLet, let, expr->of_let.lets,
                      { irHLProcessIdentsPush(&names_stack, let->name, &let->expr->anns.origin.ast_def->node_base, prog->anns.origin_ast); });
             ·append(ref_stack, ((IrHLRef) {.kind = irhl_ref_expr_let, .of_expr_let = expr}));
-            ·forEach(IrHLLet, let, expr->of_let.lets, {
-                // ·append(ref_stack, ((IrHLRef) {.kind = irhl_ref_let, .of_let = let}));
-                irHLExprProcessIdents(let->expr, names_stack, ref_stack, cur_def, prog);
-                // ref_stack.len -= 1;
-            });
+            ·forEach(IrHLLet, let, expr->of_let.lets, { irHLExprProcessIdents(let->expr, names_stack, ref_stack, cur_def, prog); });
             irHLExprProcessIdents(expr->of_let.body, names_stack, ref_stack, cur_def, prog);
         } break;
         case irhl_expr_ref: {
@@ -448,35 +459,85 @@ void irHLProcessIdents(IrHLProg const* const prog) {
 
 
 
-struct IrHLPreduceVal;
-typedef struct IrHLPreduceVal IrHLPreduceVal;
-typedef ·SliceOf(IrHLPreduceVal) IrHLPreduceVals;
-struct IrHLPreduceVal {
-    IrHLExpr* expr;
-    IrHLPreduceVals env;
-};
+#define irhl_preduce_args_cap 2
 typedef struct CtxIrHLPreduce {
     IrHLProg* prog;
     IrHLDef* cur_def;
-    IrHLPreduceVals env;
+    IrHLExprs args;
 } CtxIrHLPreduce;
-#define irhl_preduce_env_cap 2
 
-IrHLPreduceVal irHLPreduceExpr(CtxIrHLPreduce const* const ctx, IrHLExpr* const expr) {
-    IrHLPreduceVal ret_val = (IrHLPreduceVal) {.expr = expr, .env = ·len0(IrHLPreduceVal)};
+IrHLExpr* irHLPreduceExprs(CtxIrHLPreduce* const ctx, IrHLExpr* const expr) {
+    IrHLExpr new_copy = *expr;
     switch (expr->kind) {
+        case irhl_expr_type:       // fall through to:
+        case irhl_expr_nilish:     // fall through to:
+        case irhl_expr_int:        // fall through to:
+        case irhl_expr_field_name: // fall through to:
+        case irhl_expr_tag:        // fall through to:
+        case irhl_expr_ref:        // fall through to:
+        case irhl_expr_instr: return NULL;
+        case irhl_expr_func: {
+            new_copy.of_func.body = irHLPreduceExprs(ctx, expr->of_func.body);
+            return (new_copy.of_func.body == NULL) ? NULL : irHLExprCopy(&new_copy);
+        } break;
+        case irhl_expr_list: {
+            new_copy.of_list.items = ·make(IrHLExpr, expr->of_list.items.len, 0);
+            Bool same_old = true;
+            ·forEach(IrHLExpr, item, expr->of_list.items, {
+                IrHLExpr* new_item = irHLPreduceExprs(ctx, item);
+                new_copy.of_list.items.at[iˇitem] = (new_item == NULL) ? *item : *new_item;
+                if (new_item != NULL)
+                    same_old = false;
+            });
+            if (same_old)
+                return NULL;
+        } break;
+        case irhl_expr_bag: {
+            new_copy.of_bag.items = ·make(IrHLExpr, expr->of_bag.items.len, 0);
+            Bool same_old = true;
+            ·forEach(IrHLExpr, item, expr->of_bag.items, {
+                IrHLExpr* new_item = irHLPreduceExprs(ctx, item);
+                new_copy.of_bag.items.at[iˇitem] = (new_item == NULL) ? *item : *new_item;
+                if (new_item != NULL)
+                    same_old = false;
+            });
+            if (same_old)
+                return NULL;
+        } break;
+        case irhl_expr_selector: {
+            irHLPreduceExprs(ctx, expr->of_selector.subj);
+        } break;
+        case irhl_expr_kvpair: {
+            irHLPreduceExprs(ctx, expr->of_kvpair.key);
+            irHLPreduceExprs(ctx, expr->of_kvpair.val);
+        } break;
+        case irhl_expr_tagged: {
+            irHLPreduceExprs(ctx, expr->of_tagged.subj);
+        } break;
+        case irhl_expr_let: {
+            ·forEach(IrHLLet, let, expr->of_let.lets, { irHLPreduceExprs(ctx, let->expr); });
+            irHLPreduceExprs(ctx, expr->of_let.body);
+        } break;
+        case irhl_expr_call: {
+            ·forEach(IrHLExpr, arg, expr->of_call.args, { irHLPreduceExprs(ctx, arg); });
+            irHLPreduceExprs(ctx, expr->of_call.callee);
+            IrHLExprs const old_args = ctx->args;
+            ctx->args = expr->of_call.args;
+            // switch (expr->of_call.callee->kind) {}
+            ctx->args = old_args;
+        } break;
         default: break;
     }
-    return ret_val;
+    return irHLExprCopy(&new_copy);
 }
 
 void irHLPreduce(IrHLProg* const prog) {
-    CtxIrHLPreduce ctx = (CtxIrHLPreduce) {.prog = prog, .env = ·make(IrHLPreduceVal, 0, irhl_preduce_env_cap)};
+    CtxIrHLPreduce ctx = (CtxIrHLPreduce) {.prog = prog, .args = ·len0(IrHLExpr)};
     ·forEach(IrHLDef, def, prog->defs, {
         ctx.cur_def = def;
-        IrHLPreduceVal const result = irHLPreduceExpr(&ctx, def->body);
-        if (result.env.len == 0 && result.expr != NULL)
-            def->body = result.expr;
+        IrHLExpr* const new_expr = irHLPreduceExprs(&ctx, def->body);
+        if (new_expr != NULL)
+            def->body = new_expr;
     });
 }
 
@@ -511,18 +572,6 @@ Bool irHLBagFieldBoolOrFail(IrHLExpr const* const expr_bag, Str const field_name
     }
     ·fail(astNodeMsg(str3(str("expected #true or #false for '"), field_name, str("'")), &kvp_val->anns.origin.ast_expr->node_base, ast));
     return false;
-}
-
-IrHLExpr* irHLExprKeep(IrHLExpr const src) {
-    IrHLExpr* new_expr = ·new(IrHLExpr);
-    *new_expr = src;
-    return new_expr;
-}
-
-IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
-    IrHLExpr* new_expr = ·new(IrHLExpr);
-    *new_expr = *src;
-    return new_expr;
 }
 
 IrHLExpr irHLExprTypeFrom(IrHLExpr const* const instr, Ast const* const ast) {
@@ -664,10 +713,16 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
             ·forEach(AstExpr, item_expr, ast_expr->of_exprs, {
                 IrHLExpr* bag_item = &ret_expr.of_bag.items.at[iˇitem_expr];
                 *bag_item = irHLExprFrom(item_expr, ast_def, ast);
-                if (bag_item->kind == irhl_expr_kvpair && bag_item->of_kvpair.key->kind == irhl_expr_ref
-                    && bag_item->of_kvpair.key->anns.origin.ast_expr->anns.parensed == 0) {
-                    bag_item->of_kvpair.key->kind = irhl_expr_field_name;
-                    bag_item->of_kvpair.key->of_field_name = (IrHLExprFieldName) {.field_name = bag_item->of_kvpair.key->of_ref.name_or_qname};
+                if (bag_item->kind == irhl_expr_kvpair && bag_item->of_kvpair.key->kind == irhl_expr_ref) {
+                    Bool const rewrite_underscore =
+                        strEql(strL("_", 1), bag_item->of_kvpair.key->of_ref.name_or_qname) && bag_item->of_kvpair.val->kind == irhl_expr_ref;
+                    if (rewrite_underscore)
+                        bag_item->of_kvpair.key->of_ref.name_or_qname = bag_item->of_kvpair.val->of_ref.name_or_qname;
+                    if (bag_item->of_kvpair.key->anns.origin.ast_expr->anns.parensed == 0 || rewrite_underscore) {
+                        bag_item->of_kvpair.key->kind = irhl_expr_field_name;
+                        bag_item->of_kvpair.key->of_field_name =
+                            (IrHLExprFieldName) {.field_name = bag_item->of_kvpair.key->of_ref.name_or_qname};
+                    }
                 }
             });
         } break;
@@ -760,7 +815,7 @@ IrHLExpr irHLDefExpr(AstDef* const cur_ast_def, Ast const* const ast) {
         ·assert(astExprIsFunc(&cur_ast_def->body));
         ·assert(body_expr.kind == irhl_expr_func);
         lets.of_let.body = body_expr.of_func.body;
-        body_expr.of_func.body = irHLExprKeep(lets);
+        body_expr.of_func.body = irHLExprCopy(&lets);
         return body_expr;
     }
 }

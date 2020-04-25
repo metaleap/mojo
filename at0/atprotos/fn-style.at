@@ -1,0 +1,29 @@
+main _args :=
+  prog_printed
+
+  toks          := Token.verifyBrackets: Token.ize full_src
+  ast_parsed    := Ast.parse toks full_src
+  ast_desugared := Ast.rewriteGlyphsIntoInstrs ast_desugared
+  prog_init     := IrHLProg.from ast_desugared
+  prog_proc     := IrHLProg.processIdents prog_init
+  prog_pred     := IrHLProg.preduce prog_proc
+  prog_printed  := IrHLProg.print prog_pred
+
+  full_src :=
+    1..._args.# ~> {buf: Buf.init U8 4096} : i it ->
+      (i == _args.#) ?- it.buf |- it.buf.append: io.readFile _args[i]
+
+  full_src :=
+    (_args.~ (Buf.init U8 4096) : arg buf ->
+                buf.append: io.readFile arg).data
+
+  full_src :=
+    loop {i: 1, buf: Buf.init U8 4096}: it ->
+      (it.i == _args.#) ?- #done it.buf.data
+                        |- #more { i: 1+it.i, buf: it.buf.append (io.readFile _args[i]) }
+
+
+
+loop state iter_func :=
+  (iter_func state) ?- #more => (sth -> loop sth iter_func)
+                    |- #done => (sth -> sth)

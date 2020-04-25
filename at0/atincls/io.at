@@ -1,6 +1,6 @@
 
 io :=
-  { writeToErr: writeToErr, writeToOut: writeToOut, writeTo: writeTo }
+  { _: writeToErr, _: writeToOut, _: writeTo }
 
   writeToOut str := writeToOrAbort libc.stdout str
   writeToErr str := writeToOrAbort libc.stderr str
@@ -9,7 +9,6 @@ io :=
     writeTo file str ? #ok => n -> n | #err => _ -> libc.abort ()
 
   writeTo file str :=
-    n_written == str.# || maybe_err == 0 ? #ok n_written | #err maybe_err
-
+    (n_written == str.# || maybe_err == 0) ? #ok n_written | #err maybe_err
     n_written := libc.fwrite str 1 str.# file
     maybe_err := libc.ferror file

@@ -1,0 +1,18 @@
+main argc argv :=
+  full_src :=
+    buf := (ArrayList U8).new 4096
+    each argv[1..] : arg i ->
+      this_file_src := readFile arg
+      buf.append this_file_src
+    << buf.items
+
+  toks := tokenize full_src
+  toks.verifyBrackets
+
+  Ast ast = Ast.parse toks full_src
+  ast.rewriteGlyphsIntoInstrs
+
+  IrHLProg prog = irHL.fromAst &ast
+  prog.processIdents
+  prog.preduce
+  prog.print
