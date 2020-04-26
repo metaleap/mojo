@@ -12,7 +12,7 @@ AlignTrailingComments: true
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: false
-ColumnLimit: 144
+ColumnLimit: 142
 SpaceBeforeCpp11BracedList: true
 BreakBeforeBinaryOperators: NonAssignment
 AllowShortCaseLabelsOnASingleLine: true

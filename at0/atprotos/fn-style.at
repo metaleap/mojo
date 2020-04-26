@@ -1,3 +1,10 @@
+Token := {}
+Ast := {}
+IrHLProg := {}
+Buf := {}
+U8 := {}
+io:= {}
+
 main _args :=
   prog_printed
 
@@ -8,32 +15,34 @@ main _args :=
   prog_proc     := IrHLProg.processIdents prog_init
   prog_pred     := IrHLProg.preduce prog_proc
   prog_printed  := IrHLProg.print prog_pred
+  full_src      := full_src1
 
 
-  full_src :=
+  full_src1 :=
     for 1..._args.len _+1 {buf: Buf.init U8 4096} : i it ->
-      (i == _args.len) ?- it.buf |- it.buf.append: io.readFile _args[i]
+      (i == _args.len) ?- it.buf |- it.buf.append (io.readFile _args[i])
 
-  full_src :=
-    forEach _args (Buf.init U8 4096) : arg buf ->
-                buf.append: io.readFile arg).data
+  full_src2 :=
+    (forEach _args[1..] (Buf.init U8 4096) (arg buf ->
+      buf.append (io.readFile arg))) . data // TODO
 
-  full_src :=
+  full_src3 :=
     loop {i: 1, buf: Buf.init U8 4096}: it ->
       (it.i == _args.len) ?- #done it.buf.data
-                          |- #more { i: 1+it.i, buf: it.buf.append (io.readFile _args[i]) }
+                          |- #next { i: 1+it.i, buf: it.buf.append (io.readFile _args[it.i]) }
 
 
-
-for range step stuff fn :=
-  loop {i: range.min, st: stuff } : bag ->
-    (bag.i == range.max) ?- #done new_stuff |- #more { i: step bag.i, st: new_stuff }
-  new_stuff := fn bag.i bag.st
 
 forEach arr_or_slice stuff fn :=
   for 0..arr_or_slice.len _+1 stuff: i st ->
     fn arr_or_slice[i] st
 
+for range step stuff fn :=
+  loop {i: range.min, st: stuff } each
+  each bag :=
+    (bag.i == range.max) ?- #done new_stuff |- #next { i: step bag.i, st: new_stuff }
+    new_stuff := fn bag.i bag.st
+
 loop stuff fn :=
-  fn stuff  ?- #more => (sth -> loop sth fn)
+  fn stuff  ?- #next => (sth -> loop sth fn)
             |- #done => (sth -> sth)
