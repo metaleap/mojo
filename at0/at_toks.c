@@ -222,9 +222,8 @@ UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
         idx_close.it += tok_idx;
         UInt idx_next = idx_close.it + 1;
         if (idx_next < toks.len && toks.at[idx_next].char_pos == toks.at[idx_close.it].char_pos + 1
-            && tokCanThrong(&toks.at[idx_next], full_src)) {
+            && (tokCanThrong(&toks.at[idx_next], full_src) || tokIsOpeningBracket(toks.at[idx_next].kind))) {
             UInt const idx_throng = tokThrong(toks, idx_next, full_src);
-            printf("THRONG %zu->%zu\t>>>%s<<<\n", tok_idx, idx_throng, strZ(toksSrc(·slice(Token, toks, tok_idx, idx_throng + 1), full_src)));
             return idx_throng;
         }
     } else if (tokCanThrong(&toks.at[tok_idx], full_src)) {

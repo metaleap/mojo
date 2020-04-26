@@ -405,6 +405,9 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                 astExprFormNorm(&instr.of_exprs.at[2], ·none(AstExpr));
                 *expr = instr;
                 astExprRewriteGlyphsIntoInstrs(expr, ast);
+                if (expr->of_exprs.at[2].kind != ast_expr_ident)
+                    ·fail(astNodeMsg(str("illegal '.' right-hand-side expression"), &expr->node_base, ast));
+                expr->of_exprs.at[2] = astExprInstrOrTag(expr->of_exprs.at[2].node_base, expr->of_exprs.at[2].of_ident, true);
             }
         }
         // forms with _ into anon funcs

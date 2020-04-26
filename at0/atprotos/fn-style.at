@@ -49,4 +49,4 @@ loop stuff fn :=
 
 
 test := (foo foo[0] foo).barbar.baz
-  foo := { Buf io[0][1].baz.bar[2].yay.moo Ast }[3].foobar
+  foo := Token{ Buf io[0][1].baz.bar[2].yay.moo Ast }[3].foobar
