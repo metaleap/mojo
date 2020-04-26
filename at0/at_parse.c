@@ -4,7 +4,7 @@
 #include "at_ast.c"
 
 
-AstExpr parseExpr(Tokens const toks, UInt const all_toks_idx, Ast const* const ast);
+AstExpr parseExpr(Tokens const toks, UInt const all_toks_idx, Ast const* const ast, Bool);
 void parseDef(AstDef* const dst_def, Ast const* const ast);
 
 Ast parse(Tokens const all_toks, Str const full_src) {
@@ -43,9 +43,9 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
     Tokenss const def_body_chunks = toksIndentBasedChunks(·slice(Token, toks, idx_tok_def.it + 1, toks.len));
     dst_def->sub_defs = ·make(AstDef, 0, def_body_chunks.len - 1);
     UInt all_toks_idx = dst_def->node_base.toks_idx + idx_tok_def.it + 1;
-    dst_def->body = parseExpr(def_body_chunks.at[0], all_toks_idx, ast);
+    dst_def->body = parseExpr(def_body_chunks.at[0], all_toks_idx, ast, false);
 
-    AstExpr head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast);
+    AstExpr head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast, false);
     dst_def->anns.head_node_base = head.node_base;
     switch (head.kind) {
         case ast_expr_ident: {
@@ -67,7 +67,8 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
                     ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
                 else {
                     dst_def->anns.param_names.at[i - 1] = head.of_exprs.at[i].of_ident;
-                    fn.of_exprs.at[1].of_exprs.at[i - 1] = astExprInstrOrTag(head.of_exprs.at[i].node_base, head.of_exprs.at[i].of_ident, true);
+                    fn.of_exprs.at[1].of_exprs.at[i - 1] =
+                        astExprInstrOrTag(head.of_exprs.at[i].node_base, head.of_exprs.at[i].of_ident, true);
                 }
             dst_def->body = fn;
         } break;
@@ -118,7 +119,8 @@ AstExpr parseExprLitStr(UInt const all_toks_idx, Ast const* const ast, Token con
                 ret_str.at[ret_str.len] = (U8)maybe.it;
             }
             if (bad_esc)
-                ·fail(astNodeMsg(str("expected 3-digit base-10 integer decimal 000-255 following backslash escape"), &ret_expr.node_base, ast));
+                ·fail(
+                    astNodeMsg(str("expected 3-digit base-10 integer decimal 000-255 following backslash escape"), &ret_expr.node_base, ast));
         }
         ret_str.len += 1;
     }
@@ -138,22 +140,23 @@ AstExprs parseExprsDelimited(Tokens const toks, UInt const all_toks_idx, TokenKi
         if (this_elem_toks->len == 0)
             toks_idx += 1; // 1 for eaten delimiter
         else {
-            ·append(ret_exprs, parseExpr(*this_elem_toks, toks_idx, ast));
+            ·append(ret_exprs, parseExpr(*this_elem_toks, toks_idx, ast, false));
             toks_idx += (1 + this_elem_toks->len); // 1 for eaten delimiter
         }
     });
     return ret_exprs;
 }
 
-AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* const ast) {
+AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* const ast, Bool const known_whole_form_throng) {
     ·assert(expr_toks.len != 0);
     AstExprs ret_acc = ·make(AstExpr, 0, expr_toks.len);
-    Bool const whole_form_throng = (expr_toks.len > 1) && (tokThrong(expr_toks, 0, ast->src) == expr_toks.len - 1);
+    Bool const whole_form_throng =
+        known_whole_form_throng || ((expr_toks.len > 1) && (tokThrong(expr_toks, 0, ast->src) == expr_toks.len - 1));
 
     for (UInt i = 0; i < expr_toks.len; i += 1) {
         UInt const idx_throng_end = whole_form_throng ? i : tokThrong(expr_toks, i, ast->src);
         if (idx_throng_end > i) {
-            ·append(ret_acc, parseExpr(·slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast));
+            ·append(ret_acc, parseExpr(·slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast, true));
             i = idx_throng_end; // loop header will increment
         } else {
             switch (expr_toks.at[i].kind) {
@@ -193,7 +196,7 @@ AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* co
                             AstExpr const expr_ident = astExprIdent(all_toks_idx + i, 2, strL("()", 2));
                             ·append(ret_acc, expr_ident);
                         } else {
-                            AstExpr expr_inside_parens = parseExpr(toks_inside_parens, all_toks_idx + i + 1, ast);
+                            AstExpr expr_inside_parens = parseExpr(toks_inside_parens, all_toks_idx + i + 1, ast, false);
                             expr_inside_parens.anns.parensed += (expr_inside_parens.anns.parensed < 255) ? 1 : 0;
                             // still want the parens toks captured in node base:
                             expr_inside_parens.node_base.toks_idx = all_toks_idx + i;
@@ -201,8 +204,8 @@ AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* co
                             ·append(ret_acc, expr_inside_parens);
                         }
                     } else { // no parens: either square brackets or curly braces
-                        AstExprs const exprs_inside =
-                            parseExprsDelimited(·slice(Token, expr_toks, i + 1, idx_closing.it), all_toks_idx + i + 1, tok_kind_sep_comma, ast);
+                        AstExprs const exprs_inside = parseExprsDelimited(·slice(Token, expr_toks, i + 1, idx_closing.it),
+                                                                          all_toks_idx + i + 1, tok_kind_sep_comma, ast);
                         Bool const is_braces = (tok_kind == tok_kind_sep_bcurly_open);
                         Bool const is_bracket = (tok_kind == tok_kind_sep_bsquare_open);
                         ·assert(is_braces || is_bracket); // always true right now obviously, but for future overpaced refactorers..

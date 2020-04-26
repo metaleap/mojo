@@ -50,23 +50,6 @@ UInt tokPosCol(Token const* const tok) {
     return tok->char_pos - tok->char_pos_line_start;
 }
 
-Bool tokCanThrong(Token const* const tok, Str const full_src) {
-    return tok->kind == tok_kind_lit_num_prefixed || tok->kind == tok_kind_lit_str_qdouble || tok->kind == tok_kind_lit_str_qsingle
-           || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && (full_src.at[tok->char_pos] != '=' || tok->str_len > 1));
-}
-
-UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
-    UInt ret_idx = tok_idx;
-    if (tokCanThrong(&toks.at[tok_idx], full_src)) {
-        for (UInt i = tok_idx + 1; i < toks.len; i += 1)
-            if (toks.at[i].char_pos == toks.at[i - 1].char_pos + toks.at[i - 1].str_len && tokCanThrong(&toks.at[i], full_src))
-                ret_idx = i;
-            else
-                break;
-    }
-    return ret_idx;
-}
-
 Str tokSrc(Token const* const tok, Str const full_src) {
     return strSub(full_src, tok->char_pos, tok->char_pos + tok->str_len);
 }
@@ -223,6 +206,46 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
         }
     });
     return ·none(UInt);
+}
+
+Bool tokCanThrong(Token const* const tok, Str const full_src) {
+    return tok->kind == tok_kind_lit_num_prefixed || tok->kind == tok_kind_lit_str_qdouble || tok->kind == tok_kind_lit_str_qsingle
+           || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && (full_src.at[tok->char_pos] != '=' || tok->str_len > 1));
+}
+
+UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
+    UInt ret_idx = tok_idx;
+
+    if (tokIsOpeningBracket(toks.at[tok_idx].kind)) {
+        ºUInt idx_close = toksIndexOfMatchingBracket(·slice(Token, toks, tok_idx, toks.len));
+        ·assert(idx_close.ok);
+        idx_close.it += tok_idx;
+        UInt idx_next = idx_close.it + 1;
+        if (idx_next < toks.len && toks.at[idx_next].char_pos == toks.at[idx_close.it].char_pos + 1
+            && tokCanThrong(&toks.at[idx_next], full_src)) {
+            UInt const idx_throng = tokThrong(toks, idx_next, full_src);
+            printf("THRONG %zu->%zu\t>>>%s<<<\n", tok_idx, idx_throng, strZ(toksSrc(·slice(Token, toks, tok_idx, idx_throng + 1), full_src)));
+            return idx_throng;
+        }
+    } else if (tokCanThrong(&toks.at[tok_idx], full_src)) {
+        Bool ok = true;
+        for (UInt i = tok_idx + 1; ok && i < toks.len; i += 1) {
+            Token* const tok = &toks.at[i];
+            ok = (tok->char_pos == (toks.at[i - 1].char_pos + toks.at[i - 1].str_len));
+            if (ok) {
+                ok = tokCanThrong(tok, full_src);
+                if (!ok && tokIsOpeningBracket(tok->kind)) {
+                    ºUInt idx_closing_bracket = toksIndexOfMatchingBracket(·slice(Token, toks, i, toks.len));
+                    ·assert(idx_closing_bracket.ok);
+                    i += idx_closing_bracket.it;
+                    ok = true;
+                }
+                if (ok)
+                    ret_idx = i;
+            }
+        }
+    }
+    return ret_idx;
 }
 
 Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
