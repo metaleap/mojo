@@ -28,7 +28,6 @@ typedef struct IrHLProg {
 
 
 typedef enum IrHLTypeKind {
-    irhl_type_void,
     irhl_type_int,
     irhl_type_tag,
     irhl_type_struct,
@@ -39,9 +38,6 @@ typedef enum IrHLTypeKind {
     irhl_type_func,
     irhl_type_type,
 } IrHLTypeKind;
-
-typedef struct IrHLTypeVoid {
-} IrHLTypeVoid;
 
 typedef struct IrHLTypeTag {
 } IrHLTypeTag;
@@ -89,7 +85,6 @@ typedef struct IrHLTypeBag {
 struct IrHLType {
     IrHLTypeKind kind;
     union {
-        IrHLTypeVoid of_void;
         IrHLTypeInt of_int;
         IrHLTypeTag of_tag;
         IrHLTypeExt of_external;
@@ -597,10 +592,7 @@ IrHLExpr irHLExprTypeFrom(IrHLExpr const* const instr, Ast const* const ast) {
         ·fail(astNodeMsg(str("'@T' requires type #tag"), err_node, ast));
 
     IrHLType* ty = ·new(IrHLType);
-    if (strEql(arg_tag->of_tag.tag_ident, str("void"))) {
-        ty->kind = irhl_type_void;
-
-    } else if (strEql(arg_tag->of_tag.tag_ident, str("integer"))) {
+    if (strEql(arg_tag->of_tag.tag_ident, str("integer"))) {
         if (arg_opt == NULL || arg_opt->kind != irhl_expr_bag)
             ·fail(astNodeMsg(str("'@T #integer' requires 2nd arg to be {}"), err_node, ast));
         ty->kind = irhl_type_int;
@@ -861,9 +853,6 @@ IrHLProg irHLInitFrom(Ast* const ast) {
 void irHLPrintType(IrHLType const* const the_type) {
     printStr(str("@T "));
     switch (the_type->kind) {
-        case irhl_type_void: {
-            printStr(str("#void"));
-        } break;
         case irhl_type_tag: {
             printStr(str("#tag"));
         } break;
