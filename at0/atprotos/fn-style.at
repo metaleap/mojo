@@ -8,7 +8,7 @@ io:= {}
 main _args :=
   prog_printed
 
-  toks          := Token.verifyBrackets: Token.ize{full_src}
+  toks          := Token.verifyBrackets: Token.ize full_src
   ast_parsed    := Ast.parse toks full_src
   ast_desugared := Ast.rewriteGlyphsIntoInstrs ast_desugared
   prog_init     := IrHLProg.from ast_desugared
@@ -19,7 +19,7 @@ main _args :=
 
 
   full_src1 :=
-    for 1..._args.len _+1 {buf: Buf.init U8 4096}: i it ->
+    for 1..._args.len (_+1) {buf: Buf.init U8 4096}: i it ->
       (i == _args.len) ?- it.buf |- it.buf.append (io.readFile _args[i])
 
   full_src2 :=
@@ -50,3 +50,4 @@ loop stuff fn :=
 
 test := (foo foo[0] foo).barbar.baz
   foo := Token{ Buf io[0][1].baz.bar[2].yay.moo Ast }[3].foobar
+  ding _ _ := ding (_ _ _ -> foo _ ding)

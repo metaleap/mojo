@@ -50,6 +50,11 @@ UInt tokPosCol(Token const* const tok) {
     return tok->char_pos - tok->char_pos_line_start;
 }
 
+Str tokPosStr(Token const* const tok) {
+    Str const line_nr = uIntToStr(1 + tok->line_nr, 1, 10);
+    return str3(tok->file_name, strL(":", 1), line_nr);
+}
+
 Str tokSrc(Token const* const tok, Str const full_src) {
     return strSub(full_src, tok->char_pos, tok->char_pos + tok->str_len);
 }

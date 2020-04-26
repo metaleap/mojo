@@ -38,13 +38,13 @@ int main(int const argc, CStr const argv[]) {
     // parse into a rudimentary raw context-free generic AST first
     Ast ast = parse(toks, full_src);
     astRewriteGlyphsIntoInstrs(&ast);
-    astPrint(&ast);
+    // astPrint(&ast);
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
-    // IrHLProg ir_hl = irHLInitFrom(&ast);
-    // irHLProcessIdents(&ir_hl);
-    // irHLPreduce(&ir_hl);
-    // irHLPrintProg(&ir_hl);
+    IrHLProg ir_hl = irHLInitFrom(&ast);
+    irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
+    irHLPreduce(&ir_hl);       // WIP: pre-instr-discovery initial reduction of already-reducable (aka expandable? =) exprs
+    irHLPrintProg(&ir_hl);
 
     // readLnLoop(&ir_hl);
     return 0;

@@ -25,4 +25,4 @@ Slice of    := @T #struct { #fields: { #ptr: Ptr (Arr () of), #len: Uw } }
 xor b1 b2 :=
   b1 /= b2
 not b :=
-  b ? false | true
+  b ?- false |- true
