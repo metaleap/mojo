@@ -12,16 +12,16 @@
 
 // macro names prefixed with '·' instead of all upper-case (avoids SCREAM_CODE)
 
-#define ·SliceOf(T)                                                                                                                            \
-    struct {                                                                                                                                   \
-        T* at;                                                                                                                                 \
-        UInt len;                                                                                                                              \
+#define ·SliceOf(T)                                                                                                                          \
+    struct {                                                                                                                                 \
+        T* at;                                                                                                                               \
+        UInt len;                                                                                                                            \
     }
 
-#define ·Maybe(T)                                                                                                                              \
-    struct {                                                                                                                                   \
-        T it;                                                                                                                                  \
-        Bool ok;                                                                                                                               \
+#define ·Maybe(T)                                                                                                                            \
+    struct {                                                                                                                                 \
+        T it;                                                                                                                                \
+        Bool ok;                                                                                                                             \
     }
 
 typedef bool Bool;
@@ -59,53 +59,53 @@ struct Mem {
 
 
 
-#define ·make(T, ³initial_len__, ²max_capacity__)                                                                                              \
-    ((T##s) {.len = (³initial_len__),                                                                                                          \
+#define ·make(T, ³initial_len__, ²max_capacity__)                                                                                            \
+    ((T##s) {.len = (³initial_len__),                                                                                                        \
              .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
 
 #define ·len0(T) ((T##s) {.len = 0, .at = NULL})
 
 #define ·new(T) (·make(T, 1, 1).at)
 
-#define ·slice(TSlice__, ¹the_slice_to_reslice__, ²idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                      \
-    ((TSlice__##s) {.len = (¹idx_end_to_reslice_until__) - (²idx_start_reslice_from__),                                                        \
+#define ·slice(TSlice__, ¹the_slice_to_reslice__, ²idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                    \
+    ((TSlice__##s) {.len = (¹idx_end_to_reslice_until__) - (²idx_start_reslice_from__),                                                      \
                     .at = &((¹the_slice_to_reslice__).at[²idx_start_reslice_from__])})
 
-#define ·append(³the_slice_to_append_to__, ¹the_item_to_append__)                                                                              \
-    do {                                                                                                                                       \
-        (³the_slice_to_append_to__).at[(³the_slice_to_append_to__).len] = (¹the_item_to_append__);                                             \
-        (³the_slice_to_append_to__).len += 1;                                                                                                  \
+#define ·append(³the_slice_to_append_to__, ¹the_item_to_append__)                                                                            \
+    do {                                                                                                                                     \
+        (³the_slice_to_append_to__).at[(³the_slice_to_append_to__).len] = (¹the_item_to_append__);                                           \
+        (³the_slice_to_append_to__).len += 1;                                                                                                \
     } while (0)
 
-#define ·forEach(TItem, iteree_ident__, ²the_slice_to_iter__, ¹do_block__)                                                                     \
-    do {                                                                                                                                       \
-        for (UInt iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (²the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                          \
-            TItem* const iteree_ident__ = &((²the_slice_to_iter__).at[iˇ##iteree_ident__]);                                                    \
-            { ¹do_block__ }                                                                                                                    \
-        }                                                                                                                                      \
+#define ·forEach(TItem, iteree_ident__, ²the_slice_to_iter__, ¹do_block__)                                                                   \
+    do {                                                                                                                                     \
+        for (UInt iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (²the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                        \
+            TItem* const iteree_ident__ = &((²the_slice_to_iter__).at[iˇ##iteree_ident__]);                                                  \
+            { ¹do_block__ }                                                                                                                  \
+        }                                                                                                                                    \
     } while (0)
 
 #define ·ok(T, ¹the_value__) ((º##T) {.ok = true, .it = (¹the_value__)})
 
 #define ·none(T) ((º##T) {.ok = false})
 
-#define ·fail(¹the_msg)                                                                                                                        \
-    do {                                                                                                                                       \
-        fprintf(stderr, "\n——————————————————————————————————————————\npanicked at: %s:%d\n", __FILE__, __LINE__);                             \
-        abortWithBacktraceAndMsg(¹the_msg);                                                                                                    \
+#define ·fail(¹the_msg)                                                                                                                      \
+    do {                                                                                                                                     \
+        fprintf(stderr, "\n——————————————————————————————————————————\npanicked at: %s:%d\n", __FILE__, __LINE__);                           \
+        abortWithBacktraceAndMsg(¹the_msg);                                                                                                  \
     } while (0)
 
 
 #ifdef NDEBUG
 #define ·assert(¹the_predicate)
 #else
-#define ·assert(¹the_predicate)                                                                                                                \
-    do {                                                                                                                                       \
-        if (!(¹the_predicate)) {                                                                                                               \
-            fprintf(stderr, "\n——————————————————————————————————————————\ncondition `%s` violated in: %s:%d\n\n", #¹the_predicate, __FILE__,  \
-                    __LINE__);                                                                                                                 \
-            abortWithBacktraceAndMsg(·len0(U8));                                                                                               \
-        }                                                                                                                                      \
+#define ·assert(¹the_predicate)                                                                                                              \
+    do {                                                                                                                                     \
+        if (!(¹the_predicate)) {                                                                                                             \
+            fprintf(stderr, "\n——————————————————————————————————————————\ncondition `%s` violated in: %s:%d\n\n", #¹the_predicate,          \
+                    __FILE__, __LINE__);                                                                                                     \
+            abortWithBacktraceAndMsg(·len0(U8));                                                                                             \
+        }                                                                                                                                    \
     } while (0)
 #endif
 
@@ -220,16 +220,15 @@ CStr strZ(Str const str) {
 }
 
 Bool strEql(Str const one, Str const two) {
-    if (one.len == two.len) {
-        if (one.len > 0) {
-            UInt i_middle = 1 + (one.len / 2);
-            for (UInt i = 0, j = one.len - 1; i < i_middle; i += 1, j -= 1)
-                if (one.at[i] != two.at[i] || one.at[j] != two.at[j])
-                    return false;
-        }
-        return true;
+    if (one.len != two.len)
+        return false;
+    if (one.len > 0) {
+        UInt i_middle = 1 + (one.len / 2);
+        for (UInt i = 0, j = one.len - 1; i < i_middle; i += 1, j -= 1)
+            if (one.at[i] != two.at[i] || one.at[j] != two.at[j])
+                return false;
     }
-    return false;
+    return true;
 }
 
 Str strPrefSuff(Str const str, Str const prefix) {
@@ -238,11 +237,6 @@ Str strPrefSuff(Str const str, Str const prefix) {
         if (strEql(prefix, ·slice(U8, str, 0, prefix.len)))
             return ·slice(U8, str, prefix.len, str.len);
     return ret_str;
-}
-
-Bool strEq(Str const one, CStr const two, ºUInt const str_len) {
-    Str const s2 = (!str_len.ok) ? str(two) : ((Str) {.len = str_len.it, .at = (U8*)two});
-    return strEql(one, s2);
 }
 
 Str strQuot(Str const str) {
@@ -296,19 +290,13 @@ Str strConcat(Strs const strs) {
     UInt str_len = 0;
     ·forEach(Str, str, strs, { str_len += str->len; });
 
-    Str ret_str = newStr(0, 1 + str_len);
-    ret_str.at[str_len] = 0;
+    Str ret_str = newStr(0, str_len);
     ·forEach(Str, str, strs, {
         for (UInt i = 0; i < str->len; i += 1)
             ret_str.at[i + ret_str.len] = str->at[i];
         ret_str.len += str->len;
     });
-
     return ret_str;
-}
-
-Str str1(Str const s1) {
-    return strConcat((Strs) {.len = 1, .at = ((Str[]) {s1})});
 }
 
 Str str2(Str const s1, Str const s2) {
