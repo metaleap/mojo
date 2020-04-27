@@ -47,7 +47,7 @@ int main(int const argc, CStr const argv[]) {
     irHLProgLiftFuncExprs(&ir_hl);
     // irHLPrintProg(&ir_hl);
 
-    // readLnLoop(&ir_hl);
+    readLnLoop(&ir_hl);
     return 0;
 }
 
