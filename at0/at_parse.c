@@ -8,21 +8,22 @@ AstExpr parseExpr(Tokens const toks, UInt const all_toks_idx, Ast const* const a
 void parseDef(AstDef* const dst_def, Ast const* const ast);
 
 Ast parse(Tokens const all_toks, Str const full_src) {
-    UInt func_count_estimate = 0;    // count all `->` / `@->` / `:=` occurrences in full_src:
-    ·forEach(Token, tok, all_toks, { // to reserve extra room for later-on top-hoisted defs
-        if (tok->kind == tok_kind_ident) {
-            Str const tok_src = tokSrc(tok, full_src);
-            if (strEql(tok_src, strL(":=", 2)) || strSuff(tok_src, strL("->", 2)))
-                func_count_estimate += 1;
-        }
-    });
-
     Tokenss const chunks = toksIndentBasedChunks(all_toks);
     Ast ret_ast = (Ast) {
         .src = full_src,
         .toks = all_toks,
-        .top_defs = ·make(AstDef, 0, chunks.len + func_count_estimate),
+        .top_defs = ·make(AstDef, 0, chunks.len),
+        .anns = {.total_nr_of_def_toks = 0},
     };
+    {
+        ·forEach(Token, tok, all_toks, {
+            if (tok->kind == tok_kind_ident) {
+                Str const tok_src = tokSrc(tok, full_src);
+                if (strEql(tok_src, strL(":=", 2)) || strEql(tok_src, strL("->", 2)) || strEql(tok_src, strL("@->", 3)))
+                    ret_ast.anns.total_nr_of_def_toks += 1;
+            }
+        });
+    }
     UInt toks_idx = 0;
     ·forEach(Tokens, chunk_toks, chunks, {
         AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];

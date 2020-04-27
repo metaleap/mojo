@@ -64,6 +64,9 @@ typedef struct Ast {
     Str src;
     Tokens toks;
     AstDefs top_defs;
+    struct {
+        UInt total_nr_of_def_toks;
+    } anns;
 } Ast;
 
 
@@ -481,7 +484,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                 if (sub_expr->kind == ast_expr_ident && sub_expr->of_ident.len == 1 && sub_expr->of_ident.at[0] == '_') {
                     matched = true;
                     counter += 1;
-                    sub_expr->of_ident = str3(strL(".", 1), uIntToStr(counter, 1, 16), strL(".", 1));
+                    sub_expr->of_ident = str2(uIntToStr(counter, 1, 16), str("ä"));
                     AstExprs fn = ·make(AstExpr, 3, 3);
                     fn.at[0] = astExprInstrOrTag(expr->node_base, strL("->", 2), false);
                     fn.at[1] = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_lit_bracket, 1);
@@ -560,37 +563,6 @@ void astRewriteGlyphsIntoInstrs(Ast const* const ast) {
     ·forEach(AstDef, def, ast->top_defs, { astDefRewriteGlyphsIntoInstrs(def, ast); });
 }
 
-
-
-void astSubDefsReorder(AstDefs const defs) {
-    ·forEach(AstDef, the_def, defs, { astSubDefsReorder(the_def->sub_defs); });
-
-    UInt num_rounds = 0;
-    for (Bool again = true; again; num_rounds += 1) {
-        again = false;
-        if (num_rounds > 42 * defs.len)
-            ·fail(str2(str("Circular sub-def dependencies inside "),
-                       (defs.at[0].anns.parent_def == NULL) ? str("<top-level>") : defs.at[0].anns.parent_def->name));
-        ·forEach(AstDef, the_def, defs, {
-            for (UInt i = iˇthe_def + 1; i < defs.len; i += 1) {
-                Bool const has = astDefHasIdent(&defs.at[i], the_def->name);
-                if (has) {
-                    AstDef dependant = defs.at[i];
-                    defs.at[i] = *the_def;
-                    defs.at[iˇthe_def] = dependant;
-                    again = true;
-                    break;
-                }
-            }
-            if (again)
-                break;
-        });
-    }
-}
-
-void astReorderSubDefs(Ast const* const ast) {
-    ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
-}
 
 
 

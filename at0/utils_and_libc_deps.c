@@ -42,6 +42,7 @@ typedef const char* CStr;
 typedef ·Maybe(Bool) ºBool;
 typedef ·Maybe(UInt) ºUInt;
 typedef ·Maybe(U64) ºU64;
+typedef ·SliceOf(Bool) Bools;
 typedef ·SliceOf(UInt) UInts;
 typedef ·SliceOf(U8) U8s;
 typedef U8s Str;
@@ -285,16 +286,16 @@ Bool cStrHasChar(CStr const s, U8 const c) {
     return ·none(UInt);
 }
 
-Bool strSuff(Str const str, Str const suff) {
-    return suff.len != 0 && str.len >= suff.len && strEql(suff, ·slice(U8, str, str.len - suff.len, str.len));
-}
-
-Str strConcat(Strs const strs) {
+Str strConcat(Strs const strs, U8 const sep) {
     UInt str_len = 0;
-    ·forEach(Str, str, strs, { str_len += str->len; });
+    ·forEach(Str, str, strs, { str_len += (sep == 0 ? 0 : 1) + str->len; });
 
     Str ret_str = newStr(0, str_len);
     ·forEach(Str, str, strs, {
+        if (iˇstr != 0 && sep != 0) {
+            ret_str.at[ret_str.len] = sep;
+            ret_str.len += 1;
+        }
         for (UInt i = 0; i < str->len; i += 1)
             ret_str.at[i + ret_str.len] = str->at[i];
         ret_str.len += str->len;
@@ -303,31 +304,31 @@ Str strConcat(Strs const strs) {
 }
 
 Str str2(Str const s1, Str const s2) {
-    return strConcat((Strs) {.len = 2, .at = ((Str[]) {s1, s2})});
+    return strConcat((Strs) {.len = 2, .at = ((Str[]) {s1, s2})}, 0);
 }
 
 Str str3(Str const s1, Str const s2, Str const s3) {
-    return strConcat((Strs) {.len = 3, .at = ((Str[]) {s1, s2, s3})});
+    return strConcat((Strs) {.len = 3, .at = ((Str[]) {s1, s2, s3})}, 0);
 }
 
 Str str4(Str const s1, Str const s2, Str const s3, Str const s4) {
-    return strConcat((Strs) {.len = 4, .at = ((Str[]) {s1, s2, s3, s4})});
+    return strConcat((Strs) {.len = 4, .at = ((Str[]) {s1, s2, s3, s4})}, 0);
 }
 
 Str str5(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5) {
-    return strConcat((Strs) {.len = 5, .at = ((Str[]) {s1, s2, s3, s4, s5})});
+    return strConcat((Strs) {.len = 5, .at = ((Str[]) {s1, s2, s3, s4, s5})}, 0);
 }
 
 Str str6(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5, Str const s6) {
-    return strConcat((Strs) {.len = 6, .at = ((Str[]) {s1, s2, s3, s4, s5, s6})});
+    return strConcat((Strs) {.len = 6, .at = ((Str[]) {s1, s2, s3, s4, s5, s6})}, 0);
 }
 
 Str str7(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5, Str const s6, Str const s7) {
-    return strConcat((Strs) {.len = 7, .at = ((Str[]) {s1, s2, s3, s4, s5, s6, s7})});
+    return strConcat((Strs) {.len = 7, .at = ((Str[]) {s1, s2, s3, s4, s5, s6, s7})}, 0);
 }
 
 Str str8(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5, Str const s6, Str const s7, Str const s8) {
-    return strConcat((Strs) {.len = 8, .at = ((Str[]) {s1, s2, s3, s4, s5, s6, s7, s8})});
+    return strConcat((Strs) {.len = 8, .at = ((Str[]) {s1, s2, s3, s4, s5, s6, s7, s8})}, 0);
 }
 
 

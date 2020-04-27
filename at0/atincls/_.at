@@ -19,10 +19,26 @@ Boolean     := @T #union { #tagged: true, #fields: { true: Void, false: Void } }
 Str n       := Arr n U8
 Ptr of      := @T #ptr { #ty: of }
 Arr n of    := @T #arr { #size: n, #ty: of }
-Slice of    := @T #struct { #fields: { #ptr: Ptr (Arr () of), #len: Uw } }
+Slice of    := @T #struct { #fields: { #ptr: Ptr (Arr {} of), #len: Uw } }
 
 
 xor b1 b2 :=
   b1 /= b2
 not b :=
   b ?- false |- true
+
+
+
+forEach arr_or_slice stuff fn :=
+  for 0..arr_or_slice.len _+1 stuff: i st ->
+    fn arr_or_slice[i] st
+
+for range step stuff fn :=
+  loop {i: range.min, st: stuff } each
+  each bag :=
+    (bag.i == range.max) ?- #done new_stuff |- #next { i: step bag.i, st: new_stuff }
+    new_stuff := fn bag.i bag.st
+
+loop stuff fn :=
+  fn stuff  ?- #next => (sth -> loop sth fn)
+            |- #done => (sth -> sth)
