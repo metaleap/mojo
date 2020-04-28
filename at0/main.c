@@ -46,9 +46,9 @@ int main(int const argc, CStr const argv[]) {
     IrHLProg ir_hl = irHLProgFrom(&ast);
     irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
     irHLProgLiftFuncExprs(&ir_hl);
-    // irHLPrintProg(&ir_hl);
+    irHLPrintProg(&ir_hl);
 
-    readLnLoop(&ir_hl);
+    // readLnLoop(&ir_hl);
     return 0;
 }
 

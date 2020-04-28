@@ -346,16 +346,30 @@ struct IrHLDef {
 
 
 
-IrHLExpr* irHLExprKeep(IrHLExpr const src) {
+IrHLExpr* irHLExprKeep(IrHLExpr const expr) {
     IrHLExpr* new_expr = ·new(IrHLExpr);
-    *new_expr = src;
+    *new_expr = expr;
     return new_expr;
 }
 
-IrHLExpr* irHLExprCopy(IrHLExpr const* const src) {
+IrHLExpr* irHLExprCopy(IrHLExpr const* const expr) {
     IrHLExpr* new_expr = ·new(IrHLExpr);
-    *new_expr = *src;
+    *new_expr = *expr;
     return new_expr;
+}
+
+Bool irHLExprIsAtomic(IrHLExpr const* const expr) {
+    switch (expr->kind) {
+        case irhl_expr_type:
+        case irhl_expr_nilish:
+        case irhl_expr_int:
+        case irhl_expr_tag:
+        case irhl_expr_field_name:
+        case irhl_expr_ref: return true;
+        case irhl_expr_instr: return expr->of_instr.kind == irhl_instr_named;
+        case irhl_expr_let: return false;
+        default: return false;
+    }
 }
 
 
@@ -555,6 +569,83 @@ void irHLProcessIdents(IrHLProg const* const prog) {
 
 
 
+void irHLExprInlineRefsToNullaryAtomicDefs(IrHLExpr* const expr, IrHLProg* const prog) {
+    switch (expr->kind) {
+        case irhl_expr_type:
+        case irhl_expr_nilish:
+        case irhl_expr_int:
+        case irhl_expr_tag:
+        case irhl_expr_field_name: break;
+        case irhl_expr_instr: ·assert(expr->of_instr.kind == irhl_instr_named); break;
+        case irhl_expr_call: {
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_call.callee, prog);
+            ·forEach(IrHLExpr, arg, expr->of_call.args, { irHLExprInlineRefsToNullaryAtomicDefs(arg, prog); });
+        } break;
+        case irhl_expr_list: {
+            ·forEach(IrHLExpr, item, expr->of_list.items, { irHLExprInlineRefsToNullaryAtomicDefs(item, prog); });
+        } break;
+        case irhl_expr_bag: {
+            ·forEach(IrHLExpr, item, expr->of_bag.items, { irHLExprInlineRefsToNullaryAtomicDefs(item, prog); });
+        } break;
+        case irhl_expr_selector: {
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_selector.subj, prog);
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_selector.member, prog);
+        } break;
+        case irhl_expr_kvpair: {
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_kvpair.key, prog);
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_kvpair.val, prog);
+        } break;
+        case irhl_expr_tagged: {
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_tagged.subj, prog);
+        } break;
+        case irhl_expr_let: {
+            ·forEach(IrHLLet, let, expr->of_let.lets, { irHLExprInlineRefsToNullaryAtomicDefs(let->expr, prog); });
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_let.body, prog);
+        } break;
+        case irhl_expr_func: {
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_func.body, prog);
+        } break;
+        case irhl_expr_ref: {
+            IrHLRef* ref = &expr->of_ref.path.at[expr->of_ref.path.len - 1];
+            Str ref_name = ·len0(U8);
+            Bool expr_rewritten = false;
+            switch (ref->kind) {
+                case irhl_ref_def: {
+                    if (irHLExprIsAtomic(ref->of_def->body)) {
+                        ref_name = ref->of_def->name;
+                        *expr = *ref->of_def->body;
+                        expr_rewritten = true;
+                    }
+                } break;
+                case irhl_ref_let: {
+                    if (irHLExprIsAtomic(ref->of_let->expr)) {
+                        ref_name = ref->of_let->name;
+                        *expr = *ref->of_let->expr;
+                        expr_rewritten = true;
+                    }
+                } break;
+                default: break;
+            }
+            if (expr_rewritten) {
+                irHLExprInlineRefsToNullaryAtomicDefs(expr, prog);
+                printf("\n\nREFTO\t%s\n>>>>\n", strZ(ref_name));
+                astPrintExpr(expr->anns.origin.ast_expr, false, 0);
+                printf("\n<<<<\n");
+            }
+        } break;
+        default:
+            ·fail(astNodeMsg(str2(str("TODO: irHLExprInlineRefsToNullaryAtomicDefs for expr.kind of "), uIntToStr(expr->kind, 1, 10)),
+                             &expr->anns.origin.ast_expr->node_base, prog->anns.origin_ast));
+    }
+}
+
+void irHLProgInlineRefsToNullaryAtomicDefs(IrHLProg* const prog) {
+    ·forEach(IrHLDef, def, prog->defs, { irHLExprInlineRefsToNullaryAtomicDefs(def->body, prog); });
+}
+
+
+
+
 typedef struct CtxIrHLLiftFuncs {
     IrHLProg* prog;
     IrHLDef* cur_def;
@@ -612,6 +703,7 @@ UInt irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr const* const expr) 
 }
 
 void irHLProgLiftFuncExprs(IrHLProg* const prog) {
+    irHLProgInlineRefsToNullaryAtomicDefs(prog);
     CtxIrHLLiftFuncs ctx = (CtxIrHLLiftFuncs) {.free_less_only = true, .prog = prog};
     UInt count = 0;
     while (true) {

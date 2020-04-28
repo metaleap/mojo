@@ -40,5 +40,8 @@ for range step stuff fn :=
     new_stuff := fn bag.i bag.st
 
 loop stuff fn :=
-  fn stuff  ?- #next => (sth -> loop sth fn)
+  fn stuff  ?- foo => (sth -> loop sth fn)
             |- #done => (sth -> sth)
+  foo := bar
+    bar := baz
+    baz := #next
