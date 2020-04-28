@@ -43,5 +43,5 @@ loop stuff fn :=
   fn stuff  ?- foo => (sth -> loop sth fn)
             |- #done => (sth -> sth)
   foo := bar
-    bar := baz
-    baz := #next
+  bar := baz
+  baz := #next

@@ -6,7 +6,8 @@ io :=
   writeToErr str := writeToOrAbort libc.stderr str
 
   writeToOrAbort file str :=
-    writeTo file str ?- #ok => n -> n |- #err => _ -> libc.abort ()
+    writeTo file str ?- #ok => n -> n |- #err => onerr
+    onerr _ := libc.abort ()
 
   writeTo file str :=
     (n_written == str.len || maybe_err == 0) ?- #ok n_written |- #err maybe_err

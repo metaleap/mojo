@@ -367,7 +367,6 @@ Bool irHLExprIsAtomic(IrHLExpr const* const expr) {
         case irhl_expr_field_name:
         case irhl_expr_ref: return true;
         case irhl_expr_instr: return expr->of_instr.kind == irhl_instr_named;
-        case irhl_expr_let: return false;
         default: return false;
     }
 }
@@ -608,25 +607,25 @@ void irHLExprInlineRefsToNullaryAtomicDefs(IrHLExpr* const expr, IrHLProg* const
         case irhl_expr_ref: {
             IrHLRef* ref = &expr->of_ref.path.at[expr->of_ref.path.len - 1];
             Str ref_name = ·len0(U8);
-            Bool expr_rewritten = false;
+            Bool did_rewrite = false;
             switch (ref->kind) {
                 case irhl_ref_def: {
                     if (irHLExprIsAtomic(ref->of_def->body)) {
                         ref_name = ref->of_def->name;
                         *expr = *ref->of_def->body;
-                        expr_rewritten = true;
+                        did_rewrite = true;
                     }
                 } break;
                 case irhl_ref_let: {
                     if (irHLExprIsAtomic(ref->of_let->expr)) {
                         ref_name = ref->of_let->name;
                         *expr = *ref->of_let->expr;
-                        expr_rewritten = true;
+                        did_rewrite = true;
                     }
                 } break;
                 default: break;
             }
-            if (expr_rewritten) {
+            if (did_rewrite) {
                 irHLExprInlineRefsToNullaryAtomicDefs(expr, prog);
                 printf("\n\nREFTO\t%s\n>>>>\n", strZ(ref_name));
                 astPrintExpr(expr->anns.origin.ast_expr, false, 0);
@@ -652,8 +651,8 @@ typedef struct CtxIrHLLiftFuncs {
     Bool free_less_only;
 } CtxIrHLLiftFuncs;
 
-UInt irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr const* const expr) {
-    UInt count = 0;
+Bool irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr* const expr) {
+    Bool did = false;
     switch (expr->kind) {
         case irhl_expr_type:
         case irhl_expr_nilish:
@@ -663,60 +662,70 @@ UInt irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr const* const expr) 
         case irhl_expr_ref: break;
         case irhl_expr_instr: ·assert(expr->of_instr.kind == irhl_instr_named); break;
         case irhl_expr_call: {
-            count += irHLLiftFuncExprs(ctx, expr->of_call.callee);
-            ·forEach(IrHLExpr, arg, expr->of_call.args, { count += irHLLiftFuncExprs(ctx, arg); });
+            did |= irHLLiftFuncExprs(ctx, expr->of_call.callee);
+            ·forEach(IrHLExpr, arg, expr->of_call.args, { did |= irHLLiftFuncExprs(ctx, arg); });
         } break;
         case irhl_expr_list: {
-            ·forEach(IrHLExpr, item, expr->of_list.items, { count += irHLLiftFuncExprs(ctx, item); });
+            ·forEach(IrHLExpr, item, expr->of_list.items, { did |= irHLLiftFuncExprs(ctx, item); });
         } break;
         case irhl_expr_bag: {
-            ·forEach(IrHLExpr, item, expr->of_bag.items, { count += irHLLiftFuncExprs(ctx, item); });
+            ·forEach(IrHLExpr, item, expr->of_bag.items, { did |= irHLLiftFuncExprs(ctx, item); });
         } break;
         case irhl_expr_selector: {
-            count += irHLLiftFuncExprs(ctx, expr->of_selector.subj);
-            count += irHLLiftFuncExprs(ctx, expr->of_selector.member);
+            did |= irHLLiftFuncExprs(ctx, expr->of_selector.subj);
+            did |= irHLLiftFuncExprs(ctx, expr->of_selector.member);
         } break;
         case irhl_expr_kvpair: {
-            count += irHLLiftFuncExprs(ctx, expr->of_kvpair.key);
-            count += irHLLiftFuncExprs(ctx, expr->of_kvpair.val);
+            did |= irHLLiftFuncExprs(ctx, expr->of_kvpair.key);
+            did |= irHLLiftFuncExprs(ctx, expr->of_kvpair.val);
         } break;
         case irhl_expr_tagged: {
-            count += irHLLiftFuncExprs(ctx, expr->of_tagged.subj);
+            did |= irHLLiftFuncExprs(ctx, expr->of_tagged.subj);
         } break;
         case irhl_expr_let: {
-            ·forEach(IrHLLet, let, expr->of_let.lets, { count += irHLLiftFuncExprs(ctx, let->expr); });
-            count += irHLLiftFuncExprs(ctx, expr->of_let.body);
+            ·forEach(IrHLLet, let, expr->of_let.lets, { did |= irHLLiftFuncExprs(ctx, let->expr); });
+            did |= irHLLiftFuncExprs(ctx, expr->of_let.body);
         } break;
         case irhl_expr_func: {
-            count += irHLLiftFuncExprs(ctx, expr->of_func.body);
+            did |= irHLLiftFuncExprs(ctx, expr->of_func.body);
 
-            if (ctx->free_less_only && expr->of_func.anns.free_vars.len == 0 && expr != ctx->cur_def->body)
-                printf("%s\t%zu\n", strZ(expr->of_func.anns.qname), expr->of_func.anns.free_vars.len);
-            // for (UInt i = 0; i < expr->of_func.anns.free_vars.len; i += 1)
-            //     printf("\t%s\n", strZ(expr->of_func.anns.free_vars.at[i]));
+            if (ctx->free_less_only && expr->of_func.anns.free_vars.len == 0 && expr != ctx->cur_def->body) {
+                did = true;
+                IrHLDef new_top_def = (IrHLDef) {
+                    .anns = {.origin_ast_def = expr->anns.origin.ast_def}, .name = expr->of_func.anns.qname, .body = irHLExprCopy(expr)};
+                ·append(ctx->prog->defs, new_top_def);
+                *expr = (IrHLExpr) {.anns = expr->anns,
+                                    .kind = irhl_expr_ref,
+                                    .of_ref = (IrHLExprRef) {
+                                        .name_or_qname = expr->of_func.anns.qname,
+                                        .path = ·make(IrHLRef, 1, 1),
+                                    }};
+                expr->of_ref.path.at[0] = (IrHLRef) {.kind = irhl_ref_def, .of_def = &ctx->prog->defs.at[ctx->prog->defs.len - 1]};
+            }
         } break;
         default:
             ·fail(astNodeMsg(str2(str("TODO: irHLLiftFuncExprs for expr.kind of "), uIntToStr(expr->kind, 1, 10)),
                              &expr->anns.origin.ast_expr->node_base, ctx->prog->anns.origin_ast));
     }
-    return count;
+    return did;
 }
 
 void irHLProgLiftFuncExprs(IrHLProg* const prog) {
     irHLProgInlineRefsToNullaryAtomicDefs(prog);
     CtxIrHLLiftFuncs ctx = (CtxIrHLLiftFuncs) {.free_less_only = true, .prog = prog};
-    UInt count = 0;
+    Bool did = false;
     while (true) {
-        count = 0;
+        did = false;
         ·forEach(IrHLDef, def, prog->defs, {
             ctx.cur_def = def;
-            count += irHLLiftFuncExprs(&ctx, def->body);
+            did |= irHLLiftFuncExprs(&ctx, def->body);
         });
-        if (count == 0) {
-            if (!ctx.free_less_only)
-                break;
+        if (did)
+            irHLProgInlineRefsToNullaryAtomicDefs(prog);
+        else if (ctx.free_less_only)
             ctx.free_less_only = false;
-        }
+        else
+            break;
     }
 }
 
