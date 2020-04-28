@@ -566,6 +566,39 @@ void astRewriteGlyphsIntoInstrs(Ast const* const ast) {
 
 
 
+void astSubDefsReorder(AstDefs const defs) {
+    ·forEach(AstDef, the_def, defs, { astSubDefsReorder(the_def->sub_defs); });
+
+    UInt num_rounds = 0;
+    for (Bool again = true; again; num_rounds += 1) {
+        again = false;
+        if (num_rounds > 42 * defs.len)
+            ·fail(str2(str("Circular sub-def dependencies inside "),
+                       (defs.at[0].anns.parent_def == NULL) ? str("<top-level>") : defs.at[0].anns.parent_def->name));
+        ·forEach(AstDef, the_def, defs, {
+            for (UInt i = iˇthe_def + 1; i < defs.len; i += 1) {
+                Bool const has = astDefHasIdent(&defs.at[i], the_def->name);
+                if (has) {
+                    AstDef dependant = defs.at[i];
+                    defs.at[i] = *the_def;
+                    defs.at[iˇthe_def] = dependant;
+                    again = true;
+                    break;
+                }
+            }
+            if (again)
+                break;
+        });
+    }
+}
+
+void astReorderSubDefs(Ast const* const ast) {
+    ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
+}
+
+
+
+
 void astPrint(Ast const* const ast) {
     ·forEach(AstDef, top_def, ast->top_defs, {
         astPrintDef(top_def, 0);
