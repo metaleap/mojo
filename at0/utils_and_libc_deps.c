@@ -35,7 +35,6 @@ typedef int32_t I32;
 typedef int64_t I64;
 typedef ssize_t Int;
 typedef size_t UInt;
-typedef int CInt;
 typedef void* PtrAny;
 typedef const char* CStr;
 

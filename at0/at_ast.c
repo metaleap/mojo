@@ -515,7 +515,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
             ºUInt const idx_leq = astExprFormIndexOfIdent(expr, strL("<=", 2));
             ºUInt const idx_gt = astExprFormIndexOfIdent(expr, strL(">", 1));
             ºUInt const idx_lt = astExprFormIndexOfIdent(expr, strL("<", 1));
-            CInt const n = idx_eq.ok + idx_neq.ok + idx_geq.ok + idx_leq.ok + idx_gt.ok + idx_lt.ok;
+            int const n = idx_eq.ok + idx_neq.ok + idx_geq.ok + idx_leq.ok + idx_gt.ok + idx_lt.ok;
             if (n > 1)
                 ·fail(astNodeMsg(str("mix of comparison operators, clarify intent with parens"), &expr->node_base, ast));
             else if (n != 0) {
@@ -532,7 +532,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
             ºUInt const idx_mul = astExprFormIndexOfIdent(expr, strL("*", 1));
             ºUInt const idx_div = astExprFormIndexOfIdent(expr, strL("/", 1));
             ºUInt const idx_rem = astExprFormIndexOfIdent(expr, strL("\x25", 1));
-            CInt const n = idx_add.ok + idx_sub.ok + idx_mul.ok + idx_div.ok + idx_rem.ok;
+            int const n = idx_add.ok + idx_sub.ok + idx_mul.ok + idx_div.ok + idx_rem.ok;
             if (n > 1)
                 ·fail(astNodeMsg(str("mix of arithmetic operators, clarify intent with parens"), &expr->node_base, ast));
             else if (n != 0) {
