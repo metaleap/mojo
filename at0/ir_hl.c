@@ -599,7 +599,7 @@ UInt irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr const* const expr) 
         case irhl_expr_func: {
             count += irHLLiftFuncExprs(ctx, expr->of_func.body);
 
-            if (expr->of_func.anns.free_vars.len == 0 && expr != ctx->cur_def->body)
+            if (ctx->free_less_only && expr->of_func.anns.free_vars.len == 0 && expr != ctx->cur_def->body)
                 printf("%s\t%zu\n", strZ(expr->of_func.anns.qname), expr->of_func.anns.free_vars.len);
             // for (UInt i = 0; i < expr->of_func.anns.free_vars.len; i += 1)
             //     printf("\t%s\n", strZ(expr->of_func.anns.free_vars.at[i]));
