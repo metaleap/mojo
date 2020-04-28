@@ -39,6 +39,7 @@ int main(int const argc, CStr const argv[]) {
     // parse into a rudimentary raw context-free generic AST first
     Ast ast = parse(toks, full_src);
     astRewriteGlyphsIntoInstrs(&ast);
+    astReorderSubDefs(&ast);
     // astPrint(&ast);
 
     // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
