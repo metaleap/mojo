@@ -1,4 +1,5 @@
 #pragma once
+#include "../../misc/metaleap.c"
 #include <execinfo.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -8,46 +9,7 @@
 #error unsupported 'CHAR_BIT', need 8
 #endif
 
-
-
 // macro names prefixed with '·' instead of all upper-case (avoids SCREAM_CODE)
-
-#define ·SliceOf(T)                                                                                                                          \
-    struct {                                                                                                                                 \
-        T* at;                                                                                                                               \
-        UInt len;                                                                                                                            \
-    }
-
-#define ·Maybe(T)                                                                                                                            \
-    struct {                                                                                                                                 \
-        T it;                                                                                                                                \
-        Bool ok;                                                                                                                             \
-    }
-
-typedef bool Bool;
-typedef u_int8_t U8;
-typedef u_int16_t U16;
-typedef u_int32_t U32;
-typedef u_int64_t U64;
-typedef int8_t I8;
-typedef int16_t I16;
-typedef int32_t I32;
-typedef int64_t I64;
-typedef ssize_t Int;
-typedef size_t UInt;
-typedef void* PtrAny;
-typedef const char* CStr;
-
-typedef ·Maybe(Bool) ºBool;
-typedef ·Maybe(UInt) ºUInt;
-typedef ·Maybe(U64) ºU64;
-typedef ·SliceOf(Bool) Bools;
-typedef ·SliceOf(UInt) UInts;
-typedef ·SliceOf(U8) U8s;
-typedef U8s Str;
-typedef ·Maybe(Str) ºStr;
-typedef ·SliceOf(Str) Strs;
-
 
 
 
@@ -66,85 +28,9 @@ struct Mem {
     ((T##s) {.len = (³initial_len__),                                                                                                        \
              .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
 
-#define ·len0(T) ((T##s) {.len = 0, .at = NULL})
-
 #define ·new(T) (·make(T, 1, 1).at)
 
-#define ·slice(TSlice__, ¹the_slice_to_reslice__, ²idx_start_reslice_from__, ¹idx_end_to_reslice_until__)                                    \
-    ((TSlice__##s) {.len = (¹idx_end_to_reslice_until__) - (²idx_start_reslice_from__),                                                      \
-                    .at = &((¹the_slice_to_reslice__).at[²idx_start_reslice_from__])})
 
-#define ·append(³the_slice_to_append_to__, ¹the_item_to_append__)                                                                            \
-    do {                                                                                                                                     \
-        (³the_slice_to_append_to__).at[(³the_slice_to_append_to__).len] = (¹the_item_to_append__);                                           \
-        (³the_slice_to_append_to__).len += 1;                                                                                                \
-    } while (0)
-
-#define ·forEach(TItem, iteree_ident__, ²the_slice_to_iter__, ¹do_block__)                                                                   \
-    do {                                                                                                                                     \
-        for (UInt iˇ##iteree_ident__ = 0; iˇ##iteree_ident__ < (²the_slice_to_iter__).len; iˇ##iteree_ident__ += 1) {                        \
-            TItem* const iteree_ident__ = &((²the_slice_to_iter__).at[iˇ##iteree_ident__]);                                                  \
-            { ¹do_block__ }                                                                                                                  \
-        }                                                                                                                                    \
-    } while (0)
-
-#define ·ok(T, ¹the_value__) ((º##T) {.ok = true, .it = (¹the_value__)})
-
-#define ·none(T) ((º##T) {.ok = false})
-
-#define ·fail(¹the_msg)                                                                                                                      \
-    do {                                                                                                                                     \
-        fprintf(stderr, "\n——————————————————————————————————————————\npanicked at: %s:%d\n", __FILE__, __LINE__);                           \
-        abortWithBacktraceAndMsg(¹the_msg);                                                                                                  \
-    } while (0)
-
-
-#ifdef NDEBUG
-#define ·assert(¹the_predicate)
-#else
-#define ·assert(¹the_predicate)                                                                                                              \
-    do {                                                                                                                                     \
-        if (!(¹the_predicate)) {                                                                                                             \
-            fprintf(stderr, "\n——————————————————————————————————————————\ncondition `%s` violated in: %s:%d\n\n", #¹the_predicate,          \
-                    __FILE__, __LINE__);                                                                                                     \
-            abortWithBacktraceAndMsg(·len0(U8));                                                                                             \
-        }                                                                                                                                    \
-    } while (0)
-#endif
-
-
-
-
-void printStr(Str const str) {
-    fwrite(&str.at[0], 1, str.len, stderr);
-}
-void writeStr(Str const str) {
-    fwrite(&str.at[0], 1, str.len, stdout);
-}
-void abortWithBacktraceAndMsg(Str const msg) {
-    PtrAny callstack[16];
-    UInt const n_frames = backtrace(callstack, 16);
-    backtrace_symbols_fd(callstack, n_frames, 2); // 2 = stderr
-
-    fwrite("\n", 1, 1, stderr);
-    printStr(msg);
-    fwrite("\n", 1, 1, stderr);
-    fflush(stderr);
-    abort();
-}
-
-
-
-Str strL(CStr const c_str, UInt str_len) {
-    if (str_len == 0)
-        for (UInt i = 0; c_str[i] != 0; i += 1)
-            str_len += 1;
-    return (Str) {.len = str_len, .at = (U8*)c_str};
-}
-
-Str str(CStr const c_str) {
-    return strL(c_str, 0);
-}
 
 U8* memAlloc(UInt const num_bytes) {
     UInt const new_pos = mem.pos + num_bytes;
@@ -158,20 +44,6 @@ U8* memAlloc(UInt const num_bytes) {
 Str newStr(UInt const initial_len, UInt const max_capacity) {
     Str ret_str = (Str) {.len = initial_len, .at = memAlloc(max_capacity)};
     return ret_str;
-}
-
-ºU64 uInt64Parse(Str const str) {
-    ·assert(str.len > 0);
-    U64 ret_uInt = 0;
-    U64 mult = 1;
-    for (UInt i = str.len; i > 0;) {
-        i -= 1;
-        if (str.at[i] < '0' || str.at[i] > '9')
-            return ·none(U64);
-        ret_uInt += mult * (str.at[i] - 48);
-        mult *= 10;
-    }
-    return ·ok(U64, ret_uInt);
 }
 
 Str uIntToStr(UInt const uInt_value, UInt const str_min_len, UInt const base) {
@@ -222,26 +94,6 @@ CStr strZ(Str const str) {
     return (CStr)buf;
 }
 
-Bool strEql(Str const one, Str const two) {
-    if (one.len != two.len)
-        return false;
-    if (one.len > 0) {
-        UInt i_middle = 1 + (one.len / 2);
-        for (UInt i = 0, j = one.len - 1; i < i_middle; i += 1, j -= 1)
-            if (one.at[i] != two.at[i] || one.at[j] != two.at[j])
-                return false;
-    }
-    return true;
-}
-
-Str strPrefSuff(Str const str, Str const prefix) {
-    Str ret_str = ·len0(U8);
-    if (str.len >= prefix.len)
-        if (strEql(prefix, ·slice(U8, str, 0, prefix.len)))
-            return ·slice(U8, str, prefix.len, str.len);
-    return ret_str;
-}
-
 Str strQuot(Str const str) {
     Str ret_str = newStr(1, 3 + (3 * str.len));
     ret_str.at[0] = '\"';
@@ -262,27 +114,6 @@ Str strQuot(Str const str) {
     ret_str.len += 1;
     ret_str.at[ret_str.len] = 0;
     return ret_str;
-}
-
-Str strSub(Str const str, UInt const idx_start, UInt const idx_end) {
-    return (Str) {.len = idx_end - idx_start, .at = str.at + idx_start};
-}
-
-Bool cStrHasChar(CStr const s, U8 const c) {
-    for (UInt i = 0; s[i] != 0; i += 1)
-        if (s[i] == c)
-            return true;
-    return false;
-}
-
-ºUInt strIndexOf(Str const haystack, Str const needle) {
-    if (haystack.len != 0 && needle.len != 0 && haystack.len >= needle.len)
-        for (UInt i = 0; i < 1 + (haystack.len - needle.len); i += 1) {
-            Str const h_sub = ·slice(U8, haystack, i, i + needle.len);
-            if (strEql(needle, h_sub))
-                return ·ok(UInt, i);
-        }
-    return ·none(UInt);
 }
 
 Str strConcat(Strs const strs, U8 const sep) {
