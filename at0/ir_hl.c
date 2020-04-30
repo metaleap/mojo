@@ -146,6 +146,7 @@ typedef struct IrHLExprFunc {
     struct {
         Str qname;
         Strs free_vars;
+        Bool is_anon;
     } anns;
 } IrHLExprFunc;
 
@@ -840,7 +841,7 @@ IrHLExpr irHLExprFuncFromInstr(IrHLExpr const* const instr, Ast const* const ast
                                     .of_func = (IrHLExprFunc) {
                                         .body = &instr->of_call.args.at[1],
                                         .params = ·make(IrHLFuncParam, params.len, params.len),
-                                        .anns = {.free_vars = ·len0(Str), .qname = ·len0(U8)},
+                                        .anns = {.is_anon = true, .free_vars = ·len0(Str), .qname = ·len0(U8)},
                                     }};
     ·forEach(IrHLExpr, param, params, {
         if (param->kind != irhl_expr_tag)
@@ -993,6 +994,9 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
 
 IrHLExpr irHLDefExpr(AstDef* const cur_ast_def, Ast const* const ast) {
     IrHLExpr body_expr = irHLExprFrom(&cur_ast_def->body, cur_ast_def, ast);
+    if (body_expr.kind == irhl_expr_func)
+        body_expr.of_func.anns.is_anon = false;
+
     UInt const def_count = cur_ast_def->sub_defs.len;
     if (def_count == 0)
         return body_expr;

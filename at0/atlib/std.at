@@ -1,3 +1,6 @@
+io := @"io.at"
+
+
 
 true := #true
 false := #false
@@ -15,11 +18,12 @@ I32         := @T #integer { #bit_width: 32, #signed: true }
 I64         := @T #integer { #bit_width: 64, #signed: true }
 Iw          := @T #integer { #bit_width: #word, #signed: true }
 Ic          := @T #integer { #bit_width: #extc, #signed: true }
-Boolean     := @T #union { #tagged: true, #fields: { true: Void, false: Void } }
+Boolean     := @T #union { #tagged: true, #fields: { #true: Void, #false: Void } }
 Str n       := Arr n U8
 Ptr of      := @T #ptr { #ty: of }
 Arr n of    := @T #arr { #size: n, #ty: of }
 Slice of    := @T #struct { #fields: { #ptr: Ptr (Arr {} of), #len: Uw } }
+
 
 
 xor b1 b2 :=
@@ -36,12 +40,10 @@ forEach arr_or_slice stuff fn :=
 for range step stuff fn :=
   loop {i: range.min, st: stuff} each
   each bag :=
-    (bag.i == range.max) ?- #done new_stuff |- #next { i: step bag.i, st: new_stuff }
+    (bag.i == range.max)  ?- #done new_stuff
+                          |- #next { i: step bag.i, st: new_stuff }
     new_stuff := fn bag.i bag.st
 
 loop stuff fn :=
-  fn stuff  ?- foo => (sth -> loop sth fn)
-            |- #done => (sth -> sth)
-  foo := bar
-  bar := baz
-  baz := #next
+  fn stuff  ?- #done => (stuff_now -> stuff_now)
+            |- #next => (stuff_now -> loop stuff_now fn)

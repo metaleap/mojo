@@ -18,7 +18,8 @@ main _args :=
 
   full_src1 :=
     for 1..._args.len _+1 {buf: Buf.init U8 4096}: i it ->
-      (i == _args.len) ?- it.buf |- it.buf.append (io.readFile _args[i])
+      (i == _args.len)  ?- it.buf
+                        |- it.buf.append (io.readFile _args[i])
 
   full_src2 :=
     (forEach _args[1..] (Buf.init U8 4096): arg buf ->

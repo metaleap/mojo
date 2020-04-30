@@ -1,3 +1,5 @@
+_ := @"../atlib/std.at"
+
 
 main :=
     -> io.writeToOut "Hello World!\010"
