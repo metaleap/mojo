@@ -1,5 +1,5 @@
-_ := @"../atlib/std.at"
+std := @"../atlib/std.at"
 
 
 main :=
-    -> io.writeToOut "Hello World!\010"
+    -> std.io.writeToOut "Hello World!\010"

@@ -1,20 +1,55 @@
 #pragma once
 #include "utils_and_libc_deps.c"
+#include "fs_io.c"
 #include "at_toks.c"
 #include "at_ast.c"
 
 
-AstExpr parseExpr(Tokens const toks, UInt const all_toks_idx, Ast const* const ast, Bool);
-void parseDef(AstDef* const dst_def, Ast const* const ast);
+#define asts_capacity 4
+typedef struct CtxParseAsts {
+    Asts asts;
+    Strs src_file_paths;
+} CtxParseAsts;
 
-Ast parse(Tokens const all_toks, Str const full_src) {
+
+Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path);
+AstExpr astParseExpr(Tokens const toks, UInt const all_toks_idx, Ast* const ast, Bool);
+void astParseDef(AstDef* const dst_def, Ast* const ast);
+
+void loadAndParseRootSourceFileAndImports(CtxParseAsts* const ctx) {
+    while (ctx->src_file_paths.len > ctx->asts.len) {
+        Str const next_src_file_path = ctx->src_file_paths.at[ctx->asts.len];
+        Str const full_src = readFile(next_src_file_path);
+
+        Tokens const toks = tokenize(full_src, false, next_src_file_path);
+        toksVerifyBrackets(toks);
+
+        Ast ast = astParse(toks, full_src, next_src_file_path);
+        if (ctx->asts.len == asts_capacity)
+            ·fail(str("TODO: increase asts_capacity"));
+        ·append(ctx->asts, ast);
+
+        for (UInt i = 0; i < ast.anns.incl_file_paths.len; i += 1) {
+            Str const incl_file_path = relPathFromRelPath(next_src_file_path, ast.anns.incl_file_paths.at[i]);
+            if (!strIn(incl_file_path, ctx->src_file_paths)) {
+                if (ctx->src_file_paths.len == asts_capacity)
+                    ·fail(str("TODO: increase asts_capacity"));
+                ·append(ctx->src_file_paths, incl_file_path);
+            }
+        }
+    }
+}
+
+Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path) {
     Tokenss const chunks = toksIndentBasedChunks(all_toks);
-    Ast ret_ast = (Ast) {
-        .src = full_src,
-        .toks = all_toks,
-        .top_defs = ·make(AstDef, 0, chunks.len),
-        .anns = {.total_nr_of_def_toks = 0},
-    };
+    Ast ret_ast = (Ast) {.src = full_src,
+                         .toks = all_toks,
+                         .top_defs = ·make(AstDef, 0, chunks.len),
+                         .anns = {
+                             .total_nr_of_def_toks = 0,
+                             .incl_file_paths = ·make(Str, 0, asts_capacity),
+                             .src_file_path = src_file_path,
+                         }};
     {
         ·forEach(Token, tok, all_toks, {
             if (tok->kind == tok_kind_ident) {
@@ -28,14 +63,16 @@ Ast parse(Tokens const all_toks, Str const full_src) {
     ·forEach(Tokens, chunk_toks, chunks, {
         AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
         *dst_def = astDef(NULL, toks_idx, chunk_toks->len);
-        parseDef(dst_def, &ret_ast);
+        astParseDef(dst_def, &ret_ast);
         ret_ast.top_defs.len += 1;
         toks_idx += chunk_toks->len;
     });
+    astRewriteGlyphsIntoInstrs(&ret_ast);
+    astReorderSubDefs(&ret_ast);
     return ret_ast;
 }
 
-void parseDef(AstDef* const dst_def, Ast const* const ast) {
+void astParseDef(AstDef* const dst_def, Ast* const ast) {
     Tokens const toks = astNodeToks(&dst_def->node_base, ast);
     ºUInt const idx_tok_def = toksIndexOfIdent(toks, str(":="), ast->src);
     if ((!idx_tok_def.ok) || idx_tok_def.it == 0 || idx_tok_def.it == toks.len - 1)
@@ -44,9 +81,9 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
     Tokenss const def_body_chunks = toksIndentBasedChunks(·slice(Token, toks, idx_tok_def.it + 1, toks.len));
     dst_def->sub_defs = ·make(AstDef, 0, def_body_chunks.len - 1);
     UInt all_toks_idx = dst_def->node_base.toks_idx + idx_tok_def.it + 1;
-    dst_def->body = parseExpr(def_body_chunks.at[0], all_toks_idx, ast, false);
+    dst_def->body = astParseExpr(def_body_chunks.at[0], all_toks_idx, ast, false);
 
-    AstExpr head = parseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast, false);
+    AstExpr head = astParseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast, false);
     dst_def->anns.head_node_base = head.node_base;
     switch (head.kind) {
         case ast_expr_ident: {
@@ -85,13 +122,13 @@ void parseDef(AstDef* const dst_def, Ast const* const ast) {
             AstDef* const sub_def = &dst_def->sub_defs.at[dst_def->sub_defs.len];
             dst_def->sub_defs.len += 1;
             *sub_def = astDef(dst_def, all_toks_idx, chunk_toks->len);
-            parseDef(sub_def, ast);
+            astParseDef(sub_def, ast);
         }
         all_toks_idx += chunk_toks->len;
     });
 }
 
-AstExpr parseExprLitInt(UInt const all_toks_idx, Ast const* const ast, Token const* const tok) {
+AstExpr astParseExprLitInt(UInt const all_toks_idx, Ast const* const ast, Token const* const tok) {
     AstExpr ret_expr = astExpr(all_toks_idx, 1, ast_expr_lit_int, 0);
     ºU64 const maybe = uInt64Parse(tokSrc(tok, ast->src));
     if (!maybe.ok)
@@ -100,7 +137,7 @@ AstExpr parseExprLitInt(UInt const all_toks_idx, Ast const* const ast, Token con
     return ret_expr;
 }
 
-AstExpr parseExprLitStr(UInt const all_toks_idx, Ast const* const ast, Token const* const tok, U8 const quote_char) {
+AstExpr astParseExprLitStr(UInt const all_toks_idx, Ast const* const ast, Token const* const tok, U8 const quote_char) {
     AstExpr ret_expr = astExpr(all_toks_idx + 1, 1, ast_expr_lit_str, 0);
     Str const lit_src = tokSrc(tok, ast->src);
 
@@ -131,7 +168,7 @@ AstExpr parseExprLitStr(UInt const all_toks_idx, Ast const* const ast, Token con
     return ret_expr;
 }
 
-AstExprs parseExprsDelimited(Tokens const toks, UInt const all_toks_idx, TokenKind const tok_kind_sep, Ast const* const ast) {
+AstExprs astParseExprsDelimited(Tokens const toks, UInt const all_toks_idx, TokenKind const tok_kind_sep, Ast* const ast) {
     if (toks.len == 0)
         return ·len0(AstExpr);
     Tokenss const per_elem_toks = toksSplit(toks, tok_kind_sep);
@@ -141,14 +178,14 @@ AstExprs parseExprsDelimited(Tokens const toks, UInt const all_toks_idx, TokenKi
         if (this_elem_toks->len == 0)
             toks_idx += 1; // 1 for eaten delimiter
         else {
-            ·append(ret_exprs, parseExpr(*this_elem_toks, toks_idx, ast, false));
+            ·append(ret_exprs, astParseExpr(*this_elem_toks, toks_idx, ast, false));
             toks_idx += (1 + this_elem_toks->len); // 1 for eaten delimiter
         }
     });
     return ret_exprs;
 }
 
-AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* const ast, Bool const known_whole_form_throng) {
+AstExpr astParseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast* const ast, Bool const known_whole_form_throng) {
     ·assert(expr_toks.len != 0);
     AstExprs ret_acc = ·make(AstExpr, 0, expr_toks.len);
     Bool const whole_form_throng =
@@ -157,7 +194,7 @@ AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* co
     for (UInt i = 0; i < expr_toks.len; i += 1) {
         UInt const idx_throng_end = whole_form_throng ? i : tokThrong(expr_toks, i, ast->src);
         if (idx_throng_end > i) {
-            ·append(ret_acc, parseExpr(·slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast, true));
+            ·append(ret_acc, astParseExpr(·slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast, true));
             i = idx_throng_end; // loop header will increment
         } else {
             switch (expr_toks.at[i].kind) {
@@ -167,15 +204,15 @@ AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* co
                 } break;
 
                 case tok_kind_lit_num_prefixed: {
-                    ·append(ret_acc, parseExprLitInt(all_toks_idx + 1, ast, &expr_toks.at[i]));
+                    ·append(ret_acc, astParseExprLitInt(all_toks_idx + 1, ast, &expr_toks.at[i]));
                 } break;
 
                 case tok_kind_lit_str_qdouble: {
-                    ·append(ret_acc, parseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"'));
+                    ·append(ret_acc, astParseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"'));
                 } break;
 
                 case tok_kind_lit_str_qsingle: {
-                    AstExpr expr_lit = parseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"');
+                    AstExpr expr_lit = astParseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"');
                     if (expr_lit.of_lit_str.len != 1)
                         ·fail(astNodeMsg(str("currently only supporting single-byte char literals"), &expr_lit.node_base, ast));
 
@@ -197,7 +234,7 @@ AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* co
                             AstExpr const expr_ident = astExprIdent(all_toks_idx + i, 2, strL("()", 2));
                             ·append(ret_acc, expr_ident);
                         } else {
-                            AstExpr expr_inside_parens = parseExpr(toks_inside_parens, all_toks_idx + i + 1, ast, false);
+                            AstExpr expr_inside_parens = astParseExpr(toks_inside_parens, all_toks_idx + i + 1, ast, false);
                             expr_inside_parens.anns.parensed += (expr_inside_parens.anns.parensed < 255) ? 1 : 0;
                             // still want the parens toks captured in node base:
                             expr_inside_parens.node_base.toks_idx = all_toks_idx + i;
@@ -205,8 +242,8 @@ AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* co
                             ·append(ret_acc, expr_inside_parens);
                         }
                     } else { // no parens: either square brackets or curly braces
-                        AstExprs const exprs_inside = parseExprsDelimited(·slice(Token, expr_toks, i + 1, idx_closing.it),
-                                                                          all_toks_idx + i + 1, tok_kind_sep_comma, ast);
+                        AstExprs const exprs_inside = astParseExprsDelimited(·slice(Token, expr_toks, i + 1, idx_closing.it),
+                                                                             all_toks_idx + i + 1, tok_kind_sep_comma, ast);
                         Bool const is_braces = (tok_kind == tok_kind_sep_bcurly_open);
                         Bool const is_bracket = (tok_kind == tok_kind_sep_bsquare_open);
                         ·assert(is_braces || is_bracket); // always true right now obviously, but for future overpaced refactorers..
@@ -238,5 +275,16 @@ AstExpr parseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast const* co
     AstExpr ret_expr = astExpr(all_toks_idx, expr_toks.len, ast_expr_form, 0);
     ret_expr.of_exprs = ret_acc;
     ret_expr.anns.toks_throng = whole_form_throng;
+
+    if (ret_expr.of_exprs.at[0].kind == ast_expr_ident && ret_expr.of_exprs.at[1].kind == ast_expr_lit_str
+        && ret_expr.of_exprs.at[0].of_ident.len == 1 && ret_expr.of_exprs.at[0].of_ident.at[0] == '@') {
+        Str const incl_file_path = ret_expr.of_exprs.at[1].of_lit_str;
+        if (!strIn(incl_file_path, ast->anns.incl_file_paths)) {
+            if (ast->anns.incl_file_paths.len == asts_capacity)
+                ·fail(str("TODO: increase asts_capacity"));
+            ·append(ast->anns.incl_file_paths, incl_file_path);
+        }
+    }
+
     return ret_expr;
 }

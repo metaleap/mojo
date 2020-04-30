@@ -163,8 +163,33 @@ Str str8(Str const s1, Str const s2, Str const s3, Str const s4, Str const s5, S
 
 
 
+void printChr(U8 const chr) {
+    fwrite(&chr, 1, 1, stderr);
+}
 
 void failIf(int some_err) {
     if (some_err)
         ·fail(str2(str("error code: "), uIntToStr(some_err, 1, 10)));
+}
+
+Str ident(Str const str) {
+    Str ret_ident = newStr(0, 2 * str.len);
+    Bool all_chars_ok = true;
+    for (UInt i = 0; i < str.len; i += 1) {
+        U8 c = str.at[i];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' || c == '$')
+            ·append(ret_ident, c);
+        else {
+            all_chars_ok = false;
+            Str const hex = uIntToStr(c, 1, 16);
+            for (UInt j = 0; j < hex.len; j += 1)
+                ·append(ret_ident, hex.at[j]);
+        }
+    }
+    if (all_chars_ok) {
+        mem.pos -= str.len;
+        ret_ident = str;
+    } else
+        mem.pos -= (2 * str.len) - ret_ident.len;
+    return ret_ident;
 }

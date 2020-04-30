@@ -1,6 +1,5 @@
 #pragma once
 #include "utils_and_libc_deps.c"
-#include "std_io.c"
 #include "at_toks.c"
 
 
@@ -65,9 +64,12 @@ typedef struct Ast {
     Tokens toks;
     AstDefs top_defs;
     struct {
+        Str src_file_path;
         UInt total_nr_of_def_toks;
+        Strs incl_file_paths;
     } anns;
 } Ast;
+typedef ·SliceOf(Ast) Asts;
 
 
 

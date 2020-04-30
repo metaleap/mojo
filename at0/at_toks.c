@@ -275,7 +275,7 @@ Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     return ret_sub_toks;
 }
 
-Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str file_name) {
+Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file_name) {
     Tokens toks = ·make(Token, 0, full_src.len);
 
     TokenKind state = tok_kind_nope;
@@ -394,14 +394,6 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str file_name)
         Bool reset_line_nr = false;
         if (tok_idx_last != -1) {
             ·assert(state != tok_kind_nope && tok_idx_start != -1);
-            if (state == tok_kind_comment) {
-                Str const full_comment_src = ·slice(U8, full_src, tok_idx_start, tok_idx_last + 1);
-                Str const suff = strPrefSuff(full_comment_src, str("//AT_TOKS_SRC_FILE:"));
-                if (suff.at != NULL) {
-                    file_name = suff;
-                    reset_line_nr = true;
-                }
-            }
             if (state != tok_kind_comment || keep_comment_toks)
                 ·append(toks, ((Token) {
                                   .kind = state,

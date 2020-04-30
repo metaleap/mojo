@@ -1,6 +1,5 @@
 #include "utils_and_libc_deps.c"
 #include "at_ast.c"
-#include "std_io.c"
 
 
 struct IrHLDef;
@@ -21,7 +20,6 @@ typedef ·SliceOf(IrHLType) IrHLTypes;
 typedef struct IrHLProg {
     IrHLDefs defs;
     struct {
-        Ast const* const origin_ast;
     } anns;
 } IrHLProg;
 
@@ -340,6 +338,7 @@ struct IrHLDef {
     Str name;
     IrHLExpr* body;
     struct {
+        Ast* origin_ast;
         AstDef* origin_ast_def;
     } anns;
 };
@@ -454,14 +453,15 @@ void irHLExprProcessIdents(IrHLExpr* const expr, Strs names_stack, IrHLRefs ref_
             expr->of_func.anns.qname = strConcat(qname_stack, '-');
 
             ·forEach(IrHLFuncParam, param, expr->of_func.params,
-                     { irHLProcessIdentsPush(&names_stack, param->name, ref_stack, param->anns.origin_ast_node, prog->anns.origin_ast); });
+                     { irHLProcessIdentsPush(&names_stack, param->name, ref_stack, param->anns.origin_ast_node, cur_def->anns.origin_ast); });
             ·append(ref_stack, ((IrHLRef) {.kind = irhl_ref_expr_func, .of_expr_func = expr}));
             ·append(qname_stack, str_nil);
             irHLExprProcessIdents(expr->of_func.body, names_stack, ref_stack, qname_stack, cur_def, prog);
         } break;
         case irhl_expr_let: {
             ·forEach(IrHLLet, let, expr->of_let.lets, {
-                irHLProcessIdentsPush(&names_stack, let->name, ref_stack, &let->expr->anns.origin.ast_def->node_base, prog->anns.origin_ast);
+                irHLProcessIdentsPush(&names_stack, let->name, ref_stack, &let->expr->anns.origin.ast_def->node_base,
+                                      cur_def->anns.origin_ast);
             });
             ·append(ref_stack, ((IrHLRef) {.kind = irhl_ref_expr_let, .of_expr_let = expr}));
             ·append(qname_stack, str_nil);
@@ -514,7 +514,7 @@ void irHLExprProcessIdents(IrHLExpr* const expr, Strs names_stack, IrHLRefs ref_
                 }
             }
             if (expr->of_ref.path.at == NULL)
-                ·fail(astNodeMsg(str("identifier not in scope"), &expr->anns.origin.ast_expr->node_base, prog->anns.origin_ast));
+                ·fail(astNodeMsg(str("identifier not in scope"), &expr->anns.origin.ast_expr->node_base, cur_def->anns.origin_ast));
 
             IrHLExprFunc* parent_fn = NULL;
             for (UInt i = ref_stack.len - 1; (parent_fn == NULL) && (i > 0); i -= 1)
@@ -546,7 +546,7 @@ void irHLExprProcessIdents(IrHLExpr* const expr, Strs names_stack, IrHLRefs ref_
         } break;
         default: {
             ·fail(astNodeMsg(str2(str("TODO: irHLExprProcessIdents for expr.kind of "), uIntToStr(expr->kind, 1, 10)),
-                             &expr->anns.origin.ast_expr->node_base, prog->anns.origin_ast));
+                             &expr->anns.origin.ast_expr->node_base, cur_def->anns.origin_ast));
         } break;
     }
 }
@@ -556,7 +556,7 @@ void irHLProcessIdents(IrHLProg const* const prog) {
     Strs qname_stack = ·make(Str, 1, idents_tracking_stack_capacity);
     IrHLRefs ref_stack = ·make(IrHLRef, 0, idents_tracking_stack_capacity);
     ·forEach(IrHLDef, def, prog->defs, {
-        irHLProcessIdentsPush(&names_stack, def->name, ref_stack, &def->anns.origin_ast_def->anns.head_node_base, prog->anns.origin_ast);
+        irHLProcessIdentsPush(&names_stack, def->name, ref_stack, &def->anns.origin_ast_def->anns.head_node_base, def->anns.origin_ast);
     });
     ref_stack.len = 1;
     ·forEach(IrHLDef, def, prog->defs, {
@@ -569,7 +569,7 @@ void irHLProcessIdents(IrHLProg const* const prog) {
 
 
 
-void irHLExprInlineRefsToNullaryAtomicDefs(IrHLExpr* const expr, IrHLProg* const prog) {
+void irHLExprInlineRefsToNullaryAtomicDefs(IrHLExpr* const expr, IrHLDef* const cur_def, IrHLProg* const prog) {
     switch (expr->kind) {
         case irhl_expr_type:
         case irhl_expr_nilish:
@@ -578,32 +578,32 @@ void irHLExprInlineRefsToNullaryAtomicDefs(IrHLExpr* const expr, IrHLProg* const
         case irhl_expr_field_name: break;
         case irhl_expr_instr: ·assert(expr->of_instr.kind == irhl_instr_named); break;
         case irhl_expr_call: {
-            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_call.callee, prog);
-            ·forEach(IrHLExpr, arg, expr->of_call.args, { irHLExprInlineRefsToNullaryAtomicDefs(arg, prog); });
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_call.callee, cur_def, prog);
+            ·forEach(IrHLExpr, arg, expr->of_call.args, { irHLExprInlineRefsToNullaryAtomicDefs(arg, cur_def, prog); });
         } break;
         case irhl_expr_list: {
-            ·forEach(IrHLExpr, item, expr->of_list.items, { irHLExprInlineRefsToNullaryAtomicDefs(item, prog); });
+            ·forEach(IrHLExpr, item, expr->of_list.items, { irHLExprInlineRefsToNullaryAtomicDefs(item, cur_def, prog); });
         } break;
         case irhl_expr_bag: {
-            ·forEach(IrHLExpr, item, expr->of_bag.items, { irHLExprInlineRefsToNullaryAtomicDefs(item, prog); });
+            ·forEach(IrHLExpr, item, expr->of_bag.items, { irHLExprInlineRefsToNullaryAtomicDefs(item, cur_def, prog); });
         } break;
         case irhl_expr_selector: {
-            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_selector.subj, prog);
-            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_selector.member, prog);
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_selector.subj, cur_def, prog);
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_selector.member, cur_def, prog);
         } break;
         case irhl_expr_kvpair: {
-            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_kvpair.key, prog);
-            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_kvpair.val, prog);
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_kvpair.key, cur_def, prog);
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_kvpair.val, cur_def, prog);
         } break;
         case irhl_expr_tagged: {
-            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_tagged.subj, prog);
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_tagged.subj, cur_def, prog);
         } break;
         case irhl_expr_let: {
-            ·forEach(IrHLLet, let, expr->of_let.lets, { irHLExprInlineRefsToNullaryAtomicDefs(let->expr, prog); });
-            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_let.body, prog);
+            ·forEach(IrHLLet, let, expr->of_let.lets, { irHLExprInlineRefsToNullaryAtomicDefs(let->expr, cur_def, prog); });
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_let.body, cur_def, prog);
         } break;
         case irhl_expr_func: {
-            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_func.body, prog);
+            irHLExprInlineRefsToNullaryAtomicDefs(expr->of_func.body, cur_def, prog);
         } break;
         case irhl_expr_ref: {
             IrHLRef* ref = &expr->of_ref.path.at[expr->of_ref.path.len - 1];
@@ -627,7 +627,7 @@ void irHLExprInlineRefsToNullaryAtomicDefs(IrHLExpr* const expr, IrHLProg* const
                 default: break;
             }
             if (did_rewrite) {
-                irHLExprInlineRefsToNullaryAtomicDefs(expr, prog);
+                irHLExprInlineRefsToNullaryAtomicDefs(expr, cur_def, prog);
                 printf("\n\nREFTO\t%s\n>>>>\n", strZ(ref_name));
                 astPrintExpr(expr->anns.origin.ast_expr, false, 0);
                 printf("\n<<<<\n");
@@ -635,12 +635,12 @@ void irHLExprInlineRefsToNullaryAtomicDefs(IrHLExpr* const expr, IrHLProg* const
         } break;
         default:
             ·fail(astNodeMsg(str2(str("TODO: irHLExprInlineRefsToNullaryAtomicDefs for expr.kind of "), uIntToStr(expr->kind, 1, 10)),
-                             &expr->anns.origin.ast_expr->node_base, prog->anns.origin_ast));
+                             &expr->anns.origin.ast_expr->node_base, cur_def->anns.origin_ast));
     }
 }
 
 void irHLProgInlineRefsToNullaryAtomicDefs(IrHLProg* const prog) {
-    ·forEach(IrHLDef, def, prog->defs, { irHLExprInlineRefsToNullaryAtomicDefs(def->body, prog); });
+    ·forEach(IrHLDef, def, prog->defs, { irHLExprInlineRefsToNullaryAtomicDefs(def->body, def, prog); });
 }
 
 
@@ -706,7 +706,7 @@ Bool irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr* const expr) {
         } break;
         default:
             ·fail(astNodeMsg(str2(str("TODO: irHLLiftFuncExprs for expr.kind of "), uIntToStr(expr->kind, 1, 10)),
-                             &expr->anns.origin.ast_expr->node_base, ctx->prog->anns.origin_ast));
+                             &expr->anns.origin.ast_expr->node_base, ctx->cur_def->anns.origin_ast));
     }
     return did;
 }
@@ -1021,23 +1021,28 @@ IrHLExpr irHLDefExpr(AstDef* const cur_ast_def, Ast const* const ast) {
     }
 }
 
-IrHLDef irHLDefFrom(AstDef* const top_def, Ast const* const ast) {
+IrHLDef irHLDefFrom(AstDef* const top_def, Ast* const ast) {
     IrHLDef this_def = (IrHLDef) {
         .name = top_def->name,
-        .anns = {.origin_ast_def = top_def},
+        .anns = {.origin_ast = ast, .origin_ast_def = top_def},
         .body = irHLExprKeep(irHLDefExpr(top_def, ast)),
     };
     return this_def;
 }
 
-IrHLProg irHLProgFrom(Ast* const ast) {
+IrHLProg irHLProgFrom(Asts const asts) {
+    UInt total_defs_capacity = 0;
+    ·forEach(Ast, ast, asts, { total_defs_capacity += ast->anns.total_nr_of_def_toks; });
+
     IrHLProg ret_prog = (IrHLProg) {
-        .anns = {.origin_ast = ast},
-        .defs = ·make(IrHLDef, 0, ast->anns.total_nr_of_def_toks),
+        // .anns = {},
+        .defs = ·make(IrHLDef, 0, total_defs_capacity),
     };
-    ·forEach(AstDef, ast_top_def, ast->top_defs, {
-        IrHLDef irhl_top_def = irHLDefFrom(ast_top_def, ast);
-        ·append(ret_prog.defs, irhl_top_def);
+    ·forEach(Ast, ast, asts, {
+        ·forEach(AstDef, ast_top_def, ast->top_defs, {
+            IrHLDef irhl_top_def = irHLDefFrom(ast_top_def, ast);
+            ·append(ret_prog.defs, irhl_top_def);
+        });
     });
     return ret_prog;
 }

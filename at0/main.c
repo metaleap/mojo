@@ -2,7 +2,7 @@
 #pragma clang diagnostic ignored "-Wunused-function"
 
 #include "utils_and_libc_deps.c"
-#include "std_io.c"
+#include "fs_io.c"
 
 #include "at_toks.c"
 #include "at_ast.c"
@@ -15,35 +15,18 @@
 void readLnLoop(IrHLProg const* const);
 
 int main(int const argc, CStr const argv[]) {
-    ·assert(argc > 1);
+    ·assert(argc == 2);
 
-    // read and concat together all input source files specified via args
-    Str full_src = ·len0(U8);
-    for (int i = 1; i < argc; i += 1) {
-        // hacky: all allocs in this loop (strCopy and readFile) are contiguous in `mem`,
-        // so our `full_src` bytes-slice just gets the starting addr and its `len` increased.
-        // this means to never introduce any calls in here that also alloc from `mem`!
-        Str const comment_part_1 = strCopy("//AT_TOKS_SRC_FILE:");
-        Str const comment_part_2 = strCopy(argv[i]);
-        Str const comment_part_3 = strCopy("\n");
-        Str const this_file_src = readFile(argv[i]);
-        full_src.len += comment_part_1.len + comment_part_2.len + comment_part_3.len + this_file_src.len;
-        if (full_src.at == NULL)
-            full_src.at = comment_part_1.at;
-    }
+    CtxParseAsts ctx_parse = (CtxParseAsts) {.asts = ·make(Ast, 0, asts_capacity), .src_file_paths = ·make(Str, 0, asts_capacity)};
+    ·append(ctx_parse.src_file_paths, str(argv[1]));
+    loadAndParseRootSourceFileAndImports(&ctx_parse);
 
-    // tokenize
-    Tokens const toks = tokenize(full_src, false, str(""));
-    toksVerifyBrackets(toks);
+    // ·forEach(Ast, ast, ctx_parse.asts,
+    //          {
+    //              //  ast->anns.src_file_path
+    //          });
 
-    // parse into a rudimentary raw context-free generic AST first
-    Ast ast = parse(toks, full_src);
-    astRewriteGlyphsIntoInstrs(&ast);
-    astReorderSubDefs(&ast);
-    // astPrint(&ast);
-
-    // interpret raw-and-dumb *syntax* tree into actual language *semantics*:
-    IrHLProg ir_hl = irHLProgFrom(&ast);
+    IrHLProg ir_hl = irHLProgFrom(ctx_parse.asts);
     irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
     irHLProgLiftFuncExprs(&ir_hl);
     irHLPrintProg(&ir_hl);
