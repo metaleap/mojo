@@ -908,6 +908,28 @@ IrHLExpr irHLExprFuncFromInstr(IrHLExpr const* const instr, Ast const* const ast
             ret_expr.of_func.params.at[iˇparam].name = str2(uIntToStr(counter, 1, 16), str("æ"));
         }
     });
+
+    // detect if it's one of our `prependCommonFuncs`
+    if (ret_expr.of_func.body->kind == irhl_expr_ref) {
+        if (ret_expr.of_func.params.len == 1 && strEql(ret_expr.of_func.body->of_ref.name_or_qname, ret_expr.of_func.params.at[0].name)) {
+            ret_expr = (IrHLExpr) {
+                .anns = ret_expr.anns,
+                .kind = irhl_expr_ref,
+                .of_ref = (IrHLExprRef) {.path = ·len0(IrHLRef), .name_or_qname = str("-i-")},
+            };
+        } else if (ret_expr.of_func.params.len == 2) {
+            Bool const ref0 = strEql(ret_expr.of_func.body->of_ref.name_or_qname, ret_expr.of_func.params.at[0].name);
+            Bool const ref1 = (!ref0) && strEql(ret_expr.of_func.body->of_ref.name_or_qname, ret_expr.of_func.params.at[1].name);
+            if (ref0 || ref1) {
+                ·fail(str("TODO verify k/ki detection now that it actually occurred"));
+                ret_expr = (IrHLExpr) {
+                    .anns = ret_expr.anns,
+                    .kind = irhl_expr_ref,
+                    .of_ref = (IrHLExprRef) {.path = ·len0(IrHLRef), .name_or_qname = str(ref0 ? "-k-" : "-ki-")},
+                };
+            }
+        }
+    }
     return ret_expr;
 }
 
