@@ -60,7 +60,7 @@ Str tokSrc(Token const* const tok, Str const full_src) {
 }
 
 Str toksSrc(Tokens const toks, Str const full_src) {
-    Token* const tok_last = &toks.at[toks.len - 1];
+    Token* const tok_last = ·last(toks);
     return strSub(full_src, toks.at[0].char_pos, tok_last->char_pos + tok_last->str_len);
 }
 
@@ -161,13 +161,13 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     });
     ·assert(level == 0);
 
-    Tokenss ret_chunks = ·make(Tokens, 0, num_chunks);
+    Tokenss ret_chunks = ·sliceOf(Tokens, 0, num_chunks);
     {
         Int start_from = -1;
         ·forEach(Token, tok, toks, {
             if (iˇtok == 0 || (level == 0 && tokPosCol(tok) <= cmp_pos_col)) {
                 if (start_from != -1)
-                    ·append(ret_chunks, ·slice(Token, toks, start_from, iˇtok));
+                    ·push(ret_chunks, ·slice(Token, toks, start_from, iˇtok));
                 start_from = iˇtok;
             }
             if (tokIsOpeningBracket(tok->kind))
@@ -176,7 +176,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
                 level -= 1;
         });
         if (start_from != -1)
-            ·append(ret_chunks, ·slice(Token, toks, start_from, toks.len));
+            ·push(ret_chunks, ·slice(Token, toks, start_from, toks.len));
         ·assert(ret_chunks.len == num_chunks);
     }
     return ret_chunks;
@@ -257,26 +257,26 @@ Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     if (toks.len == 0)
         return ·len0(Tokens);
     UInt capacity = 1 + toksCountUnnested(toks, tok_kind);
-    Tokenss ret_sub_toks = ·make(Tokens, 0, capacity);
+    Tokenss ret_sub_toks = ·sliceOf(Tokens, 0, capacity);
     {
         Int level = 0;
         UInt start_from = 0;
         ·forEach(Token, tok, toks, {
             if (tok->kind == tok_kind && level == 0) {
-                ·append(ret_sub_toks, ·slice(Token, toks, start_from, iˇtok));
+                ·push(ret_sub_toks, ·slice(Token, toks, start_from, iˇtok));
                 start_from = iˇtok + 1;
             } else if (tokIsOpeningBracket(tok->kind))
                 level += 1;
             else if (tokIsClosingBracket(tok->kind))
                 level -= 1;
         });
-        ·append(ret_sub_toks, ·slice(Token, toks, start_from, toks.len));
+        ·push(ret_sub_toks, ·slice(Token, toks, start_from, toks.len));
     }
     return ret_sub_toks;
 }
 
 Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file_name) {
-    Tokens toks = ·make(Token, 0, full_src.len);
+    Tokens toks = ·sliceOf(Token, 0, full_src.len);
 
     TokenKind state = tok_kind_nope;
     UInt cur_line_nr = 0;
@@ -395,14 +395,14 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file
         if (tok_idx_last != -1) {
             ·assert(state != tok_kind_nope && tok_idx_start != -1);
             if (state != tok_kind_comment || keep_comment_toks)
-                ·append(toks, ((Token) {
-                                  .kind = state,
-                                  .line_nr = cur_line_nr,
-                                  .char_pos_line_start = cur_line_idx,
-                                  .char_pos = (UInt)(tok_idx_start),
-                                  .str_len = (UInt)(1 + (tok_idx_last - tok_idx_start)),
-                                  .file_name = file_name,
-                              }));
+                ·push(toks, ((Token) {
+                                .kind = state,
+                                .line_nr = cur_line_nr,
+                                .char_pos_line_start = cur_line_idx,
+                                .char_pos = (UInt)(tok_idx_start),
+                                .str_len = (UInt)(1 + (tok_idx_last - tok_idx_start)),
+                                .file_name = file_name,
+                            }));
             state = tok_kind_nope;
             tok_idx_start = -1;
             tok_idx_last = -1;
@@ -415,14 +415,14 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file
     if (tok_idx_start != -1) {
         ·assert(state != tok_kind_nope);
         if (state != tok_kind_comment || keep_comment_toks)
-            ·append(toks, ((Token) {
-                              .kind = state,
-                              .line_nr = cur_line_nr,
-                              .char_pos_line_start = cur_line_idx,
-                              .char_pos = (UInt)(tok_idx_start),
-                              .str_len = i - tok_idx_start,
-                              .file_name = file_name,
-                          }));
+            ·push(toks, ((Token) {
+                            .kind = state,
+                            .line_nr = cur_line_nr,
+                            .char_pos_line_start = cur_line_idx,
+                            .char_pos = (UInt)(tok_idx_start),
+                            .str_len = i - tok_idx_start,
+                            .file_name = file_name,
+                        }));
     }
     return toks;
 }

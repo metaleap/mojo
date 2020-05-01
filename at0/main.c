@@ -17,12 +17,12 @@ void readLnLoop(IrHLProg const* const);
 int main(int const argc, CStr const argv[]) {
     ·assert(argc == 2);
 
-    CtxParseAsts ctx_parse = (CtxParseAsts) {.asts = ·make(Ast, 0, asts_capacity), .src_file_paths = ·make(Str, 0, asts_capacity)};
-    ·append(ctx_parse.src_file_paths, str(argv[1]));
+    CtxParseAsts ctx_parse = (CtxParseAsts) {.asts = ·listOf(Ast, 0, asts_capacity), .src_file_paths = ·sliceOf(Str, 0, asts_capacity)};
+    ·push(ctx_parse.src_file_paths, str(argv[1]));
     loadAndParseRootSourceFileAndImports(&ctx_parse);
 
     IrHLProg ir_hl = irHLProgFrom(ctx_parse.asts);
-    // irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
+    irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
     // irHLProgLiftFuncExprs(&ir_hl);
     irHLPrintProg(&ir_hl);
 

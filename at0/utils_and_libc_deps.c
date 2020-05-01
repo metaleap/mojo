@@ -24,11 +24,16 @@ struct Mem {
 
 
 
-#define ·make(T, ³initial_len__, ²max_capacity__)                                                                                            \
+#define ·new(T) ((T*)memAlloc(sizeof(T)))
+
+#define ·sliceOf(T, ³initial_len__, ²max_capacity__)                                                                                         \
     ((T##s) {.len = (³initial_len__),                                                                                                        \
              .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
 
-#define ·new(T) (·make(T, 1, 1).at)
+#define ·listOf(T, ⁵initial_len__, ⁴max_capacity__)                                                                                          \
+    ((T##s) {.len = (⁵initial_len__),                                                                                                        \
+             .cap = (((⁴max_capacity__) < (⁵initial_len__)) ? (⁵initial_len__) : (⁴max_capacity__)),                                         \
+             .at = (T*)(memAlloc((((⁴max_capacity__) < (⁵initial_len__)) ? (⁵initial_len__) : (⁴max_capacity__)) * (sizeof(T))))})
 
 
 
@@ -173,17 +178,19 @@ void failIf(int some_err) {
 }
 
 Str ident(Str const str) {
-    Str ret_ident = newStr(0, 2 * str.len);
+    Str ret_ident = newStr(0, 4 * str.len);
     Bool all_chars_ok = true;
     for (UInt i = 0; i < str.len; i += 1) {
         U8 c = str.at[i];
         if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' || c == '$')
-            ·append(ret_ident, c);
+            ·push(ret_ident, c);
         else {
             all_chars_ok = false;
             Str const hex = uIntToStr(c, 1, 16);
+            ·push(ret_ident, '-');
             for (UInt j = 0; j < hex.len; j += 1)
-                ·append(ret_ident, hex.at[j]);
+                ·push(ret_ident, hex.at[j]);
+            ·push(ret_ident, '-');
         }
     }
     if (all_chars_ok) {

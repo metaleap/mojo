@@ -70,7 +70,7 @@ typedef struct Ast {
         Strs incl_file_paths;
     } anns;
 } Ast;
-typedef ·SliceOf(Ast) Asts;
+typedef ·ListOf(Ast) Asts;
 
 
 
@@ -88,6 +88,8 @@ Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
 }
 
 Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
+    if (node == NULL)
+        return str2(msg_prefix, str("\n"));
     Tokens const node_toks = astNodeToks(node, ast);
     Str const toks_src = toksSrc(node_toks, ast->src);
     return str6(tokPosStr(&node_toks.at[0]), str(": "), msg_prefix, str(":\n"), toks_src, str("\n"));
@@ -111,7 +113,7 @@ AstExpr astExpr(UInt const toks_idx, UInt const toks_len, AstExprKind const expr
         .node_base = astNodeBaseFrom(toks_idx, toks_len),
         .kind = expr_kind,
         .anns = {.parensed = 0, .toks_throng = false},
-        .of_exprs = ·make(AstExpr, len_if_non_atomic, len_if_non_atomic),
+        .of_exprs = ·sliceOf(AstExpr, len_if_non_atomic, len_if_non_atomic),
     };
 }
 
@@ -143,25 +145,25 @@ AstExpr astExprFormSub(AstExpr const* const ast_expr, UInt const idx_start, UInt
 
 AstExprs astExprFormSplit(AstExpr const* const expr, Str const ident, ºStr const ident_stop) {
     ·assert(expr->kind == ast_expr_form);
-    UInts indices = ·make(UInt, 0, expr->of_exprs.len);
+    UInts indices = ·sliceOf(UInt, 0, expr->of_exprs.len);
     ·forEach(AstExpr, sub_expr, expr->of_exprs, {
         if (sub_expr->kind == ast_expr_ident) {
             if (ident_stop.ok && strEql(ident_stop.it, sub_expr->of_ident))
                 break;
             if (strEql(ident, sub_expr->of_ident))
-                ·append(indices, iˇsub_expr);
+                ·push(indices, iˇsub_expr);
         }
     });
-    AstExprs ret_exprs = ·make(AstExpr, 0, 1 + indices.len);
+    AstExprs ret_exprs = ·sliceOf(AstExpr, 0, 1 + indices.len);
     UInt idx_start = 0;
     for (UInt i = 0; i < indices.len; i += 1) {
-        ·append(ret_exprs, astExprFormSub(expr, idx_start, indices.at[i]));
+        ·push(ret_exprs, astExprFormSub(expr, idx_start, indices.at[i]));
         ·assert(ret_exprs.len <= 1 + indices.len);
         idx_start = 1 + indices.at[i];
     }
     if (idx_start == 0)
         return (AstExprs) {.len = 1, .at = (AstExpr*)expr};
-    ·append(ret_exprs, astExprFormSub(expr, idx_start, expr->of_exprs.len));
+    ·push(ret_exprs, astExprFormSub(expr, idx_start, expr->of_exprs.len));
     ·assert(ret_exprs.len <= 1 + indices.len);
     return ret_exprs;
 }
@@ -266,7 +268,8 @@ AstExpr astExprIdent(UInt const toks_idx, UInt const toks_len, Str const name) {
 }
 
 AstExpr astExprInstrOrTag(AstNodeBase const from, Str const name, Bool const tag) {
-    AstExpr ret_expr = (AstExpr) {.kind = ast_expr_form, .of_exprs = ·make(AstExpr, 2, 2), .node_base = from, .anns = {.toks_throng = true}};
+    AstExpr ret_expr =
+        (AstExpr) {.kind = ast_expr_form, .of_exprs = ·sliceOf(AstExpr, 2, 2), .node_base = from, .anns = {.toks_throng = true}};
     ret_expr.of_exprs.at[0] = astExprIdent(from.toks_idx, from.toks_len, strL(tag ? "#" : "@", 1));
     ret_expr.of_exprs.at[1] = astExprIdent(from.toks_idx, from.toks_len, name);
     return ret_expr;
@@ -284,7 +287,7 @@ void astExprFormNorm(AstExpr* const expr, ºAstExpr const if_empty) {
 Bool astExprsThronged(AstExpr* const former, AstExpr* const latter, Ast const* const ast) {
     Tokens const toks_lhs = astNodeToks(&former->node_base, ast);
     Tokens const toks_rhs = astNodeToks(&latter->node_base, ast);
-    Token* const tok_lhs = &toks_lhs.at[toks_lhs.len - 1];
+    Token* const tok_lhs = ·last(toks_lhs);
     Token* const tok_rhs = &toks_rhs.at[0];
     return tok_rhs->char_pos == (tok_lhs->char_pos + tok_lhs->str_len);
 }
@@ -305,7 +308,7 @@ Bool astExprRewriteFirstGlyphIntoInstr(AstExpr* const expr, Str const glyph_name
     if (must_rhs && !maybe.rhs_form.ok)
         ·fail(astNodeMsg(str3(str("expected right-hand-side operand for '"), glyph_name, str("' in")), &expr->node_base, ast));
     expr->anns.toks_throng = false;
-    expr->of_exprs = ·make(AstExpr, 3, 3);
+    expr->of_exprs = ·sliceOf(AstExpr, 3, 3);
     expr->of_exprs.at[0] = astExprInstrOrTag(maybe.glyph->node_base, glyph_name, false);
     expr->of_exprs.at[1] = (maybe.lhs_form.ok) ? maybe.lhs_form.it : astExprFormEmpty(expr->node_base);
     expr->of_exprs.at[2] = (maybe.rhs_form.ok) ? maybe.rhs_form.it : astExprFormEmpty(expr->node_base);
@@ -389,7 +392,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         // next, sanitize `foo[1].bar[2].bar[3]` into `((((foo[1]).bar)[2]).bar)[3]`
         // before traversing into sub-desugarings
         if (!matched) {
-            AstExpr* const last = &expr->of_exprs.at[expr->of_exprs.len - 1];
+            AstExpr* const last = ·last(expr->of_exprs);
             if ((last->kind == ast_expr_lit_braces || last->kind == ast_expr_lit_bracket)
                 && astExprsThronged(&expr->of_exprs.at[expr->of_exprs.len - 2], last, ast)) {
                 matched = true;
@@ -495,7 +498,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                     matched = true;
                     counter += 1;
                     sub_expr->of_ident = str2(uIntToStr(counter, 1, 16), str("ä"));
-                    AstExprs fn = ·make(AstExpr, 3, 3);
+                    AstExprs fn = ·sliceOf(AstExpr, 3, 3);
                     fn.at[0] = astExprInstrOrTag(expr->node_base, strL("->", 2), false);
                     fn.at[1] = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_lit_bracket, 1);
                     fn.at[1].of_exprs.at[0] = astExprInstrOrTag(sub_expr->node_base, sub_expr->of_ident, true);
