@@ -23,7 +23,7 @@ int main(int const argc, CStr const argv[]) {
 
     IrHLProg ir_hl = irHLProgFrom(ctx_parse.asts);
     irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
-    // irHLProgLiftFuncExprs(&ir_hl);
+    irHLProgLiftFuncExprs(&ir_hl);
     irHLPrintProg(&ir_hl);
 
     // readLnLoop(&ir_hl);

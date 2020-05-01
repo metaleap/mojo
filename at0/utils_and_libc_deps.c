@@ -16,7 +16,7 @@
 UInt counter = 0;
 
 struct Mem {
-#define mem_max (1 * 1024 * 1024)
+#define mem_max (((UInt)1234) * ((UInt)(1024 * 1024)))
     U8 buf[mem_max];
     UInt pos;
 } mem = {.pos = 0};
