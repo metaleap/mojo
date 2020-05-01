@@ -65,6 +65,7 @@ typedef struct Ast {
     AstDefs top_defs;
     struct {
         Str src_file_path;
+        Str path_based_ident_prefix;
         UInt total_nr_of_def_toks;
         Strs incl_file_paths;
     } anns;
@@ -198,6 +199,13 @@ Bool astExprIsInstrOrTag(AstExpr const* const expr, Bool const check_is_instr, B
     return expr->kind == ast_expr_form && expr->of_exprs.len == 2 && gly->kind == ast_expr_ident && gly->of_ident.len == 1
            && ((check_is_instr && gly->of_ident.at[0] == '@' && expr->of_exprs.at[1].kind == ast_expr_ident)
                || (check_is_tag && gly->of_ident.at[0] == '#' && (expr->of_exprs.at[1].kind == ast_expr_ident || !check_is_tag_ident)));
+}
+
+Str astExprIsIncl(AstExpr const* const expr) {
+    if (expr->kind == ast_expr_form && expr->of_exprs.at[1].kind == ast_expr_lit_str && expr->of_exprs.at[0].kind == ast_expr_ident
+        && expr->of_exprs.at[0].of_ident.at[0] == '@' && expr->of_exprs.at[0].of_ident.len == 1)
+        return expr->of_exprs.at[1].of_lit_str;
+    return ·len0(U8);
 }
 
 Bool astExprsHaveNonAtoms(AstExprs const exprs) {
@@ -561,10 +569,6 @@ void astDefRewriteGlyphsIntoInstrs(AstDef* const def, Ast const* const ast) {
     astExprRewriteGlyphsIntoInstrs(&def->body, ast);
 }
 
-void astRewriteGlyphsIntoInstrs(Ast const* const ast) {
-    ·forEach(AstDef, def, ast->top_defs, { astDefRewriteGlyphsIntoInstrs(def, ast); });
-}
-
 
 
 
@@ -592,10 +596,6 @@ void astSubDefsReorder(AstDefs const defs) {
                 break;
         });
     }
-}
-
-void astReorderSubDefs(Ast const* const ast) {
-    ·forEach(AstDef, top_def, ast->top_defs, { astSubDefsReorder(top_def->sub_defs); });
 }
 
 

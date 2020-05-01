@@ -42,23 +42,24 @@ void loadAndParseRootSourceFileAndImports(CtxParseAsts* const ctx) {
 
 Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path) {
     Tokenss const chunks = toksIndentBasedChunks(all_toks);
+
     Ast ret_ast = (Ast) {.src = full_src,
                          .toks = all_toks,
                          .top_defs = ·make(AstDef, 0, chunks.len),
-                         .anns = {
-                             .total_nr_of_def_toks = 0,
-                             .incl_file_paths = ·make(Str, 0, asts_capacity),
-                             .src_file_path = src_file_path,
-                         }};
-    {
-        ·forEach(Token, tok, all_toks, {
-            if (tok->kind == tok_kind_ident) {
-                Str const tok_src = tokSrc(tok, full_src);
-                if (strEql(tok_src, strL(":=", 2)) || strEql(tok_src, strL("->", 2)) || strEql(tok_src, strL("@->", 3)))
-                    ret_ast.anns.total_nr_of_def_toks += 1;
-            }
-        });
-    }
+                         .anns = {.total_nr_of_def_toks = 0,
+                                  .incl_file_paths = ·make(Str, 0, asts_capacity),
+                                  .src_file_path = src_file_path,
+                                  .path_based_ident_prefix = ident(src_file_path)}};
+
+    // guesstimate `total_nr_of_def_toks` by counting `:=` and `->` and `@->`
+    ·forEach(Token, tok, all_toks, {
+        if (tok->kind == tok_kind_ident) {
+            Str const tok_src = tokSrc(tok, full_src);
+            if (strEql(tok_src, strL(":=", 2)) || strEql(tok_src, strL("->", 2)) || strEql(tok_src, strL("@->", 3)))
+                ret_ast.anns.total_nr_of_def_toks += 1;
+        }
+    });
+
     UInt toks_idx = 0;
     ·forEach(Tokens, chunk_toks, chunks, {
         AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
@@ -67,8 +68,12 @@ Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path)
         ret_ast.top_defs.len += 1;
         toks_idx += chunk_toks->len;
     });
-    astRewriteGlyphsIntoInstrs(&ret_ast);
-    astReorderSubDefs(&ret_ast);
+
+    ·forEach(AstDef, top_def, ret_ast.top_defs, {
+        astDefRewriteGlyphsIntoInstrs(top_def, &ret_ast);
+        astSubDefsReorder(top_def->sub_defs);
+    });
+
     return ret_ast;
 }
 
@@ -276,13 +281,23 @@ AstExpr astParseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast* const
     ret_expr.of_exprs = ret_acc;
     ret_expr.anns.toks_throng = whole_form_throng;
 
-    if (ret_expr.of_exprs.at[0].kind == ast_expr_ident && ret_expr.of_exprs.at[1].kind == ast_expr_lit_str
-        && ret_expr.of_exprs.at[0].of_ident.len == 1 && ret_expr.of_exprs.at[0].of_ident.at[0] == '@') {
-        Str const incl_file_path = ret_expr.of_exprs.at[1].of_lit_str;
+    Str const incl_file_path = astExprIsIncl(&ret_expr);
+    if (incl_file_path.at != NULL) {
         if (!strIn(incl_file_path, ast->anns.incl_file_paths)) {
             if (ast->anns.incl_file_paths.len == asts_capacity)
                 ·fail(str("TODO: increase asts_capacity"));
             ·append(ast->anns.incl_file_paths, incl_file_path);
+        }
+        if (ret_expr.of_exprs.len > 2) {
+            AstExpr sub_expr = astExpr(ret_expr.node_base.toks_idx, 2, ast_expr_form, 2);
+            sub_expr.anns.parensed = true;
+            sub_expr.anns.toks_throng = true;
+            sub_expr.of_exprs.at[0] = ret_expr.of_exprs.at[0];
+            sub_expr.of_exprs.at[1] = ret_expr.of_exprs.at[1];
+            for (UInt i = 1; i < ret_expr.of_exprs.len; i += 1)
+                ret_expr.of_exprs.at[i - 1] = ret_expr.of_exprs.at[i];
+            ret_expr.of_exprs.at[0] = sub_expr;
+            ret_expr.of_exprs.len -= 1;
         }
     }
 

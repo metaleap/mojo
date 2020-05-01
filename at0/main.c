@@ -21,14 +21,9 @@ int main(int const argc, CStr const argv[]) {
     ·append(ctx_parse.src_file_paths, str(argv[1]));
     loadAndParseRootSourceFileAndImports(&ctx_parse);
 
-    // ·forEach(Ast, ast, ctx_parse.asts,
-    //          {
-    //              //  ast->anns.src_file_path
-    //          });
-
     IrHLProg ir_hl = irHLProgFrom(ctx_parse.asts);
-    irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
-    irHLProgLiftFuncExprs(&ir_hl);
+    // irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
+    // irHLProgLiftFuncExprs(&ir_hl);
     irHLPrintProg(&ir_hl);
 
     // readLnLoop(&ir_hl);

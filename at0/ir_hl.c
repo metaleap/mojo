@@ -113,6 +113,7 @@ typedef enum IrHLExprKind {
     irhl_expr_kvpair,
     irhl_expr_tagged,
     irhl_expr_let,
+    irhl_expr_incl,
 } IrHLExprKind;
 
 typedef struct IrHLExprType {
@@ -126,6 +127,10 @@ typedef struct IrHLExprNilish {
         irhl_nilish_blank,
     } kind;
 } IrHLExprNilish;
+
+typedef struct IrHLExprIncl {
+    Str incl_rel_file_path;
+} IrHLExprIncl;
 
 typedef struct IrHLExprInt {
     I64 int_value;
@@ -322,6 +327,7 @@ struct IrHLExpr {
         IrHLExprRef of_ref;
         IrHLExprLet of_let;
         IrHLExprInstr of_instr;
+        IrHLExprIncl of_incl;
     };
     struct {
         struct {
@@ -861,10 +867,12 @@ IrHLExpr irHLExprFuncFromInstr(IrHLExpr const* const instr, Ast const* const ast
 IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const* const ast) {
     IrHLExpr ret_expr = (IrHLExpr) {.anns = {.ty = NULL, .origin = {.ast_def = ast_def, .ast_expr = ast_expr}}};
     switch (ast_expr->kind) {
+
         case ast_expr_lit_int: {
             ret_expr.kind = irhl_expr_int;
             ret_expr.of_int = (IrHLExprInt) {.int_value = ast_expr->of_lit_int};
         } break;
+
         case ast_expr_lit_str: {
             ret_expr.kind = irhl_expr_list;
             UInt const str_len = ast_expr->of_lit_str.len;
@@ -876,6 +884,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
                     .of_int = (IrHLExprInt) {.int_value = ast_expr->of_lit_str.at[i]},
                 };
         } break;
+
         case ast_expr_ident: {
             if (strEql(strL("()", 2), ast_expr->of_ident)) {
                 ret_expr.kind = irhl_expr_nilish;
@@ -895,6 +904,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
                 ret_expr.of_ref = (IrHLExprRef) {.path = ·len0(IrHLRef), .name_or_qname = ast_expr->of_ident};
             }
         } break;
+
         case ast_expr_lit_bracket: {
             ret_expr.kind = irhl_expr_list;
             UInt const list_len = ast_expr->of_exprs.len;
@@ -904,6 +914,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
                 ret_expr.of_list.items.at[iˇitem_expr] = list_item_expr;
             });
         } break;
+
         case ast_expr_lit_braces: {
             ret_expr.kind = irhl_expr_bag;
             UInt const bag_len = ast_expr->of_exprs.len;
@@ -924,6 +935,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
                 }
             });
         } break;
+
         case ast_expr_form: {
             if (ast_expr->of_exprs.len == 0) {
                 ret_expr.kind = irhl_expr_nilish;
@@ -953,6 +965,12 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
                         break;
                     default: ·fail(astNodeMsg(str("unsupported tag payload"), &ast_expr->node_base, ast)); break;
                 }
+                break;
+            }
+            Str const maybe_incl = astExprIsIncl(ast_expr);
+            if (maybe_incl.at != 0) {
+                ret_expr.kind = irhl_expr_incl;
+                ret_expr.of_incl.incl_rel_file_path = maybe_incl;
                 break;
             }
 
@@ -985,6 +1003,7 @@ IrHLExpr irHLExprFrom(AstExpr* const ast_expr, AstDef* const ast_def, Ast const*
                 }
             }
         } break;
+
         default: {
             ·fail(str2(str("TODO: irHLExprFrom for expr.kind of "), uIntToStr(ast_expr->kind, 1, 10)));
         } break;
@@ -1094,8 +1113,9 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
         } break;
         case irhl_expr_ref: {
             if (the_expr->of_ref.path.at == NULL) {
+                printChr('`');
                 printStr(the_expr->of_ref.name_or_qname);
-                printChr('!');
+                printChr('`');
             } else {
                 IrHLRef const ref = the_expr->of_ref.path.at[the_expr->of_ref.path.len - 1];
                 switch (ref.kind) {
@@ -1194,6 +1214,11 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
                 printStr(the_expr->of_instr.of_named);
             } else
                 ·fail(str2(str("TODO: irHLPrintInstr for .kind of "), uIntToStr(the_expr->of_instr.kind, 1, 10)));
+        } break;
+        case irhl_expr_incl: {
+            printStr(str("@\""));
+            printStr(the_expr->of_incl.incl_rel_file_path);
+            printChr('\"');
         } break;
         default: {
             ·fail(str2(str("TODO: irHLPrintExpr for expr.kind of "), uIntToStr(the_expr->kind, 1, 10)));
