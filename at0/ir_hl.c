@@ -1100,30 +1100,34 @@ IrHLExpr irHLDefExpr(AstDef* const cur_ast_def, Ast const* const ast) {
 }
 
 void prependCommonFuncs(IrHLProg* const prog) {
-    { // id := x -> x
-        Str const fname = str("-id-");
-        IrHLExprFunc fn = (IrHLExprFunc) {.anns = {.qname = fname, .free_vars = ·len0(Str)},
-                                          .params = ·sliceOf(IrHLFuncParam, 1, 1),
-                                          .body = irHLExprKeep(irHLExprInit(irhl_expr_ref, NULL, NULL))};
-        fn.params.at[0] = (IrHLFuncParam) {.anns = {.origin_ast_node = NULL}, .name = str("anything")};
-        fn.body->of_ref = (IrHLExprRef) {.name_or_qname = fname, .path = ·sliceOf(IrHLRef, 3, 3)};
+#define ·prependCommonFunc(def_name, num_params, arg_ref_idx)                                                                                \
+    do {                                                                                                                                     \
+        Str const fname = str(def_name);                                                                                                     \
+        IrHLExprFunc fn = (IrHLExprFunc) {.anns = {.qname = fname, .free_vars = ·len0(Str)},                                                 \
+                                          .params = ·sliceOf(IrHLFuncParam, num_params, num_params),                                         \
+                                          .body = irHLExprKeep(irHLExprInit(irhl_expr_ref, NULL, NULL))};                                    \
+        for (UInt i = 0; i < num_params; i += 1)                                                                                             \
+            fn.params.at[i] = (IrHLFuncParam) {.anns = {.origin_ast_node = NULL}, .name = uIntToStr(i, 1, 10)};                              \
+        fn.body->of_ref = (IrHLExprRef) {.name_or_qname = ·len0(U8), .path = ·sliceOf(IrHLRef, 3, 3)};                                       \
+                                                                                                                                             \
+        IrHLExpr def_body = irHLExprInit(irhl_expr_func, NULL, NULL);                                                                        \
+        def_body.of_func = fn;                                                                                                               \
+        ·push(prog->defs, ((IrHLDef) {                                                                                                       \
+                              .name = fname,                                                                                                 \
+                              .anns = {.origin_ast = NULL, .origin_ast_def = NULL, .is_auto_generated = true},                               \
+                              .body = irHLExprKeep(def_body),                                                                                \
+                          }));                                                                                                               \
+        IrHLExpr* ªfn = ·last(prog->defs)->body;                                                                                             \
+        ªfn->of_func.body->of_ref.path.at[0] = (IrHLRef) {.kind = irhl_ref_def, .of_def = ·last(prog->defs)};                                \
+        ªfn->of_func.body->of_ref.path.at[1] = (IrHLRef) {.kind = irhl_ref_expr_func, .of_expr_func = ªfn};                                  \
+        ªfn->of_func.body->of_ref.path.at[2] =                                                                                               \
+            (IrHLRef) {.kind = irhl_ref_func_param, .of_func_param = &ªfn->of_func.params.at[arg_ref_idx]};                                  \
+    } while (0)
 
-        IrHLExpr def_body = irHLExprInit(irhl_expr_func, NULL, NULL);
-        def_body.of_func = fn;
-        ·push(prog->defs, ((IrHLDef) {
-                              .name = fname,
-                              .anns = {.origin_ast = NULL, .origin_ast_def = NULL, .is_auto_generated = true},
-                              .body = irHLExprKeep(def_body),
-                          }));
-        IrHLExpr* ªfn = ·last(prog->defs)->body;
-        ªfn->of_func.body->of_ref.path.at[0] = (IrHLRef) {.kind = irhl_ref_def, .of_def = ·last(prog->defs)};
-        ªfn->of_func.body->of_ref.path.at[1] = (IrHLRef) {.kind = irhl_ref_expr_func, .of_expr_func = ªfn};
-        ªfn->of_func.body->of_ref.path.at[2] = (IrHLRef) {.kind = irhl_ref_func_param, .of_func_param = &ªfn->of_func.params.at[0]};
-    }
 
-    // konst := x y -> x
-
-    // "false" := x y -> y
+    ·prependCommonFunc("-i-", 1, 0);  // i := x -> x
+    ·prependCommonFunc("-k-", 2, 0);  // k := x y -> x
+    ·prependCommonFunc("-ki-", 2, 1); // k i := x y -> y
 }
 
 IrHLProg irHLProgFrom(Asts const asts) {
