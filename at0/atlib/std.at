@@ -5,25 +5,6 @@ io := @"io.at"
 true := #true
 false := #false
 
-Void        := @T #struct { #fields: {}}
-U8          := @T #integer { #bit_width: 8, #signed: false }
-U16         := @T #integer { #bit_width: 16, #signed: false }
-U32         := @T #integer { #bit_width: 32, #signed: false }
-U64         := @T #integer { #bit_width: 64, #signed: false }
-Uw          := @T #integer { #bit_width: #word, #signed: false }
-Uc          := @T #integer { #bit_width: #extc, #signed: false }
-I8          := @T #integer { #bit_width: 8, #signed: true }
-I16         := @T #integer { #bit_width: 16, #signed: true }
-I32         := @T #integer { #bit_width: 32, #signed: true }
-I64         := @T #integer { #bit_width: 64, #signed: true }
-Iw          := @T #integer { #bit_width: #word, #signed: true }
-Ic          := @T #integer { #bit_width: #extc, #signed: true }
-Boolean     := @T #union { #tagged: true, #fields: { #true: Void, #false: Void } }
-Str n       := Arr n U8
-Ptr of      := @T #ptr { #ty: of }
-Arr n of    := @T #arr { #size: n, #ty: of }
-Slice of    := @T #struct { #fields: { #ptr: Ptr (Arr {} of), #len: Uw } }
-
 
 
 xor b1 b2 :=
@@ -47,3 +28,26 @@ for range step stuff fn :=
 loop stuff fn :=
   fn stuff  ?- #done => (stuff_now -> stuff_now)
             |- #next => (stuff_now -> loop stuff_now fn)
+
+
+
+
+
+// Void        := @T #struct { #fields: {}}
+// U8          := @T #integer { #bit_width: 8, #signed: false }
+// U16         := @T #integer { #bit_width: 16, #signed: false }
+// U32         := @T #integer { #bit_width: 32, #signed: false }
+// U64         := @T #integer { #bit_width: 64, #signed: false }
+// Uw          := @T #integer { #bit_width: #word, #signed: false }
+// Uc          := @T #integer { #bit_width: #extc, #signed: false }
+// I8          := @T #integer { #bit_width: 8, #signed: true }
+// I16         := @T #integer { #bit_width: 16, #signed: true }
+// I32         := @T #integer { #bit_width: 32, #signed: true }
+// I64         := @T #integer { #bit_width: 64, #signed: true }
+// Iw          := @T #integer { #bit_width: #word, #signed: true }
+// Ic          := @T #integer { #bit_width: #extc, #signed: true }
+// Boolean     := @T #union { #tagged: true, #fields: { #true: Void, #false: Void } }
+// Str n       := Arr n U8
+// Ptr of      := @T #ptr { #ty: of }
+// Arr n of    := @T #arr { #size: n, #ty: of }
+// Slice of    := @T #struct { #fields: { #ptr: Ptr (Arr {} of), #len: Uw } }

@@ -1,14 +1,25 @@
 
-std := @"std.at"
+stdin   := @extern #stdin [] #ptr
+stdout  := @extern #stdout [] #ptr
+stderr  := @extern #stderr [] #ptr
 
-FILE := std.Ptr (@T #extern #FILE)
+abort   := @extern #abort [#noreturn] #void {}
+fgetc   := @extern #fgetc [] #c_int { #file: #ptr }
+ferror  := @extern #ferror [] #c_int { #file: #ptr }
+fread   := @extern #fread [] #uword { #buf: #ptr, #size: #uword, #count: #uword, #file: #ptr }
+fwrite  := @extern #fwrite [] #uword { #buf: #ptr, #size: #uword, #count: #uword, #file: #ptr }
 
-stdin   := @extern #stdin [] FILE
-stdout  := @extern #stdout [] FILE
-stderr  := @extern #stderr [] FILE
 
-abort   := @extern #abort [#noreturn] std.Void { _: std.Void }
-fgetc   := @extern #fgetc [] std.Ic { #file: FILE }
-ferror  := @extern #ferror [] std.Ic { #file: FILE }
-fread   := @extern #fread [] std.Uw { #buf: std.Ptr std.U8, #size: std.Uw, #count: std.Uw, #file: FILE }
-fwrite  := @extern #fwrite [] std.Uw { #buf: std.Ptr std.U8, #size: std.Uw, #count: std.Uw, #file: FILE }
+// std := @"std.at"
+
+// FILE := std.Ptr (@T #extern #FILE)
+
+// stdin   := @extern #stdin [] FILE
+// stdout  := @extern #stdout [] FILE
+// stderr  := @extern #stderr [] FILE
+
+// abort   := @extern #abort [#noreturn] std.Void { _: std.Void }
+// fgetc   := @extern #fgetc [] std.Ic { #file: FILE }
+// ferror  := @extern #ferror [] std.Ic { #file: FILE }
+// fread   := @extern #fread [] std.Uw { #buf: std.Ptr std.U8, #size: std.Uw, #count: std.Uw, #file: FILE }
+// fwrite  := @extern #fwrite [] std.Uw { #buf: std.Ptr std.U8, #size: std.Uw, #count: std.Uw, #file: FILE }

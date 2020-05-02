@@ -20,14 +20,19 @@ int main(int const argc, CStr const argv[]) {
     CtxParseAsts ctx_parse = (CtxParseAsts) {.asts = ·listOf(Ast, 0, asts_capacity), .src_file_paths = ·sliceOf(Str, 0, asts_capacity)};
     ·push(ctx_parse.src_file_paths, str(argv[1]));
     loadAndParseRootSourceFileAndImports(&ctx_parse);
+    // astPrint(&ctx_parse.asts.at[0]);
 
     IrHLProg ir_hl = irHLProgFrom(ctx_parse.asts);
-    irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
+    irHLProcessIdents(&ir_hl);
     irHLProgLiftFuncExprs(&ir_hl);
-    irHLProgAddTopLevelAliasDef(&ir_hl, str("main"), ctx_parse.asts.at[0].anns.path_based_ident_prefix, str("main"));
+    irHLProgRewriteResolvableSelectors(&ir_hl);
     irHLPrintProg(&ir_hl);
 
-    // IrLLProg ir_ll = irLLProgFrom(&ir_hl, ctx_parse.asts.at[0].anns.path_based_ident_prefix, str("main"));
+    // IrHLDef* entry_def = irHLProgDef(&ir_hl, ctx_parse.asts.at[0].anns.path_based_ident_prefix, str("main"));
+    // ·assert(entry_def != NULL);
+    // printf("\n>>>>%s<<<<\n\n", strZ(entry_def->name));
+    // IrLLProg ir_ll = irLLProgFrom(entry_def, &ir_hl);
+    // irLLPrintProg(&ir_ll);
 
     // readLnLoop(&ir_hl);
     return 0;
