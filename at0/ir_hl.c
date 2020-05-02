@@ -1,3 +1,4 @@
+#pragma once
 #include "utils_and_libc_deps.c"
 #include "fs_io.c"
 #include "at_ast.c"
@@ -5,7 +6,7 @@
 
 struct IrHLDef;
 typedef struct IrHLDef IrHLDef;
-typedef ·SliceOf(IrHLDef) IrHLDefs;
+typedef ·ListOf(IrHLDef) IrHLDefs;
 
 struct IrHLExpr;
 typedef struct IrHLExpr IrHLExpr;
@@ -725,7 +726,7 @@ Bool irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr* const expr) {
                     (IrHLDef) {.anns = {.origin_ast_def = expr->anns.origin.ast_def, .origin_ast = NULL, .is_auto_generated = false},
                                .name = expr->of_func.anns.qname,
                                .body = irHLExprCopy(&new_top_def_body)};
-                ·push(ctx->prog->defs, new_top_def);
+                ·append(ctx->prog->defs, new_top_def);
 
                 IrHLExpr new_expr = (IrHLExpr) {
                     .anns = expr->anns,
@@ -1121,6 +1122,9 @@ IrHLExpr irHLDefExpr(AstDef* const cur_ast_def, Ast const* const ast) {
     }
 }
 
+
+
+
 void prependCommonFuncs(IrHLProg* const prog) {
 #define ·prependCommonFunc(def_name, num_params, arg_ref_idx)                                                                                \
     do {                                                                                                                                     \
@@ -1134,11 +1138,11 @@ void prependCommonFuncs(IrHLProg* const prog) {
                                                                                                                                              \
         IrHLExpr def_body = irHLExprInit(irhl_expr_func, NULL, NULL);                                                                        \
         def_body.of_func = fn;                                                                                                               \
-        ·push(prog->defs, ((IrHLDef) {                                                                                                       \
-                              .name = fname,                                                                                                 \
-                              .anns = {.origin_ast = NULL, .origin_ast_def = NULL, .is_auto_generated = true},                               \
-                              .body = irHLExprKeep(def_body),                                                                                \
-                          }));                                                                                                               \
+        ·append(prog->defs, ((IrHLDef) {                                                                                                     \
+                                .name = fname,                                                                                               \
+                                .anns = {.origin_ast = NULL, .origin_ast_def = NULL, .is_auto_generated = true},                             \
+                                .body = irHLExprKeep(def_body),                                                                              \
+                            }));                                                                                                             \
         IrHLExpr* ªfn = ·last(prog->defs)->body;                                                                                             \
         ªfn->of_func.body->of_ref.path.at[0] = (IrHLRef) {.kind = irhl_ref_def, .of_def = ·last(prog->defs)};                                \
         ªfn->of_func.body->of_ref.path.at[1] = (IrHLRef) {.kind = irhl_ref_expr_func, .of_expr_func = ªfn};                                  \
@@ -1152,13 +1156,42 @@ void prependCommonFuncs(IrHLProg* const prog) {
     ·prependCommonFunc("-ki-", 2, 1); // k i := x y -> y
 }
 
+
+
+
+void irHLProgAddTopLevelAliasDef(IrHLProg* const prog, Str const new_top_def_name, Str const module_name, Str const module_member_name) {
+    IrHLDef* module = NULL;
+    ·forEach(IrHLDef, def, prog->defs, {
+        if (strEql(module_name, def->name)) {
+            module = def;
+            break;
+        }
+    });
+    if (module == NULL || module->body->kind != irhl_expr_bag || module->body->of_bag.kind != irhl_bag_struct)
+        ·fail(str2(str("module not found: "), module_name));
+
+    IrHLExpr body = irHLExprInit(irhl_expr_selector, NULL, NULL);
+    body.of_selector.subj = irHLExprKeep(irHLExprInit(irhl_expr_ref, NULL, NULL));
+    body.of_selector.subj->of_ref = (IrHLExprRef) {.name_or_qname = module_name, .path = ·sliceOf(IrHLRef, 1, 1)};
+    body.of_selector.subj->of_ref.path.at[0] = (IrHLRef) {.kind = irhl_ref_def, .of_def = module};
+    body.of_selector.member = irHLExprKeep(irHLExprInit(irhl_expr_tag, NULL, NULL));
+    body.of_selector.member->of_tag.tag_ident = module_member_name;
+    IrHLDef new_top_def = (IrHLDef) {.name = new_top_def_name,
+                                     .anns = {.is_auto_generated = true, .origin_ast = NULL, .origin_ast_def = NULL},
+                                     .body = irHLExprKeep(body)};
+    ·append(prog->defs, new_top_def);
+}
+
+
+
+
 IrHLProg irHLProgFrom(Asts const asts) {
     UInt total_defs_capacity = 0;
     ·forEach(Ast, ast, asts, { total_defs_capacity += ast->anns.total_nr_of_def_toks; });
 
     IrHLProg ret_prog = (IrHLProg) {
         .anns = {.origin_asts = asts},
-        .defs = ·sliceOf(IrHLDef, 0, 3 + total_defs_capacity),
+        .defs = ·listOf(IrHLDef, 0, 4 + total_defs_capacity),
     };
     prependCommonFuncs(&ret_prog);
     ·forEach(Ast, ast, asts, {
@@ -1171,9 +1204,9 @@ IrHLProg irHLProgFrom(Asts const asts) {
             kvp.of_kvpair = ((IrHLExprKVPair) {.key = irHLExprKeep(key), .val = irHLExprKeep(irHLDefExpr(ast_top_def, ast))});
             ·push(module_struct.of_bag.items, kvp);
         });
-        ·push(ret_prog.defs, ((IrHLDef) {.name = ast->anns.path_based_ident_prefix,
-                                         .anns = {.is_auto_generated = false, .origin_ast = ast, .origin_ast_def = NULL},
-                                         .body = irHLExprKeep(module_struct)}));
+        ·append(ret_prog.defs, ((IrHLDef) {.name = ast->anns.path_based_ident_prefix,
+                                           .anns = {.is_auto_generated = false, .origin_ast = ast, .origin_ast_def = NULL},
+                                           .body = irHLExprKeep(module_struct)}));
     });
     return ret_prog;
 }

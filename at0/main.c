@@ -24,7 +24,10 @@ int main(int const argc, CStr const argv[]) {
     IrHLProg ir_hl = irHLProgFrom(ctx_parse.asts);
     irHLProcessIdents(&ir_hl); // resolve references: throw on shadowings or unresolvables
     irHLProgLiftFuncExprs(&ir_hl);
+    irHLProgAddTopLevelAliasDef(&ir_hl, str("main"), ctx_parse.asts.at[0].anns.path_based_ident_prefix, str("main"));
     irHLPrintProg(&ir_hl);
+
+    // IrLLProg ir_ll = irLLProgFrom(&ir_hl, ctx_parse.asts.at[0].anns.path_based_ident_prefix, str("main"));
 
     // readLnLoop(&ir_hl);
     return 0;
