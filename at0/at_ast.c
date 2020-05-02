@@ -88,7 +88,7 @@ Tokens astNodeToks(AstNodeBase const* const node, Ast const* const ast) {
 }
 
 Str astNodeMsg(Str const msg_prefix, AstNodeBase const* const node, Ast const* const ast) {
-    if (node == NULL)
+    if (node == NULL || ast == NULL)
         return str2(msg_prefix, str("\n"));
     Tokens const node_toks = astNodeToks(node, ast);
     Str const toks_src = toksSrc(node_toks, ast->src);

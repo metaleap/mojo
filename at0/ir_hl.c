@@ -401,7 +401,7 @@ void irHLExprProcessIdents(CtxIrHLProcessIdents* const ctx, IrHLExpr* const expr
             if (expr->of_ref.path.at != NULL)
                 break;
 
-            if (expr->of_ref.path.at == NULL) {
+            if (expr->of_ref.path.at == NULL && ctx->cur_def->body->kind == irhl_expr_bag) {
                 ·forEach(IrHLExpr, bag_field, ctx->cur_def->body->of_bag.items, {
                     ·assert(bag_field->kind == irhl_expr_kvpair);
                     ·assert(bag_field->of_kvpair.key->kind == irhl_expr_field_name);
@@ -518,8 +518,10 @@ void irHLProcessIdents(IrHLProg* const prog, UInt const idx, Bool const force_re
         ctx.cur_def = &prog->defs.at[i];
         if (ctx.cur_def->anns.is_auto_generated)
             continue;
-        ·assert(ctx.cur_def->body->kind == irhl_expr_bag);
-        ·assert(ctx.cur_def->body->of_bag.kind == irhl_bag_struct);
+        if (idx == 0) {
+            ·assert(ctx.cur_def->body->kind == irhl_expr_bag);
+            ·assert(ctx.cur_def->body->of_bag.kind == irhl_bag_struct);
+        }
         qname_stack.at[0] = ctx.cur_def->name;
         ref_stack.at[0] = ((IrHLRef) {.kind = irhl_ref_def, .of_def = ctx.cur_def});
         irHLExprProcessIdents(&ctx, ctx.cur_def->body, names_stack, ref_stack, qname_stack);
