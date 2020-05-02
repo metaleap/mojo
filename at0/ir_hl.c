@@ -124,7 +124,7 @@ typedef ·SliceOf(IrHLExprFieldName) IrHLExprFieldNames;
 typedef struct IrHLExprTag {
     Str tag_ident;
 } IrHLExprTag;
-typedef ·SliceOf(IrHLExprTag) IrHLExprTags;
+typedef ·ListOf(IrHLExprTag) IrHLExprTags;
 
 typedef struct IrHLExprTagged {
     IrHLExpr* subj;
@@ -687,71 +687,6 @@ IrHLDef* irHLProgDef(IrHLProg* const prog, Str const module_name, Str const modu
         });
 
     return NULL;
-}
-
-
-
-void irHLExprRewriteResolvableSelectors(IrHLExpr* const expr, IrHLProg* const prog) {
-    switch (expr->kind) {
-        case irhl_expr_nilish:
-        case irhl_expr_int:
-        case irhl_expr_tag:
-        case irhl_expr_field_name:
-        case irhl_expr_ref:
-        case irhl_expr_instr: break;
-        case irhl_expr_func: {
-            irHLExprRewriteResolvableSelectors(expr->of_func.body, prog);
-        } break;
-        case irhl_expr_call: {
-            irHLExprRewriteResolvableSelectors(expr->of_call.callee, prog);
-            ·forEach(IrHLExpr, arg, expr->of_call.args, { irHLExprRewriteResolvableSelectors(arg, prog); });
-        } break;
-        case irhl_expr_bag: {
-            ·forEach(IrHLExpr, item, expr->of_bag.items, { irHLExprRewriteResolvableSelectors(item, prog); });
-        } break;
-        case irhl_expr_kvpair: {
-            irHLExprRewriteResolvableSelectors(expr->of_kvpair.key, prog);
-            irHLExprRewriteResolvableSelectors(expr->of_kvpair.val, prog);
-        } break;
-        case irhl_expr_tagged: {
-            irHLExprRewriteResolvableSelectors(expr->of_tagged.subj, prog);
-        } break;
-        case irhl_expr_let: {
-            irHLExprRewriteResolvableSelectors(expr->of_let.body, prog);
-            ·forEach(IrHLLet, let, expr->of_let.lets, { irHLExprRewriteResolvableSelectors(let->expr, prog); });
-        } break;
-        case irhl_expr_selector: {
-            irHLExprRewriteResolvableSelectors(expr->of_selector.subj, prog);
-            ·assert(expr->of_selector.member->kind == irhl_expr_tag);
-
-            while (expr->of_selector.subj->kind == irhl_expr_ref) {
-                IrHLRef* ref = ·last(expr->of_selector.subj->of_ref.path);
-                if (ref->kind == irhl_ref_def)
-                    expr->of_selector.subj = ref->of_def->body;
-                else if (ref->kind == irhl_ref_let)
-                    expr->of_selector.subj = ref->of_let->expr;
-                else
-                    break;
-            }
-
-            if (expr->of_selector.subj->kind == irhl_expr_bag && expr->of_selector.subj->of_bag.kind == irhl_bag_struct)
-                ·forEach(IrHLExpr, bag_item, expr->of_selector.subj->of_bag.items, {
-                    if (bag_item->kind == irhl_expr_kvpair && bag_item->of_kvpair.key->kind == irhl_expr_field_name
-                        && strEql(expr->of_selector.member->of_tag.tag_ident, bag_item->of_kvpair.key->of_field_name.field_name)
-                        && irHLExprIsAtomic(bag_item->of_kvpair.val)) {
-                        *expr = *bag_item->of_kvpair.val;
-                        break;
-                    }
-                });
-        } break;
-        default: {
-            ·fail(str2(str("TODO: irHLExprRewriteResolvableSelectors for expr.kind of "), uIntToStr(expr->kind, 1, 10)));
-        } break;
-    }
-}
-
-void irHLProgRewriteResolvableSelectors(IrHLProg* const prog) {
-    ·forEach(IrHLDef, def, prog->defs, { irHLExprRewriteResolvableSelectors(def->body, prog); });
 }
 
 
