@@ -671,7 +671,7 @@ typedef struct CtxIrHLLiftFuncs {
 } CtxIrHLLiftFuncs;
 
 Bool irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr* const expr) {
-    Bool did = false;
+    Bool did_lift = false;
     switch (expr->kind) {
         case irhl_expr_type:
         case irhl_expr_nilish:
@@ -681,39 +681,40 @@ Bool irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr* const expr) {
         case irhl_expr_ref: break;
         case irhl_expr_instr: ·assert(expr->of_instr.kind == irhl_instr_named); break;
         case irhl_expr_call: {
-            did |= irHLLiftFuncExprs(ctx, expr->of_call.callee);
-            ·forEach(IrHLExpr, arg, expr->of_call.args, { did |= irHLLiftFuncExprs(ctx, arg); });
+            did_lift |= irHLLiftFuncExprs(ctx, expr->of_call.callee);
+            ·forEach(IrHLExpr, arg, expr->of_call.args, { did_lift |= irHLLiftFuncExprs(ctx, arg); });
         } break;
         case irhl_expr_bag: {
-            ·forEach(IrHLExpr, item, expr->of_bag.items, { did |= irHLLiftFuncExprs(ctx, item); });
+            ·forEach(IrHLExpr, item, expr->of_bag.items, { did_lift |= irHLLiftFuncExprs(ctx, item); });
         } break;
         case irhl_expr_selector: {
-            did |= irHLLiftFuncExprs(ctx, expr->of_selector.subj);
-            did |= irHLLiftFuncExprs(ctx, expr->of_selector.member);
+            did_lift |= irHLLiftFuncExprs(ctx, expr->of_selector.subj);
+            did_lift |= irHLLiftFuncExprs(ctx, expr->of_selector.member);
         } break;
         case irhl_expr_kvpair: {
-            did |= irHLLiftFuncExprs(ctx, expr->of_kvpair.key);
-            did |= irHLLiftFuncExprs(ctx, expr->of_kvpair.val);
+            did_lift |= irHLLiftFuncExprs(ctx, expr->of_kvpair.key);
+            did_lift |= irHLLiftFuncExprs(ctx, expr->of_kvpair.val);
         } break;
         case irhl_expr_tagged: {
-            did |= irHLLiftFuncExprs(ctx, expr->of_tagged.subj);
+            did_lift |= irHLLiftFuncExprs(ctx, expr->of_tagged.subj);
         } break;
         case irhl_expr_let: {
-            ·forEach(IrHLLet, let, expr->of_let.lets, { did |= irHLLiftFuncExprs(ctx, let->expr); });
-            did |= irHLLiftFuncExprs(ctx, expr->of_let.body);
+            ·forEach(IrHLLet, let, expr->of_let.lets, { did_lift |= irHLLiftFuncExprs(ctx, let->expr); });
+            did_lift |= irHLLiftFuncExprs(ctx, expr->of_let.body);
         } break;
         case irhl_expr_func: {
-            did |= irHLLiftFuncExprs(ctx, expr->of_func.body);
+            did_lift |= irHLLiftFuncExprs(ctx, expr->of_func.body);
             if (expr == ctx->cur_def->body)
                 break;
 
             UInt n_free_vars = expr->of_func.anns.free_vars.len;
             if (n_free_vars == 0 || !ctx->free_less_only) {
-                did = true;
+                did_lift = true;
 
                 IrHLExpr new_top_def_body = *expr;
                 if (n_free_vars != 0) {
-                    IrHLFuncParams new_params = ·sliceOf(IrHLFuncParam, 0, n_free_vars + new_top_def_body.of_func.params.len);
+                    UInt n_params_new = n_free_vars + new_top_def_body.of_func.params.len;
+                    IrHLFuncParams new_params = ·sliceOf(IrHLFuncParam, n_params_new, n_params_new);
                     for (UInt i = 0; i < n_free_vars; i += 1)
                         new_params.at[i] = (IrHLFuncParam) {.name = expr->of_func.anns.free_vars.at[i], .anns = {.origin_ast_node = NULL}};
                     ·forEach(IrHLFuncParam, param, new_top_def_body.of_func.params, { new_params.at[n_free_vars + iˇparam] = *param; });
@@ -760,7 +761,7 @@ Bool irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr* const expr) {
             ·fail(astNodeMsg(str2(str("TODO: irHLLiftFuncExprs for expr.kind of "), uIntToStr(expr->kind, 1, 10)),
                              &expr->anns.origin.ast_expr->node_base, ctx->cur_def->anns.origin_ast));
     }
-    return did;
+    return did_lift;
 }
 
 void irHLProgLiftFuncExprs(IrHLProg* const prog) {
@@ -921,7 +922,6 @@ IrHLExpr irHLExprFuncFromInstr(IrHLExpr const* const instr, Ast const* const ast
             Bool const ref0 = strEql(ret_expr.of_func.body->of_ref.name_or_qname, ret_expr.of_func.params.at[0].name);
             Bool const ref1 = (!ref0) && strEql(ret_expr.of_func.body->of_ref.name_or_qname, ret_expr.of_func.params.at[1].name);
             if (ref0 || ref1) {
-                ·fail(str("TODO verify k/ki detection now that it actually occurred"));
                 ret_expr = (IrHLExpr) {
                     .anns = ret_expr.anns,
                     .kind = irhl_expr_ref,

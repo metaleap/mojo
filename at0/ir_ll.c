@@ -16,26 +16,34 @@ typedef enum IrLLInstrKind {
 
 typedef enum IrLLExprKind {
     irll_expr_int,
+    irll_expr_list,
     irll_expr_ref_arg,
-    irll_expr_ref_def,
-    irll_expr_ref_instr,
+    irll_expr_ref_func,
+    irll_expr_instr,
     irll_expr_call,
 } IrLLExprKind;
 
 struct IrLLExprCall;
 typedef struct IrLLExprCall IrLLExprCall;
+struct IrLLExprList;
+typedef struct IrLLExprList IrLLExprList;
 
 typedef struct IrLLExpr {
     IrLLExprKind kind;
     union {
         I64 of_int;
+        IrLLExprList* of_list;
         UInt of_ref_arg;
-        UInt of_ref_def;
-        IrLLInstrKind of_ref_instr;
+        UInt of_ref_func;
+        IrLLInstrKind of_instr;
         IrLLExprCall* of_call;
     };
 } IrLLExpr;
 typedef ·SliceOf(IrLLExpr) IrLLExprs;
+
+struct IrLLExprList {
+    IrLLExprs items;
+};
 
 struct IrLLExprCall {
     IrLLExpr callee;
@@ -43,16 +51,12 @@ struct IrLLExprCall {
     UInt is_closure;
 };
 
-typedef struct IrLLDef {
+typedef struct IrLLFunc {
     UInt num_args;
     IrLLExpr body;
-
-} IrLLDef;
-typedef ·SliceOf(IrLLDef) IrLLDefs;
+} IrLLFunc;
+typedef ·SliceOf(IrLLFunc) IrLLFuncs;
 
 typedef struct IrLLProg {
-    IrLLDefs defs;
+    IrLLFuncs funcs;
 } IrLLProg;
-
-void foo() {
-}
