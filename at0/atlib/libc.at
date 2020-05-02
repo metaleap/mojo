@@ -4,10 +4,10 @@ stdout  := @extern #stdout [] #ptr
 stderr  := @extern #stderr [] #ptr
 
 abort   := @extern #abort [#noreturn] #void {}
-fgetc   := @extern #fgetc [] #c_int { #file: #ptr }
-ferror  := @extern #ferror [] #c_int { #file: #ptr }
-fread   := @extern #fread [] #uword { #buf: #ptr, #size: #uword, #count: #uword, #file: #ptr }
-fwrite  := @extern #fwrite [] #uword { #buf: #ptr, #size: #uword, #count: #uword, #file: #ptr }
+fgetc   := @extern #fgetc [] #c_int { file: #ptr }
+ferror  := @extern #ferror [] #c_int { file: #ptr }
+fread   := @extern #fread [] #uword { buf: #ptr, size: #uword, count: #uword, file: #ptr }
+fwrite  := @extern #fwrite [] #uword { buf: #ptr, size: #uword, count: #uword, file: #ptr }
 
 
 // std := @"std.at"
