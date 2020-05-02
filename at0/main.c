@@ -23,14 +23,14 @@ int main(int const argc, CStr const argv[]) {
     // astPrint(&ctx_parse.asts.at[0]);
 
     IrHLProg ir_hl = irHLProgFrom(ctx_parse.asts);
-    irHLProcessIdents(&ir_hl);
+    irHLProcessIdents(&ir_hl, 0, false, true);
     irHLProgLiftFuncExprs(&ir_hl);
     irHLPrintProg(&ir_hl);
 
-    IrHLDef* entry_def = irHLProgDef(&ir_hl, ctx_parse.asts.at[0].anns.path_based_ident_prefix, str("main"));
-    ·assert(entry_def != NULL);
-    IrLLProg ir_ll = irLLProgFrom(entry_def, &ir_hl);
-    irLLPrintProg(&ir_ll);
+    // IrHLDef* entry_def = irHLProgDef(&ir_hl, ctx_parse.asts.at[0].anns.path_based_ident_prefix, str("main"));
+    // ·assert(entry_def != NULL);
+    // IrLLProg ir_ll = irLLProgFrom(entry_def, &ir_hl);
+    // irLLPrintProg(&ir_ll);
 
     // readLnLoop(&ir_hl);
     return 0;

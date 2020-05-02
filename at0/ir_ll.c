@@ -5,7 +5,8 @@
 typedef enum IrLLInstrKind {
     irll_instr_invalid,
     irll_instr_extern,
-    irll_instr_bag_item,
+    irll_instr_bag_item_idx,
+    irll_instr_bag_item_name,
     irll_instr_arith_add,
     irll_instr_arith_sub,
     irll_instr_arith_mul,
@@ -20,7 +21,6 @@ typedef enum IrLLInstrKind {
 } IrLLInstrKind;
 
 typedef enum IrLLExprKind {
-    irll_expr_invalid = 0,
     irll_expr_int = 1,
     irll_expr_tag = 2,
     irll_expr_bag = 3,
@@ -28,6 +28,7 @@ typedef enum IrLLExprKind {
     irll_expr_ref_func = 5,
     irll_expr_instr = 6,
     irll_expr_call = 7,
+    irll_expr_invalid,
 } IrLLExprKind;
 
 struct IrLLExprCall;
@@ -153,37 +154,75 @@ IrLLExpr irLLExprFrom(CtxIrLLFromHL* const ctx, IrHLExpr* const hl_expr) {
                     ret_expr.kind = irll_expr_ref_func;
                     ret_expr.of_ref_func = irLLFuncFrom(ctx, ref->of_def);
                 } break;
+                case irhl_ref_func_param: {
+                    printf("S1\n");
+                    IrHLExpr* ref_func = NULL;
+                    for (UInt i = hl_expr->of_ref.path.len - 2; i > 0; i -= 1) {
+                        printf("S2\n");
+                        IrHLRef* this = &hl_expr->of_ref.path.at[i];
+                        printf("S3\n");
+                        if (this->kind == irhl_ref_expr_func) {
+                            printf("S4\n");
+                            ref_func = this->of_expr_func;
+                            printf("S5\n");
+                            ·assert(ref_func->kind = irhl_expr_func);
+                            printf("S6\n");
+                            break;
+                        }
+                    }
+                    printf("S7\n");
+                    ·assert(ref_func != NULL);
+                    printf("S8\n");
+                    ret_expr.kind = irll_expr_ref_param;
+                    printf("S9\n");
+                    ret_expr.of_ref_param = ref_func->of_func.params.len;
+                    printf("S10\n");
+                    ·forEach(IrHLFuncParam, param, ref_func->of_func.params, {
+                        if (param->name.at == NULL) {
+                            astPrintExpr(ref_func->anns.origin.ast_expr, false, 0);
+                            printf("\nL=%s\n", strZ(ref_func->of_func.anns.qname));
+                            ·fail(str("\n\n___NULL"));
+                        }
+                        printf("S11\n");
+                        Str const s1 = ref->of_func_param->name;
+                        printf("S11.1\n");
+                        Str const s2 = param->name;
+                        printf("S11.2\n");
+                        if (strEql(s1, s2)) {
+                            printf("S12\n");
+                            ret_expr.of_ref_param = iˇparam;
+                            printf("S13\n");
+                            break;
+                            printf("S14\n");
+                        }
+                        printf("S15\n");
+                    });
+                    printf("S16\n");
+                    ·assert(ret_expr.of_ref_param < ref_func->of_func.params.len);
+                    printf("S17\n");
+                } break;
                 default: fail_msg = str2(str("TODO: handle ref kind of "), uIntToStr(ref->kind, 1, 10));
             }
         } break;
 
         case irhl_expr_selector: {
-            ·assert(hl_expr->of_selector.member->kind == irhl_expr_tag);
+            ·assert(hl_expr->of_selector.member->kind = irhl_expr_tag);
+            IrLLExpr member = irLLExprFrom(ctx, hl_expr->of_selector.member);
             IrLLExpr subj = irLLExprFrom(ctx, hl_expr->of_selector.subj);
             switch (subj.kind) {
+                case irll_expr_call: // fall through to:
                 case irll_expr_ref_func: {
-                    ºUInt idx_field = ·none(UInt);
-                    printf("ref-func %zu (%s) body-kind %d (%s)\n", subj.of_ref_func,
-                           strZ(ctx->prog.funcs.at[subj.of_ref_func].anns.origin->name), ctx->prog.funcs.at[subj.of_ref_func].body.kind,
-                           strZ(hl_expr->of_selector.member->of_tag.tag_ident));
-                    if (ctx->prog.funcs.at[subj.of_ref_func].body.kind == irll_expr_bag)
-                        ·forEach(Str, fld, ctx->prog.funcs.at[subj.of_ref_func].body.of_bag->field_names, {
-                            if (strEql(*fld, hl_expr->of_selector.member->of_tag.tag_ident)) {
-                                idx_field = ·ok(UInt, iˇfld);
-                                break;
-                            }
-                        });
-                    if (idx_field.ok) {
-                        ret_expr.kind = irll_expr_call;
-                        ret_expr.of_call = ·new(IrLLExprCall);
-                        ret_expr.of_call->is_closure = false;
-                        ret_expr.of_call->callee = (IrLLExpr) {.kind = irll_expr_instr, .of_instr = irll_instr_bag_item};
-                        ret_expr.of_call->args = ·sliceOf(IrLLExpr, 2, 2);
-                        ret_expr.of_call->args.at[0] = subj;
-                        ret_expr.of_call->args.at[1] = (IrLLExpr) {.kind = irll_expr_int, .of_int = idx_field.it};
-                    }
+                    ret_expr.kind = irll_expr_call;
+                    ret_expr.of_call = ·new(IrLLExprCall);
+                    ret_expr.of_call->is_closure = false;
+                    ret_expr.of_call->callee = (IrLLExpr) {.kind = irll_expr_instr, .of_instr = irll_instr_bag_item_name};
+                    ret_expr.of_call->args = ·sliceOf(IrLLExpr, 2, 2);
+                    ret_expr.of_call->args.at[0] = subj;
+                    ret_expr.of_call->args.at[1] = (IrLLExpr) {.kind = irll_expr_int, .of_int = member.of_tag};
                 } break;
-                default: fail_msg = str2(str("TODO: handle selector subjects of .kind "), uIntToStr(subj.kind, 1, 10));
+                default:
+                    fail_msg = str3(str("TODO: handle selector subjects of .kind "), uIntToStr(subj.kind, 1, 10),
+                                    hl_expr->of_selector.member->of_tag.tag_ident);
             }
         } break;
 
@@ -216,8 +255,7 @@ UInt irLLFuncFrom(CtxIrLLFromHL* const ctx, IrHLDef* const hl_def) {
     });
 
     UInt ret_idx = ctx->prog.funcs.len;
-    printf("PUT %s in %zu\n", strZ(hl_def->name), ret_idx);
-    ·append(ctx->prog.funcs, ((IrLLFunc) {.num_params = 0, .anns = {.origin = hl_def}}));
+    ·append(ctx->prog.funcs, ((IrLLFunc) {.num_params = 0, .body = (IrLLExpr) {.kind = 0}, .anns = {.origin = hl_def}}));
     IrLLFunc* func = ·last(ctx->prog.funcs);
 
     if (hl_def->body->kind != irhl_expr_func)
@@ -231,7 +269,7 @@ UInt irLLFuncFrom(CtxIrLLFromHL* const ctx, IrHLDef* const hl_def) {
 }
 
 IrLLProg irLLProgFrom(IrHLDef* hl_def, IrHLProg* const hl_prog) {
-    CtxIrLLFromHL ctx = (CtxIrLLFromHL) {.tags = ·listOf(IrHLExprTag, 0, 16),
+    CtxIrLLFromHL ctx = (CtxIrLLFromHL) {.tags = ·listOf(IrHLExprTag, 0, 32),
                                          .prog = (IrLLProg) {
                                              .funcs = ·listOf(IrLLFunc, 0, hl_prog->defs.len),
                                              .anns = {.origin = hl_prog},
