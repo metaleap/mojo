@@ -268,7 +268,7 @@ void irHLPrintExpr(IrHLExpr const* const expr, Bool const is_callee_or_arg, UInt
         } break;
         case irhl_expr_kvpair: {
             irHLPrintExpr(expr->of_kvpair.key, false, ind);
-            printStr(str("::: "));
+            printStr(str(": "));
             irHLPrintExpr(expr->of_kvpair.val, false, ind);
         } break;
         case irhl_expr_bag: {
@@ -475,10 +475,12 @@ void irHLProcessIdentsPush(CtxIrHLProcessIdents* const ctx, Strs* const names_st
             ·fail(astNodeMsg(str("all-underscore identifiers are reserved"), node, ctx->cur_def->anns.origin_ast));
     }
     for (UInt i = 0; i < names_stack->len; i += 1)
-        if (strEql(names_stack->at[i], name)) {
-            irHLPrintDef(ctx->cur_def);
+        if (strEql(names_stack->at[i], name))
             ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), name), node, ctx->cur_def->anns.origin_ast));
-        }
+    if (ctx->cur_def->anns.origin_ast != NULL)
+        for (UInt i = 0; i < ctx->cur_def->anns.origin_ast->anns.all_top_def_names.len; i += 1)
+            if (strEql(name, ctx->cur_def->anns.origin_ast->anns.all_top_def_names.at[i]))
+                ·fail(astNodeMsg(str2(str("shadowing earlier definition of "), name), node, ctx->cur_def->anns.origin_ast));
     if (names_stack->len == idents_tracking_stack_capacity)
         ·fail(str("irHLProcessIdentsPush: TODO increase idents_tracking_stack_capacity"));
     names_stack->at[names_stack->len] = name;
@@ -859,7 +861,7 @@ typedef struct CtxIrHLFromAsts {
     AstDef* cur_ast_def;
 } CtxIrHLFromAsts;
 
-IrHLExpr irHLExprSelectorFromInstr(CtxIrHLFromAsts* ctx, IrHLExpr const* const instr) {
+IrHLExpr irHLExprSelectorFromInstr(CtxIrHLFromAsts const* const ctx, IrHLExpr const* const instr) {
     AstNodeBase const* const err_node = &instr->anns.origin.ast_expr->node_base;
     if (instr->of_call.args.len != 2)
         ·fail(astNodeMsg(str("'@.' expects 2 args"), err_node, ctx->ast));
@@ -871,7 +873,7 @@ IrHLExpr irHLExprSelectorFromInstr(CtxIrHLFromAsts* ctx, IrHLExpr const* const i
                        }};
 }
 
-IrHLExpr irHLExprKvPairFromInstr(CtxIrHLFromAsts* ctx, IrHLExpr const* const instr) {
+IrHLExpr irHLExprKvPairFromInstr(CtxIrHLFromAsts const* const ctx, IrHLExpr const* const instr) {
     AstNodeBase const* const err_node = &instr->anns.origin.ast_expr->node_base;
     if (instr->of_call.args.len != 2)
         ·fail(astNodeMsg(str("'@:' expects 2 args"), err_node, ctx->ast));
@@ -883,7 +885,51 @@ IrHLExpr irHLExprKvPairFromInstr(CtxIrHLFromAsts* ctx, IrHLExpr const* const ins
                        }};
 }
 
-IrHLExpr irHLExprFuncFromInstr(CtxIrHLFromAsts* ctx, IrHLExpr const* const instr) {
+// turn `@|| foo bar` into `@? foo [ @| #true #true,    @| #false bar ]`
+// turn `@&& foo bar` into `@? foo [ @| #true bar,      @| #false #false ]`
+IrHLExpr irHLExprBranchFromInstr(CtxIrHLFromAsts const* const ctx, IrHLExpr const* const instr, Bool const is_and) {
+    AstNodeBase const* const err_node = &instr->anns.origin.ast_expr->node_base;
+    if (instr->of_call.args.len != 2)
+        ·fail(astNodeMsg(str2((is_and) ? str("'@&&'") : str("'@||'"), str(" expects 2 args")), err_node, ctx->ast));
+
+    IrHLExpr ret_expr = *instr;
+    ret_expr.of_call.callee = irHLExprCopy(ret_expr.of_call.callee);
+    ret_expr.of_call.callee->of_instr.instr_name = strL("?", 1);
+    ret_expr.of_call.args = ·sliceOf(IrHLExpr, 2, 2);
+    ret_expr.of_call.args.at[0] = instr->of_call.args.at[0];
+    ret_expr.of_call.args.at[1] = irHLExprInit(irhl_expr_bag, instr->anns.origin.ast_def, instr->anns.origin.ast_expr);
+    IrHLExprBag* cases = &ret_expr.of_call.args.at[1].of_bag;
+    cases->kind = irhl_bag_list;
+    cases->items = ·sliceOf(IrHLExpr, 2, 2);
+
+    IrHLExpr* case_true = &cases->items.at[0];
+    IrHLExpr* case_false = &cases->items.at[1];
+    *case_true = irHLExprInit(irhl_expr_call, instr->anns.origin.ast_def, instr->anns.origin.ast_expr);
+    *case_false = irHLExprInit(irhl_expr_call, instr->anns.origin.ast_def, instr->anns.origin.ast_expr);
+
+    case_true->of_call.callee = irHLExprKeep(irHLExprInit(irhl_expr_instr, instr->anns.origin.ast_def, instr->anns.origin.ast_expr));
+    case_true->of_call.callee->of_instr.instr_name = strL("|", 1);
+    case_true->of_call.args = ·sliceOf(IrHLExpr, 2, 2);
+    case_true->of_call.args.at[0] = irHLExprInit(irhl_expr_tag, instr->anns.origin.ast_def, instr->anns.origin.ast_expr);
+    case_true->of_call.args.at[0].of_tag.tag_ident = str("true");
+    case_true->of_call.args.at[1] = case_true->of_call.args.at[0];
+
+    case_false->of_call.callee = irHLExprKeep(irHLExprInit(irhl_expr_instr, instr->anns.origin.ast_def, instr->anns.origin.ast_expr));
+    case_false->of_call.callee->of_instr.instr_name = strL("|", 1);
+    case_false->of_call.args = ·sliceOf(IrHLExpr, 2, 2);
+    case_false->of_call.args.at[0] = irHLExprInit(irhl_expr_tag, instr->anns.origin.ast_def, instr->anns.origin.ast_expr);
+    case_false->of_call.args.at[0].of_tag.tag_ident = str("false");
+    case_false->of_call.args.at[1] = case_false->of_call.args.at[0];
+
+    if (is_and)
+        case_true->of_call.args.at[1] = instr->of_call.args.at[1];
+    else
+        case_false->of_call.args.at[1] = instr->of_call.args.at[1];
+
+    return ret_expr;
+}
+
+IrHLExpr irHLExprFuncFromInstr(CtxIrHLFromAsts const* const ctx, IrHLExpr const* const instr) {
     AstNodeBase const* const err_node = &instr->anns.origin.ast_expr->node_base;
     if (instr->of_call.args.len != 2)
         ·fail(astNodeMsg(str("'@->' expects 2 args"), err_node, ctx->ast));
@@ -1105,6 +1151,10 @@ IrHLExpr irHLExprFrom(CtxIrHLFromAsts* ctx, AstExpr* const ast_expr) {
                 if ((!matched) && strEql(strL("->", 2), instr_name)) {
                     matched = true;
                     ret_expr = irHLExprFuncFromInstr(ctx, &ret_expr);
+                }
+                if ((!matched) && (strEql(strL("||", 2), instr_name) || strEql(strL("&&", 2), instr_name))) {
+                    matched = true;
+                    ret_expr = irHLExprBranchFromInstr(ctx, &ret_expr, strEql(strL("&&", 2), instr_name));
                 }
             }
         } break;

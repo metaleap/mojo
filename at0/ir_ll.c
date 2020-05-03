@@ -5,6 +5,8 @@
 typedef enum IrLLInstrKind {
     irll_instr_invalid,
     irll_instr_extern,
+    irll_instr_branch,
+    irll_instr_branchcase,
     irll_instr_bag_item_idx,
     irll_instr_bag_item_name,
     irll_instr_arith_add,
@@ -21,14 +23,15 @@ typedef enum IrLLInstrKind {
 } IrLLInstrKind;
 
 typedef enum IrLLExprKind {
-    irll_expr_int = 1,
-    irll_expr_tag = 2,
-    irll_expr_bag = 3,
-    irll_expr_ref_param = 4,
-    irll_expr_ref_func = 5,
-    irll_expr_instr = 6,
-    irll_expr_call = 7,
     irll_expr_invalid,
+    irll_expr_void,
+    irll_expr_int,
+    irll_expr_tag,
+    irll_expr_bag,
+    irll_expr_ref_param,
+    irll_expr_ref_func,
+    irll_expr_instr,
+    irll_expr_call,
 } IrLLExprKind;
 
 struct IrLLExprCall;
@@ -99,8 +102,15 @@ IrLLExpr irLLExprFrom(CtxIrLLFromHL* const ctx, IrHLExpr* const hl_expr) {
         } break;
 
         case irhl_expr_let: {
-            // named lets inside get pulled in on demand
+            // named lets inside ignored until they get pulled in on demand
             ret_expr = irLLExprFrom(ctx, hl_expr->of_let.body);
+        } break;
+
+        case irhl_expr_nilish: {
+            if (hl_expr->of_nilish.kind != irhl_nilish_unit)
+                fail_msg = str("encountered a non-void nilish");
+            else
+                ret_expr.kind = irll_expr_void;
         } break;
 
         case irhl_expr_tag: {
@@ -143,6 +153,10 @@ IrLLExpr irLLExprFrom(CtxIrLLFromHL* const ctx, IrHLExpr* const hl_expr) {
             Str const instr_name = hl_expr->of_instr.instr_name;
             if (strEq("extern", instr_name, 6))
                 ret_expr.of_instr = irll_instr_extern;
+            if (strEq("?", instr_name, 1))
+                ret_expr.of_instr = irll_instr_branch;
+            if (strEq("|", instr_name, 1))
+                ret_expr.of_instr = irll_instr_branchcase;
 
             if (ret_expr.of_instr == irll_instr_invalid)
                 fail_msg = str2(str("TODO: irLLExprFrom for .kind=instr of "), instr_name);
@@ -156,51 +170,31 @@ IrLLExpr irLLExprFrom(CtxIrLLFromHL* const ctx, IrHLExpr* const hl_expr) {
                     ret_expr.of_ref_func = irLLFuncFrom(ctx, ref->of_def);
                 } break;
                 case irhl_ref_func_param: {
-                    printf("S1\n");
                     IrHLExpr* ref_func = NULL;
                     for (UInt i = hl_expr->of_ref.path.len - 2; i > 0; i -= 1) {
-                        printf("S2\n");
                         IrHLRef* this = &hl_expr->of_ref.path.at[i];
-                        printf("S3\n");
                         if (this->kind == irhl_ref_expr_func) {
-                            printf("S4\n");
                             ref_func = this->of_expr_func;
-                            printf("S5\n");
                             ·assert(ref_func->kind = irhl_expr_func);
-                            printf("S6\n");
                             break;
                         }
                     }
-                    printf("S7\n");
                     ·assert(ref_func != NULL);
-                    printf("S8\n");
                     ret_expr.kind = irll_expr_ref_param;
-                    printf("S9\n");
                     ret_expr.of_ref_param = ref_func->of_func.params.len;
-                    printf("S10\n");
                     ·forEach(IrHLFuncParam, param, ref_func->of_func.params, {
                         if (param->name.at == NULL) {
                             astPrintExpr(ref_func->anns.origin.ast_expr, false, 0);
-                            printf("\nL=%s\n", strZ(ref_func->of_func.anns.qname));
                             ·fail(str("\n\n___NULL"));
                         }
-                        printf("S11\n");
                         Str const s1 = ref->of_func_param->name;
-                        printf("S11.1\n");
                         Str const s2 = param->name;
-                        printf("S11.2\n");
                         if (strEql(s1, s2)) {
-                            printf("S12\n");
                             ret_expr.of_ref_param = iˇparam;
-                            printf("S13\n");
                             break;
-                            printf("S14\n");
                         }
-                        printf("S15\n");
                     });
-                    printf("S16\n");
                     ·assert(ret_expr.of_ref_param < ref_func->of_func.params.len);
-                    printf("S17\n");
                 } break;
                 default: fail_msg = str2(str("TODO: handle ref kind of "), uIntToStr(ref->kind, 1, 10));
             }
