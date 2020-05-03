@@ -124,11 +124,10 @@ typedef ·SliceOf(IrHLExprFieldName) IrHLExprFieldNames;
 typedef struct IrHLExprTag {
     Str tag_ident;
 } IrHLExprTag;
-typedef ·ListOf(IrHLExprTag) IrHLExprTags;
 
 typedef struct IrHLExprTagged {
     IrHLExpr* subj;
-    IrHLExprTags tags;
+    IrHLExpr* tag;
 } IrHLExprTagged;
 
 typedef struct IrHLRef {
@@ -356,6 +355,15 @@ void irHLPrintExpr(IrHLExpr const* const the_expr, Bool const is_callee_or_arg, 
         case irhl_expr_instr: {
             printChr('@');
             printStr(the_expr->of_instr.instr_name);
+        } break;
+        case irhl_expr_tagged: {
+            if (is_callee_or_arg)
+                printChr('(');
+            irHLPrintExpr(the_expr->of_tagged.tag, false, ind);
+            printChr(' ');
+            irHLPrintExpr(the_expr->of_tagged.subj, false, ind);
+            if (is_callee_or_arg)
+                printChr(')');
         } break;
         default: {
             ·fail(str2(str("TODO: irHLPrintExpr for expr.kind of "), uIntToStr(the_expr->kind, 1, 10)));
@@ -1067,14 +1075,12 @@ IrHLExpr irHLExprFrom(CtxIrHLFromAsts* ctx, AstExpr* const ast_expr) {
                 break;
             }
 
-            UInt prefix_tags_count = 0;
-            ·forEach(AstExpr, arg_expr, ast_expr->of_exprs, {
-                if (astExprIsInstrOrTag(arg_expr, false, true, false))
-                    prefix_tags_count += 1;
-            });
-            if (prefix_tags_count != 0) {
-                ·fail(str("TODO tagged"));
+            if (astExprIsInstrOrTag(&ast_expr->of_exprs.at[0], false, true, false)) {
+                AstExpr tail_form = astExprFormSub(ast_expr, 1, ast_expr->of_exprs.len);
                 ret_expr.kind = irhl_expr_tagged;
+                ret_expr.of_tagged.subj =
+                    irHLExprKeep(irHLExprFrom(ctx, (tail_form.of_exprs.len > 1) ? &tail_form : &tail_form.of_exprs.at[0]));
+                ret_expr.of_tagged.tag = irHLExprKeep(irHLExprFrom(ctx, &ast_expr->of_exprs.at[0]));
                 break;
             }
 

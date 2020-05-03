@@ -80,6 +80,7 @@ typedef struct IrLLProg {
 
 
 
+typedef ·ListOf(IrHLExprTag) IrHLExprTags;
 typedef struct CtxIrLLFromHL {
     IrLLProg prog;
     IrHLExprTags tags;

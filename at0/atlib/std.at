@@ -21,7 +21,7 @@
 for range step stuff fn :=
   loop {i: range.min, st: stuff} each
   each bag :=
-    (bag.i == range.max)  ?- #done new_stuff
+    (bag.i == range.max)  ?- #done #yo #ok new_stuff
                           |- #next { i: step bag.i, st: new_stuff }
     new_stuff := fn bag.i bag.st
 
