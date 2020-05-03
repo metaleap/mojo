@@ -2,4 +2,4 @@ std := @"../atlib/std.at"
 
 
 main :=
-    -> std.io.writeToOut "Hello World!\010"
+    std.io.writeToOut "Hello World!\010"

@@ -295,7 +295,7 @@ Bool astExprsThronged(AstExpr* const former, AstExpr* const latter, Ast const* c
 
 
 
-void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast);
+void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast, Bool const colon_to_call);
 
 Bool astExprRewriteFirstGlyphIntoInstr(AstExpr* const expr, Str const glyph_name, Bool const must_lhs, Bool const must_rhs,
                                        Bool const is_func, Bool const is_sel, ºUInt const must_be_before_idx1,
@@ -327,12 +327,12 @@ Bool astExprRewriteFirstGlyphIntoInstr(AstExpr* const expr, Str const glyph_name
     if (maybe.lhs_form.ok) {
         if ((!is_func) && expr->of_exprs.at[1].of_exprs.len == 1)
             expr->of_exprs.at[1] = expr->of_exprs.at[1].of_exprs.at[0];
-        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[1], ast);
+        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[1], ast, true);
     }
     if (maybe.rhs_form.ok) {
         if (expr->of_exprs.at[2].of_exprs.len == 1)
             expr->of_exprs.at[2] = expr->of_exprs.at[2].of_exprs.at[0];
-        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast);
+        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast, true);
     }
     return true;
 }
@@ -361,17 +361,17 @@ void astExprRewriteOpIntoInstr(AstExpr* const expr, Str const op, Bool const can
         astExprFormNorm(&sub_instr.of_exprs.at[2], ·none(AstExpr));
         instr = sub_instr;
     }
-    astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast);
-    astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast);
+    astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast, true);
+    astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast, true);
     *expr = instr;
 }
 
-void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
+void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast, Bool const colon_to_call) {
     if (expr->kind == ast_expr_lit_bracket || expr->kind == ast_expr_lit_braces)
-        ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast); });
+        ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast, expr->kind == ast_expr_lit_bracket); });
 
     else if (astExprIsFunc(expr))
-        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast);
+        astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast, true);
 
     else if (expr->kind == ast_expr_form && expr->of_exprs.len != 0 && !astExprIsInstrOrTag(expr, true, true, true)) {
         Bool matched = false; // each desugarer checks for it and sets it, so they can be re-ordered
@@ -380,9 +380,23 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         ºUInt const idx_colon = astExprFormIndexOfIdent(expr, strL(":", 1));
 
         // check for `:` key-value-pair sugar { usually: inside, struct: literals, .. }
-        if (!matched) {
-            if (idx_colon.ok)
+        if ((!matched) && idx_colon.ok) {
+            if (!(colon_to_call && idx_colon.it > 0 && idx_colon.it < expr->of_exprs.len - 1))
                 matched = astExprRewriteFirstGlyphIntoInstr(expr, strL(":", 1), true, true, false, false, idx_qmark, idx_func, ast);
+            else {
+                matched = true;
+                AstExpr lhs = astExprFormSub(expr, 0, idx_colon.it);
+                AstExpr rhs = astExprFormSub(expr, 1 + idx_colon.it, expr->of_exprs.len);
+                astExprRewriteGlyphsIntoInstrs(&lhs, ast, true);
+                astExprRewriteGlyphsIntoInstrs(&rhs, ast, true);
+                lhs.anns.parensed = 1;
+                rhs.anns.parensed = 1;
+                AstExpr call = astExpr(expr->node_base.toks_idx, expr->node_base.toks_len, ast_expr_form, 2);
+                call.anns = expr->anns;
+                call.of_exprs.at[0] = lhs;
+                call.of_exprs.at[1] = rhs;
+                *expr = call;
+            }
         }
         // range sugars: foo..bar , foo...bar
         if (!matched) {
@@ -403,7 +417,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                 instr.of_exprs.at[2] = astExprFormSub(expr, 0, expr->of_exprs.len - 1);
                 astExprFormNorm(&instr.of_exprs.at[2], ·none(AstExpr));
                 *expr = instr;
-                astExprRewriteGlyphsIntoInstrs(expr, ast);
+                astExprRewriteGlyphsIntoInstrs(expr, ast, true);
             }
         }
         for (UInt i = expr->of_exprs.len - 1; i > 0 && !matched; i -= 1) {
@@ -420,7 +434,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                 astExprFormNorm(&instr.of_exprs.at[1], ·none(AstExpr));
                 astExprFormNorm(&instr.of_exprs.at[2], ·none(AstExpr));
                 *expr = instr;
-                astExprRewriteGlyphsIntoInstrs(expr, ast);
+                astExprRewriteGlyphsIntoInstrs(expr, ast, true);
                 if (expr->of_exprs.at[2].kind != ast_expr_ident)
                     ·fail(astNodeMsg(str("illegal '.' right-hand-side expression"), &expr->of_exprs.at[2].node_base, ast));
                 expr->of_exprs.at[2] = astExprInstrOrTag(expr->of_exprs.at[2].node_base, expr->of_exprs.at[2].of_ident, true);
@@ -482,8 +496,8 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                 new_cases->at[1].of_exprs.at[2] = case_false;
             } else if (count_arrows != cases.len)
                 ·fail(astNodeMsg(str("some cases are lacking '=>'"), &expr->node_base, ast));
-            astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast);
-            astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast);
+            astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[1], ast, true);
+            astExprRewriteGlyphsIntoInstrs(&instr.of_exprs.at[2], ast, true);
             *expr = instr;
         }
         // check for anon-func sugar `->`
@@ -505,7 +519,7 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
                     fn.at[1].of_exprs.at[0] = astExprInstrOrTag(sub_expr->node_base, sub_expr->of_ident, true);
                     fn.at[2] = *expr;
                     expr->of_exprs = fn;
-                    astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast);
+                    astExprRewriteGlyphsIntoInstrs(&expr->of_exprs.at[2], ast, true);
                 }
             });
         }
@@ -564,13 +578,13 @@ void astExprRewriteGlyphsIntoInstrs(AstExpr* const expr, Ast const* const ast) {
         }
         // nothing desugared, traverse normally into form
         if (!matched)
-            ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast); });
+            ·forEach(AstExpr, sub_expr, expr->of_exprs, { astExprRewriteGlyphsIntoInstrs(sub_expr, ast, true); });
     }
 }
 
 void astDefRewriteGlyphsIntoInstrs(AstDef* const def, Ast const* const ast) {
     ·forEach(AstDef, sub_def, def->sub_defs, { astDefRewriteGlyphsIntoInstrs(sub_def, ast); });
-    astExprRewriteGlyphsIntoInstrs(&def->body, ast);
+    astExprRewriteGlyphsIntoInstrs(&def->body, ast, true);
 }
 
 

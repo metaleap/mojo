@@ -9,5 +9,5 @@ writeToOrAbort file str :=
 
 writeTo file str :=
   (n_written == str.len || maybe_err == 0) ?- #ok n_written |- #err maybe_err
-  n_written := libc.fwrite str 1 str.len file
   maybe_err := libc.ferror file
+  n_written := libc.fwrite str 1 str.len file
