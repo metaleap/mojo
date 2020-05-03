@@ -153,10 +153,32 @@ IrLLExpr irLLExprFrom(CtxIrLLFromHL* const ctx, IrHLExpr* const hl_expr) {
             Str const instr_name = hl_expr->of_instr.instr_name;
             if (strEq("extern", instr_name, 6))
                 ret_expr.of_instr = irll_instr_extern;
-            if (strEq("?", instr_name, 1))
+            else if (strEq("?", instr_name, 1))
                 ret_expr.of_instr = irll_instr_branch;
-            if (strEq("|", instr_name, 1))
+            else if (strEq("|", instr_name, 1))
                 ret_expr.of_instr = irll_instr_branchcase;
+            else if (strEq("==", instr_name, 2))
+                ret_expr.of_instr = irll_instr_cmp_eq;
+            else if (strEq("/=", instr_name, 2))
+                ret_expr.of_instr = irll_instr_cmp_neq;
+            else if (strEq("<=", instr_name, 2))
+                ret_expr.of_instr = irll_instr_cmp_leq;
+            else if (strEq(">=", instr_name, 2))
+                ret_expr.of_instr = irll_instr_cmp_geq;
+            else if (strEq("<", instr_name, 1))
+                ret_expr.of_instr = irll_instr_cmp_lt;
+            else if (strEq(">", instr_name, 1))
+                ret_expr.of_instr = irll_instr_cmp_gt;
+            else if (strEq("+", instr_name, 1))
+                ret_expr.of_instr = irll_instr_arith_add;
+            else if (strEq("-", instr_name, 1))
+                ret_expr.of_instr = irll_instr_arith_sub;
+            else if (strEq("*", instr_name, 1))
+                ret_expr.of_instr = irll_instr_arith_mul;
+            else if (strEq("/", instr_name, 1))
+                ret_expr.of_instr = irll_instr_arith_div;
+            else if (strEq("\x25", instr_name, 1))
+                ret_expr.of_instr = irll_instr_arith_rem;
 
             if (ret_expr.of_instr == irll_instr_invalid)
                 fail_msg = str2(str("TODO: irLLExprFrom for .kind=instr of "), instr_name);
