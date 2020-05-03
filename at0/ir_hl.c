@@ -1162,17 +1162,24 @@ IrHLProg irHLProgFrom(Asts const asts) {
         module_struct.of_bag = ((IrHLExprBag) {.kind = irhl_bag_struct, .items = ·sliceOf(IrHLExpr, 0, ast->top_defs.len)});
         ·forEach(AstDef, ast_top_def, ast->top_defs, {
             ctx.cur_ast_def = ast_top_def;
-            IrHLExpr key = irHLExprInit(irhl_expr_field_name, ast_top_def, NULL);
-            key.of_field_name = ((IrHLExprFieldName) {.field_name = ast_top_def->name});
+
+            Str const top_def_name = str3(ast->anns.path_based_ident_prefix, strL("$", 1), ast_top_def->name);
+            ·append(ret_prog.defs, ((IrHLDef) {.name = top_def_name,
+                                               .anns = {.is_pre_generated = false, .origin_ast = ast, .origin_ast_def = ast_top_def},
+                                               .body = irHLExprKeep(irHLDefExpr(&ctx))}));
+
+            IrHLExpr kvp_key = irHLExprInit(irhl_expr_field_name, ast_top_def, NULL);
+            kvp_key.of_field_name = ((IrHLExprFieldName) {.field_name = ast_top_def->name});
+            IrHLExpr kvp_val = irHLExprInit(irhl_expr_ref, ast_top_def, NULL);
+            kvp_val.of_ref.path = ·sliceOf(IrHLRef, 1, 1);
+            kvp_val.of_ref.path.at[0] = ((IrHLRef) {.kind = irhl_ref_def, .of_def = ·last(ret_prog.defs)});
+            kvp_val.of_ref.name_or_qname = top_def_name;
             IrHLExpr kvp = irHLExprInit(irhl_expr_kvpair, ast_top_def, NULL);
-            kvp.of_kvpair = ((IrHLExprKVPair) {
-                .key = irHLExprKeep(key),
-                .val = irHLExprKeep(irHLDefExpr(&ctx)),
-            });
+            kvp.of_kvpair = ((IrHLExprKVPair) {.key = irHLExprCopy(&kvp_key), .val = irHLExprCopy(&kvp_val)});
             ·push(module_struct.of_bag.items, kvp);
         });
         ·append(ret_prog.defs, ((IrHLDef) {.name = ast->anns.path_based_ident_prefix,
-                                           .anns = {.is_pre_generated = false, .origin_ast = ast, .origin_ast_def = NULL},
+                                           .anns = {.is_pre_generated = true, .origin_ast = ast, .origin_ast_def = NULL},
                                            .body = irHLExprKeep(module_struct)}));
     });
     return ret_prog;

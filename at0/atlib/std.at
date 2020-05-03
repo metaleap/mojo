@@ -7,8 +7,13 @@ false := #false
 
 
 
+// in the long run, should be able to automatically reason towards discovering `i1neq b1 b2` equivalence
 xor b1 b2 :=
-  b1 /= b2
+  b1 ?- not b2 |- b2
+
+// in the long run, should be able to automatically arrive at bit-flip equivalence rather
+// than a naive compare-and-branch, but more crucially with such in place, look for
+// opportunities to instead invert the i1-producing operators that produced `b`
 not b :=
   b ?- false |- true
 
