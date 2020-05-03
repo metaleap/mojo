@@ -68,6 +68,7 @@ typedef struct Ast {
         Str path_based_ident_prefix;
         UInt total_nr_of_def_toks;
         Strs incl_file_paths;
+        Strs all_top_def_names;
     } anns;
 } Ast;
 typedef ·ListOf(Ast) Asts;

@@ -1,22 +1,22 @@
-io := @"io.at"
+// io := @"io.at"
 
 
 
-true := #true
-false := #false
+// true := #true
+// false := #false
 
 
 
-xor b1 b2 :=
-  b1 /= b2
-not b :=
-  b ?- false |- true
+// xor b1 b2 :=
+//   b1 /= b2
+// not b :=
+//   b ?- false |- true
 
 
 
-forEach arr_or_slice stuff fn :=
-  for 0..arr_or_slice.len _+1 stuff:
-    i st -> fn arr_or_slice[i] st
+// forEach arr_or_slice stuff fn :=
+//   for 0..arr_or_slice.len _+1 stuff:
+//     i st -> fn arr_or_slice[i] st
 
 for range step stuff fn :=
   loop {i: range.min, st: stuff} each

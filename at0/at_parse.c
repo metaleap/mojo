@@ -72,6 +72,9 @@ Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path)
         astSubDefsReorder(top_def->sub_defs);
     });
 
+    ret_ast.anns.all_top_def_names = ·sliceOf(Str, ret_ast.top_defs.len, 0);
+    ·forEach(AstDef, top_def, ret_ast.top_defs, { ret_ast.anns.all_top_def_names.at[iˇtop_def] = top_def->name; });
+
     return ret_ast;
 }
 
