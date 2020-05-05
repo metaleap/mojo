@@ -941,6 +941,70 @@ void prependCommonFuncs(IrHLProg* const prog) {
 
 
 
+void irHLExprMaybeCollapseBranchInstr(IrHLExpr* const ret_expr) {
+    if (!(ret_expr->kind == irhl_expr_call && ret_expr->of_call.callee->kind == irhl_expr_instr
+          && strEql(strL("?", 1), ret_expr->of_call.callee->of_instr.instr_name) && ret_expr->of_call.args.at[1].kind == irhl_expr_bag
+          && ret_expr->of_call.args.at[1].of_bag.kind == irhl_bag_list && ret_expr->of_call.args.at[1].of_bag.items.len == 2))
+        return;
+
+    IrHLExpr* outer = ret_expr;
+    IrHLExpr* inner = &outer->of_call.args.at[0];
+
+    ºUInt true1 = ·none(UInt);
+    ºUInt false1 = ·none(UInt);
+    ·forEach(IrHLExpr, br_case, outer->of_call.args.at[1].of_bag.items, {
+        if (br_case->kind != irhl_expr_call || br_case->of_call.args.len != 2 || br_case->of_call.callee->kind != irhl_expr_instr
+            || !strEql(strL("|", 1), br_case->of_call.callee->of_instr.instr_name))
+            return;
+        if (br_case->of_call.args.at[0].kind == irhl_expr_tag) {
+            if (strEql(strL("true", 4), br_case->of_call.args.at[0].of_tag.tag_ident))
+                true1 = ·ok(UInt, iˇbr_case);
+            else if (strEql(strL("false", 5), br_case->of_call.args.at[0].of_tag.tag_ident))
+                false1 = ·ok(UInt, iˇbr_case);
+        }
+    });
+
+    if (!(true1.ok && false1.ok && inner->kind == irhl_expr_call && inner->of_call.callee->kind == irhl_expr_instr
+          && strEql(strL("?", 1), inner->of_call.callee->of_instr.instr_name) && inner->of_call.args.at[1].kind == irhl_expr_bag
+          && inner->of_call.args.at[1].of_bag.kind == irhl_bag_list && inner->of_call.args.at[1].of_bag.items.len == 2))
+        return;
+
+    ºUInt true2 = ·none(UInt);
+    ºUInt false2 = ·none(UInt);
+    ·forEach(IrHLExpr, br_case, inner->of_call.args.at[1].of_bag.items, {
+        if (br_case->kind != irhl_expr_call || br_case->of_call.args.len != 2 || br_case->of_call.callee->kind != irhl_expr_instr
+            || !strEql(strL("|", 1), br_case->of_call.callee->of_instr.instr_name))
+            return;
+        if (br_case->of_call.args.at[0].kind == irhl_expr_tag && br_case->of_call.args.at[1].kind == irhl_expr_tag
+            && strEql(br_case->of_call.args.at[0].of_tag.tag_ident, br_case->of_call.args.at[1].of_tag.tag_ident)) {
+            if (strEql(strL("true", 4), br_case->of_call.args.at[0].of_tag.tag_ident))
+                true2 = ·ok(UInt, iˇbr_case);
+            else if (strEql(strL("false", 5), br_case->of_call.args.at[0].of_tag.tag_ident))
+                false2 = ·ok(UInt, iˇbr_case);
+        }
+    });
+
+    if (!(true2.ok || false2.ok))
+        return;
+    printf("%d %zu\t%d %zu\n", true2.ok, true2.it, false2.ok, false2.it);
+    if (true2.ok && false2.ok)
+        outer->of_call.args.at[0] = inner->of_call.args.at[0];
+    else if (true2.ok) {
+        // orig: if (foo || bar) [true: baz, false: faz]
+        // here: if (if foo [true: true, false: bar]) [true: baz, false: faz]
+        // into: let _baz = baz in if foo [ true: baz, false: if bar [ true: baz, false: faz ] ]
+    } else if (false2.ok) {
+        // if (if foo [false: false, true: bar]) [true: baz, false: faz]
+    }
+}
+
+
+
+
+typedef struct CtxIrHLFromAsts {
+    Ast* ast;
+    AstDef* cur_ast_def;
+} CtxIrHLFromAsts;
 
 IrHLDef* irHLProgDef(IrHLProg* const prog, Str const module_name, Str const module_member_name) {
     IrHLDef* module = NULL;
@@ -964,14 +1028,6 @@ IrHLDef* irHLProgDef(IrHLProg* const prog, Str const module_name, Str const modu
 
     return NULL;
 }
-
-
-
-
-typedef struct CtxIrHLFromAsts {
-    Ast* ast;
-    AstDef* cur_ast_def;
-} CtxIrHLFromAsts;
 
 IrHLExpr irHLExprSelectorFromInstr(CtxIrHLFromAsts const* const ctx, IrHLExpr const* const instr) {
     AstNodeBase const* const err_node = &instr->anns.origin.ast_expr->node_base;
@@ -1269,6 +1325,8 @@ IrHLExpr irHLExprFrom(CtxIrHLFromAsts* ctx, AstExpr* const ast_expr) {
                     ret_expr = irHLExprBranchFromInstr(ctx, &ret_expr, strEql(strL("&&", 2), instr_name));
                 }
             }
+
+            irHLExprMaybeCollapseBranchInstr(&ret_expr);
         } break;
 
         default: {
