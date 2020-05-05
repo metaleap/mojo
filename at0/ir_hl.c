@@ -80,6 +80,11 @@ typedef struct IrHLExprFunc {
 typedef struct IrHLLet {
     Str name;
     IrHLExpr* expr;
+    struct {
+        UInt ref_count;
+        IrHLExpr* ref_expr;
+        Str qname;
+    } anns;
 } IrHLLet;
 typedef ·SliceOf(IrHLLet) IrHLLets;
 
@@ -303,14 +308,15 @@ void irHLPrintExpr(IrHLExpr const* const expr, Bool const is_callee_or_arg, UInt
                                        .anns = expr->anns,
                                        .of_bag = {.kind = irhl_bag_struct, .items = ·sliceOf(IrHLExpr, 0, expr->of_let.lets.len)}};
             ·forEach(IrHLLet, let, expr->of_let.lets, {
-                ·push(bag.of_bag.items, ((IrHLExpr) {.anns = let->expr->anns,
-                                                     .kind = irhl_expr_kvpair,
-                                                     .of_kvpair = {.key = irHLExprKeep((IrHLExpr) {
-                                                                       .kind = irhl_expr_field_name,
-                                                                       .anns = let->expr->anns,
-                                                                       .of_field_name = (IrHLExprFieldName) {.field_name = let->name},
-                                                                   }),
-                                                                   .val = let->expr}}));
+                if (let->expr != NULL)
+                    ·push(bag.of_bag.items, ((IrHLExpr) {.anns = let->expr->anns,
+                                                         .kind = irhl_expr_kvpair,
+                                                         .of_kvpair = {.key = irHLExprKeep((IrHLExpr) {
+                                                                           .kind = irhl_expr_field_name,
+                                                                           .anns = let->expr->anns,
+                                                                           .of_field_name = (IrHLExprFieldName) {.field_name = let->name},
+                                                                       }),
+                                                                       .val = let->expr}}));
             });
             IrHLExpr faux = (IrHLExpr) {.kind = irhl_expr_call,
                                         .anns = expr->anns,
@@ -319,6 +325,7 @@ void irHLPrintExpr(IrHLExpr const* const expr, Bool const is_callee_or_arg, UInt
                                             .args = ·sliceOf(IrHLExpr, 1, 1),
                                         }};
             faux.of_call.args.at[0] = *expr->of_let.body;
+            printStr(str(" LET"));
             irHLPrintExpr(&faux, false, ind);
         } break;
         case irhl_expr_call: {
@@ -414,7 +421,10 @@ void irHLExprInlineRefsToNullaryAtomicDefs(IrHLExpr* const expr, IrHLDef* const 
             irHLExprInlineRefsToNullaryAtomicDefs(expr->of_tagged.subj, cur_def, prog);
         } break;
         case irhl_expr_let: {
-            ·forEach(IrHLLet, let, expr->of_let.lets, { irHLExprInlineRefsToNullaryAtomicDefs(let->expr, cur_def, prog); });
+            ·forEach(IrHLLet, let, expr->of_let.lets, {
+                if (let->expr != NULL)
+                    irHLExprInlineRefsToNullaryAtomicDefs(let->expr, cur_def, prog);
+            });
             irHLExprInlineRefsToNullaryAtomicDefs(expr->of_let.body, cur_def, prog);
         } break;
         case irhl_expr_func: {
@@ -462,7 +472,7 @@ typedef struct CtxIrHLProcessIdents {
     IrHLProg* prog;
 } CtxIrHLProcessIdents;
 
-#define idents_tracking_stack_capacity 40
+#define idents_tracking_stack_capacity 48
 #define func_free_vars_capacity 4
 void irHLProcessIdentsPush(CtxIrHLProcessIdents* const ctx, Strs* const names_stack, Str const name, IrHLRefs ref_stack,
                            AstNodeBase const* const node) {
@@ -542,16 +552,29 @@ void irHLExprProcessIdents(CtxIrHLProcessIdents* const ctx, IrHLExpr* const expr
             irHLExprProcessIdents(ctx, expr->of_func.body, names_stack, ref_stack, qname_stack);
         } break;
         case irhl_expr_let: {
-            ·forEach(IrHLLet, let, expr->of_let.lets,
-                     { irHLProcessIdentsPush(ctx, &names_stack, let->name, ref_stack, &let->expr->anns.origin.ast_def->node_base); });
+            ·forEach(IrHLLet, let, expr->of_let.lets, {
+                if (let->expr != NULL) {
+                    let->anns.ref_count = 0;
+                    let->anns.ref_expr = NULL;
+                    irHLProcessIdentsPush(ctx, &names_stack, let->name, ref_stack, &let->expr->anns.origin.ast_def->node_base);
+                }
+            });
             ·push(ref_stack, ((IrHLRef) {.kind = irhl_ref_expr_let, .of_expr_let = expr}));
             ·push(qname_stack, str_nil);
             ·forEach(IrHLLet, let, expr->of_let.lets, {
                 ·push(qname_stack, let->name);
+                let->anns.qname = strConcat(qname_stack, '-');
                 irHLExprProcessIdents(ctx, let->expr, names_stack, ref_stack, qname_stack);
                 qname_stack.len -= 1;
             });
             irHLExprProcessIdents(ctx, expr->of_let.body, names_stack, ref_stack, qname_stack);
+            ·forEach(IrHLLet, let, expr->of_let.lets, {
+                if (let->anns.ref_count == 1) {
+                    *let->anns.ref_expr = *let->expr;
+                    let->anns.ref_count = 0;
+                    let->anns.ref_expr = NULL;
+                }
+            });
         } break;
         case irhl_expr_ref: {
             Str const ident = expr->of_ref.name_or_qname;
@@ -585,6 +608,8 @@ void irHLExprProcessIdents(CtxIrHLProcessIdents* const ctx, IrHLExpr* const expr
                         case irhl_ref_expr_let: {
                             ·forEach(IrHLLet, let, ref->of_expr_let->of_let.lets, {
                                 if (strEql(let->name, ident)) {
+                                    let->anns.ref_count += 1;
+                                    let->anns.ref_expr = expr;
                                     expr->of_ref.path = ·sliceOf(IrHLRef, 2 + i, 0);
                                     for (UInt j = 0; j <= i; j += 1)
                                         expr->of_ref.path.at[j] = ref_stack.at[j];
@@ -705,7 +730,10 @@ Bool irHLLiftFuncExprs(CtxIrHLLiftFuncs* const ctx, IrHLExpr* const expr) {
             did_lift |= irHLLiftFuncExprs(ctx, expr->of_tagged.subj);
         } break;
         case irhl_expr_let: {
-            ·forEach(IrHLLet, let, expr->of_let.lets, { did_lift |= irHLLiftFuncExprs(ctx, let->expr); });
+            ·forEach(IrHLLet, let, expr->of_let.lets, {
+                if (let->expr != NULL)
+                    did_lift |= irHLLiftFuncExprs(ctx, let->expr);
+            });
             did_lift |= irHLLiftFuncExprs(ctx, expr->of_let.body);
         } break;
         case irhl_expr_func: {
@@ -791,6 +819,90 @@ void irHLProgLiftFuncExprs(IrHLProg* const prog) {
             irHLProgInlineRefsToNullaryAtomicDefs(prog);
         }
     } while (did_lift_some);
+}
+
+
+
+
+typedef struct CtxIrHLRewriteLetsIntoLambdas {
+    IrHLProg* prog;
+    IrHLDef* cur_def;
+} CtxIrHLRewriteLetsIntoLambdas;
+
+void irHLRewriteLetsIntoLambdas(CtxIrHLRewriteLetsIntoLambdas* const ctx, IrHLExpr* expr) {
+    switch (expr->kind) {
+        case irhl_expr_nilish:
+        case irhl_expr_int:
+        case irhl_expr_tag:
+        case irhl_expr_field_name:
+        case irhl_expr_ref:
+        case irhl_expr_instr: break;
+        case irhl_expr_call: {
+            irHLRewriteLetsIntoLambdas(ctx, expr->of_call.callee);
+            ·forEach(IrHLExpr, arg, expr->of_call.args, { irHLRewriteLetsIntoLambdas(ctx, arg); });
+        } break;
+        case irhl_expr_bag: {
+            ·forEach(IrHLExpr, item, expr->of_bag.items, { irHLRewriteLetsIntoLambdas(ctx, item); });
+        } break;
+        case irhl_expr_selector: {
+            irHLRewriteLetsIntoLambdas(ctx, expr->of_selector.subj);
+            irHLRewriteLetsIntoLambdas(ctx, expr->of_selector.member);
+        } break;
+        case irhl_expr_kvpair: {
+            irHLRewriteLetsIntoLambdas(ctx, expr->of_kvpair.key);
+            irHLRewriteLetsIntoLambdas(ctx, expr->of_kvpair.val);
+        } break;
+        case irhl_expr_tagged: {
+            irHLRewriteLetsIntoLambdas(ctx, expr->of_tagged.subj);
+        } break;
+        case irhl_expr_func: {
+            irHLRewriteLetsIntoLambdas(ctx, expr->of_func.body);
+        } break;
+        case irhl_expr_let: {
+            ·forEach(IrHLLet, let, expr->of_let.lets, {
+                if (let->expr != NULL)
+                    irHLRewriteLetsIntoLambdas(ctx, let->expr);
+            });
+            irHLRewriteLetsIntoLambdas(ctx, expr->of_let.body);
+
+            IrHLExpr new = *expr->of_let.body;
+            ·forEach(IrHLLet, let, expr->of_let.lets, {
+                if (let->expr != NULL && let->anns.ref_count > 0) {
+                    IrHLExpr func = irHLExprInit(irhl_expr_func, let->expr->anns.origin.ast_def, let->expr->anns.origin.ast_expr);
+                    func.of_func.anns.qname = let->anns.qname;
+                    func.of_func.body = irHLExprKeep(new);
+                    func.of_func.params = ·sliceOf(IrHLFuncParam, 1, 1);
+                    func.of_func.params.at[0] = ((IrHLFuncParam) {
+                        .name = let->name,
+                        .anns = {.origin_ast_node = &let->expr->anns.origin.ast_expr->node_base},
+                    });
+
+                    IrHLExpr call = irHLExprInit(irhl_expr_call, let->expr->anns.origin.ast_def, let->expr->anns.origin.ast_expr);
+                    call.of_call.callee = irHLExprKeep(func);
+                    call.of_call.args = ·sliceOf(IrHLExpr, 1, 1);
+                    call.of_call.args.at[0] = *let->expr;
+
+                    let->anns.ref_count = 0;
+                    let->anns.ref_expr = NULL;
+                    new = call;
+                }
+            });
+
+            *expr = new;
+        } break;
+        default:
+            ·fail(astNodeMsg(str2(str("TODO: irHLRewriteLetsIntoLambdas for expr.kind of "), uIntToStr(expr->kind, 1, 10)),
+                             &expr->anns.origin.ast_expr->node_base, ctx->cur_def->anns.origin_ast));
+    }
+}
+
+void irHLProgRewriteLetsIntoLambdas(IrHLProg* const prog) {
+    irHLProgInlineRefsToNullaryAtomicDefs(prog);
+    CtxIrHLRewriteLetsIntoLambdas ctx = (CtxIrHLRewriteLetsIntoLambdas) {.prog = prog};
+    ·forEach(IrHLDef, def, ctx.prog->defs, {
+        ctx.cur_def = def;
+        irHLRewriteLetsIntoLambdas(&ctx, def->body);
+    });
 }
 
 
@@ -1181,6 +1293,7 @@ IrHLExpr irHLDefExpr(CtxIrHLFromAsts* ctx) {
         ·push(lets.of_let.lets, ((IrHLLet) {
                                     .name = sub_def->name,
                                     .expr = irHLExprKeep(irHLDefExpr(ctx)),
+                                    .anns = {.ref_count = 0, .ref_expr = NULL},
                                 }));
     });
     ctx->cur_ast_def = old_cur_ast_def;
