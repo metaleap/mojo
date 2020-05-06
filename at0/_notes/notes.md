@@ -62,8 +62,8 @@ The scheme would fail for those stand-alone ones just bound to a name. And they
 mustn't imply distinct different operational semantics just based on placement!
 
 This means one of two avenues, to be investigated:
-- either need to translate into an SSA / CPS IR instead of a SAPL-like "functional IR"
-  right from the start, even during the "only an interpreter" stage 0.
+- either need to translate into an SSA / CPS IR instead of a SAPL-like "functional
+  (de-lambda'd) IR" right from the start, even during the "only an interpreter" stage 0.
 - or stick to the "functional interpreted-IR" but the short-circuiting logical
   operators don't get desugared into branches, instead becoming prim-ops in there.
 
