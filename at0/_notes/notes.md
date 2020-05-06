@@ -37,7 +37,7 @@ be consumed:
   return (err){ferr};
 ```
 
-So want to reach a `||`-less expression more like:
+So at first glance want to reach a `||`-sugarless expression like:
 
 ```dart
   (n ->
@@ -47,37 +47,38 @@ So want to reach a `||`-less expression more like:
   ) (libc.fwrite str 1 str.len file)
 ```
 
-Or in CPS-ish pseudo sugar:
+Or more sugary notation:
 
 ```dart
-  (libc.fwrite str 1 str.len file) >> n ->
+  (libc.fwrite str 1 str.len file) \n\
     (n == str.len) ?- (#ok n) |-
-      (libc.ferror file) >> ferr ->
+      (libc.ferror file) \ferr\
         ferr == 0 ?- #ok n |- #err ferr
 ```
 
 But this transformation could realistically only be done for specially-detected
-short-circuiting  logical-operator exprs **visibly placed directly inside branches**.
+short-circuiting  logical-operators **visibly placed directly inside branch conds**.
 The scheme would fail for those stand-alone ones just bound to a name. And they
 mustn't imply distinct different operational semantics just based on placement!
 
-This means one of two things, to be investigated:
+This means one of two avenues, to be investigated:
 - either need to translate into an SSA / CPS IR instead of a SAPL-like "functional IR"
   right from the start, even during the "only an interpreter" stage 0.
-- or stick to the "functional IR" but the short-circuiting logical operators don't get
-  desugared into branches, instead becoming prim-ops in there.
+- or stick to the "functional interpreted-IR" but the short-circuiting logical
+  operators don't get desugared into branches, instead becoming prim-ops in there.
 
 The former wins at first sight: first, want to treat the short-circuiting sugars
 equivalently to hand-written nested-branches (even if they'd hardly ever be) and
 this suggests keeping the early desugaring instead of introducing specialized
-`@or` / `@and` prim-ops. Secondly, would need to get there eventually anyway when
-leaving "interpreter-only" stage0 and embarking upon compilations / transpilations.
+`@or` / `@and` prim-ops, deferring semantic complications to run time. Secondly,
+would need to get there eventually anyway when leaving "interpreter-only" stage0
+and embarking upon compilations / transpilations much later on.
 
 Assuming the switch from a functional-ish to an imperative-ish / SSA-ish / CPS-ish
 "byte-code" / interpreted-IR, this then suggests a sort of "statically determined
 lazy-ish / latest-necessary" placement of SSA assignments at the right locations such
-that they won't occur unless consumed and won't ever "run more than once" by accident,
-because our order-independent "locals" are still intended to behave like mainstream ones.
+that they won't be computed unless consumed and won't ever "run more than once" by accident,
+because our order-independent "locals" are still to behave like mainstream named-vars.
 
 This could turn out tricky indeed!
 
