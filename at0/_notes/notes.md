@@ -9,7 +9,7 @@ User-land expression:
   ferr := libc.ferror file
 ```
 
-We originally desugared `||` naively into a nested branch:
+Originally desugared `||` naively into a nested branch:
 
 ```dart
   (n == str.len ?- true |- ferr == 0) ?- #ok n |- #err ferr
@@ -19,9 +19,13 @@ We originally desugared `||` naively into a nested branch:
 ```
 
 As it stands with that, two sub-optimal choices remain: either generate the `ferror` call
-"beforehand"/"outside" even if `ferr` will turn out to not be consumed, or generate it twice. Both would violate our intended semantics and must be prevented. We'll also stick to non-lazy evaluation, the lazy-eval world doesn't have this conundrum.
+"beforehand"/"outside" even if `ferr` will turn out to not be consumed, or generate it twice.
+Both would violate our intended semantics and must be prevented. (Also want to stick to
+non-lazy evaluation, the lazy-eval world doesn't have this conundrum.)
 
-The "plain and simple" objective is to reach the equivalent of the below imperative statement sequence, with `ferror` only being called / `ferr` only being written when it clearly _will_ be consumed:
+The "essence-ial" objective is to reach the equivalent of the below imperative statement
+sequence, with `ferror` only being called / `ferr` only being written when it clearly _will_
+be consumed:
 
 ```c
   int n = fwrite(str, 1, str.len, file);
@@ -30,28 +34,52 @@ The "plain and simple" objective is to reach the equivalent of the below imperat
   int ferr = ferror(file);
   if (ferr == 0)
     return (ok){n};
-  else
-    return (err){ferr};
+  return (err){ferr};
 ```
 
 So want to reach a `||`-less expression more like:
 
 ```dart
-  (n == str.len) ?- (#ok n) |-
-    (ferr -> ferr == 0 ?- #ok n |- #err ferr)
-      (libc.ferror file)
-  // where
-  n := libc.fwrite str 1 str.len file
+  (n ->
+    (n == str.len) ?- (#ok n) |-
+      (ferr -> ferr == 0 ?- #ok n |- #err ferr)
+        (libc.ferror file)
+  ) (libc.fwrite str 1 str.len file)
 ```
 
-But this could only be done for short-circuiting logical-operator exprs directly placed
-inside branches. The scheme would fail for those stand-alone ones bound to a name. They
-mustn't imply distinct different operational semantics just based on placement.
+Or in CPS-ish pseudo sugar:
 
-This means we need to translate into an SSA / CPS IR instead of a SAPL-like "functional IR"
-right from the start, even during the "only an interpreter" stage 0.
+```dart
+  (libc.fwrite str 1 str.len file) >> n ->
+    (n == str.len) ?- (#ok n) |-
+      (libc.ferror file) >> ferr ->
+        ferr == 0 ?- #ok n |- #err ferr
+```
 
-Time to take another, deeper look into the Thorin approach..
+But this transformation could realistically only be done for specially-detected
+short-circuiting  logical-operator exprs **visibly placed directly inside branches**.
+The scheme would fail for those stand-alone ones just bound to a name. And they
+mustn't imply distinct different operational semantics just based on placement!
+
+This means one of two things, to be investigated:
+- either need to translate into an SSA / CPS IR instead of a SAPL-like "functional IR"
+  right from the start, even during the "only an interpreter" stage 0.
+- or stick to the "functional IR" but the short-circuiting logical operators don't get
+  desugared into branches, instead becoming prim-ops in there.
+
+The former wins at first sight: first, want to treat the short-circuiting sugars
+equivalently to hand-written nested-branches (even if they'd hardly ever be) and
+this suggests keeping the early desugaring instead of introducing specialized
+`@or` / `@and` prim-ops. Secondly, would need to get there eventually anyway when
+leaving "interpreter-only" stage0 and embarking upon compilations / transpilations.
+
+Assuming the switch from a functional-ish to an imperative-ish / SSA-ish / CPS-ish
+"byte-code" / interpreted-IR, this then suggests a sort of "statically determined
+lazy-ish / latest-necessary" placement of SSA assignments at the right locations such
+that they won't occur unless consumed and won't ever "run more than once" by accident,
+because our order-independent "locals" are still intended to behave like mainstream ones.
+
+This could turn out tricky indeed!
 
 ### Detect de-facto boolish logic:
 
