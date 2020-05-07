@@ -1,14 +1,13 @@
 
-// libc := @"libc.at"
+libc := @"libc.at"
 
-// writeToOut str := writeToOrAbort libc.stdout str
-// writeToErr str := writeToOrAbort libc.stderr str
+writeToOut str := writeToOrAbort libc.stdout str
+writeToErr str := writeToOrAbort libc.stderr str
 
-// writeToOrAbort file str :=
-//   writeTo file str ?- #ok => n -> n |- #err => _ -> libc.abort ()
+writeToOrAbort file str :=
+  writeTo file str ?- #ok => n -> n |- #err => _ -> libc.abort ()
 
 writeTo file str :=
   (n_written == str.len || maybe_err == 0) ?- #ok n_written |- #err maybe_err
   maybe_err := libc.ferror file
   n_written := libc.fwrite str 1 str.len file
-  libc := 123

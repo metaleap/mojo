@@ -30,10 +30,20 @@ struct Mem {
     ((T##s) {.len = (³initial_len__),                                                                                                        \
              .at = (T*)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T))))})
 
+#define ·sliceOfPtrs(T, ³initial_len__, ²max_capacity__)                                                                                     \
+    ((T##s) {.len = (³initial_len__),                                                                                                        \
+             .at = (T**)(memAlloc((((²max_capacity__) < (³initial_len__)) ? (³initial_len__) : (²max_capacity__)) * (sizeof(T*))))})
+
 #define ·listOf(T, ⁵initial_len__, ⁴max_capacity__)                                                                                          \
     ((T##s) {.len = (⁵initial_len__),                                                                                                        \
              .cap = (((⁴max_capacity__) < (⁵initial_len__)) ? (⁵initial_len__) : (⁴max_capacity__)),                                         \
              .at = (T*)(memAlloc((((⁴max_capacity__) < (⁵initial_len__)) ? (⁵initial_len__) : (⁴max_capacity__)) * (sizeof(T))))})
+
+#define ·listOfPtrs(T, ⁵initial_len__, ⁴max_capacity__)                                                                                      \
+    {                                                                                                                                        \
+        .len = (⁵initial_len__), .cap = (((⁴max_capacity__) < (⁵initial_len__)) ? (⁵initial_len__) : (⁴max_capacity__)),                     \
+        .at = (T**)(memAlloc((((⁴max_capacity__) < (⁵initial_len__)) ? (⁵initial_len__) : (⁴max_capacity__)) * (sizeof(T*))))                \
+    }
 
 
 

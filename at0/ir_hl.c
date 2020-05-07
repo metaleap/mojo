@@ -1167,9 +1167,10 @@ IrHLExpr irHLExprFrom(CtxIrHLFromAsts* ctx, AstExpr* const ast_expr) {
                     matched = true;
                     ret_expr = irHLExprFuncFromInstr(ctx, &ret_expr);
                 }
-                if ((!matched) && (strEql(strL("||", 2), instr_name) || strEql(strL("&&", 2), instr_name))) {
+                Bool const is_and = strEql(strL("&&", 2), instr_name);
+                if ((!matched) && (is_and || strEql(strL("||", 2), instr_name))) {
                     matched = true;
-                    ret_expr = irHLExprBranchFromInstr(ctx, &ret_expr, strEql(strL("&&", 2), instr_name));
+                    ret_expr = irHLExprBranchFromInstr(ctx, &ret_expr, is_and);
                 }
             }
         } break;

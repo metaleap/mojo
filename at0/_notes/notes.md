@@ -82,6 +82,8 @@ because our order-independent "locals" are still to behave like mainstream named
 
 This could turn out tricky indeed!
 
+Related: https://github.com/AnyDSL/thorin/issues/89
+
 ### Detect de-facto boolish logic:
 
 Consider
