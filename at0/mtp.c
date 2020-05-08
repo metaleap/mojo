@@ -282,6 +282,9 @@ MtpType* mtpTypeInt(MtpProg* const prog, MtpTypeInt type_spec) {
 MtpType* mtpTypeVoid(MtpProg* const prog) {
     return prog->all.types.at[0];
 }
+MtpType* mtpTypeSym(MtpProg* const prog) {
+    return prog->all.types.at[1];
+}
 MtpType* mtpTypeBool(MtpProg* const prog) {
     return prog->all.types.at[1];
 }
@@ -444,7 +447,7 @@ MtpProg mtpProg(UInt const lams_capacity, UInt const types_capacity, UInt const 
     mtpNodeValInt(&ret_prog, 1);
     for (UInt i = 0; i < sym_vals_total_count; i += 1)
         *ret_prog.all.sym_vals.at[i] = (MtpNode) {.kind = mtp_node_val_sym,
-                                                  .type = ret_prog.all.types.at[1],
+                                                  .type = mtpTypeSym(&ret_prog),
                                                   .side_effects = false,
                                                   .of = {.val_sym = (MtpNodeValSym) {.sym_val = i}}};
     return ret_prog;
