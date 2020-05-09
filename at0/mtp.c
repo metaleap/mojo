@@ -540,7 +540,7 @@ void mtpLamChoice(MtpProg* const prog, MtpNodeLam* const lam, MtpNodeChoice cons
     lam->body = mtpNodeChoice(prog, choice);
 }
 
-MtpNode* mtpModNodeChoice(MtpProg* const prog, MtpNode* const node, MtpNodeChoice upd) {
+MtpNode* mtpUpdNodeChoice(MtpProg* const prog, MtpNode* const node, MtpNodeChoice upd) {
     if (upd.cond == NULL)
         upd.cond = node->of.choice.cond;
     if (upd.if0 == NULL)
@@ -552,20 +552,93 @@ MtpNode* mtpModNodeChoice(MtpProg* const prog, MtpNode* const node, MtpNodeChoic
     return mtpNodeChoice(prog, upd);
 }
 
-MtpNode* mtpModNodeJump(MtpProg* const prog, MtpNode* const node, MtpNodeJump upd) {
+MtpNode* mtpUpdNodeJump(MtpProg* const prog, MtpNode* const node, MtpNodeJump upd) {
     if (upd.callee == NULL)
         upd.callee = node->of.jump.callee;
     if (upd.args.at == NULL)
         upd.args = node->of.jump.args;
-    else if (upd.args.at != node->of.jump.args.at)
+    else if (upd.args.at != node->of.jump.args.at) {
+        Bool all_null = true;
         for (UInt i = 0; i < upd.args.len; i += 1)
             if (upd.args.at[i] == NULL)
                 upd.args.at[i] = node->of.jump.args.at[i];
+            else
+                all_null = false;
+        if (all_null) {
+            UInt const len = upd.args.len;
+            upd.args = node->of.jump.args;
+            upd.args.len = len;
+        }
+    }
     if (upd.callee == node->of.jump.callee && upd.args.at == node->of.jump.args.at && upd.args.len == node->of.jump.args.len)
         return node;
     return mtpNodeJump(prog, upd);
 }
 
+MtpNode* mtpUpdNodePrimExtCall(MtpProg* const prog, MtpNode* const node, MtpPrimExtCall upd) {
+    MtpTypeTup* tupd = &upd.params_types->of.tup;
+    MtpTypeTup* tsrc = &node->of.prim.of.ext_call.params_types->of.tup;
+    if (tupd->types.at == NULL)
+        tupd->types = tsrc->types;
+    else if (tupd->types.at != tsrc->types.at) {
+        Bool all_null = true;
+        for (UInt i = 0; i < tupd->types.len; i += 1)
+            if (tupd->types.at[i] == NULL)
+                tupd->types.at[i] = tsrc->types.at[i];
+            else
+                all_null = false;
+        if (all_null) {
+            UInt len = tupd->types.len;
+            tupd->types = tsrc->types;
+            tupd->types.len = len;
+        }
+    }
+    if (tupd->types.at == tsrc->types.at && tupd->types.len == tsrc->types.len)
+        return node;
+    return mtpNodePrimExtCall(prog, upd, node->type);
+}
+
+MtpNode* mtpUpdNodePrimItem(MtpProg* const prog, MtpNode* const node, MtpPrimItem upd) {
+    if (upd.index == NULL)
+        upd.index = node->of.prim.of.item.index;
+    if (upd.subj == NULL)
+        upd.subj = node->of.prim.of.item.subj;
+    if (upd.set_to == NULL)
+        upd.set_to = node->of.prim.of.item.set_to;
+    if (upd.index == node->of.prim.of.item.index && upd.subj == node->of.prim.of.item.subj && upd.set_to == node->of.prim.of.item.set_to)
+        return node;
+    return mtpNodePrimItem(prog, upd);
+}
+
+MtpNode* mtpUpdNodePrimCast(MtpProg* const prog, MtpNode* const node, MtpPrimCast upd) {
+    if (upd.dst_type == NULL)
+        upd.dst_type = node->of.prim.of.cast.dst_type;
+    if (upd.subj == NULL)
+        upd.subj = node->of.prim.of.cast.subj;
+    if (upd.dst_type == node->of.prim.of.cast.dst_type && upd.subj == node->of.prim.of.cast.subj)
+        return node;
+    return mtpNodePrimCast(prog, upd);
+}
+
+MtpNode* mtpUpdNodePrimBinI(MtpProg* const prog, MtpNode* const node, MtpPrimBinI upd) {
+    if (upd.lhs == NULL)
+        upd.lhs = node->of.prim.of.bin_i.lhs;
+    if (upd.rhs == NULL)
+        upd.rhs = node->of.prim.of.bin_i.rhs;
+    if (upd.lhs == node->of.prim.of.bin_i.lhs && upd.rhs == node->of.prim.of.bin_i.rhs)
+        return node;
+    return mtpNodePrimBinI(prog, upd);
+}
+
+MtpNode* mtpUpdNodePrimCmpI(MtpProg* const prog, MtpNode* const node, MtpPrimCmpI upd) {
+    if (upd.lhs == NULL)
+        upd.lhs = node->of.prim.of.cmp_i.lhs;
+    if (upd.rhs == NULL)
+        upd.rhs = node->of.prim.of.cmp_i.rhs;
+    if (upd.lhs == node->of.prim.of.cmp_i.lhs && upd.rhs == node->of.prim.of.cmp_i.rhs)
+        return node;
+    return mtpNodePrimCmpI(prog, upd);
+}
 
 
 
@@ -575,7 +648,7 @@ typedef struct MtpCtxPreduce {
 
 MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
     MtpNode* ret_node = NULL;
-    if (node->anns.preduced)
+    if (node == NULL || node->anns.preduced)
         return NULL;
     switch (node->kind) {
 
@@ -594,7 +667,7 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                 .if1 = mtpPreduceNode(ctx, node->of.choice.if1),
             };
             if (new_choice.cond != NULL || new_choice.if0 != NULL || new_choice.if1 != 0)
-                ret_node = mtpModNodeChoice(ctx->prog, node, new_choice);
+                ret_node = mtpUpdNodeChoice(ctx->prog, node, new_choice);
 
             MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
             if (!mtpTypesEql(val_node->of.choice.cond->type, mtpTypeBool(ctx->prog)))
@@ -620,7 +693,7 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                 args_change |= (new_jump.args.at[i] != NULL);
             }
             if (new_jump.callee != NULL || args_change)
-                ret_node = mtpModNodeJump(ctx->prog, node, new_jump);
+                ret_node = mtpUpdNodeJump(ctx->prog, node, new_jump);
 
             MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
             MtpType* const fn_type = val_node->of.jump.callee->type;
@@ -641,7 +714,13 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
         case mtp_node_prim: {
             switch (node->of.prim.kind) {
                 case mtp_prim_item: {
-                    // TODO
+                    MtpPrimItem new_item = (MtpPrimItem) {
+                        .subj = mtpPreduceNode(ctx, node->of.prim.of.item.subj),
+                        .index = mtpPreduceNode(ctx, node->of.prim.of.item.index),
+                        .set_to = mtpPreduceNode(ctx, node->of.prim.of.item.set_to),
+                    };
+                    if (new_item.subj != NULL || new_item.index != NULL || new_item.set_to != NULL)
+                        ret_node = mtpUpdNodePrimItem(ctx->prog, node, new_item);
 
                     MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
                     MtpType* item_type =
@@ -668,7 +747,13 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                         ·fail(str("specified illegal MtpPrimExtCall.name"));
                 } break;
                 case mtp_prim_cast: {
-                    // TODO
+                    MtpPrimCast new_cast = (MtpPrimCast) {
+                        .kind = node->of.prim.of.cast.kind,
+                        .dst_type = node->of.prim.of.cast.dst_type, // TODO
+                        .subj = mtpPreduceNode(ctx, node->of.prim.of.cast.subj),
+                    };
+                    if (new_cast.subj != NULL /*|| new_cast.dst_type != NULL*/)
+                        ret_node = mtpUpdNodePrimCast(ctx->prog, node, new_cast);
 
                     MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
                     if (val_node->of.prim.of.cast.kind == mtp_cast_ints
@@ -682,7 +767,11 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     val_node->type = val_node->of.prim.of.cast.dst_type;
                 } break;
                 case mtp_prim_cmp_i: {
-                    // TODO
+                    MtpPrimCmpI new_cmpi = (MtpPrimCmpI) {.kind = node->of.prim.of.cmp_i.kind,
+                                                          .lhs = mtpPreduceNode(ctx, node->of.prim.of.cmp_i.lhs),
+                                                          .rhs = mtpPreduceNode(ctx, node->of.prim.of.cmp_i.rhs)};
+                    if (new_cmpi.lhs != NULL || new_cmpi.rhs != NULL)
+                        ret_node = mtpUpdNodePrimCmpI(ctx->prog, node, new_cmpi);
 
                     MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
                     Bool ok =
@@ -694,7 +783,11 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                         ·fail(str("invalid operand type(s) for int comparison operation"));
                 } break;
                 case mtp_prim_bin_i: {
-                    // TODO
+                    MtpPrimBinI new_bini = (MtpPrimBinI) {.kind = node->of.prim.of.bin_i.kind,
+                                                          .lhs = mtpPreduceNode(ctx, node->of.prim.of.bin_i.lhs),
+                                                          .rhs = mtpPreduceNode(ctx, node->of.prim.of.bin_i.rhs)};
+                    if (new_bini.lhs != NULL || new_bini.rhs != NULL)
+                        ret_node = mtpUpdNodePrimBinI(ctx->prog, node, new_bini);
 
                     MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
                     if (val_node->of.prim.of.bin_i.lhs->type->kind != mtp_type_int
