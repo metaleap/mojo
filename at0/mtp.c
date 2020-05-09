@@ -47,6 +47,7 @@ typedef enum MtpKindOfCast {
 
 struct MtpType;
 typedef struct MtpType MtpType;
+typedef ·SliceOfPtrs(MtpType) MtpPtrsOfType;
 
 typedef struct MtpTypeInt {
     U16 bit_width;
@@ -60,7 +61,7 @@ typedef struct MtpTypeSym {
 } MtpTypeSym;
 
 typedef struct MtpTypeTup {
-    ·SliceOfPtrs(MtpType) types;
+    MtpPtrsOfType types;
 } MtpTypeTup;
 
 typedef struct MtpTypePtr {
@@ -83,20 +84,18 @@ struct MtpType {
     } of;
     MtpKindOfType kind;
 };
-typedef ·ListOfPtrs(MtpType) MtpPtrsOfType;
 
 
 struct MtpNode;
 typedef struct MtpNode MtpNode;
-typedef ·SliceOf(MtpNode) MtpNodes;
-typedef ·ListOfPtrs(MtpNode) MtpPtrsOfNode;
+typedef ·SliceOfPtrs(MtpNode) MtpPtrsOfNode;
 
 typedef struct MtpNodeParam {
     UInt param_idx;
 } MtpNodeParam;
 
 typedef struct MtpNodeLam {
-    MtpNodes params;
+    MtpPtrsOfNode params;
     MtpNode* body;
 } MtpNodeLam;
 
@@ -108,12 +107,15 @@ typedef struct MtpNodeChoice {
 
 typedef struct MtpNodeJump {
     MtpNode* dst_lam;
-    ·SliceOfPtrs(MtpNode) args;
+    MtpPtrsOfNode args;
 } MtpNodeJump;
 
 typedef union MtpPrimVal {
     I64 int_val;
     U32 sym_val;
+    MtpType* type_val;
+    struct {
+    } bottom;
 } MtpPrimVal;
 
 typedef struct MtpPrimCmpI {
@@ -173,12 +175,12 @@ struct MtpNode {
 
 typedef struct MtpProg {
     struct {
-        MtpPtrsOfType types;
-        MtpPtrsOfNode lams;
-        MtpPtrsOfNode prims;
-        MtpPtrsOfNode choices;
-        MtpPtrsOfNode jumps;
-        MtpPtrsOfNode syms;
+        ·ListOfPtrs(MtpType) types;
+        ·ListOfPtrs(MtpNode) lams;
+        ·ListOfPtrs(MtpNode) prims;
+        ·ListOfPtrs(MtpNode) choices;
+        ·ListOfPtrs(MtpNode) jumps;
+        ·ListOfPtrs(MtpNode) syms;
     } all;
     struct {
         U16 ptrs;
@@ -433,7 +435,7 @@ MtpNode* mtpNodeJump(MtpProg* const prog, MtpNodeJump const spec) {
                    uIntToStr(spec.args.len, 1, 10)));
     for (UInt i = 0; i < spec.args.len; i += 1) {
         MtpNode* arg = spec.args.at[i];
-        MtpNode* param = &spec.dst_lam->of.lam.params.at[i];
+        MtpNode* param = spec.dst_lam->of.lam.params.at[i];
         if (!mtpTypesEql(arg->type, param->type))
             ·fail(str2(str("type mismatch for arg "), uIntToStr(i, 1, 10)));
     }
@@ -523,24 +525,22 @@ MtpNode* mtpNodePrimValBoolTrue(MtpProg* const prog) {
     return prog->all.prims.at[1];
 }
 
-MtpNode* mtpNodeLamParam(MtpNode* const lam_node, UInt const param_index) {
-    return &lam_node->of.lam.params.at[param_index];
-}
-
-MtpNode* mtpNodeLam(MtpProg* const prog, ·SliceOfPtrs(MtpType) const params) {
+MtpNode* mtpNodeLam(MtpProg* const prog, MtpPtrsOfType const params) {
     ·append(prog->all.lams, ·new(MtpNode));
     MtpNode* ret_node = ·as(MtpNode, ·last(prog->all.lams));
     ret_node->kind = mtp_node_lam;
     ret_node->side_effects = false;
     ret_node->type = mtpTypeLam(prog, (MtpTypeTup) {.types = {.at = params.at, .len = params.len}});
-    ret_node->of.lam = (MtpNodeLam) {.body = NULL, .params = ·sliceOf(MtpNode, params.len, params.len)};
-    for (UInt i = 0; i < params.len; i += 1)
-        ret_node->of.lam.params.at[i] = (MtpNode) {
+    ret_node->of.lam = (MtpNodeLam) {.body = NULL, .params = ·sliceOfPtrs(MtpNode, params.len, params.len)};
+    for (UInt i = 0; i < params.len; i += 1) {
+        ret_node->of.lam.params.at[i] = ·new(MtpNode);
+        *ret_node->of.lam.params.at[i] = (MtpNode) {
             .kind = mtp_node_param,
             .type = params.at[i],
             .side_effects = false,
             .of = {.param = (MtpNodeParam) {.param_idx = i}},
         };
+    }
     return ret_node;
 }
 
@@ -560,17 +560,17 @@ MtpProg mtpProg(UInt bit_width_ptrs, UInt const lams_capacity, UInt const types_
                                       .syms = uIntMinSize(sym_vals_total_count - 1, 1),
                                   }};
 
-    ret_prog.all.types.at[0] = ·new(MtpType); // returned by `mtpTypeSym(MtpProg*)`
+    ret_prog.all.types.at[0] = ·new(MtpType); // returned by `mtpTypeSym(MtpProg*)`:
     ret_prog.all.types.at[0]->kind = mtp_type_sym;
-    ret_prog.all.types.at[1] = ·new(MtpType); // returned by `mtpTypeBottom(MtpProg*)`
+    ret_prog.all.types.at[1] = ·new(MtpType); // returned by `mtpTypeBottom(MtpProg*)`:
     ret_prog.all.types.at[1]->kind = mtp_type_bottom;
-    ret_prog.all.types.at[2] = ·new(MtpType); // returned by `mtpTypeBool(MtpProg*)`
+    ret_prog.all.types.at[2] = ·new(MtpType); // returned by `mtpTypeBool(MtpProg*)`:
     *ret_prog.all.types.at[2] = (MtpType) {.kind = mtp_type_int, .of = {.num_int = {.bit_width = 1, .unsign = true}}};
-    ret_prog.all.types.at[3] = ·new(MtpType); // statically known int values
+    ret_prog.all.types.at[3] = ·new(MtpType); // statically known int values:
     *ret_prog.all.types.at[3] = (MtpType) {.kind = mtp_type_int, .of = {.num_int = {.bit_width = 0, .unsign = false}}};
-    ret_prog.all.types.at[4] = ·new(MtpType); // raw / untyped / any pointer
+    ret_prog.all.types.at[4] = ·new(MtpType); // raw / untyped / any pointer:
     *ret_prog.all.types.at[4] = (MtpType) {.kind = mtp_type_ptr, .of = {.ptr = {.type = NULL}}};
-    ret_prog.all.types.at[5] = ·new(MtpType); // empty tuple = fn(void)
+    ret_prog.all.types.at[5] = ·new(MtpType); // empty tuple = fn(void):
     *ret_prog.all.types.at[5] = (MtpType) {.kind = mtp_type_lam, .of = {.tup = {.types = ·sliceOfPtrs(MtpType, 0, 0)}}};
 
     mtpNodePrimValInt(&ret_prog, 0)->type = mtpTypeBool(&ret_prog);
