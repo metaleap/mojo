@@ -595,6 +595,17 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
             };
             if (new_choice.cond != NULL || new_choice.if0 != NULL || new_choice.if1 != 0)
                 ret_node = mtpModNodeChoice(ctx->prog, node, new_choice);
+
+            MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
+            if (!mtpTypesEql(val_node->of.choice.cond->type, mtpTypeBool(ctx->prog)))
+                ·fail(str("choice condition isn't boolish"));
+            if (!(mtpNodeIsBasicBlockishLam(val_node->of.choice.if0) && mtpNodeIsBasicBlockishLam(val_node->of.choice.if1)))
+                ·fail(str("choice results must both preduce to basic blocks"));
+            val_node->type = val_node->of.choice.if0->type;
+            if (mtpNodesEql(val_node->of.choice.cond, mtpNodePrimValBoolTrue(ctx->prog)))
+                ret_node = val_node->of.choice.if1;
+            else if (mtpNodesEql(val_node->of.choice.cond, mtpNodePrimValBoolFalse(ctx->prog)))
+                ret_node = val_node->of.choice.if0;
         } break;
 
         case mtp_node_jump: {
@@ -610,47 +621,8 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
             }
             if (new_jump.callee != NULL || args_change)
                 ret_node = mtpModNodeJump(ctx->prog, node, new_jump);
-        };
 
-        case mtp_node_prim: {
-            switch (node->of.prim.kind) {
-                case mtp_prim_item: {
-                    // TODO
-                } break;
-                case mtp_prim_extcall: {
-                    // TODO
-                } break;
-                case mtp_prim_cast: {
-                    // TODO
-                } break;
-                case mtp_prim_cmp_i: {
-                    // TODO
-                } break;
-                case mtp_prim_bin_i: {
-                    // TODO
-                } break;
-                default: break;
-            }
-        } break;
-
-        default: break;
-    }
-    node->anns.preduced = true;
-    MtpNode* val_node = node;
-
-    if (ret_node != NULL) {
-        ret_node->anns.preduced = true;
-        val_node = ret_node;
-    }
-    switch (val_node->kind) {
-        case mtp_node_choice: {
-            if (!mtpTypesEql(val_node->of.choice.cond->type, mtpTypeBool(ctx->prog)))
-                ·fail(str("choice condition isn't boolish"));
-            if (!(mtpNodeIsBasicBlockishLam(val_node->of.choice.if0) && mtpNodeIsBasicBlockishLam(val_node->of.choice.if1)))
-                ·fail(str("choice results must both preduce to basic blocks"));
-            val_node->type = val_node->of.choice.if0->type;
-        } break;
-        case mtp_node_jump: {
+            MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
             MtpType* const fn_type = val_node->of.jump.callee->type;
             if (fn_type->kind != mtp_type_lam
                 || !(val_node->of.jump.callee->kind == mtp_node_lam || val_node->of.jump.callee->kind == mtp_node_param))
@@ -664,59 +636,83 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                 if (!mtpTypesEql(arg->type, param->type))
                     ·fail(str2(str("type mismatch for arg "), uIntToStr(i, 1, 10)));
             }
-        } break;
+        };
+
         case mtp_node_prim: {
             switch (node->of.prim.kind) {
-                case mtp_prim_extcall: {
-                    if (node->of.prim.of.ext_call.params_types->kind != mtp_type_tup)
-                        ·fail(str("specified illegal MtpPrimExtCall.params_types"));
-                    if (node->of.prim.of.ext_call.name.at == NULL || node->of.prim.of.ext_call.name.len == 0)
-                        ·fail(str("specified illegal MtpPrimExtCall.name"));
-                } break;
-                case mtp_prim_cast: {
-                    if (node->of.prim.of.cast.kind == mtp_cast_ints
-                        && ((!mtpTypeIsIntCastable(node->of.prim.of.cast.dst_type))
-                            || (!mtpTypeIsIntCastable(node->of.prim.of.cast.subj->type))))
-                        ·fail(str("intcast requires int-castable source and destination types"));
-                    if (node->of.prim.of.cast.kind == mtp_cast_bits
-                        && mtpTypeMinSizeInBits(ctx->prog, node->of.prim.of.cast.dst_type)
-                               != mtpTypeMinSizeInBits(ctx->prog, node->of.prim.of.cast.subj->type))
-                        ·fail(str("bitcast requires same bit-width for source and destination type"));
-                    node->type = node->of.prim.of.cast.dst_type;
-                };
                 case mtp_prim_item: {
+                    // TODO
+
+                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
                     MtpType* item_type =
-                        (node->of.prim.of.item.subj->type->kind == mtp_type_tup)
-                            ? (node->of.prim.of.item.subj->type->of.tup.types.at[node->of.prim.of.item.index->of.prim.of.val.int_val])
-                            : (node->of.prim.of.item.subj->type->kind == mtp_type_arr) ? (node->of.prim.of.item.subj->type->of.arr.type)
-                                                                                       : NULL;
-                    if (node->of.prim.of.item.index->type->kind != mtp_type_int || !mtpNodeIsPrimVal(node->of.prim.of.item.index))
+                        (val_node->of.prim.of.item.subj->type->kind == mtp_type_tup)
+                            ? (val_node->of.prim.of.item.subj->type->of.tup.types.at[val_node->of.prim.of.item.index->of.prim.of.val.int_val])
+                            : (val_node->of.prim.of.item.subj->type->kind == mtp_type_arr)
+                                  ? (val_node->of.prim.of.item.subj->type->of.arr.type)
+                                  : NULL;
+                    if (val_node->of.prim.of.item.index->type->kind != mtp_type_int || !mtpNodeIsPrimVal(val_node->of.prim.of.item.index))
                         ·fail(str("expected statically-known index"));
                     if (item_type == NULL)
                         ·fail(str("cannot index into this node"));
-                    if (node->of.prim.of.item.set_to != NULL && !mtpTypesEql(item_type, node->of.prim.of.item.set_to->type))
+                    if (val_node->of.prim.of.item.set_to != NULL && !mtpTypesEql(item_type, val_node->of.prim.of.item.set_to->type))
                         ·fail(str("type mismatch for setting aggregate member"));
-                    node->type = (node->of.prim.of.item.set_to == NULL) ? item_type : node->of.prim.of.item.subj->type;
-                };
+                    val_node->type = (val_node->of.prim.of.item.set_to == NULL) ? item_type : val_node->of.prim.of.item.subj->type;
+                } break;
+                case mtp_prim_extcall: {
+                    // TODO
+
+                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
+                    if (val_node->of.prim.of.ext_call.params_types->kind != mtp_type_tup)
+                        ·fail(str("specified illegal MtpPrimExtCall.params_types"));
+                    if (val_node->of.prim.of.ext_call.name.at == NULL || val_node->of.prim.of.ext_call.name.len == 0)
+                        ·fail(str("specified illegal MtpPrimExtCall.name"));
+                } break;
+                case mtp_prim_cast: {
+                    // TODO
+
+                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
+                    if (val_node->of.prim.of.cast.kind == mtp_cast_ints
+                        && ((!mtpTypeIsIntCastable(val_node->of.prim.of.cast.dst_type))
+                            || (!mtpTypeIsIntCastable(val_node->of.prim.of.cast.subj->type))))
+                        ·fail(str("intcast requires int-castable source and destination types"));
+                    if (val_node->of.prim.of.cast.kind == mtp_cast_bits
+                        && mtpTypeMinSizeInBits(ctx->prog, val_node->of.prim.of.cast.dst_type)
+                               != mtpTypeMinSizeInBits(ctx->prog, val_node->of.prim.of.cast.subj->type))
+                        ·fail(str("bitcast requires same bit-width for source and destination type"));
+                    val_node->type = val_node->of.prim.of.cast.dst_type;
+                } break;
                 case mtp_prim_cmp_i: {
-                    Bool ok = mtpTypesEql(node->of.prim.of.cmp_i.lhs->type, node->of.prim.of.cmp_i.rhs->type)
-                              && (node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_int
-                                  || (node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_sym
-                                      && (node->of.prim.of.cmp_i.kind == mtp_cmp_i_eq || node->of.prim.of.cmp_i.kind == mtp_cmp_i_neq)));
+                    // TODO
+
+                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
+                    Bool ok =
+                        mtpTypesEql(val_node->of.prim.of.cmp_i.lhs->type, val_node->of.prim.of.cmp_i.rhs->type)
+                        && (val_node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_int
+                            || (val_node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_sym
+                                && (val_node->of.prim.of.cmp_i.kind == mtp_cmp_i_eq || val_node->of.prim.of.cmp_i.kind == mtp_cmp_i_neq)));
                     if (!ok)
                         ·fail(str("invalid operand type(s) for int comparison operation"));
                 } break;
                 case mtp_prim_bin_i: {
-                    if (node->of.prim.of.bin_i.lhs->type->kind != mtp_type_int || node->of.prim.of.bin_i.rhs->type->kind != mtp_type_int
-                        || !mtpTypesEql(node->of.prim.of.bin_i.lhs->type, node->of.prim.of.bin_i.rhs->type))
+                    // TODO
+
+                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
+                    if (val_node->of.prim.of.bin_i.lhs->type->kind != mtp_type_int
+                        || val_node->of.prim.of.bin_i.rhs->type->kind != mtp_type_int
+                        || !mtpTypesEql(val_node->of.prim.of.bin_i.lhs->type, val_node->of.prim.of.bin_i.rhs->type))
                         ·fail(str("invalid operand type(s) for int binary operation"));
-                    node->type = node->of.prim.of.bin_i.lhs->type;
+                    val_node->type = val_node->of.prim.of.bin_i.lhs->type;
                 } break;
                 default: break;
             }
         } break;
+
         default: break;
     }
+    node->anns.preduced = true;
+    if (ret_node != NULL)
+        ret_node->anns.preduced = true;
+
     return ret_node;
 }
 
