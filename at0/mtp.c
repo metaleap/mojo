@@ -25,6 +25,7 @@ typedef enum MtpKindOfPrim {
     mtp_prim_cmp_i,
     mtp_prim_bin_i,
     mtp_prim_cast,
+    mtp_prim_item,
     mtp_prim_extcall,
 } MtpKindOfPrim;
 
@@ -84,6 +85,7 @@ struct MtpType {
 };
 typedef ·ListOfPtrs(MtpType) MtpPtrsOfType;
 
+
 struct MtpNode;
 typedef struct MtpNode MtpNode;
 typedef ·SliceOf(MtpNode) MtpNodes;
@@ -131,6 +133,11 @@ typedef struct MtpPrimCast {
     MtpKindOfCast kind;
 } MtpPrimCast;
 
+typedef struct MtpPrimItem {
+    MtpNode* subj;
+    MtpNode* index;
+} MtpPrimItem;
+
 typedef struct MtpPrimExtCall {
     MtpType* params_types;
     Str name;
@@ -142,6 +149,7 @@ typedef struct MtpNodePrim {
         MtpPrimCmpI cmp;
         MtpPrimBinI bin;
         MtpPrimCast cast;
+        MtpPrimItem item;
         MtpPrimExtCall ext_call;
     } of;
     MtpKindOfPrim kind;
@@ -325,6 +333,9 @@ Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
                 if (n1->of.prim.kind == n2->of.prim.kind)
                     switch (n1->of.prim.kind) {
                         case mtp_prim_val: return (n1->type->kind == mtp_type_bottom) || (n1->of.prim.of.val.i64 == n2->of.prim.of.val.i64);
+                        case mtp_prim_item:
+                            return n1->of.prim.of.item.index == n2->of.prim.of.item.index
+                                   && mtpNodesEql(n1->of.prim.of.item.subj, n2->of.prim.of.item.subj);
                         case mtp_prim_cast:
                             return n1->of.prim.of.cast.kind == n2->of.prim.of.cast.kind
                                    && mtpTypesEql(n1->of.prim.of.cast.dst_type, n2->of.prim.of.cast.dst_type)
@@ -380,6 +391,19 @@ MtpNode* mtpNodePrimCast(MtpProg* const prog, MtpPrimCast spec) {
     if (spec.kind == mtp_cast_ints && ((!mtpTypeIsIntCastable(spec.dst_type)) || (!mtpTypeIsIntCastable(spec.subj->type))))
         ·fail(str("intcast requires compatible source and destination types"));
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cast, .of = {.cast = spec}}, spec.dst_type, spec.subj->side_effects);
+}
+MtpNode* mtpNodePrimItem(MtpProg* const prog, MtpPrimItem spec) {
+    MtpType* item_type = NULL;
+    switch (spec.subj->type->kind) {
+        case mtp_type_arr: item_type = spec.subj->type->of.arr.type;
+        case mtp_type_tup:
+            if (!mtpNodeIsVal(spec.index))
+                ·fail(str("cannot index into non-array"));
+            I64 index = spec.index->of.prim.of.val.i64;
+            item_type = spec.subj->type->of.tup.types.at[index];
+        default: ·fail(str("cannot traverse into expression"));
+    }
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_item, .of = {.item = spec}}, item_type, spec.subj->side_effects);
 }
 MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpPrimCmpI spec) {
     Bool ok = mtpTypesEql(spec.lhs->type, spec.rhs->type)
