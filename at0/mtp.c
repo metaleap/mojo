@@ -2,37 +2,40 @@
 #include "utils_and_libc_deps.c"
 
 
-typedef enum MtpTypeKind {
+typedef enum MtpKindOfType {
     mtp_type_bottom,
     mtp_type_sym,
     mtp_type_int,
     mtp_type_lam,
-} MtpTypeKind;
+    mtp_type_tup,
+    mtp_type_arr,
+    mtp_type_ptr,
+} MtpKindOfType;
 
-typedef enum MtpNodeKind {
+typedef enum MtpKindOfNode {
     mtp_node_lam,
     mtp_node_param,
     mtp_node_choice,
     mtp_node_jump,
     mtp_node_prim,
-} MtpNodeKind;
+} MtpKindOfNode;
 
-typedef enum MtpNodePrimKind {
+typedef enum MtpKindOfPrim {
     mtp_prim_extcall,
     mtp_prim_cmp_i,
     mtp_prim_bin_i,
     mtp_prim_val,
-} MtpNodePrimKind;
+} MtpKindOfPrim;
 
-typedef enum MtpPrimCmpIKind {
+typedef enum MtpKindOfCmpI {
     mtp_cmp_i_eq,
     mtp_cmp_i_neq,
-} MtpPrimCmpIKind;
+} MtpKindOfCmpI;
 
-typedef enum MtpPrimBinIKind {
+typedef enum MtpKindOfBinI {
     mtp_bin_i_add,
     mtp_bin_i_mul,
-} MtpPrimBinIKind;
+} MtpKindOfBinI;
 
 
 struct MtpType;
@@ -49,24 +52,36 @@ typedef struct MtpTypeBottom {
 typedef struct MtpTypeSym {
 } MtpTypeSym;
 
-typedef struct MtpTypeLam {
-    ·SliceOfPtrs(MtpType) params_types;
-} MtpTypeLam;
+typedef struct MtpTypeTup {
+    ·SliceOfPtrs(MtpType) types;
+} MtpTypeTup;
+
+typedef struct MtpTypePtr {
+    MtpType* type;
+} MtpTypePtr;
+
+typedef struct MtpTypeArr {
+    MtpType* type;
+    UInt length;
+} MtpTypeArr;
 
 struct MtpType {
     union {
         MtpTypeBottom bottom;
         MtpTypeSym sym;
         MtpTypeInt num_int;
-        MtpTypeLam lam;
+        MtpTypeTup tup;
+        MtpTypePtr ptr;
+        MtpTypeArr arr;
     } of;
-    MtpTypeKind kind;
+    MtpKindOfType kind;
 };
-
+typedef ·ListOfPtrs(MtpType) MtpPtrsOfType;
 
 struct MtpNode;
 typedef struct MtpNode MtpNode;
 typedef ·SliceOf(MtpNode) MtpNodes;
+typedef ·ListOfPtrs(MtpNode) MtpPtrsOfNode;
 
 typedef struct MtpNodeParam {
     UInt param_idx;
@@ -88,35 +103,35 @@ typedef struct MtpNodeJump {
     ·SliceOfPtrs(MtpNode) args;
 } MtpNodeJump;
 
-typedef struct MtpNodePrimVal {
+typedef struct MtpPrimVal {
     I64 i64;
-} MtpNodePrimVal;
+} MtpPrimVal;
 
-typedef struct MtpNodePrimExtCall {
+typedef struct MtpPrimExtCall {
     MtpType* params_types;
     Str name;
-} MtpNodePrimExtCall;
+} MtpPrimExtCall;
 
-typedef struct MtpNodePrimCmpI {
+typedef struct MtpPrimCmpI {
     MtpNode* lhs;
     MtpNode* rhs;
-    MtpPrimCmpIKind kind;
-} MtpNodePrimCmpI;
+    MtpKindOfCmpI kind;
+} MtpPrimCmpI;
 
-typedef struct MtpNodePrimBinI {
+typedef struct MtpPrimBinI {
     MtpNode* lhs;
     MtpNode* rhs;
-    MtpPrimBinIKind kind;
-} MtpNodePrimBinI;
+    MtpKindOfBinI kind;
+} MtpPrimBinI;
 
 typedef struct MtpNodePrim {
     union {
-        MtpNodePrimExtCall ext_call;
-        MtpNodePrimCmpI cmp;
-        MtpNodePrimBinI bin;
-        MtpNodePrimVal val;
+        MtpPrimExtCall ext_call;
+        MtpPrimCmpI cmp;
+        MtpPrimBinI bin;
+        MtpPrimVal val;
     } of;
-    MtpNodePrimKind kind;
+    MtpKindOfPrim kind;
 } MtpNodePrim;
 
 struct MtpNode {
@@ -128,19 +143,19 @@ struct MtpNode {
         MtpNodeJump jump;
         MtpNodePrim prim;
     } of;
-    MtpNodeKind kind;
+    MtpKindOfNode kind;
     Bool side_effects;
 };
 
 
 typedef struct MtpProg {
     struct {
-        ·ListOfPtrs(MtpNode) lams;
-        ·ListOfPtrs(MtpType) types;
-        ·ListOfPtrs(MtpNode) prims;
-        ·ListOfPtrs(MtpNode) choices;
-        ·ListOfPtrs(MtpNode) jumps;
-        ·ListOfPtrs(MtpNode) syms;
+        MtpPtrsOfType types;
+        MtpPtrsOfNode lams;
+        MtpPtrsOfNode prims;
+        MtpPtrsOfNode choices;
+        MtpPtrsOfNode jumps;
+        MtpPtrsOfNode syms;
     } all;
 } MtpProg;
 
@@ -148,18 +163,18 @@ typedef struct MtpProg {
 
 
 // a ° b  ==  b ° a
-Bool mtpNodePrimIsCommutative(MtpNodePrimKind const prim_kind, int const op_kind) {
+Bool mtpNodePrimIsCommutative(MtpKindOfPrim const prim_kind, int const op_kind) {
     return (prim_kind == mtp_prim_bin_i && (op_kind == mtp_bin_i_add || op_kind == mtp_bin_i_mul))
            || (prim_kind == mtp_prim_cmp_i && (op_kind == mtp_cmp_i_eq || op_kind == mtp_cmp_i_neq));
 }
 
 // (a ° b) ° c  ==  a ° (b ° c)
-Bool mtpNodePrimIsAssociative(MtpNodePrimKind const prim_kind, int const op_kind) {
+Bool mtpNodePrimIsAssociative(MtpKindOfPrim const prim_kind, int const op_kind) {
     return prim_kind == mtp_prim_bin_i && (op_kind == mtp_bin_i_add || op_kind == mtp_bin_i_mul);
 }
 
 // a °¹ (b °² c)  ==  (a °¹ b)  °²  (a °¹ c)
-Bool mtpNodePrimIsDistributive(MtpNodePrimKind const prim_kind, int const op_kind1, int const op_kind2) {
+Bool mtpNodePrimIsDistributive(MtpKindOfPrim const prim_kind, int const op_kind1, int const op_kind2) {
     return prim_kind == mtp_prim_bin_i && op_kind1 == mtp_bin_i_mul && op_kind2 == mtp_bin_i_add;
 }
 
@@ -170,19 +185,22 @@ Bool mtpNodeIsVal(MtpNode* const node) {
 
 
 
-Bool mtpTypesEql(MtpType* const t1, MtpType* const t2) {
+Bool mtpTypesEql(MtpType const* const t1, MtpType const* const t2) {
     if (t1 == t2)
         return true;
-    if (t1->kind == t2->kind)
+    if (t1 != NULL & t2 != NULL && t1->kind == t2->kind)
         switch (t1->kind) {
             case mtp_type_sym:
             case mtp_type_bottom: return true;
+            case mtp_type_ptr: return mtpTypesEql(t1->of.ptr.type, t2->of.ptr.type);
+            case mtp_type_arr: return t1->of.arr.length == t2->of.arr.length && mtpTypesEql(t1->of.arr.type, t2->of.arr.type);
             case mtp_type_int: return t1->of.num_int.unsign == t2->of.num_int.unsign && t1->of.num_int.bit_width == t2->of.num_int.bit_width;
+            case mtp_type_tup:
             case mtp_type_lam: {
-                if (t1->of.lam.params_types.len == t2->of.lam.params_types.len) {
-                    if (t1->of.lam.params_types.at != t2->of.lam.params_types.at)
-                        for (UInt i = 0; i < t1->of.lam.params_types.len; i += 1)
-                            if (!mtpTypesEql(t1->of.lam.params_types.at[i], t2->of.lam.params_types.at[i]))
+                if (t1->of.tup.types.len == t2->of.tup.types.len) {
+                    if (t1->of.tup.types.at != t2->of.tup.types.at)
+                        for (UInt i = 0; i < t1->of.tup.types.len; i += 1)
+                            if (!mtpTypesEql(t1->of.tup.types.at[i], t2->of.tup.types.at[i]))
                                 return false;
                     return true;
                 }
@@ -192,13 +210,16 @@ Bool mtpTypesEql(MtpType* const t1, MtpType* const t2) {
     return false;
 }
 
-MtpType* mtpType(MtpProg* const prog, MtpTypeKind const kind, PtrAny const type_spec) {
+MtpType* mtpType(MtpProg* const prog, MtpKindOfType const kind, PtrAny const type_spec) {
     MtpType specd_type = (MtpType) {.kind = kind};
     switch (kind) {
         case mtp_type_sym:
         case mtp_type_bottom: break;
+        case mtp_type_ptr: specd_type.of.ptr = *((MtpTypePtr*)type_spec); break;
+        case mtp_type_arr: specd_type.of.arr = *((MtpTypeArr*)type_spec); break;
         case mtp_type_int: specd_type.of.num_int = *((MtpTypeInt*)type_spec); break;
-        case mtp_type_lam: specd_type.of.lam = *((MtpTypeLam*)type_spec); break;
+        case mtp_type_lam:
+        case mtp_type_tup: specd_type.of.tup = *((MtpTypeTup*)type_spec); break;
         default: ·fail(uIntToStr(kind, 1, 10));
     }
     // TODO: proper hash-map, or at least hash-cmp instead of deep-cmp
@@ -215,6 +236,9 @@ MtpType* mtpType(MtpProg* const prog, MtpTypeKind const kind, PtrAny const type_
 MtpType* mtpTypeInt(MtpProg* const prog, MtpTypeInt type_spec) {
     return mtpType(prog, mtp_type_int, &type_spec);
 }
+MtpType* mtpTypeIntStatic(MtpProg* const prog) {
+    return prog->all.types.at[3];
+}
 MtpType* mtpTypeSym(MtpProg* const prog) {
     return prog->all.types.at[0];
 }
@@ -224,14 +248,26 @@ MtpType* mtpTypeBottom(MtpProg* const prog) {
 MtpType* mtpTypeBool(MtpProg* const prog) {
     return prog->all.types.at[2];
 }
-MtpType* mtpTypeLam(MtpProg* const prog, MtpTypeLam type_spec) {
+MtpType* mtpTypeLabel(MtpProg* const prog) {
+    return prog->all.types.at[5];
+}
+MtpType* mtpTypePtr(MtpProg* const prog, MtpTypePtr type_spec) {
+    return mtpType(prog, mtp_type_ptr, &type_spec);
+}
+MtpType* mtpTypeArr(MtpProg* const prog, MtpTypeArr type_spec) {
+    return mtpType(prog, mtp_type_arr, &type_spec);
+}
+MtpType* mtpTypeTup(MtpProg* const prog, MtpTypeTup type_spec) {
+    return mtpType(prog, mtp_type_tup, &type_spec);
+}
+MtpType* mtpTypeLam(MtpProg* const prog, MtpTypeTup type_spec) {
     return mtpType(prog, mtp_type_lam, &type_spec);
 }
 
 
 
 
-Bool mtpNodesEql(MtpNode* const n1, MtpNode* const n2) {
+Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
     // outside ctors, always true:
     if (n1 == n2)
         return true;
@@ -255,7 +291,7 @@ Bool mtpNodesEql(MtpNode* const n1, MtpNode* const n2) {
             case mtp_node_prim: {
                 if (n1->of.prim.kind == n2->of.prim.kind)
                     switch (n1->of.prim.kind) {
-                        case mtp_prim_val: return n1->of.prim.of.val.i64 == n2->of.prim.of.val.i64 || n1->type == mtp_type_bottom;
+                        case mtp_prim_val: return (n1->type->kind == mtp_type_bottom) || (n1->of.prim.of.val.i64 == n2->of.prim.of.val.i64);
                         case mtp_prim_bin_i:
                             return n1->of.prim.of.bin.kind == n2->of.prim.of.bin.kind
                                    && ((mtpNodesEql(n1->of.prim.of.bin.lhs, n2->of.prim.of.bin.lhs)
@@ -283,12 +319,10 @@ Bool mtpNodesEql(MtpNode* const n1, MtpNode* const n2) {
     return false;
 }
 
-MtpNode* mtpNodeValSym(MtpProg* const prog, UInt const sym_val) {
-    return prog->all.syms.at[sym_val];
-}
-
-MtpNode* mtpNodePrim(MtpProg* const prog, MtpNodePrim spec, MtpType* type, Bool const can_side_effect) {
-    MtpNode spec_node = (MtpNode) {.kind = mtp_node_prim, .type = type, .side_effects = can_side_effect, .of = {.prim = spec}};
+MtpNode* mtpNodePrim(MtpProg* const prog, MtpNodePrim const spec, MtpType* const type, Bool const can_side_effect) {
+    MtpNode const spec_node = (MtpNode) {.kind = mtp_node_prim, .type = type, .side_effects = can_side_effect, .of = {.prim = spec}};
+    if (spec.kind == mtp_prim_val && type->kind == mtp_type_sym)
+        return prog->all.syms.at[spec.of.val.i64];
     for (UInt i = 0; i < prog->all.prims.len; i += 1) {
         MtpNode* node = prog->all.prims.at[i];
         if (mtpNodesEql(node, &spec_node))
@@ -300,10 +334,10 @@ MtpNode* mtpNodePrim(MtpProg* const prog, MtpNodePrim spec, MtpType* type, Bool 
     *ret_node = spec_node;
     return ret_node;
 }
-MtpNode* mtpNodePrimExtCall(MtpProg* const prog, MtpNodePrimExtCall const spec, MtpType* const ret_type) {
+MtpNode* mtpNodePrimExtCall(MtpProg* const prog, MtpPrimExtCall const spec, MtpType* const ret_type) {
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_extcall, .of = {.ext_call = spec}}, ret_type, true);
 }
-MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpNodePrimCmpI spec) {
+MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpPrimCmpI spec) {
     Bool ok = mtpTypesEql(spec.lhs->type, spec.rhs->type)
               && (spec.lhs->type->kind == mtp_type_int
                   || (spec.lhs->type->kind == mtp_type_sym && (spec.kind == mtp_cmp_i_eq || spec.kind == mtp_cmp_i_neq)));
@@ -315,7 +349,7 @@ MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpNodePrimCmpI spec) {
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cmp_i, .of = {.cmp = spec}}, mtpTypeBool(prog),
                        spec.lhs->side_effects || spec.rhs->side_effects);
 }
-MtpNode* mtpNodePrimBinI(MtpProg* const prog, MtpNodePrimBinI spec) {
+MtpNode* mtpNodePrimBinI(MtpProg* const prog, MtpPrimBinI spec) {
     if (spec.lhs->type->kind != mtp_type_int || spec.rhs->type->kind != mtp_type_int || !mtpTypesEql(spec.lhs->type, spec.rhs->type))
         ·fail(str("incompatible operand types for int binary operation"));
     if ((!(spec.lhs->side_effects || spec.rhs->side_effects)) && mtpNodeIsVal(spec.rhs) && (!mtpNodeIsVal(spec.lhs))
@@ -326,11 +360,27 @@ MtpNode* mtpNodePrimBinI(MtpProg* const prog, MtpNodePrimBinI spec) {
 }
 
 MtpNode* mtpNodePrimValInt(MtpProg* const prog, I64 const i64) {
-    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.i64 = i64}}}, prog->all.types.at[3], false);
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.i64 = i64}}}, mtpTypeIntStatic(prog), false);
+}
+
+MtpNode* mtpNodePrimValSym(MtpProg* const prog, UInt const sym_val) {
+    return prog->all.syms.at[sym_val];
+}
+
+MtpNode* mtpNodePrimValBottom(MtpProg* const prog) {
+    return prog->all.prims.at[2];
+}
+
+MtpNode* mtpNodePrimValBoolFalse(MtpProg* const prog) {
+    return prog->all.prims.at[0];
+}
+
+MtpNode* mtpNodePrimValBoolTrue(MtpProg* const prog) {
+    return prog->all.prims.at[1];
 }
 
 MtpNode* mtpNodeChoice(MtpProg* const prog, MtpNodeChoice const spec) {
-    if (!mtpTypesEql(spec.if0->type, spec.if1->type))
+    if ((!mtpTypesEql(spec.if0->type, mtpTypeLabel(prog))) || (!mtpTypesEql(spec.if1->type, mtpTypeLabel(prog))))
         ·fail(str("incompatible choice result types"));
     if (!mtpTypesEql(spec.cond->type, mtpTypeBool(prog)))
         ·fail(str("choice condition isn't boolish"));
@@ -351,6 +401,9 @@ MtpNode* mtpNodeChoice(MtpProg* const prog, MtpNodeChoice const spec) {
 }
 
 MtpNode* mtpNodeJump(MtpProg* const prog, MtpNodeJump const spec) {
+    MtpType* const fn_type = spec.dst_lam->type;
+    if (fn_type->kind != mtp_type_lam || !(spec.dst_lam->kind == mtp_node_lam || spec.dst_lam->kind == mtp_node_param))
+        ·fail(str("not callable"));
     MtpNode spec_node = (MtpNode) {
         .kind = mtp_node_jump,
         .type = mtpTypeBottom(prog),
@@ -394,8 +447,8 @@ MtpNode* mtpLam(MtpProg* const prog, ·SliceOfPtrs(MtpType) const params) {
     MtpNode* ret_node = ·as(MtpNode, ·last(prog->all.lams));
     ret_node->kind = mtp_node_lam;
     ret_node->side_effects = false;
-    ret_node->type = mtpTypeLam(prog, (MtpTypeLam) {.params_types = {.at = params.at, .len = params.len}});
-    ret_node->of.lam = (MtpNodeLam) {.params = ·sliceOf(MtpNode, params.len, params.len)};
+    ret_node->type = mtpTypeLam(prog, (MtpTypeTup) {.types = {.at = params.at, .len = params.len}});
+    ret_node->of.lam = (MtpNodeLam) {.body = NULL, .params = ·sliceOf(MtpNode, params.len, params.len)};
     for (UInt i = 0; i < params.len; i += 1)
         ret_node->of.lam.params.at[i] = (MtpNode) {
             .kind = mtp_node_param,
@@ -405,11 +458,17 @@ MtpNode* mtpLam(MtpProg* const prog, ·SliceOfPtrs(MtpType) const params) {
         };
     return ret_node;
 }
+void mtpLamJump(MtpProg* const prog, MtpNodeLam* const lam, MtpNodeJump const jump) {
+    lam->body = mtpNodeJump(prog, jump);
+}
+void mtpLamChoice(MtpProg* const prog, MtpNodeLam* const lam, MtpNodeChoice const choice) {
+    lam->body = mtpNodeChoice(prog, choice);
+}
 
 MtpProg mtpProg(UInt const lams_capacity, UInt const types_capacity, UInt const int_vals_capacity, UInt const prims_capacity,
                 UInt const choices_capacity, UInt const jumps_capacity, U32 const sym_vals_total_count) {
     MtpProg ret_prog = (MtpProg) {.all = {
-                                      .types = ·listOfPtrs(MtpType, 4, types_capacity),
+                                      .types = ·listOfPtrs(MtpType, 6, types_capacity),
                                       .syms = ·listOfPtrs(MtpNode, sym_vals_total_count, sym_vals_total_count),
                                       .prims = ·listOfPtrs(MtpNode, 0, prims_capacity),
                                       .lams = ·listOfPtrs(MtpNode, 0, lams_capacity),
@@ -418,26 +477,30 @@ MtpProg mtpProg(UInt const lams_capacity, UInt const types_capacity, UInt const 
                                   }};
 
     ret_prog.all.types.at[0] = ·new(MtpType); // returned by `mtpTypeSym(MtpProg*)`
-    ret_prog.all.types.at[1] = ·new(MtpType); // returned by `mtpTypeBottom(MtpProg*)`
-    ret_prog.all.types.at[2] = ·new(MtpType); // returned by `mtpTypeBool(MtpProg*)`
-    ret_prog.all.types.at[3] = ·new(MtpType); // statically known int values
     ret_prog.all.types.at[0]->kind = mtp_type_sym;
+    ret_prog.all.types.at[1] = ·new(MtpType); // returned by `mtpTypeBottom(MtpProg*)`
     ret_prog.all.types.at[1]->kind = mtp_type_bottom;
+    ret_prog.all.types.at[2] = ·new(MtpType); // returned by `mtpTypeBool(MtpProg*)`
     *ret_prog.all.types.at[2] = (MtpType) {.kind = mtp_type_int, .of = {.num_int = {.bit_width = 1, .unsign = true}}};
+    ret_prog.all.types.at[3] = ·new(MtpType); // statically known int values
     *ret_prog.all.types.at[3] = (MtpType) {.kind = mtp_type_int, .of = {.num_int = {.bit_width = 0, .unsign = false}}};
+    ret_prog.all.types.at[4] = ·new(MtpType); // raw / untyped / any pointer
+    *ret_prog.all.types.at[4] = (MtpType) {.kind = mtp_type_ptr, .of = {.ptr = {.type = NULL}}};
+    ret_prog.all.types.at[5] = ·new(MtpType); // empty tuple = fn(void)
+    *ret_prog.all.types.at[5] = (MtpType) {.kind = mtp_type_lam, .of = {.tup = {.types = ·sliceOfPtrs(MtpType, 0, 0)}}};
 
     mtpNodePrimValInt(&ret_prog, 0)->type = mtpTypeBool(&ret_prog);
     mtpNodePrimValInt(&ret_prog, 1)->type = mtpTypeBool(&ret_prog);
+    mtpNodePrimValInt(&ret_prog, -1)->type = mtpTypeBottom(&ret_prog);
     mtpNodePrimValInt(&ret_prog, 0);
     mtpNodePrimValInt(&ret_prog, 1);
 
     for (UInt i = 0; i < sym_vals_total_count; i += 1) {
         ret_prog.all.syms.at[i] = ·new(MtpNode);
-        *ret_prog.all.syms.at[i] =
-            (MtpNode) {.kind = mtp_node_prim,
-                       .type = mtpTypeSym(&ret_prog),
-                       .side_effects = false,
-                       .of = {.prim = (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = (MtpNodePrimVal) {.i64 = i}}}}};
+        *ret_prog.all.syms.at[i] = (MtpNode) {.kind = mtp_node_prim,
+                                              .type = mtpTypeSym(&ret_prog),
+                                              .side_effects = false,
+                                              .of = {.prim = (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = (MtpPrimVal) {.i64 = i}}}}};
     }
     return ret_prog;
 }

@@ -50,6 +50,8 @@ struct Mem {
 
 
 U8* memAlloc(UInt const num_bytes) {
+    if (num_bytes == 0)
+        return NULL;
     UInt const new_pos = mem.pos + num_bytes;
     if (new_pos >= mem_max - 1)
         ·fail(str("out of memory: increase mem_max!"));
