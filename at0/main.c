@@ -22,7 +22,9 @@ int main(int const argc, CStr const argv[]) {
 }
 
 int main_MiniThorinProto(int const argc, CStr const argv[]) {
-    return mtpProg(64, 8, 8, 8, 8, 8, 8, 8).bit_widths.syms;
+    MtpProg prog = mtpProg(64, 8, 8, 8, 8, 8, 8, 8);
+    mtpPreduceProg(&prog);
+    return 0;
 }
 
 int main_AstAndIrHL(int const argc, CStr const argv[]) {
