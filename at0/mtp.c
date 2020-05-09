@@ -184,23 +184,31 @@ typedef struct MtpProg {
 
 
 // a ° b  ==  b ° a
-Bool mtpNodePrimIsCommutative(MtpKindOfPrim const prim_kind, int const op_kind) {
+Bool mtpPrimIsCommutative(MtpKindOfPrim const prim_kind, int const op_kind) {
     return (prim_kind == mtp_prim_bin_i && (op_kind == mtp_bin_i_add || op_kind == mtp_bin_i_mul))
            || (prim_kind == mtp_prim_cmp_i && (op_kind == mtp_cmp_i_eq || op_kind == mtp_cmp_i_neq));
 }
 
 // (a ° b) ° c  ==  a ° (b ° c)
-Bool mtpNodePrimIsAssociative(MtpKindOfPrim const prim_kind, int const op_kind) {
+Bool mtpPrimIsAssociative(MtpKindOfPrim const prim_kind, int const op_kind) {
     return prim_kind == mtp_prim_bin_i && (op_kind == mtp_bin_i_add || op_kind == mtp_bin_i_mul);
 }
 
 // a °¹ (b °² c)  ==  (a °¹ b)  °²  (a °¹ c)
-Bool mtpNodePrimIsDistributive(MtpKindOfPrim const prim_kind, int const op_kind1, int const op_kind2) {
+Bool mtpPrimIsDistributive(MtpKindOfPrim const prim_kind, int const op_kind1, int const op_kind2) {
     return prim_kind == mtp_prim_bin_i && op_kind1 == mtp_bin_i_mul && op_kind2 == mtp_bin_i_add;
 }
 
-Bool mtpNodeIsVal(MtpNode* const node) {
+Bool mtpNodeIsPrimVal(MtpNode* const node) {
     return node->kind == mtp_node_prim && node->of.prim.kind == mtp_prim_val;
+}
+
+Bool mtpNodeIsPrimValInt(MtpNode* const node) {
+    return node->type->kind == mtp_type_int && mtpNodeIsPrimVal(node);
+}
+
+Bool mtpNodeIsPrimValSym(MtpNode* const node) {
+    return node->type->kind == mtp_type_sym && mtpNodeIsPrimVal(node);
 }
 
 
@@ -344,7 +352,7 @@ Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
                             return n1->of.prim.of.bin.kind == n2->of.prim.of.bin.kind
                                    && ((mtpNodesEql(n1->of.prim.of.bin.lhs, n2->of.prim.of.bin.lhs)
                                         && mtpNodesEql(n1->of.prim.of.bin.rhs, n2->of.prim.of.bin.rhs))
-                                       || (mtpNodePrimIsCommutative(mtp_prim_bin_i, n1->of.prim.of.bin.kind)
+                                       || (mtpPrimIsCommutative(mtp_prim_bin_i, n1->of.prim.of.bin.kind)
                                            && (!(n1->side_effects || n2->side_effects))
                                            && (mtpNodesEql(n1->of.prim.of.bin.rhs, n2->of.prim.of.bin.lhs)
                                                && mtpNodesEql(n1->of.prim.of.bin.lhs, n2->of.prim.of.bin.rhs))));
@@ -352,7 +360,7 @@ Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
                             return n1->of.prim.of.cmp.kind == n2->of.prim.of.cmp.kind
                                    && ((mtpNodesEql(n1->of.prim.of.cmp.lhs, n2->of.prim.of.cmp.lhs)
                                         && mtpNodesEql(n1->of.prim.of.cmp.rhs, n2->of.prim.of.cmp.rhs))
-                                       || (mtpNodePrimIsCommutative(mtp_prim_cmp_i, n1->of.prim.of.cmp.kind)
+                                       || (mtpPrimIsCommutative(mtp_prim_cmp_i, n1->of.prim.of.cmp.kind)
                                            && (!(n1->side_effects || n2->side_effects))
                                            && (mtpNodesEql(n1->of.prim.of.cmp.rhs, n2->of.prim.of.cmp.lhs)
                                                && mtpNodesEql(n1->of.prim.of.cmp.lhs, n2->of.prim.of.cmp.rhs))));
@@ -397,10 +405,9 @@ MtpNode* mtpNodePrimItem(MtpProg* const prog, MtpPrimItem spec) {
     switch (spec.subj->type->kind) {
         case mtp_type_arr: item_type = spec.subj->type->of.arr.type;
         case mtp_type_tup:
-            if (!mtpNodeIsVal(spec.index))
-                ·fail(str("cannot index into non-array"));
-            I64 index = spec.index->of.prim.of.val.i64;
-            item_type = spec.subj->type->of.tup.types.at[index];
+            if (spec.index->type->kind != mtp_type_int || !mtpNodeIsPrimVal(spec.index))
+                ·fail(str("cannot index like this into non-array"));
+            item_type = spec.subj->type->of.tup.types.at[spec.index->of.prim.of.val.i64];
         default: ·fail(str("cannot traverse into expression"));
     }
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_item, .of = {.item = spec}}, item_type, spec.subj->side_effects);
@@ -411,8 +418,8 @@ MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpPrimCmpI spec) {
                   || (spec.lhs->type->kind == mtp_type_sym && (spec.kind == mtp_cmp_i_eq || spec.kind == mtp_cmp_i_neq)));
     if (!ok)
         ·fail(str("incompatible operand types for int comparison operation"));
-    if ((!(spec.lhs->side_effects || spec.rhs->side_effects)) && mtpNodeIsVal(spec.rhs) && (!mtpNodeIsVal(spec.lhs))
-        && mtpNodePrimIsCommutative(mtp_prim_cmp_i, spec.kind))
+    if ((!(spec.lhs->side_effects || spec.rhs->side_effects)) && mtpNodeIsPrimVal(spec.rhs) && (!mtpNodeIsPrimVal(spec.lhs))
+        && mtpPrimIsCommutative(mtp_prim_cmp_i, spec.kind))
         ·swap(MtpNode, spec.lhs, spec.rhs);
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cmp_i, .of = {.cmp = spec}}, mtpTypeBool(prog),
                        spec.lhs->side_effects || spec.rhs->side_effects);
@@ -420,8 +427,8 @@ MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpPrimCmpI spec) {
 MtpNode* mtpNodePrimBinI(MtpProg* const prog, MtpPrimBinI spec) {
     if (spec.lhs->type->kind != mtp_type_int || spec.rhs->type->kind != mtp_type_int || !mtpTypesEql(spec.lhs->type, spec.rhs->type))
         ·fail(str("incompatible operand types for int binary operation"));
-    if ((!(spec.lhs->side_effects || spec.rhs->side_effects)) && mtpNodeIsVal(spec.rhs) && (!mtpNodeIsVal(spec.lhs))
-        && mtpNodePrimIsCommutative(mtp_prim_bin_i, spec.kind))
+    if ((!(spec.lhs->side_effects || spec.rhs->side_effects)) && mtpNodeIsPrimVal(spec.rhs) && (!mtpNodeIsPrimVal(spec.lhs))
+        && mtpPrimIsCommutative(mtp_prim_bin_i, spec.kind))
         ·swap(MtpNode, spec.lhs, spec.rhs);
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_bin_i, .of = {.bin = spec}}, spec.lhs->type,
                        spec.lhs->side_effects || spec.rhs->side_effects);
