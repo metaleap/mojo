@@ -150,8 +150,8 @@ typedef struct MtpPrimExtCall {
 typedef struct MtpNodePrim {
     union {
         MtpPrimVal val;
-        MtpPrimCmpI cmp;
-        MtpPrimBinI bin;
+        MtpPrimCmpI cmp_i;
+        MtpPrimBinI bin_i;
         MtpPrimCast cast;
         MtpPrimItem item;
         MtpPrimExtCall ext_call;
@@ -367,21 +367,13 @@ Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
                                    && mtpTypesEql(n1->of.prim.of.cast.dst_type, n2->of.prim.of.cast.dst_type)
                                    && mtpNodesEql(n1->of.prim.of.cast.subj, n2->of.prim.of.cast.subj);
                         case mtp_prim_bin_i:
-                            return n1->of.prim.of.bin.kind == n2->of.prim.of.bin.kind
-                                   && ((mtpNodesEql(n1->of.prim.of.bin.lhs, n2->of.prim.of.bin.lhs)
-                                        && mtpNodesEql(n1->of.prim.of.bin.rhs, n2->of.prim.of.bin.rhs))
-                                       || (mtpPrimIsCommutative(mtp_prim_bin_i, n1->of.prim.of.bin.kind)
-                                           && (mtpNodeIsPrimVal(n1) || mtpNodeIsPrimVal(n2))
-                                           && (mtpNodesEql(n1->of.prim.of.bin.rhs, n2->of.prim.of.bin.lhs)
-                                               && mtpNodesEql(n1->of.prim.of.bin.lhs, n2->of.prim.of.bin.rhs))));
+                            return n1->of.prim.of.bin_i.kind == n2->of.prim.of.bin_i.kind
+                                   && (mtpNodesEql(n1->of.prim.of.bin_i.lhs, n2->of.prim.of.bin_i.lhs)
+                                       && mtpNodesEql(n1->of.prim.of.bin_i.rhs, n2->of.prim.of.bin_i.rhs));
                         case mtp_prim_cmp_i: // NOTE same as above; 3rd time around, extract!
-                            return n1->of.prim.of.cmp.kind == n2->of.prim.of.cmp.kind
-                                   && ((mtpNodesEql(n1->of.prim.of.cmp.lhs, n2->of.prim.of.cmp.lhs)
-                                        && mtpNodesEql(n1->of.prim.of.cmp.rhs, n2->of.prim.of.cmp.rhs))
-                                       || (mtpPrimIsCommutative(mtp_prim_cmp_i, n1->of.prim.of.cmp.kind)
-                                           && (mtpNodeIsPrimVal(n1) || mtpNodeIsPrimVal(n2))
-                                           && (mtpNodesEql(n1->of.prim.of.cmp.rhs, n2->of.prim.of.cmp.lhs)
-                                               && mtpNodesEql(n1->of.prim.of.cmp.lhs, n2->of.prim.of.cmp.rhs))));
+                            return n1->of.prim.of.cmp_i.kind == n2->of.prim.of.cmp_i.kind
+                                   && (mtpNodesEql(n1->of.prim.of.cmp_i.lhs, n2->of.prim.of.cmp_i.lhs)
+                                       && mtpNodesEql(n1->of.prim.of.cmp_i.rhs, n2->of.prim.of.cmp_i.rhs));
                         case mtp_prim_extcall:
                             return mtpTypesEql(n1->of.prim.of.ext_call.params_types, n2->of.prim.of.ext_call.params_types)
                                    && strEql(n1->of.prim.of.ext_call.name, n2->of.prim.of.ext_call.name);
@@ -428,7 +420,7 @@ MtpNode* mtpNodeJump(MtpProg* const prog, MtpNodeJump const spec) {
 
 MtpNode* mtpNodePrim(MtpProg* const prog, MtpNodePrim const spec, MtpType* const type) {
     MtpNode const spec_node = (MtpNode) {.kind = mtp_node_prim, .type = type, .of = {.prim = spec}, .anns = {.preduced = false}};
-    if (spec.kind == mtp_prim_val && type->kind == mtp_type_sym)
+    if (spec.kind == mtp_prim_val && type != NULL && type->kind == mtp_type_sym)
         return prog->all.syms.at[spec.of.val.sym_val];
     for (UInt i = 0; i < prog->all.prims.len; i += 1) {
         MtpNode* node = prog->all.prims.at[i];
@@ -445,46 +437,16 @@ MtpNode* mtpNodePrimExtCall(MtpProg* const prog, MtpPrimExtCall const spec, MtpT
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_extcall, .of = {.ext_call = spec}}, ret_type);
 }
 MtpNode* mtpNodePrimCast(MtpProg* const prog, MtpPrimCast spec) {
-    // VAL:
-    // if (spec.kind == mtp_cast_ints && ((!mtpTypeIsIntCastable(spec.dst_type)) || (!mtpTypeIsIntCastable(spec.subj->type))))
-    //     ·fail(str("intcast requires int-castable source and destination types"));
-    // if (spec.kind == mtp_cast_bits && mtpTypeMinSizeInBits(prog, spec.dst_type) != mtpTypeMinSizeInBits(prog, spec.subj->type))
-    //     ·fail(str("bitcast requires same bit-width for source and destination type"));
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cast, .of = {.cast = spec}}, spec.dst_type);
 }
 MtpNode* mtpNodePrimItem(MtpProg* const prog, MtpPrimItem spec) {
-    // VAL:
-    // if (spec.index->type->kind != mtp_type_int || !mtpNodeIsPrimVal(spec.index))
-    //     ·fail(str("expected statically-known index"));
-    MtpType* item_type = (spec.subj->type->kind == mtp_type_tup)
-                             ? (spec.subj->type->of.tup.types.at[spec.index->of.prim.of.val.int_val])
-                             : (spec.subj->type->kind == mtp_type_arr) ? (spec.subj->type->of.arr.type) : NULL;
-    // VAL:
-    // if (item_type == NULL)
-    //     ·fail(str("cannot index into this node"));
-    // if (spec.set_to != NULL && !mtpTypesEql(item_type, spec.set_to->type))
-    //     ·fail(str("type mismatch for setting aggregate member"));
-    MtpType* node_type = (spec.set_to == NULL) ? item_type : spec.subj->type;
-    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_item, .of = {.item = spec}}, node_type);
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_item, .of = {.item = spec}}, NULL);
 }
 MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpPrimCmpI spec) {
-    // VAL:
-    // Bool ok = mtpTypesEql(spec.lhs->type, spec.rhs->type)
-    //           && (spec.lhs->type->kind == mtp_type_int
-    //               || (spec.lhs->type->kind == mtp_type_sym && (spec.kind == mtp_cmp_i_eq || spec.kind == mtp_cmp_i_neq)));
-    // if (!ok)
-    //     ·fail(str("incompatible operand types for int comparison operation"));
-    if (mtpNodeIsPrimVal(spec.rhs) && (!mtpNodeIsPrimVal(spec.lhs)) && mtpPrimIsCommutative(mtp_prim_cmp_i, spec.kind))
-        ·swap(MtpNode, spec.lhs, spec.rhs);
-    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cmp_i, .of = {.cmp = spec}}, mtpTypeBool(prog));
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cmp_i, .of = {.cmp_i = spec}}, mtpTypeBool(prog));
 }
 MtpNode* mtpNodePrimBinI(MtpProg* const prog, MtpPrimBinI spec) {
-    // VAL:
-    // if (spec.lhs->type->kind != mtp_type_int || spec.rhs->type->kind != mtp_type_int || !mtpTypesEql(spec.lhs->type, spec.rhs->type))
-    //     ·fail(str("incompatible operand types for int binary operation"));
-    if (mtpNodeIsPrimVal(spec.rhs) && (!mtpNodeIsPrimVal(spec.lhs)) && mtpPrimIsCommutative(mtp_prim_bin_i, spec.kind))
-        ·swap(MtpNode, spec.lhs, spec.rhs);
-    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_bin_i, .of = {.bin = spec}}, spec.lhs->type);
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_bin_i, .of = {.bin_i = spec}}, NULL);
 }
 MtpNode* mtpNodePrimValInt(MtpProg* const prog, I64 const int_val) {
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.int_val = int_val}}}, mtpTypeIntStatic(prog));
@@ -710,6 +672,45 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                         ·fail(str("specified illegal MtpPrimExtCall.params_types"));
                     if (node->of.prim.of.ext_call.name.at == NULL || node->of.prim.of.ext_call.name.len == 0)
                         ·fail(str("specified illegal MtpPrimExtCall.name"));
+                } break;
+                case mtp_prim_cast: {
+                    if (node->of.prim.of.cast.kind == mtp_cast_ints
+                        && ((!mtpTypeIsIntCastable(node->of.prim.of.cast.dst_type))
+                            || (!mtpTypeIsIntCastable(node->of.prim.of.cast.subj->type))))
+                        ·fail(str("intcast requires int-castable source and destination types"));
+                    if (node->of.prim.of.cast.kind == mtp_cast_bits
+                        && mtpTypeMinSizeInBits(ctx->prog, node->of.prim.of.cast.dst_type)
+                               != mtpTypeMinSizeInBits(ctx->prog, node->of.prim.of.cast.subj->type))
+                        ·fail(str("bitcast requires same bit-width for source and destination type"));
+                    node->type = node->of.prim.of.cast.dst_type;
+                };
+                case mtp_prim_item: {
+                    MtpType* item_type =
+                        (node->of.prim.of.item.subj->type->kind == mtp_type_tup)
+                            ? (node->of.prim.of.item.subj->type->of.tup.types.at[node->of.prim.of.item.index->of.prim.of.val.int_val])
+                            : (node->of.prim.of.item.subj->type->kind == mtp_type_arr) ? (node->of.prim.of.item.subj->type->of.arr.type)
+                                                                                       : NULL;
+                    if (node->of.prim.of.item.index->type->kind != mtp_type_int || !mtpNodeIsPrimVal(node->of.prim.of.item.index))
+                        ·fail(str("expected statically-known index"));
+                    if (item_type == NULL)
+                        ·fail(str("cannot index into this node"));
+                    if (node->of.prim.of.item.set_to != NULL && !mtpTypesEql(item_type, node->of.prim.of.item.set_to->type))
+                        ·fail(str("type mismatch for setting aggregate member"));
+                    node->type = (node->of.prim.of.item.set_to == NULL) ? item_type : node->of.prim.of.item.subj->type;
+                };
+                case mtp_prim_cmp_i: {
+                    Bool ok = mtpTypesEql(node->of.prim.of.cmp_i.lhs->type, node->of.prim.of.cmp_i.rhs->type)
+                              && (node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_int
+                                  || (node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_sym
+                                      && (node->of.prim.of.cmp_i.kind == mtp_cmp_i_eq || node->of.prim.of.cmp_i.kind == mtp_cmp_i_neq)));
+                    if (!ok)
+                        ·fail(str("invalid operand type(s) for int comparison operation"));
+                } break;
+                case mtp_prim_bin_i: {
+                    if (node->of.prim.of.bin_i.lhs->type->kind != mtp_type_int || node->of.prim.of.bin_i.rhs->type->kind != mtp_type_int
+                        || !mtpTypesEql(node->of.prim.of.bin_i.lhs->type, node->of.prim.of.bin_i.rhs->type))
+                        ·fail(str("invalid operand type(s) for int binary operation"));
+                    node->type = node->of.prim.of.bin_i.lhs->type;
                 } break;
                 default: break;
             }
