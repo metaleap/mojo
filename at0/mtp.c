@@ -21,10 +21,11 @@ typedef enum MtpKindOfNode {
 } MtpKindOfNode;
 
 typedef enum MtpKindOfPrim {
-    mtp_prim_extcall,
+    mtp_prim_val,
     mtp_prim_cmp_i,
     mtp_prim_bin_i,
-    mtp_prim_val,
+    mtp_prim_cast,
+    mtp_prim_extcall,
 } MtpKindOfPrim;
 
 typedef enum MtpKindOfCmpI {
@@ -36,6 +37,11 @@ typedef enum MtpKindOfBinI {
     mtp_bin_i_add,
     mtp_bin_i_mul,
 } MtpKindOfBinI;
+
+typedef enum MtpKindOfCast {
+    mtp_cast_ints,
+    mtp_cast_bits,
+} MtpKindOfCast;
 
 
 struct MtpType;
@@ -107,11 +113,6 @@ typedef struct MtpPrimVal {
     I64 i64;
 } MtpPrimVal;
 
-typedef struct MtpPrimExtCall {
-    MtpType* params_types;
-    Str name;
-} MtpPrimExtCall;
-
 typedef struct MtpPrimCmpI {
     MtpNode* lhs;
     MtpNode* rhs;
@@ -124,12 +125,24 @@ typedef struct MtpPrimBinI {
     MtpKindOfBinI kind;
 } MtpPrimBinI;
 
+typedef struct MtpPrimCast {
+    MtpNode* subj;
+    MtpType* dst_type;
+    MtpKindOfCast kind;
+} MtpPrimCast;
+
+typedef struct MtpPrimExtCall {
+    MtpType* params_types;
+    Str name;
+} MtpPrimExtCall;
+
 typedef struct MtpNodePrim {
     union {
-        MtpPrimExtCall ext_call;
+        MtpPrimVal val;
         MtpPrimCmpI cmp;
         MtpPrimBinI bin;
-        MtpPrimVal val;
+        MtpPrimCast cast;
+        MtpPrimExtCall ext_call;
     } of;
     MtpKindOfPrim kind;
 } MtpNodePrim;
@@ -210,6 +223,27 @@ Bool mtpTypesEql(MtpType const* const t1, MtpType const* const t2) {
     return false;
 }
 
+UInt mtpTypeMinSizeInBits(MtpType* type) { // "intrinsic size" for a hypothetical padding/alignment-less target
+    switch (type->kind) {
+        case mtp_type_ptr: // TODO: keep target word size somewhere instead of hardcoded 64-bit-only
+        case mtp_type_sym: // TODO: later determine the bit-width for a src-prog's total set of syms instead of hardcoded 64-bit uint
+            return 64;
+        case mtp_type_int: return type->of.num_int.bit_width;
+        case mtp_type_arr: return type->of.arr.length * mtpTypeMinSizeInBits(type->of.arr.type);
+        case mtp_type_tup: {
+            UInt size = 0;
+            for (UInt i = 0; i < type->of.tup.types.len; i += 1)
+                size += mtpTypeMinSizeInBits(type->of.tup.types.at[i]);
+            return size;
+        } break;
+        default: ·fail(uIntToStr(type->kind, 1, 10)); return 0;
+    }
+}
+
+Bool mtpTypeIsIntCastable(MtpType* type) {
+    return type->kind == mtp_type_int || type->kind == mtp_type_ptr || type->kind == mtp_type_sym;
+}
+
 MtpType* mtpType(MtpProg* const prog, MtpKindOfType const kind, PtrAny const type_spec) {
     MtpType specd_type = (MtpType) {.kind = kind};
     switch (kind) {
@@ -266,7 +300,6 @@ MtpType* mtpTypeLam(MtpProg* const prog, MtpTypeTup type_spec) {
 
 
 
-
 Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
     // outside ctors, always true:
     if (n1 == n2)
@@ -292,6 +325,10 @@ Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
                 if (n1->of.prim.kind == n2->of.prim.kind)
                     switch (n1->of.prim.kind) {
                         case mtp_prim_val: return (n1->type->kind == mtp_type_bottom) || (n1->of.prim.of.val.i64 == n2->of.prim.of.val.i64);
+                        case mtp_prim_cast:
+                            return n1->of.prim.of.cast.kind == n2->of.prim.of.cast.kind
+                                   && mtpTypesEql(n1->of.prim.of.cast.dst_type, n2->of.prim.of.cast.dst_type)
+                                   && mtpNodesEql(n1->of.prim.of.cast.subj, n2->of.prim.of.cast.subj);
                         case mtp_prim_bin_i:
                             return n1->of.prim.of.bin.kind == n2->of.prim.of.bin.kind
                                    && ((mtpNodesEql(n1->of.prim.of.bin.lhs, n2->of.prim.of.bin.lhs)
@@ -336,6 +373,13 @@ MtpNode* mtpNodePrim(MtpProg* const prog, MtpNodePrim const spec, MtpType* const
 }
 MtpNode* mtpNodePrimExtCall(MtpProg* const prog, MtpPrimExtCall const spec, MtpType* const ret_type) {
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_extcall, .of = {.ext_call = spec}}, ret_type, true);
+}
+MtpNode* mtpNodePrimCast(MtpProg* const prog, MtpPrimCast spec) {
+    if (spec.kind == mtp_cast_bits && mtpTypeMinSizeInBits(spec.dst_type) != mtpTypeMinSizeInBits(spec.subj->type))
+        ·fail(str("bitcast requires same bit-width for source and destination types"));
+    if (spec.kind == mtp_cast_ints && ((!mtpTypeIsIntCastable(spec.dst_type)) || (!mtpTypeIsIntCastable(spec.subj->type))))
+        ·fail(str("intcast requires compatible source and destination types"));
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cast, .of = {.cast = spec}}, spec.dst_type, spec.subj->side_effects);
 }
 MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpPrimCmpI spec) {
     Bool ok = mtpTypesEql(spec.lhs->type, spec.rhs->type)
