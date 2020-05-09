@@ -180,6 +180,10 @@ typedef struct MtpProg {
         MtpPtrsOfNode jumps;
         MtpPtrsOfNode syms;
     } all;
+    struct {
+        U16 ptrs;
+        U16 syms;
+    } bit_widths;
 } MtpProg;
 
 
@@ -242,17 +246,16 @@ Bool mtpTypesEql(MtpType const* const t1, MtpType const* const t2) {
     return false;
 }
 
-UInt mtpTypeMinSizeInBits(MtpType* type) { // "intrinsic size" for a hypothetical padding/alignment-less target
+UInt mtpTypeMinSizeInBits(MtpProg* const prog, MtpType* const type) {
     switch (type->kind) {
-        case mtp_type_ptr: // TODO: keep target word size somewhere instead of hardcoded 64-bit-only
-        case mtp_type_sym: // TODO: later determine the bit-width for a src-prog's total set of syms instead of hardcoded 64-bit uint
-            return 64;
+        case mtp_type_ptr: return prog->bit_widths.ptrs;
+        case mtp_type_sym: return prog->bit_widths.syms;
         case mtp_type_int: return type->of.num_int.bit_width;
-        case mtp_type_arr: return type->of.arr.length * mtpTypeMinSizeInBits(type->of.arr.type);
+        case mtp_type_arr: return type->of.arr.length * mtpTypeMinSizeInBits(prog, type->of.arr.type);
         case mtp_type_tup: {
             UInt size = 0;
             for (UInt i = 0; i < type->of.tup.types.len; i += 1)
-                size += mtpTypeMinSizeInBits(type->of.tup.types.at[i]);
+                size += mtpTypeMinSizeInBits(prog, type->of.tup.types.at[i]);
             return size;
         } break;
         default: ·fail(uIntToStr(type->kind, 1, 10)); return 0;
@@ -464,10 +467,10 @@ MtpNode* mtpNodePrimExtCall(MtpProg* const prog, MtpPrimExtCall const spec, MtpT
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_extcall, .of = {.ext_call = spec}}, ret_type, true);
 }
 MtpNode* mtpNodePrimCast(MtpProg* const prog, MtpPrimCast spec) {
-    if (spec.kind == mtp_cast_bits && mtpTypeMinSizeInBits(spec.dst_type) != mtpTypeMinSizeInBits(spec.subj->type))
-        ·fail(str("bitcast requires same bit-width for source and destination type"));
     if (spec.kind == mtp_cast_ints && ((!mtpTypeIsIntCastable(spec.dst_type)) || (!mtpTypeIsIntCastable(spec.subj->type))))
         ·fail(str("intcast requires int-castable source and destination types"));
+    if (spec.kind == mtp_cast_bits && mtpTypeMinSizeInBits(prog, spec.dst_type) != mtpTypeMinSizeInBits(prog, spec.subj->type))
+        ·fail(str("bitcast requires same bit-width for source and destination type"));
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cast, .of = {.cast = spec}}, spec.dst_type, spec.subj->side_effects);
 }
 MtpNode* mtpNodePrimItem(MtpProg* const prog, MtpPrimItem spec) {
@@ -541,15 +544,20 @@ MtpNode* mtpNodeLam(MtpProg* const prog, ·SliceOfPtrs(MtpType) const params) {
     return ret_node;
 }
 
-MtpProg mtpProg(UInt const lams_capacity, UInt const types_capacity, UInt const int_vals_capacity, UInt const prims_capacity,
-                UInt const choices_capacity, UInt const jumps_capacity, U32 const sym_vals_total_count) {
-    MtpProg ret_prog = (MtpProg) {.all = {
-                                      .types = ·listOfPtrs(MtpType, 6, types_capacity),
-                                      .syms = ·listOfPtrs(MtpNode, sym_vals_total_count, sym_vals_total_count),
-                                      .prims = ·listOfPtrs(MtpNode, 0, prims_capacity),
-                                      .lams = ·listOfPtrs(MtpNode, 0, lams_capacity),
-                                      .choices = ·listOfPtrs(MtpNode, 0, choices_capacity),
-                                      .jumps = ·listOfPtrs(MtpNode, 0, jumps_capacity),
+MtpProg mtpProg(UInt bit_width_ptrs, UInt const lams_capacity, UInt const types_capacity, UInt const int_vals_capacity,
+                UInt const prims_capacity, UInt const choices_capacity, UInt const jumps_capacity, U32 const sym_vals_total_count) {
+    MtpProg ret_prog = (MtpProg) {.all =
+                                      {
+                                          .types = ·listOfPtrs(MtpType, 6, types_capacity),
+                                          .syms = ·listOfPtrs(MtpNode, sym_vals_total_count, sym_vals_total_count),
+                                          .prims = ·listOfPtrs(MtpNode, 0, prims_capacity),
+                                          .lams = ·listOfPtrs(MtpNode, 0, lams_capacity),
+                                          .choices = ·listOfPtrs(MtpNode, 0, choices_capacity),
+                                          .jumps = ·listOfPtrs(MtpNode, 0, jumps_capacity),
+                                      },
+                                  .bit_widths = {
+                                      .ptrs = bit_width_ptrs,
+                                      .syms = uIntMinSize(sym_vals_total_count - 1, 1),
                                   }};
 
     ret_prog.all.types.at[0] = ·new(MtpType); // returned by `mtpTypeSym(MtpProg*)`
