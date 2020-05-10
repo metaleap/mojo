@@ -137,7 +137,7 @@ typedef struct MtpPrimBinI {
 
 typedef struct MtpPrimCast {
     MtpNode* subj;
-    MtpType* dst_type;
+    MtpNode* dst_type;
     MtpKindOfCast kind;
 } MtpPrimCast;
 
@@ -377,13 +377,13 @@ Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
                                    && mtpNodesEql(n1->of.prim.of.item.subj, n2->of.prim.of.item.subj);
                         case mtp_prim_cast:
                             return n1->of.prim.of.cast.kind == n2->of.prim.of.cast.kind
-                                   && mtpTypesEql(n1->of.prim.of.cast.dst_type, n2->of.prim.of.cast.dst_type)
+                                   && mtpNodesEql(n1->of.prim.of.cast.dst_type, n2->of.prim.of.cast.dst_type)
                                    && mtpNodesEql(n1->of.prim.of.cast.subj, n2->of.prim.of.cast.subj);
                         case mtp_prim_bin_i:
                             return n1->of.prim.of.bin_i.kind == n2->of.prim.of.bin_i.kind
                                    && (mtpNodesEql(n1->of.prim.of.bin_i.lhs, n2->of.prim.of.bin_i.lhs)
                                        && mtpNodesEql(n1->of.prim.of.bin_i.rhs, n2->of.prim.of.bin_i.rhs));
-                        case mtp_prim_cmp_i: // NOTE same as above; 3rd time around, extract!
+                        case mtp_prim_cmp_i:
                             return n1->of.prim.of.cmp_i.kind == n2->of.prim.of.cmp_i.kind
                                    && (mtpNodesEql(n1->of.prim.of.cmp_i.lhs, n2->of.prim.of.cmp_i.lhs)
                                        && mtpNodesEql(n1->of.prim.of.cmp_i.rhs, n2->of.prim.of.cmp_i.rhs));
@@ -450,7 +450,7 @@ MtpNode* mtpNodePrimExtCall(MtpProg* const prog, MtpPrimExtCall const spec, MtpT
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_extcall, .of = {.ext_call = spec}}, ret_type);
 }
 MtpNode* mtpNodePrimCast(MtpProg* const prog, MtpPrimCast spec) {
-    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cast, .of = {.cast = spec}}, spec.dst_type);
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_cast, .of = {.cast = spec}}, NULL);
 }
 MtpNode* mtpNodePrimItem(MtpProg* const prog, MtpPrimItem spec) {
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_item, .of = {.item = spec}}, NULL);
@@ -779,22 +779,24 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                 case mtp_prim_cast: {
                     MtpPrimCast new_cast = (MtpPrimCast) {
                         .kind = node->of.prim.of.cast.kind,
-                        .dst_type = node->of.prim.of.cast.dst_type, // TODO
+                        .dst_type = mtpPreduceNode(ctx, node->of.prim.of.cast.dst_type),
                         .subj = mtpPreduceNode(ctx, node->of.prim.of.cast.subj),
                     };
                     if (new_cast.subj != NULL /*|| new_cast.dst_type != NULL*/)
                         ret_node = mtpUpdNodePrimCast(ctx->prog, node, new_cast);
 
                     MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+                    if (!mtpNodeIsPrimVal(chk_node->of.prim.of.cast.dst_type, mtp_type_type))
+                        ·fail(str("cast requires type-typed destination"));
                     if (chk_node->of.prim.of.cast.kind == mtp_cast_ints
-                        && ((!mtpTypeIsIntCastable(chk_node->of.prim.of.cast.dst_type))
+                        && ((!mtpTypeIsIntCastable(&chk_node->of.prim.of.cast.dst_type->of.prim.of.val.of.type))
                             || (!mtpTypeIsIntCastable(chk_node->of.prim.of.cast.subj->type))))
                         ·fail(str("intcast requires int-castable source and destination types"));
                     if (chk_node->of.prim.of.cast.kind == mtp_cast_bits
-                        && mtpTypeMinSizeInBits(ctx->prog, chk_node->of.prim.of.cast.dst_type)
+                        && mtpTypeMinSizeInBits(ctx->prog, &chk_node->of.prim.of.cast.dst_type->of.prim.of.val.of.type)
                                != mtpTypeMinSizeInBits(ctx->prog, chk_node->of.prim.of.cast.subj->type))
                         ·fail(str("bitcast requires same bit-width for source and destination type"));
-                    chk_node->type = chk_node->of.prim.of.cast.dst_type;
+                    chk_node->type = &chk_node->of.prim.of.cast.dst_type->of.prim.of.val.of.type;
                 } break;
                 case mtp_prim_cmp_i: {
                     MtpPrimCmpI new_cmpi = (MtpPrimCmpI) {.kind = node->of.prim.of.cmp_i.kind,
