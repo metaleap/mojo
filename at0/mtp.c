@@ -46,9 +46,14 @@ typedef enum MtpKindOfCast {
 } MtpKindOfCast;
 
 
+struct MtpNode;
+typedef struct MtpNode MtpNode;
+typedef ·SliceOfPtrs(MtpNode) MtpPtrsOfNode;
+typedef ·SliceOf(MtpNode) MtpNodes;
+
+
 struct MtpType;
 typedef struct MtpType MtpType;
-typedef ·SliceOfPtrs(MtpType) MtpPtrsOfType;
 
 typedef struct MtpTypeInt {
     U16 bit_width;
@@ -62,7 +67,7 @@ typedef struct MtpTypeSym {
 } MtpTypeSym;
 
 typedef struct MtpTypeTup {
-    MtpPtrsOfType types;
+    MtpPtrsOfNode types;
 } MtpTypeTup;
 
 typedef struct MtpTypePtr {
@@ -86,16 +91,12 @@ struct MtpType {
 };
 
 
-struct MtpNode;
-typedef struct MtpNode MtpNode;
-typedef ·SliceOfPtrs(MtpNode) MtpPtrsOfNode;
-
 typedef struct MtpNodeParam {
     UInt param_idx;
 } MtpNodeParam;
 
 typedef struct MtpNodeLam {
-    MtpPtrsOfNode params;
+    MtpNodes params;
     MtpNode* body;
 } MtpNodeLam;
 
@@ -223,7 +224,7 @@ Bool mtpNodeIsPrimVal(MtpNode const* const node, MtpKindOfType const kind) {
 
 Bool mtpNodeIsBasicBlockishLam(MtpNode* const node) {
     MtpType* ty = mtpNodeType(node);
-    return (ty != NULL) && ty->kind == mtp_type_lam && (ty->of.tup.types.len == 0);
+    return (ty != NULL) && (ty->kind == mtp_type_lam) && (ty->of.tup.types.len == 0);
 }
 
 
@@ -244,9 +245,10 @@ Bool mtpTypesEql(MtpType const* const t1, MtpType const* const t2) {
             case mtp_type_tup:
             case mtp_type_lam: {
                 if (t1->of.tup.types.len == t2->of.tup.types.len) {
+                    Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2);
                     if (t1->of.tup.types.at != t2->of.tup.types.at)
                         for (UInt i = 0; i < t1->of.tup.types.len; i += 1)
-                            if (!mtpTypesEql(t1->of.tup.types.at[i], t2->of.tup.types.at[i]))
+                            if (!mtpNodesEql(t1->of.tup.types.at[i], t2->of.tup.types.at[i]))
                                 return false;
                     return true;
                 }
@@ -265,7 +267,8 @@ UInt mtpTypeMinSizeInBits(MtpProg* const prog, MtpType* const type) {
         case mtp_type_tup: {
             UInt size = 0;
             for (UInt i = 0; i < type->of.tup.types.len; i += 1)
-                size += mtpTypeMinSizeInBits(prog, type->of.tup.types.at[i]);
+                if (mtpNodeIsPrimVal(type->of.tup.types.at[i], mtp_type_type))
+                    size += mtpTypeMinSizeInBits(prog, &type->of.tup.types.at[i]->of.prim.of.val.of.type);
             return size;
         } break;
         case mtp_type_type:
@@ -322,7 +325,7 @@ MtpNode* mtpTypeBool(MtpProg* const prog) {
     return mtpTypeInt(prog, (MtpTypeInt) {.bit_width = 1, .unsign = true});
 }
 MtpNode* mtpTypeLabel(MtpProg* const prog) {
-    return mtpTypeLam(prog, (MtpTypeTup) {.types = ·sliceOfPtrs(MtpType, 0, 0)});
+    return mtpTypeLam(prog, (MtpTypeTup) {.types = ·sliceOfPtrs(MtpNode, 0, 0)});
 }
 MtpNode* mtpTypeType(MtpProg* const prog) {
     return mtpType(prog, mtp_type_type, NULL);
@@ -333,8 +336,7 @@ MtpNode* mtpTypeType(MtpProg* const prog) {
 Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
     if (n1 == n2)
         return true;
-    if (n1 != NULL && n2 != NULL && n1->kind == n2->kind
-        && (n1->anns.type == NULL || n2->anns.type == NULL || mtpTypesEql(mtpNodeType(n1), mtpNodeType(n2))))
+    if (n1 != NULL && n2 != NULL && n1->kind == n2->kind && mtpTypesEql(mtpNodeType(n1), mtpNodeType(n2)))
         switch (n1->kind) {
             case mtp_node_choice: {
                 return mtpNodesEql(n1->of.choice.if0, n2->of.choice.if0) && mtpNodesEql(n1->of.choice.if1, n2->of.choice.if1)
@@ -476,29 +478,24 @@ MtpNode* mtpNodePrimValSym(MtpProg* const prog, U32 const spec) {
                        mtpTypeSym(prog));
 }
 MtpNode* mtpNodePrimValBottom(MtpProg* const prog) {
-    return prog->all.prims.at[3];
+    return prog->all.prims.at[4];
 }
 MtpNode* mtpNodePrimValBool(MtpProg* const prog, Bool const spec) {
-    return prog->all.prims.at[spec ? 1 : 2];
+    return prog->all.prims.at[spec ? 3 : 2];
 }
 
-MtpNode* mtpNodeLam(MtpProg* const prog, MtpPtrsOfType const params) {
+MtpNode* mtpNodeLam(MtpProg* const prog, MtpPtrsOfNode const params_type_nodes) {
     MtpNode* ret_node = ·new(MtpNode);
-    *ret_node = (MtpNode) {.kind = mtp_node_lam,
-                           .of = {.lam = (MtpNodeLam) {.body = NULL, .params = ·sliceOfPtrs(MtpNode, params.len, params.len)}},
-                           .anns = {
-                               .preduced = false,
-                               .type = mtpTypeLam(prog, (MtpTypeTup) {.types = {.at = params.at, .len = params.len}}),
-                           }};
-    for (UInt i = 0; i < params.len; i += 1) {
-        ret_node->of.lam.params.at[i] = ·new(MtpNode);
-        *ret_node->of.lam.params.at[i] = (MtpNode) {
+    *ret_node =
+        (MtpNode) {.kind = mtp_node_lam,
+                   .of = {.lam = (MtpNodeLam) {.body = NULL, .params = ·sliceOf(MtpNode, params_type_nodes.len, params_type_nodes.len)}},
+                   .anns = {.preduced = false, .type = mtpTypeLam(prog, (MtpTypeTup) {.types = params_type_nodes})}};
+    for (UInt i = 0; i < params_type_nodes.len; i += 1)
+        ret_node->of.lam.params.at[i] = (MtpNode) {
             .kind = mtp_node_param,
-            .tyype = params.at[i],
-            .anns = {.preduced = false, .type = NULL},
+            .anns = {.preduced = false, .type = params_type_nodes.at[i]},
             .of = {.param = (MtpNodeParam) {.param_idx = i}},
         };
-    }
     return ret_node;
 }
 
@@ -515,8 +512,7 @@ MtpProg mtpProg(UInt bit_width_ptrs, UInt const prims_capacity, UInt const choic
                                       .syms = uIntMinSize(sym_vals_total_count - 1, 1),
                                   }};
 
-    mtpNodePrimValType(&ret_prog, (MtpType) {.kind = mtp_type_type});
-    ret_prog.all.prims.at[0]->anns.type = ret_prog.all.prims.at[0];
+    mtpNodePrimValType(&ret_prog, (MtpType) {.kind = mtp_type_type})->anns.type = ret_prog.all.prims.at[0];
     mtpTypeSym(&ret_prog)->anns.type = ret_prog.all.prims.at[0];
     mtpNodePrimValInt(&ret_prog, 0)->anns.type = mtpTypeBool(&ret_prog);
     mtpNodePrimValInt(&ret_prog, 1)->anns.type = mtpTypeBool(&ret_prog);
@@ -671,7 +667,7 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
             MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
             if (!(mtpNodeIsBasicBlockishLam(chk_node->of.choice.if0) && mtpNodeIsBasicBlockishLam(chk_node->of.choice.if1)))
                 ·fail(str("choice results must both preduce to basic blocks"));
-            chk_node->tyype = chk_node->of.choice.if0->tyype;
+            chk_node->anns.type = chk_node->of.choice.if0->anns.type;
             if (is_cond_true)
                 ret_node = chk_node->of.choice.if1;
             else if (is_cond_false)
@@ -693,17 +689,17 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                 ret_node = mtpUpdNodeJump(ctx->prog, node, new_jump);
 
             MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
-            MtpType* const fn_type = chk_node->of.jump.callee->tyype;
+            MtpType* fn_type = mtpNodeType(chk_node->of.jump.callee);
             if (fn_type->kind != mtp_type_lam
                 || !(chk_node->of.jump.callee->kind == mtp_node_lam || chk_node->of.jump.callee->kind == mtp_node_param))
                 ·fail(str("not callable"));
-            if (chk_node->of.jump.callee->of.lam.params.len != chk_node->of.jump.args.len)
+            if (fn_type->of.tup.types.len != chk_node->of.jump.args.len)
                 ·fail(str4(str("callee expected "), uIntToStr(chk_node->of.jump.callee->of.lam.params.len, 1, 10),
                            str(" arg(s) but caller gave "), uIntToStr(chk_node->of.jump.args.len, 1, 10)));
             for (UInt i = 0; i < chk_node->of.jump.args.len; i += 1) {
                 MtpNode* arg = chk_node->of.jump.args.at[i];
-                MtpNode* param = chk_node->of.jump.callee->of.lam.params.at[i];
-                if (!mtpTypesEql(arg->tyype, param->tyype))
+                MtpNode* param = &chk_node->of.jump.callee->of.lam.params.at[i];
+                if (!mtpNodesEql(arg->anns.type, param->anns.type))
                     ·fail(str2(str("type mismatch for arg "), uIntToStr(i, 1, 10)));
             }
         };
@@ -722,15 +718,19 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
                     if (!mtpNodeIsPrimVal(chk_node->of.prim.of.item.index, mtp_type_int))
                         ·fail(str("expected statically-known index"));
-                    MtpType* item_type = (chk_node->of.prim.of.item.subj->tyype->kind == mtp_type_tup)
-                                             ? (chk_node->of.prim.of.item.subj->tyype->of.tup.types
-                                                    .at[chk_node->of.prim.of.item.index->of.prim.of.val.of.int_val])
-                                             : (chk_node->of.prim.of.item.subj->tyype->kind == mtp_type_arr)
-                                                   ? (chk_node->of.prim.of.item.subj->tyype->of.arr.type)
-                                                   : NULL;
+                    MtpType* subj_type = mtpNodeType(chk_node->of.prim.of.item.subj);
+                    MtpType* item_type =
+                        (subj_type->kind == mtp_type_arr)
+                            ? (subj_type->of.arr.type)
+                            : (subj_type->kind == mtp_type_tup
+                               && mtpNodeIsPrimVal(subj_type->of.tup.types.at[chk_node->of.prim.of.item.index->of.prim.of.val.of.int_val],
+                                                   mtp_type_type))
+                                  ? (&subj_type->of.tup.types.at[chk_node->of.prim.of.item.index->of.prim.of.val.of.int_val]
+                                          ->of.prim.of.val.of.type)
+                                  : NULL;
                     if (item_type == NULL)
                         ·fail(str("cannot index into this node"));
-                    if (chk_node->of.prim.of.item.set_to != NULL && !mtpTypesEql(item_type, chk_node->of.prim.of.item.set_to->tyype))
+                    if (chk_node->of.prim.of.item.set_to != NULL && !mtpTypesEql(item_type, mtpNodeType(chk_node->of.prim.of.item.set_to)))
                         ·fail(str("type mismatch for setting aggregate member"));
                     chk_node->tyype = (chk_node->of.prim.of.item.set_to == NULL) ? item_type : chk_node->of.prim.of.item.subj->tyype;
                 } break;
