@@ -185,7 +185,6 @@ typedef struct MtpProg {
         ·ListOfPtrs(MtpNode) prims;
         ·ListOfPtrs(MtpNode) choices;
         ·ListOfPtrs(MtpNode) jumps;
-        ·ListOfPtrs(MtpNode) syms;
     } all;
     struct {
         U16 ptrs;
@@ -282,7 +281,6 @@ Bool mtpTypeIsIntCastable(MtpType* type) {
 }
 
 MtpNode* mtpType(MtpProg* const prog, MtpKindOfType const kind, PtrAny const type_spec) {
-    printf("mtpType\t%d\n", kind);
     MtpType specd_type = (MtpType) {.kind = kind};
     if (kind != mtp_type_sym && kind != mtp_type_bottom && kind != mtp_type_type)
         switch (kind) {
@@ -335,7 +333,8 @@ MtpNode* mtpTypeType(MtpProg* const prog) {
 Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
     if (n1 == n2)
         return true;
-    if (n1 != NULL && n2 != NULL && n1->kind == n2->kind)
+    if (n1 != NULL && n2 != NULL && n1->kind == n2->kind
+        && (n1->anns.type == NULL || n2->anns.type == NULL || mtpTypesEql(mtpNodeType(n1), mtpNodeType(n2))))
         switch (n1->kind) {
             case mtp_node_choice: {
                 return mtpNodesEql(n1->of.choice.if0, n2->of.choice.if0) && mtpNodesEql(n1->of.choice.if1, n2->of.choice.if1)
@@ -430,11 +429,7 @@ MtpNode* mtpNodeJump(MtpProg* const prog, MtpNodeJump const spec) {
 }
 
 MtpNode* mtpNodePrim(MtpProg* const prog, MtpNodePrim const spec, MtpNode* const type) {
-    if (spec.kind == 0)
-        printf("mtpNodePrimVal\t%d\n", spec.of.val.kind);
     MtpNode const spec_node = (MtpNode) {.kind = mtp_node_prim, .of = {.prim = spec}, .anns = {.preduced = false, .type = type}};
-    if (spec.kind == mtp_prim_val && spec.of.val.kind == mtp_type_sym)
-        return prog->all.syms.at[spec.of.val.of.sym_val];
     for (UInt i = 0; i < prog->all.prims.len; i += 1) {
         MtpNode* node = prog->all.prims.at[i];
         if (mtpNodesEql(node, &spec_node))
@@ -477,7 +472,8 @@ MtpNode* mtpNodePrimValInt(MtpProg* const prog, I64 const spec) {
                        mtpTypeIntStatic(prog));
 }
 MtpNode* mtpNodePrimValSym(MtpProg* const prog, U32 const spec) {
-    return prog->all.syms.at[spec];
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.kind = mtp_type_sym, .of = {.sym_val = spec}}}},
+                       mtpTypeSym(prog));
 }
 MtpNode* mtpNodePrimValBottom(MtpProg* const prog) {
     return prog->all.prims.at[3];
@@ -510,8 +506,7 @@ MtpProg mtpProg(UInt bit_width_ptrs, UInt const prims_capacity, UInt const choic
                 U32 const sym_vals_total_count) {
     MtpProg ret_prog = (MtpProg) {.all =
                                       {
-                                          .syms = ·listOfPtrs(MtpNode, sym_vals_total_count, sym_vals_total_count),
-                                          .prims = ·listOfPtrs(MtpNode, 0, prims_capacity),
+                                          .prims = ·listOfPtrs(MtpNode, 0, prims_capacity + sym_vals_total_count),
                                           .choices = ·listOfPtrs(MtpNode, 0, choices_capacity),
                                           .jumps = ·listOfPtrs(MtpNode, 0, jumps_capacity),
                                       },
@@ -522,21 +517,12 @@ MtpProg mtpProg(UInt bit_width_ptrs, UInt const prims_capacity, UInt const choic
 
     mtpNodePrimValType(&ret_prog, (MtpType) {.kind = mtp_type_type});
     ret_prog.all.prims.at[0]->anns.type = ret_prog.all.prims.at[0];
+    mtpTypeSym(&ret_prog)->anns.type = ret_prog.all.prims.at[0];
     mtpNodePrimValInt(&ret_prog, 0)->anns.type = mtpTypeBool(&ret_prog);
     mtpNodePrimValInt(&ret_prog, 1)->anns.type = mtpTypeBool(&ret_prog);
     mtpNodePrimValInt(&ret_prog, -1)->anns.type = mtpTypeBottom(&ret_prog);
     mtpNodePrimValInt(&ret_prog, 0);
     mtpNodePrimValInt(&ret_prog, 1);
-
-    for (UInt i = 0; i < sym_vals_total_count; i += 1) {
-        ret_prog.all.syms.at[i] = ·new(MtpNode);
-        *ret_prog.all.syms.at[i] = (MtpNode) {.kind = mtp_node_prim,
-                                              .anns = {.preduced = false, .type = mtpTypeSym(&ret_prog)},
-                                              .of = {.prim = (MtpNodePrim) {
-                                                         .kind = mtp_prim_val,
-                                                         .of = {.val = (MtpPrimVal) {.kind = mtp_type_sym, .of = {.sym_val = i}}},
-                                                     }}};
-    }
     return ret_prog;
 }
 
