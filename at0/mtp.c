@@ -165,7 +165,6 @@ typedef struct MtpNodePrim {
 } MtpNodePrim;
 
 struct MtpNode {
-    MtpType* tyype;
     union {
         MtpNodeLam lam;
         MtpNodeParam param;
@@ -765,15 +764,16 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
                     if (!mtpNodeIsPrimVal(chk_node->of.prim.of.cast.dst_type, mtp_type_type))
                         ·fail(str("cast requires type-typed destination"));
+                    MtpType* const subj_type = mtpNodeType(chk_node->of.prim.of.cast.subj);
                     if (chk_node->of.prim.of.cast.kind == mtp_cast_ints
                         && ((!mtpTypeIsIntCastable(&chk_node->of.prim.of.cast.dst_type->of.prim.of.val.of.type))
-                            || (!mtpTypeIsIntCastable(chk_node->of.prim.of.cast.subj->tyype))))
+                            || (!mtpTypeIsIntCastable(subj_type))))
                         ·fail(str("intcast requires int-castable source and destination types"));
                     if (chk_node->of.prim.of.cast.kind == mtp_cast_bits
                         && mtpTypeMinSizeInBits(ctx->prog, &chk_node->of.prim.of.cast.dst_type->of.prim.of.val.of.type)
-                               != mtpTypeMinSizeInBits(ctx->prog, chk_node->of.prim.of.cast.subj->tyype))
+                               != mtpTypeMinSizeInBits(ctx->prog, subj_type))
                         ·fail(str("bitcast requires same bit-width for source and destination type"));
-                    chk_node->tyype = &chk_node->of.prim.of.cast.dst_type->of.prim.of.val.of.type;
+                    chk_node->anns.type = chk_node->of.prim.of.cast.dst_type;
                 } break;
                 case mtp_prim_cmp_i: {
                     MtpPrimCmpI new_cmpi = (MtpPrimCmpI) {.kind = node->of.prim.of.cmp_i.kind,
@@ -783,13 +783,16 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                         ret_node = mtpUpdNodePrimCmpI(ctx->prog, node, new_cmpi);
 
                     MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+                    MtpType* lhs_type = mtpNodeType(chk_node->of.prim.of.cmp_i.lhs);
+                    MtpType* rhs_type = mtpNodeType(chk_node->of.prim.of.cmp_i.lhs);
                     Bool ok =
-                        mtpTypesEql(chk_node->of.prim.of.cmp_i.lhs->tyype, chk_node->of.prim.of.cmp_i.rhs->tyype)
-                        && (chk_node->of.prim.of.cmp_i.lhs->tyype->kind == mtp_type_int
-                            || (chk_node->of.prim.of.cmp_i.lhs->tyype->kind == mtp_type_sym
+                        lhs_type != NULL && rhs_type != NULL && mtpTypesEql(lhs_type, rhs_type)
+                        && (lhs_type->kind == mtp_type_int
+                            || (lhs_type->kind == mtp_type_sym
                                 && (chk_node->of.prim.of.cmp_i.kind == mtp_cmp_i_eq || chk_node->of.prim.of.cmp_i.kind == mtp_cmp_i_neq)));
                     if (!ok)
                         ·fail(str("invalid operand type(s) for int comparison operation"));
+                    chk_node->anns.type = mtpTypeBool(ctx->prog);
                 } break;
                 case mtp_prim_bin_i: {
                     MtpPrimBinI new_bini = (MtpPrimBinI) {.kind = node->of.prim.of.bin_i.kind,
@@ -799,24 +802,23 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                         ret_node = mtpUpdNodePrimBinI(ctx->prog, node, new_bini);
 
                     MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
-                    if (chk_node->of.prim.of.bin_i.lhs->tyype->kind != mtp_type_int
-                        || chk_node->of.prim.of.bin_i.rhs->tyype->kind != mtp_type_int
-                        || !mtpTypesEql(chk_node->of.prim.of.bin_i.lhs->tyype, chk_node->of.prim.of.bin_i.rhs->tyype))
+                    MtpType* lhs_type = mtpNodeType(chk_node->of.prim.of.cmp_i.lhs);
+                    MtpType* rhs_type = mtpNodeType(chk_node->of.prim.of.cmp_i.lhs);
+                    if (lhs_type == NULL || rhs_type == NULL || (!mtpTypesEql(lhs_type, rhs_type)) || lhs_type->kind != mtp_type_int)
                         ·fail(str("invalid operand type(s) for int binary operation"));
-                    chk_node->tyype = chk_node->of.prim.of.bin_i.lhs->tyype;
+                    chk_node->anns.type = chk_node->of.prim.of.cmp_i.lhs->anns.type;
                 } break;
                 case mtp_prim_val:
-                    if (node->tyype->kind == mtp_type_arr) {
-                        MtpPtrsOfNode new_args = ·sliceOfPtrs(MtpNode, node->of.prim.of.val.of.list_val.len, 0);
+                    if (node->of.prim.of.val.kind == mtp_type_arr || node->of.prim.of.val.kind == mtp_type_tup) {
+                        MtpPtrsOfNode new_list = ·sliceOfPtrs(MtpNode, node->of.prim.of.val.of.list_val.len, 0);
                         Bool all_null = true;
-                        for (UInt i = 0; i < new_args.len; i += 1) {
-                            new_args.at[i] = mtpPreduceNode(ctx, node->of.prim.of.val.of.list_val.at[i]);
-                            if (new_args.at[i] != NULL)
+                        for (UInt i = 0; i < new_list.len; i += 1) {
+                            new_list.at[i] = mtpPreduceNode(ctx, node->of.prim.of.val.of.list_val.at[i]);
+                            if (new_list.at[i] != NULL)
                                 all_null = false;
                         }
-                        // TODO: type-infer / type-check here (arr vs tup etc)
                         if (!all_null)
-                            ret_node = mtpUpdNodePrimValList(ctx->prog, node, new_args);
+                            ret_node = mtpUpdNodePrimValList(ctx->prog, node, new_list);
                     }
                 default: break;
             }
