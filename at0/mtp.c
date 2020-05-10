@@ -782,7 +782,7 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                         .dst_type = mtpPreduceNode(ctx, node->of.prim.of.cast.dst_type),
                         .subj = mtpPreduceNode(ctx, node->of.prim.of.cast.subj),
                     };
-                    if (new_cast.subj != NULL /*|| new_cast.dst_type != NULL*/)
+                    if (new_cast.subj != NULL || new_cast.dst_type != NULL)
                         ret_node = mtpUpdNodePrimCast(ctx->prog, node, new_cast);
 
                     MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
