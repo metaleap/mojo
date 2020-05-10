@@ -110,12 +110,16 @@ typedef struct MtpNodeJump {
     MtpPtrsOfNode args;
 } MtpNodeJump;
 
-typedef union MtpPrimVal {
-    I64 int_val;
-    U32 sym_val;
-    MtpType* type_val;
-    struct {
-    } bottom;
+typedef struct MtpPrimVal {
+    union {
+        I64 int_val;
+        U32 sym_val;
+        // MtpType* type_val;
+        MtpPtrsOfNode list_val;
+        struct {
+        } bottom;
+    } of;
+    MtpKindOfType kind;
 } MtpPrimVal;
 
 typedef struct MtpPrimCmpI {
@@ -143,7 +147,7 @@ typedef struct MtpPrimItem {
 } MtpPrimItem;
 
 typedef struct MtpPrimExtCall {
-    MtpType* params_types; // must be tup kind (MtpTypeTup)
+    MtpNode* args_list_val;
     Str name;
 } MtpPrimExtCall;
 
@@ -211,14 +215,6 @@ Bool mtpPrimIsDistributive(MtpKindOfPrim const prim_kind, int const op_kind1, in
 
 Bool mtpNodeIsPrimVal(MtpNode const* const node) {
     return node->kind == mtp_node_prim && node->of.prim.kind == mtp_prim_val;
-}
-
-Bool mtpNodeIsPrimValInt(MtpNode* const node) {
-    return node->type->kind == mtp_type_int && mtpNodeIsPrimVal(node);
-}
-
-Bool mtpNodeIsPrimValSym(MtpNode* const node) {
-    return node->type->kind == mtp_type_sym && mtpNodeIsPrimVal(node);
 }
 
 Bool mtpNodeIsBasicBlockishLam(MtpNode* const node) {
@@ -354,10 +350,20 @@ Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
             case mtp_node_prim: {
                 if (n1->of.prim.kind == n2->of.prim.kind)
                     switch (n1->of.prim.kind) {
-                        case mtp_prim_val:
-                            return (n1->type->kind == mtp_type_bottom)
-                                   || (n1->type->kind == mtp_type_int && n1->of.prim.of.val.int_val == n2->of.prim.of.val.int_val)
-                                   || (n1->type->kind == mtp_type_sym && n1->of.prim.of.val.sym_val == n2->of.prim.of.val.sym_val);
+                        case mtp_prim_val: {
+                            MtpPrimVal const* const v1 = &n1->of.prim.of.val;
+                            MtpPrimVal const* const v2 = &n2->of.prim.of.val;
+                            if (v1->kind != v2->kind)
+                                break;
+                            if ((v1->kind == mtp_type_arr || v1->kind == mtp_type_tup) && (v1->of.list_val.len == v2->of.list_val.len)) {
+                                for (UInt i = 0; i < v1->of.list_val.len; i += 1)
+                                    if (!mtpNodesEql(v1->of.list_val.at[i], v2->of.list_val.at[1]))
+                                        return false;
+                                return true;
+                            }
+                            return (n1->type->kind == mtp_type_bottom) || (n1->type->kind == mtp_type_int && v1->of.int_val == v2->of.int_val)
+                                   || (n1->type->kind == mtp_type_sym && v1->of.sym_val == v2->of.sym_val);
+                        } break;
                         case mtp_prim_item:
                             return n1->of.prim.of.item.index == n2->of.prim.of.item.index
                                    && mtpNodesEql(n1->of.prim.of.item.set_to, n2->of.prim.of.item.set_to)
@@ -375,7 +381,7 @@ Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
                                    && (mtpNodesEql(n1->of.prim.of.cmp_i.lhs, n2->of.prim.of.cmp_i.lhs)
                                        && mtpNodesEql(n1->of.prim.of.cmp_i.rhs, n2->of.prim.of.cmp_i.rhs));
                         case mtp_prim_extcall:
-                            return mtpTypesEql(n1->of.prim.of.ext_call.params_types, n2->of.prim.of.ext_call.params_types)
+                            return mtpNodesEql(n1->of.prim.of.ext_call.args_list_val, n2->of.prim.of.ext_call.args_list_val)
                                    && strEql(n1->of.prim.of.ext_call.name, n2->of.prim.of.ext_call.name);
                         default: ·fail(uIntToStr(n1->of.prim.kind, 1, 10));
                     }
@@ -420,8 +426,8 @@ MtpNode* mtpNodeJump(MtpProg* const prog, MtpNodeJump const spec) {
 
 MtpNode* mtpNodePrim(MtpProg* const prog, MtpNodePrim const spec, MtpType* const type) {
     MtpNode const spec_node = (MtpNode) {.kind = mtp_node_prim, .type = type, .of = {.prim = spec}, .anns = {.preduced = false}};
-    if (spec.kind == mtp_prim_val && type != NULL && type->kind == mtp_type_sym)
-        return prog->all.syms.at[spec.of.val.sym_val];
+    if (spec.kind == mtp_prim_val && spec.of.val.kind == mtp_type_sym)
+        return prog->all.syms.at[spec.of.val.of.sym_val];
     for (UInt i = 0; i < prog->all.prims.len; i += 1) {
         MtpNode* node = prog->all.prims.at[i];
         if (mtpNodesEql(node, &spec_node))
@@ -448,8 +454,16 @@ MtpNode* mtpNodePrimCmpI(MtpProg* const prog, MtpPrimCmpI spec) {
 MtpNode* mtpNodePrimBinI(MtpProg* const prog, MtpPrimBinI spec) {
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_bin_i, .of = {.bin_i = spec}}, NULL);
 }
+MtpNode* mtpNodePrimValArr(MtpProg* const prog, MtpPtrsOfNode const items) {
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.kind = mtp_type_arr, .of = {.list_val = items}}}},
+                       mtpTypeArr(prog, (MtpTypeArr) {.type = NULL, .length = items.len}));
+}
+MtpNode* mtpNodePrimValTup(MtpProg* const prog, MtpPtrsOfNode const items) {
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.kind = mtp_type_tup, .of = {.list_val = items}}}}, NULL);
+}
 MtpNode* mtpNodePrimValInt(MtpProg* const prog, I64 const int_val) {
-    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.int_val = int_val}}}, mtpTypeIntStatic(prog));
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.kind = mtp_type_int, .of = {.int_val = int_val}}}},
+                       mtpTypeIntStatic(prog));
 }
 MtpNode* mtpNodePrimValSym(MtpProg* const prog, U32 const sym_val) {
     return prog->all.syms.at[sym_val];
@@ -524,7 +538,7 @@ MtpProg mtpProg(UInt bit_width_ptrs, UInt const lams_capacity, UInt const types_
                                               .anns = {.preduced = false},
                                               .of = {.prim = (MtpNodePrim) {
                                                          .kind = mtp_prim_val,
-                                                         .of = {.val = (MtpPrimVal) {.sym_val = i}},
+                                                         .of = {.val = (MtpPrimVal) {.kind = mtp_type_sym, .of = {.sym_val = i}}},
                                                      }}};
     }
     return ret_prog;
@@ -552,50 +566,52 @@ MtpNode* mtpUpdNodeChoice(MtpProg* const prog, MtpNode* const node, MtpNodeChoic
     return mtpNodeChoice(prog, upd);
 }
 
+MtpPtrsOfNode mtpUpdPtrsOfNodeSlice(MtpProg* const prog, MtpPtrsOfNode const nodes, MtpPtrsOfNode upd) {
+    if (upd.at != NULL && (upd.at != nodes.at || upd.len != nodes.len)) {
+        Bool all_null = true;
+        for (UInt i = 0; i < upd.len; i += 1)
+            if (upd.at[i] != NULL)
+                all_null = false;
+            else if (i < nodes.len)
+                upd.at[i] = nodes.at[i];
+            else
+                ·fail(str("BUG: tried to grow MtpPtrsOfNode with NULLs"));
+        if (all_null)
+            upd.at = nodes.at;
+    }
+    return (upd.at == NULL || (upd.at == nodes.at && upd.len == nodes.len)) ? nodes : upd;
+}
+
 MtpNode* mtpUpdNodeJump(MtpProg* const prog, MtpNode* const node, MtpNodeJump upd) {
     if (upd.callee == NULL)
         upd.callee = node->of.jump.callee;
-    if (upd.args.at == NULL)
-        upd.args = node->of.jump.args;
-    else if (upd.args.at != node->of.jump.args.at) {
-        Bool all_null = true;
-        for (UInt i = 0; i < upd.args.len; i += 1)
-            if (upd.args.at[i] == NULL)
-                upd.args.at[i] = node->of.jump.args.at[i];
-            else
-                all_null = false;
-        if (all_null) {
-            UInt const len = upd.args.len;
-            upd.args = node->of.jump.args;
-            upd.args.len = len;
-        }
-    }
+    upd.args = mtpUpdPtrsOfNodeSlice(prog, node->of.jump.args, upd.args);
     if (upd.callee == node->of.jump.callee && upd.args.at == node->of.jump.args.at && upd.args.len == node->of.jump.args.len)
         return node;
     return mtpNodeJump(prog, upd);
 }
 
 MtpNode* mtpUpdNodePrimExtCall(MtpProg* const prog, MtpNode* const node, MtpPrimExtCall upd) {
-    MtpTypeTup* tupd = &upd.params_types->of.tup;
-    MtpTypeTup* tsrc = &node->of.prim.of.ext_call.params_types->of.tup;
-    if (tupd->types.at == NULL)
-        tupd->types = tsrc->types;
-    else if (tupd->types.at != tsrc->types.at) {
-        Bool all_null = true;
-        for (UInt i = 0; i < tupd->types.len; i += 1)
-            if (tupd->types.at[i] == NULL)
-                tupd->types.at[i] = tsrc->types.at[i];
-            else
-                all_null = false;
-        if (all_null) {
-            UInt len = tupd->types.len;
-            tupd->types = tsrc->types;
-            tupd->types.len = len;
-        }
-    }
-    if (tupd->types.at == tsrc->types.at && tupd->types.len == tsrc->types.len)
-        return node;
-    return mtpNodePrimExtCall(prog, upd, node->type);
+    // MtpTypeTup* tupd = &upd.params_types->of.tup;
+    // MtpTypeTup* tsrc = &node->of.prim.of.ext_call.params_types->of.tup;
+    // if (tupd->types.at == NULL)
+    //     tupd->types = tsrc->types;
+    // else if (tupd->types.at != tsrc->types.at) {
+    //     Bool all_null = true;
+    //     for (UInt i = 0; i < tupd->types.len; i += 1)
+    //         if (tupd->types.at[i] == NULL)
+    //             tupd->types.at[i] = tsrc->types.at[i];
+    //         else
+    //             all_null = false;
+    //     if (all_null) {
+    //         UInt len = tupd->types.len;
+    //         tupd->types = tsrc->types;
+    //         tupd->types.len = len;
+    //     }
+    // }
+    // if (tupd->types.at == tsrc->types.at && tupd->types.len == tsrc->types.len)
+    return node;
+    // return mtpNodePrimExtCall(prog, upd, node->type);
 }
 
 MtpNode* mtpUpdNodePrimItem(MtpProg* const prog, MtpNode* const node, MtpPrimItem upd) {
@@ -661,24 +677,29 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
         } break;
 
         case mtp_node_choice: {
-            MtpNodeChoice new_choice = (MtpNodeChoice) {
-                .cond = mtpPreduceNode(ctx, node->of.choice.cond),
-                .if0 = mtpPreduceNode(ctx, node->of.choice.if0),
-                .if1 = mtpPreduceNode(ctx, node->of.choice.if1),
-            };
+            MtpNodeChoice new_choice = (MtpNodeChoice) {.if0 = NULL, .if1 = NULL, .cond = mtpPreduceNode(ctx, node->of.choice.cond)};
+            if (!mtpTypesEql(new_choice.cond->type, mtpTypeBool(ctx->prog)))
+                ·fail(str("choice condition isn't boolish"));
+            Bool const is_cond_true =
+                mtpNodesEql((new_choice.cond != NULL) ? new_choice.cond : node->of.choice.cond, mtpNodePrimValBoolTrue(ctx->prog));
+            Bool const is_cond_false =
+                mtpNodesEql((new_choice.cond != NULL) ? new_choice.cond : node->of.choice.cond, mtpNodePrimValBoolFalse(ctx->prog));
+            Bool const is_cond_static = is_cond_true || is_cond_false;
+            if (is_cond_false || !is_cond_static)
+                new_choice.if0 = mtpPreduceNode(ctx, node->of.choice.if0);
+            if (is_cond_true || !is_cond_static)
+                new_choice.if1 = mtpPreduceNode(ctx, node->of.choice.if1);
             if (new_choice.cond != NULL || new_choice.if0 != NULL || new_choice.if1 != 0)
                 ret_node = mtpUpdNodeChoice(ctx->prog, node, new_choice);
 
-            MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
-            if (!mtpTypesEql(val_node->of.choice.cond->type, mtpTypeBool(ctx->prog)))
-                ·fail(str("choice condition isn't boolish"));
-            if (!(mtpNodeIsBasicBlockishLam(val_node->of.choice.if0) && mtpNodeIsBasicBlockishLam(val_node->of.choice.if1)))
+            MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+            if (!(mtpNodeIsBasicBlockishLam(chk_node->of.choice.if0) && mtpNodeIsBasicBlockishLam(chk_node->of.choice.if1)))
                 ·fail(str("choice results must both preduce to basic blocks"));
-            val_node->type = val_node->of.choice.if0->type;
-            if (mtpNodesEql(val_node->of.choice.cond, mtpNodePrimValBoolTrue(ctx->prog)))
-                ret_node = val_node->of.choice.if1;
-            else if (mtpNodesEql(val_node->of.choice.cond, mtpNodePrimValBoolFalse(ctx->prog)))
-                ret_node = val_node->of.choice.if0;
+            chk_node->type = chk_node->of.choice.if0->type;
+            if (is_cond_true)
+                ret_node = chk_node->of.choice.if1;
+            else if (is_cond_false)
+                ret_node = chk_node->of.choice.if0;
         } break;
 
         case mtp_node_jump: {
@@ -695,17 +716,17 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
             if (new_jump.callee != NULL || args_change)
                 ret_node = mtpUpdNodeJump(ctx->prog, node, new_jump);
 
-            MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
-            MtpType* const fn_type = val_node->of.jump.callee->type;
+            MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+            MtpType* const fn_type = chk_node->of.jump.callee->type;
             if (fn_type->kind != mtp_type_lam
-                || !(val_node->of.jump.callee->kind == mtp_node_lam || val_node->of.jump.callee->kind == mtp_node_param))
+                || !(chk_node->of.jump.callee->kind == mtp_node_lam || chk_node->of.jump.callee->kind == mtp_node_param))
                 ·fail(str("not callable"));
-            if (val_node->of.jump.callee->of.lam.params.len != val_node->of.jump.args.len)
-                ·fail(str4(str("callee expected "), uIntToStr(val_node->of.jump.callee->of.lam.params.len, 1, 10),
-                           str(" arg(s) but caller gave "), uIntToStr(val_node->of.jump.args.len, 1, 10)));
-            for (UInt i = 0; i < val_node->of.jump.args.len; i += 1) {
-                MtpNode* arg = val_node->of.jump.args.at[i];
-                MtpNode* param = val_node->of.jump.callee->of.lam.params.at[i];
+            if (chk_node->of.jump.callee->of.lam.params.len != chk_node->of.jump.args.len)
+                ·fail(str4(str("callee expected "), uIntToStr(chk_node->of.jump.callee->of.lam.params.len, 1, 10),
+                           str(" arg(s) but caller gave "), uIntToStr(chk_node->of.jump.args.len, 1, 10)));
+            for (UInt i = 0; i < chk_node->of.jump.args.len; i += 1) {
+                MtpNode* arg = chk_node->of.jump.args.at[i];
+                MtpNode* param = chk_node->of.jump.callee->of.lam.params.at[i];
                 if (!mtpTypesEql(arg->type, param->type))
                     ·fail(str2(str("type mismatch for arg "), uIntToStr(i, 1, 10)));
             }
@@ -722,29 +743,30 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     if (new_item.subj != NULL || new_item.index != NULL || new_item.set_to != NULL)
                         ret_node = mtpUpdNodePrimItem(ctx->prog, node, new_item);
 
-                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
-                    MtpType* item_type =
-                        (val_node->of.prim.of.item.subj->type->kind == mtp_type_tup)
-                            ? (val_node->of.prim.of.item.subj->type->of.tup.types.at[val_node->of.prim.of.item.index->of.prim.of.val.int_val])
-                            : (val_node->of.prim.of.item.subj->type->kind == mtp_type_arr)
-                                  ? (val_node->of.prim.of.item.subj->type->of.arr.type)
-                                  : NULL;
-                    if (val_node->of.prim.of.item.index->type->kind != mtp_type_int || !mtpNodeIsPrimVal(val_node->of.prim.of.item.index))
+                    MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+                    if ((!mtpNodeIsPrimVal(chk_node->of.prim.of.item.index))
+                        || chk_node->of.prim.of.item.index->of.prim.of.val.kind != mtp_type_int)
                         ·fail(str("expected statically-known index"));
+                    MtpType* item_type = (chk_node->of.prim.of.item.subj->type->kind == mtp_type_tup)
+                                             ? (chk_node->of.prim.of.item.subj->type->of.tup.types
+                                                    .at[chk_node->of.prim.of.item.index->of.prim.of.val.of.int_val])
+                                             : (chk_node->of.prim.of.item.subj->type->kind == mtp_type_arr)
+                                                   ? (chk_node->of.prim.of.item.subj->type->of.arr.type)
+                                                   : NULL;
                     if (item_type == NULL)
                         ·fail(str("cannot index into this node"));
-                    if (val_node->of.prim.of.item.set_to != NULL && !mtpTypesEql(item_type, val_node->of.prim.of.item.set_to->type))
+                    if (chk_node->of.prim.of.item.set_to != NULL && !mtpTypesEql(item_type, chk_node->of.prim.of.item.set_to->type))
                         ·fail(str("type mismatch for setting aggregate member"));
-                    val_node->type = (val_node->of.prim.of.item.set_to == NULL) ? item_type : val_node->of.prim.of.item.subj->type;
+                    chk_node->type = (chk_node->of.prim.of.item.set_to == NULL) ? item_type : chk_node->of.prim.of.item.subj->type;
                 } break;
                 case mtp_prim_extcall: {
                     // TODO
 
-                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
-                    if (val_node->of.prim.of.ext_call.params_types->kind != mtp_type_tup)
-                        ·fail(str("specified illegal MtpPrimExtCall.params_types"));
-                    if (val_node->of.prim.of.ext_call.name.at == NULL || val_node->of.prim.of.ext_call.name.len == 0)
-                        ·fail(str("specified illegal MtpPrimExtCall.name"));
+                    // MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+                    // if (chk_node->of.prim.of.ext_call.params_types->kind != mtp_type_tup)
+                    //     ·fail(str("specified illegal MtpPrimExtCall.params_types"));
+                    // if (chk_node->of.prim.of.ext_call.name.at == NULL || chk_node->of.prim.of.ext_call.name.len == 0)
+                    //     ·fail(str("specified illegal MtpPrimExtCall.name"));
                 } break;
                 case mtp_prim_cast: {
                     MtpPrimCast new_cast = (MtpPrimCast) {
@@ -755,16 +777,16 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     if (new_cast.subj != NULL /*|| new_cast.dst_type != NULL*/)
                         ret_node = mtpUpdNodePrimCast(ctx->prog, node, new_cast);
 
-                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
-                    if (val_node->of.prim.of.cast.kind == mtp_cast_ints
-                        && ((!mtpTypeIsIntCastable(val_node->of.prim.of.cast.dst_type))
-                            || (!mtpTypeIsIntCastable(val_node->of.prim.of.cast.subj->type))))
+                    MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+                    if (chk_node->of.prim.of.cast.kind == mtp_cast_ints
+                        && ((!mtpTypeIsIntCastable(chk_node->of.prim.of.cast.dst_type))
+                            || (!mtpTypeIsIntCastable(chk_node->of.prim.of.cast.subj->type))))
                         ·fail(str("intcast requires int-castable source and destination types"));
-                    if (val_node->of.prim.of.cast.kind == mtp_cast_bits
-                        && mtpTypeMinSizeInBits(ctx->prog, val_node->of.prim.of.cast.dst_type)
-                               != mtpTypeMinSizeInBits(ctx->prog, val_node->of.prim.of.cast.subj->type))
+                    if (chk_node->of.prim.of.cast.kind == mtp_cast_bits
+                        && mtpTypeMinSizeInBits(ctx->prog, chk_node->of.prim.of.cast.dst_type)
+                               != mtpTypeMinSizeInBits(ctx->prog, chk_node->of.prim.of.cast.subj->type))
                         ·fail(str("bitcast requires same bit-width for source and destination type"));
-                    val_node->type = val_node->of.prim.of.cast.dst_type;
+                    chk_node->type = chk_node->of.prim.of.cast.dst_type;
                 } break;
                 case mtp_prim_cmp_i: {
                     MtpPrimCmpI new_cmpi = (MtpPrimCmpI) {.kind = node->of.prim.of.cmp_i.kind,
@@ -773,12 +795,12 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     if (new_cmpi.lhs != NULL || new_cmpi.rhs != NULL)
                         ret_node = mtpUpdNodePrimCmpI(ctx->prog, node, new_cmpi);
 
-                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
+                    MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
                     Bool ok =
-                        mtpTypesEql(val_node->of.prim.of.cmp_i.lhs->type, val_node->of.prim.of.cmp_i.rhs->type)
-                        && (val_node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_int
-                            || (val_node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_sym
-                                && (val_node->of.prim.of.cmp_i.kind == mtp_cmp_i_eq || val_node->of.prim.of.cmp_i.kind == mtp_cmp_i_neq)));
+                        mtpTypesEql(chk_node->of.prim.of.cmp_i.lhs->type, chk_node->of.prim.of.cmp_i.rhs->type)
+                        && (chk_node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_int
+                            || (chk_node->of.prim.of.cmp_i.lhs->type->kind == mtp_type_sym
+                                && (chk_node->of.prim.of.cmp_i.kind == mtp_cmp_i_eq || chk_node->of.prim.of.cmp_i.kind == mtp_cmp_i_neq)));
                     if (!ok)
                         ·fail(str("invalid operand type(s) for int comparison operation"));
                 } break;
@@ -789,13 +811,17 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     if (new_bini.lhs != NULL || new_bini.rhs != NULL)
                         ret_node = mtpUpdNodePrimBinI(ctx->prog, node, new_bini);
 
-                    MtpNode* val_node = (ret_node == NULL) ? node : ret_node;
-                    if (val_node->of.prim.of.bin_i.lhs->type->kind != mtp_type_int
-                        || val_node->of.prim.of.bin_i.rhs->type->kind != mtp_type_int
-                        || !mtpTypesEql(val_node->of.prim.of.bin_i.lhs->type, val_node->of.prim.of.bin_i.rhs->type))
+                    MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+                    if (chk_node->of.prim.of.bin_i.lhs->type->kind != mtp_type_int
+                        || chk_node->of.prim.of.bin_i.rhs->type->kind != mtp_type_int
+                        || !mtpTypesEql(chk_node->of.prim.of.bin_i.lhs->type, chk_node->of.prim.of.bin_i.rhs->type))
                         ·fail(str("invalid operand type(s) for int binary operation"));
-                    val_node->type = val_node->of.prim.of.bin_i.lhs->type;
+                    chk_node->type = chk_node->of.prim.of.bin_i.lhs->type;
                 } break;
+                // case mtp_prim_val:
+                //     if (node->type->kind == mtp_type_arr) {
+                //     }
+                //     break;
                 default: break;
             }
         } break;
