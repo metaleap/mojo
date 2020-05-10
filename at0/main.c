@@ -22,9 +22,8 @@ int main(int const argc, CStr const argv[]) {
 }
 
 int main_MiniThorinProto(int const argc, CStr const argv[]) {
-    MtpProg prog = mtpProg(64, 8, 8, 8, 8, 8, 8, 8);
-    mtpPreduceProg(&prog);
-    return 0;
+    MtpProg prog = mtpProg(64, 16, 16, 16, 16);
+    return prog.all.prims.len;
 }
 
 int main_AstAndIrHL(int const argc, CStr const argv[]) {
