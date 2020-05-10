@@ -22,12 +22,12 @@ typedef enum MtpKindOfNode {
 } MtpKindOfNode;
 
 typedef enum MtpKindOfPrim {
-    mtp_prim_val,
     mtp_prim_cmp_i,
     mtp_prim_bin_i,
     mtp_prim_cast,
     mtp_prim_item,
     mtp_prim_extcall,
+    mtp_prim_val,
 } MtpKindOfPrim;
 
 typedef enum MtpKindOfCmpI {
