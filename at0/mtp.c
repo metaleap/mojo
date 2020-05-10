@@ -71,11 +71,11 @@ typedef struct MtpTypeTup {
 } MtpTypeTup;
 
 typedef struct MtpTypePtr {
-    MtpType* type;
+    MtpNode* type;
 } MtpTypePtr;
 
 typedef struct MtpTypeArr {
-    MtpType* type;
+    MtpNode* type;
     UInt length;
 } MtpTypeArr;
 
@@ -231,6 +231,7 @@ Bool mtpNodeIsBasicBlockishLam(MtpNode* const node) {
 
 
 Bool mtpTypesEql(MtpType const* const t1, MtpType const* const t2) {
+    Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2);
     if (t1 == t2)
         return true;
     if (t1 != NULL & t2 != NULL && t1->kind == t2->kind)
@@ -238,14 +239,13 @@ Bool mtpTypesEql(MtpType const* const t1, MtpType const* const t2) {
             case mtp_type_sym:
             case mtp_type_bottom:
             case mtp_type_type: return true;
-            case mtp_type_ptr: return mtpTypesEql(t1->of.ptr.type, t2->of.ptr.type);
-            case mtp_type_arr: return (t1->of.arr.length == t2->of.arr.length) && mtpTypesEql(t1->of.arr.type, t2->of.arr.type);
+            case mtp_type_ptr: return mtpNodesEql(t1->of.ptr.type, t2->of.ptr.type);
+            case mtp_type_arr: return (t1->of.arr.length == t2->of.arr.length) && mtpNodesEql(t1->of.arr.type, t2->of.arr.type);
             case mtp_type_int:
                 return (t1->of.num_int.unsign == t2->of.num_int.unsign) && (t1->of.num_int.bit_width == t2->of.num_int.bit_width);
             case mtp_type_tup:
             case mtp_type_lam: {
                 if (t1->of.tup.types.len == t2->of.tup.types.len) {
-                    Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2);
                     if (t1->of.tup.types.at != t2->of.tup.types.at)
                         for (UInt i = 0; i < t1->of.tup.types.len; i += 1)
                             if (!mtpNodesEql(t1->of.tup.types.at[i], t2->of.tup.types.at[i]))
@@ -263,12 +263,18 @@ UInt mtpTypeMinSizeInBits(MtpProg* const prog, MtpType* const type) {
         case mtp_type_ptr: return prog->bit_widths.ptrs;
         case mtp_type_sym: return prog->bit_widths.syms;
         case mtp_type_int: return type->of.num_int.bit_width;
-        case mtp_type_arr: return type->of.arr.length * mtpTypeMinSizeInBits(prog, type->of.arr.type);
+        case mtp_type_arr:
+            if (mtpNodeIsPrimVal(type->of.arr.type, mtp_type_type))
+                return type->of.arr.length * mtpTypeMinSizeInBits(prog, &type->of.arr.type->of.prim.of.val.of.type);
+            else
+                ·fail(str("arrays must be of of sized payload types"));
         case mtp_type_tup: {
             UInt size = 0;
             for (UInt i = 0; i < type->of.tup.types.len; i += 1)
                 if (mtpNodeIsPrimVal(type->of.tup.types.at[i], mtp_type_type))
                     size += mtpTypeMinSizeInBits(prog, &type->of.tup.types.at[i]->of.prim.of.val.of.type);
+                else
+                    ·fail(str("tuple fields must be of sized types"));
             return size;
         } break;
         case mtp_type_type:
@@ -719,20 +725,15 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     if (!mtpNodeIsPrimVal(chk_node->of.prim.of.item.index, mtp_type_int))
                         ·fail(str("expected statically-known index"));
                     MtpType* subj_type = mtpNodeType(chk_node->of.prim.of.item.subj);
-                    MtpType* item_type =
-                        (subj_type->kind == mtp_type_arr)
-                            ? (subj_type->of.arr.type)
-                            : (subj_type->kind == mtp_type_tup
-                               && mtpNodeIsPrimVal(subj_type->of.tup.types.at[chk_node->of.prim.of.item.index->of.prim.of.val.of.int_val],
-                                                   mtp_type_type))
-                                  ? (&subj_type->of.tup.types.at[chk_node->of.prim.of.item.index->of.prim.of.val.of.int_val]
-                                          ->of.prim.of.val.of.type)
-                                  : NULL;
-                    if (item_type == NULL)
-                        ·fail(str("cannot index into this node"));
+                    MtpNode* node_type = (subj_type->kind == mtp_type_tup)
+                                             ? subj_type->of.tup.types.at[chk_node->of.prim.of.item.index->of.prim.of.val.of.int_val]
+                                             : (subj_type->kind == mtp_type_arr) ? subj_type->of.arr.type : NULL;
+                    if (!mtpNodeIsPrimVal(node_type, mtp_type_type))
+                        ·fail(str("cannot index into this expression"));
+                    MtpType* item_type = &node_type->of.prim.of.val.of.type;
                     if (chk_node->of.prim.of.item.set_to != NULL && !mtpTypesEql(item_type, mtpNodeType(chk_node->of.prim.of.item.set_to)))
                         ·fail(str("type mismatch for setting aggregate member"));
-                    chk_node->tyype = (chk_node->of.prim.of.item.set_to == NULL) ? item_type : chk_node->of.prim.of.item.subj->tyype;
+                    chk_node->anns.type = (chk_node->of.prim.of.item.set_to == NULL) ? chk_node->of.prim.of.item.subj->anns.type : node_type;
                 } break;
                 case mtp_prim_extcall: {
                     MtpPrimExtCall new_call = (MtpPrimExtCall) {
