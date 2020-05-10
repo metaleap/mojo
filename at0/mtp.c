@@ -213,8 +213,8 @@ Bool mtpPrimIsDistributive(MtpKindOfPrim const prim_kind, int const op_kind1, in
     return prim_kind == mtp_prim_bin_i && op_kind1 == mtp_bin_i_mul && op_kind2 == mtp_bin_i_add;
 }
 
-Bool mtpNodeIsPrimVal(MtpNode const* const node) {
-    return node->kind == mtp_node_prim && node->of.prim.kind == mtp_prim_val;
+Bool mtpNodeIsPrimVal(MtpNode const* const node, MtpKindOfType const kind) {
+    return node->kind == mtp_node_prim && node->of.prim.kind == mtp_prim_val && node->of.prim.of.val.kind == kind;
 }
 
 Bool mtpNodeIsBasicBlockishLam(MtpNode* const node) {
@@ -591,29 +591,6 @@ MtpNode* mtpUpdNodeJump(MtpProg* const prog, MtpNode* const node, MtpNodeJump up
     return mtpNodeJump(prog, upd);
 }
 
-MtpNode* mtpUpdNodePrimExtCall(MtpProg* const prog, MtpNode* const node, MtpPrimExtCall upd) {
-    // MtpTypeTup* tupd = &upd.params_types->of.tup;
-    // MtpTypeTup* tsrc = &node->of.prim.of.ext_call.params_types->of.tup;
-    // if (tupd->types.at == NULL)
-    //     tupd->types = tsrc->types;
-    // else if (tupd->types.at != tsrc->types.at) {
-    //     Bool all_null = true;
-    //     for (UInt i = 0; i < tupd->types.len; i += 1)
-    //         if (tupd->types.at[i] == NULL)
-    //             tupd->types.at[i] = tsrc->types.at[i];
-    //         else
-    //             all_null = false;
-    //     if (all_null) {
-    //         UInt len = tupd->types.len;
-    //         tupd->types = tsrc->types;
-    //         tupd->types.len = len;
-    //     }
-    // }
-    // if (tupd->types.at == tsrc->types.at && tupd->types.len == tsrc->types.len)
-    return node;
-    // return mtpNodePrimExtCall(prog, upd, node->type);
-}
-
 MtpNode* mtpUpdNodePrimItem(MtpProg* const prog, MtpNode* const node, MtpPrimItem upd) {
     if (upd.index == NULL)
         upd.index = node->of.prim.of.item.index;
@@ -634,6 +611,21 @@ MtpNode* mtpUpdNodePrimCast(MtpProg* const prog, MtpNode* const node, MtpPrimCas
     if (upd.dst_type == node->of.prim.of.cast.dst_type && upd.subj == node->of.prim.of.cast.subj)
         return node;
     return mtpNodePrimCast(prog, upd);
+}
+
+MtpNode* mtpUpdNodePrimValList(MtpProg* const prog, MtpNode* const node, MtpPtrsOfNode upd) {
+    MtpPtrsOfNode const orig_list = node->of.prim.of.val.of.list_val;
+    upd = mtpUpdPtrsOfNodeSlice(prog, orig_list, upd);
+    if (upd.at == orig_list.at && upd.len == orig_list.len)
+        return node;
+    return mtpNodePrimValArr(prog, upd);
+}
+
+MtpNode* mtpUpdNodePrimExtCall(MtpProg* const prog, MtpNode* const node, MtpNode* upd_args) {
+    MtpNode* const args_list = mtpUpdNodePrimValList(prog, node->of.prim.of.ext_call.args_list_val, upd_args->of.prim.of.val.of.list_val);
+    if (args_list == node->of.prim.of.ext_call.args_list_val)
+        return node;
+    return mtpNodePrimExtCall(prog, (MtpPrimExtCall) {.name = node->of.prim.of.ext_call.name, .args_list_val = args_list}, node->type);
 }
 
 MtpNode* mtpUpdNodePrimBinI(MtpProg* const prog, MtpNode* const node, MtpPrimBinI upd) {
@@ -744,8 +736,7 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                         ret_node = mtpUpdNodePrimItem(ctx->prog, node, new_item);
 
                     MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
-                    if ((!mtpNodeIsPrimVal(chk_node->of.prim.of.item.index))
-                        || chk_node->of.prim.of.item.index->of.prim.of.val.kind != mtp_type_int)
+                    if (!mtpNodeIsPrimVal(chk_node->of.prim.of.item.index, mtp_type_int))
                         ·fail(str("expected statically-known index"));
                     MtpType* item_type = (chk_node->of.prim.of.item.subj->type->kind == mtp_type_tup)
                                              ? (chk_node->of.prim.of.item.subj->type->of.tup.types
@@ -760,13 +751,21 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                     chk_node->type = (chk_node->of.prim.of.item.set_to == NULL) ? item_type : chk_node->of.prim.of.item.subj->type;
                 } break;
                 case mtp_prim_extcall: {
-                    // TODO
+                    MtpPrimExtCall new_call = (MtpPrimExtCall) {
+                        .name = node->of.prim.of.ext_call.name,
+                        .args_list_val = mtpPreduceNode(ctx, node->of.prim.of.ext_call.args_list_val),
+                    };
+                    if (new_call.args_list_val != NULL) {
+                        if (mtpNodeIsPrimVal(new_call.args_list_val, mtp_type_tup))
+                            ·fail(str("specified illegal MtpPrimExtCall.params_types"));
+                        ret_node = mtpUpdNodePrimExtCall(ctx->prog, node, new_call.args_list_val);
+                    }
 
-                    // MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
-                    // if (chk_node->of.prim.of.ext_call.params_types->kind != mtp_type_tup)
-                    //     ·fail(str("specified illegal MtpPrimExtCall.params_types"));
-                    // if (chk_node->of.prim.of.ext_call.name.at == NULL || chk_node->of.prim.of.ext_call.name.len == 0)
-                    //     ·fail(str("specified illegal MtpPrimExtCall.name"));
+                    MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
+                    if (mtpNodeIsPrimVal(chk_node->of.prim.of.ext_call.args_list_val, mtp_type_tup))
+                        ·fail(str("specified illegal MtpPrimExtCall.params_types"));
+                    if (chk_node->of.prim.of.ext_call.name.at == NULL || chk_node->of.prim.of.ext_call.name.len == 0)
+                        ·fail(str("specified illegal MtpPrimExtCall.name"));
                 } break;
                 case mtp_prim_cast: {
                     MtpPrimCast new_cast = (MtpPrimCast) {
@@ -818,10 +817,19 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                         ·fail(str("invalid operand type(s) for int binary operation"));
                     chk_node->type = chk_node->of.prim.of.bin_i.lhs->type;
                 } break;
-                // case mtp_prim_val:
-                //     if (node->type->kind == mtp_type_arr) {
-                //     }
-                //     break;
+                case mtp_prim_val:
+                    if (node->type->kind == mtp_type_arr) {
+                        MtpPtrsOfNode new_args = ·sliceOfPtrs(MtpNode, node->of.prim.of.val.of.list_val.len, 0);
+                        Bool all_null = true;
+                        for (UInt i = 0; i < new_args.len; i += 1) {
+                            new_args.at[i] = mtpPreduceNode(ctx, node->of.prim.of.val.of.list_val.at[i]);
+                            if (new_args.at[i] != NULL)
+                                all_null = false;
+                        }
+                        // TODO: type-infer / type-check here (arr vs tup etc)
+                        if (!all_null)
+                            ret_node = mtpUpdNodePrimValList(ctx->prog, node, new_args);
+                    }
                 default: break;
             }
         } break;
