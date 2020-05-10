@@ -281,12 +281,8 @@ Bool mtpTypeIsIntCastable(MtpType* type) {
     return type->kind == mtp_type_int || type->kind == mtp_type_ptr || type->kind == mtp_type_sym;
 }
 
-MtpNode* mtpTypeHolderNode(MtpProg* const prog, MtpType const spec) {
-    MtpNode* mtpNodePrimValType(MtpProg* const prog, MtpType spec);
-    return mtpNodePrimValType(prog, spec);
-}
-
 MtpNode* mtpType(MtpProg* const prog, MtpKindOfType const kind, PtrAny const type_spec) {
+    printf("mtpType\t%d\n", kind);
     MtpType specd_type = (MtpType) {.kind = kind};
     if (kind != mtp_type_sym && kind != mtp_type_bottom && kind != mtp_type_type)
         switch (kind) {
@@ -297,7 +293,8 @@ MtpNode* mtpType(MtpProg* const prog, MtpKindOfType const kind, PtrAny const typ
             case mtp_type_tup: specd_type.of.tup = *((MtpTypeTup*)type_spec); break;
             default: ·fail(uIntToStr(kind, 1, 10));
         }
-    return mtpTypeHolderNode(prog, specd_type);
+    MtpNode* mtpNodePrimValType(MtpProg* const prog, MtpType spec);
+    return mtpNodePrimValType(prog, specd_type);
 }
 MtpNode* mtpTypePtr(MtpProg* const prog, MtpTypePtr type_spec) {
     return mtpType(prog, mtp_type_ptr, &type_spec);
@@ -338,7 +335,7 @@ MtpNode* mtpTypeType(MtpProg* const prog) {
 Bool mtpNodesEql(MtpNode const* const n1, MtpNode const* const n2) {
     if (n1 == n2)
         return true;
-    if (n1 != NULL && n2 != NULL && n1->kind == n2->kind && mtpTypesEql(mtpNodeType(n1), mtpNodeType(n2)))
+    if (n1 != NULL && n2 != NULL && n1->kind == n2->kind)
         switch (n1->kind) {
             case mtp_node_choice: {
                 return mtpNodesEql(n1->of.choice.if0, n2->of.choice.if0) && mtpNodesEql(n1->of.choice.if1, n2->of.choice.if1)
@@ -433,6 +430,8 @@ MtpNode* mtpNodeJump(MtpProg* const prog, MtpNodeJump const spec) {
 }
 
 MtpNode* mtpNodePrim(MtpProg* const prog, MtpNodePrim const spec, MtpNode* const type) {
+    if (spec.kind == 0)
+        printf("mtpNodePrimVal\t%d\n", spec.of.val.kind);
     MtpNode const spec_node = (MtpNode) {.kind = mtp_node_prim, .of = {.prim = spec}, .anns = {.preduced = false, .type = type}};
     if (spec.kind == mtp_prim_val && spec.of.val.kind == mtp_type_sym)
         return prog->all.syms.at[spec.of.val.of.sym_val];
@@ -470,7 +469,7 @@ MtpNode* mtpNodePrimValTup(MtpProg* const prog, MtpPtrsOfNode const spec) {
     return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.kind = mtp_type_tup, .of = {.list_val = spec}}}}, NULL);
 }
 MtpNode* mtpNodePrimValType(MtpProg* const prog, MtpType spec) {
-    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.kind = -spec.kind, .of = {.type = spec}}}},
+    return mtpNodePrim(prog, (MtpNodePrim) {.kind = mtp_prim_val, .of = {.val = {.kind = mtp_type_type, .of = {.type = spec}}}},
                        prog->all.prims.at[0]);
 }
 MtpNode* mtpNodePrimValInt(MtpProg* const prog, I64 const spec) {

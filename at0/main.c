@@ -22,7 +22,7 @@ int main(int const argc, CStr const argv[]) {
 }
 
 int main_MiniThorinProto(int const argc, CStr const argv[]) {
-    MtpProg prog = mtpProg(64, 16, 16, 16, 16);
+    MtpProg prog = mtpProg(64, 8, 8, 8, 8);
     return prog.all.prims.len;
 }
 
