@@ -661,7 +661,6 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
     MtpNode* ret_node = NULL;
     if (node == NULL)
         ·fail(str("BUG: mtpPreduceNode called with NULL MtpNode"));
-    printf("Pa\t%d\n", node->kind);
     if (node->anns.preduced != NULL) {
         if (node->anns.preduced == node)
             return NULL; // dependant can keep their reference to `node`,
@@ -728,12 +727,11 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                 || !(chk_node->of.jump.callee->kind == mtp_node_fn || chk_node->of.jump.callee->kind == mtp_node_param))
                 ·fail(str("not callable"));
             if (fn_type->of.tup.types.len != chk_node->of.jump.args.len)
-                ·fail(str4(str("callee expected "), uIntToStr(chk_node->of.jump.callee->of.fn.params.len, 1, 10),
-                           str(" arg(s) but caller gave "), uIntToStr(chk_node->of.jump.args.len, 1, 10)));
+                ·fail(str4(str("callee expected "), uIntToStr(fn_type->of.tup.types.len, 1, 10), str(" arg(s) but caller gave "),
+                           uIntToStr(chk_node->of.jump.args.len, 1, 10)));
             for (UInt i = 0; i < chk_node->of.jump.args.len; i += 1) {
                 MtpNode* arg = chk_node->of.jump.args.at[i];
-                MtpNode* param = &chk_node->of.jump.callee->of.fn.params.at[i];
-                if (!mtpNodesEql(arg->anns.type, param->anns.type))
+                if (!mtpNodesEql(arg->anns.type, fn_type->of.tup.types.at[i]))
                     ·fail(str2(str("type mismatch for arg "), uIntToStr(i, 1, 10)));
             }
         };
@@ -859,6 +857,5 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
     node->anns.preduced = the_non_null_node;
     the_non_null_node->anns.preduced = the_non_null_node;
 
-    printf("Pz\t%d\n", node->kind);
     return ret_node;
 }
