@@ -499,7 +499,8 @@ MtpProg mtpProg(UInt bit_width_ptrs, UInt const prims_capacity, UInt const choic
                                       .ptrs = bit_width_ptrs,
                                   }};
 
-    mtpNodePrimValType(&ret_prog, (MtpType) {.kind = mtp_type_type})->anns.type = ret_prog.all.prims.at[0];
+    mtpNodePrimValType(&ret_prog, (MtpType) {.kind = mtp_type_type}); // this creates entry 0 in all.prims:
+    ret_prog.all.prims.at[0]->anns.type = ret_prog.all.prims.at[0];
     mtpNodePrimValInt(&ret_prog, 0)->anns.type = mtpTypeBool(&ret_prog);
     mtpNodePrimValInt(&ret_prog, 1)->anns.type = mtpTypeBool(&ret_prog);
     mtpNodePrimValInt(&ret_prog, -1)->anns.type = mtpTypeBottom(&ret_prog);
@@ -626,19 +627,19 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
         ·fail(str("BUG: mtpPreduceNode called with NULL MtpNode"));
     if (node->anns.preduced != NULL) {
         if (node->anns.preduced == node)
-            return NULL;
-        else
-            ·fail(str("new BUG: preduce encountered node that preduced to another node already"));
+            return NULL; // dependant can keep their reference to `node`,
+        else             // dependant picks up the already-previously-preduced instance of `node`
+            return node->anns.preduced;
     }
 
     switch (node->kind) {
 
         case mtp_node_lam: {
-            node->anns.preduced = node;
+            node->anns.preduced = node; // unlike other node kinds, for mtp_node_lam set this early
             MtpNode* body = mtpPreduceNode(ctx, node->of.lam.body);
             if (body != NULL)
                 node->of.lam.body = body;
-            // unlike other node kinds, for mtp_node_lam our `ret_node` isn't set and stays NULL
+            // unlike other node kinds, for mtp_node_lam our `ret_node` remains NULL
         } break;
 
         case mtp_node_choice: {
@@ -814,6 +815,7 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
     MtpNode* const the_non_null_node = (ret_node == NULL) ? node : ret_node;
     if (the_non_null_node->anns.type == NULL)
         ·fail(str("untyped node after preduce"));
+    node->anns.type = the_non_null_node->anns.type;
     node->anns.preduced = the_non_null_node;
     the_non_null_node->anns.preduced = the_non_null_node;
 

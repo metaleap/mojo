@@ -23,7 +23,11 @@ int main(int const argc, CStr const argv[]) {
 
 int main_MiniThorinProto(int const argc, CStr const argv[]) {
     MtpProg prog = mtpProg(64, 32, 32, 32);
-    printf("%zu\n", prog.all.prims.len);
+
+    // MtpNode* main_node = mtpNodeLam(&prog, (MtpPtrsOfNode)·sliceOfPtrs(MtpNode, 0, 0));
+
+    MtpCtxPreduce ctx = (MtpCtxPreduce) {.prog = &prog};
+    mtpPreduceNode(&ctx, prog.all.prims.at[0]);
     return prog.all.prims.len;
 }
 
