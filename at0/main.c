@@ -22,13 +22,32 @@ int main(int const argc, CStr const argv[]) {
 }
 
 int main_MiniThorinProto(int const argc, CStr const argv[]) {
-    MtpProg prog = mtpProg(64, 32, 32, 32);
+    MtpProg p = mtpProg(64, 32, 32, 32);
 
-    // MtpNode* main_node = mtpNodeLam(&prog, (MtpPtrsOfNode)·sliceOfPtrs(MtpNode, 0, 0));
+#define def MtpNode*
+    // main x := (x == 123) ?- 22 |- 44
+    def fn_main = mtpNodeFn(&p, mtpTypeFn2(&p, mtpTypeIntStatic(&p), mtpTypeFn1(&p, mtpTypeIntStatic(&p))));
+    def fn_if_then = mtpNodeFn(&p, mtpTypeFn0(&p));
+    def fn_if_else = mtpNodeFn(&p, mtpTypeFn0(&p));
+    def fn_next = mtpNodeFn(&p, mtpTypeFn1(&p, mtpTypeIntStatic(&p)));
+    def cmp_p0_eq_123 = mtpNodePrimCmpI(&p, (MtpPrimCmpI) {
+                                                .kind = mtp_cmp_i_eq,
+                                                .lhs = &fn_main->of.fn.params.at[0],
+                                                .rhs = mtpNodePrimValInt(&p, 123),
+                                            });
+    mtpFnChoice(&p, fn_main, (MtpNodeChoice) {.cond = cmp_p0_eq_123, .if1 = fn_if_then, .if0 = fn_if_else});
+    mtpFnJump(&p, fn_if_then, (MtpNodeJump) {.callee = fn_next, .args = mtpNodes1(mtpNodePrimValInt(&p, 22))});
+    mtpFnJump(&p, fn_if_else, (MtpNodeJump) {.callee = fn_next, .args = mtpNodes1(mtpNodePrimValInt(&p, 44))});
+    mtpFnJump(&p, fn_next,
+              (MtpNodeJump) {
+                  .callee = &fn_main->of.fn.params.at[1],
+                  .args = mtpNodes1(&fn_next->of.fn.params.at[0]),
+              });
 
-    MtpCtxPreduce ctx = (MtpCtxPreduce) {.prog = &prog};
-    mtpPreduceNode(&ctx, prog.all.prims.at[0]);
-    return prog.all.prims.len;
+    MtpCtxPreduce ctx = (MtpCtxPreduce) {.prog = &p};
+    mtpPreduceNode(&ctx, fn_main);
+
+    return 0;
 }
 
 int main_AstAndIrHL(int const argc, CStr const argv[]) {

@@ -6,14 +6,14 @@ typedef enum MtpKindOfType {
     mtp_type_type,
     mtp_type_bottom,
     mtp_type_int,
-    mtp_type_lam,
+    mtp_type_fn,
     mtp_type_tup,
     mtp_type_arr,
     mtp_type_ptr,
 } MtpKindOfType;
 
 typedef enum MtpKindOfNode {
-    mtp_node_lam,
+    mtp_node_fn,
     mtp_node_param,
     mtp_node_choice,
     mtp_node_jump,
@@ -90,10 +90,10 @@ typedef struct MtpNodeParam {
     UInt param_idx;
 } MtpNodeParam;
 
-typedef struct MtpNodeLam {
+typedef struct MtpNodeFn {
     MtpNodes params;
     MtpNode* body;
-} MtpNodeLam;
+} MtpNodeFn;
 
 typedef struct MtpNodeChoice {
     MtpNode* cond;
@@ -160,7 +160,7 @@ typedef struct MtpNodePrim {
 
 struct MtpNode {
     union {
-        MtpNodeLam lam;
+        MtpNodeFn fn;
         MtpNodeParam param;
         MtpNodeChoice choice;
         MtpNodeJump jump;
@@ -215,9 +215,25 @@ Bool mtpNodeIsPrimVal(MtpNode const* const node, MtpKindOfType const kind) {
     return node->kind == mtp_node_prim && node->of.prim.kind == mtp_prim_val && node->of.prim.of.val.kind == kind;
 }
 
-Bool mtpNodeIsBasicBlockishLam(MtpNode* const node) {
+Bool mtpNodeIsBasicBlockishFn(MtpNode* const node) {
     MtpType* ty = mtpNodeType(node, true);
-    return (ty->kind == mtp_type_lam) && (ty->of.tup.types.len == 0);
+    return (ty->kind == mtp_type_fn) && (ty->of.tup.types.len == 0);
+}
+
+MtpPtrsOfNode mtpNodes0() {
+    MtpPtrsOfNode ret_nodes = ·sliceOfPtrs(MtpNode, 0, 0);
+    return ret_nodes;
+}
+MtpPtrsOfNode mtpNodes1(MtpNode* const n0) {
+    MtpPtrsOfNode ret_nodes = ·sliceOfPtrs(MtpNode, 1, 1);
+    ret_nodes.at[0] = n0;
+    return ret_nodes;
+}
+MtpPtrsOfNode mtpNodes2(MtpNode* const n0, MtpNode* const n1) {
+    MtpPtrsOfNode ret_nodes = ·sliceOfPtrs(MtpNode, 2, 2);
+    ret_nodes.at[0] = n0;
+    ret_nodes.at[1] = n1;
+    return ret_nodes;
 }
 
 
@@ -236,7 +252,7 @@ Bool mtpTypesEql(MtpType const* const t1, MtpType const* const t2) {
             case mtp_type_int:
                 return (t1->of.num_int.unsign == t2->of.num_int.unsign) && (t1->of.num_int.bit_width == t2->of.num_int.bit_width);
             case mtp_type_tup:
-            case mtp_type_lam: {
+            case mtp_type_fn: {
                 if (t1->of.tup.types.len == t2->of.tup.types.len) {
                     if (t1->of.tup.types.at != t2->of.tup.types.at)
                         for (UInt i = 0; i < t1->of.tup.types.len; i += 1)
@@ -270,7 +286,7 @@ UInt mtpTypeMinSizeInBits(MtpProg* const prog, MtpType* const type) {
         } break;
         case mtp_type_type:
         case mtp_type_bottom:
-        case mtp_type_lam: ·fail(str("expected a value of a sized type"));
+        case mtp_type_fn: ·fail(str("expected a value of a sized type"));
         default: ·fail(uIntToStr(type->kind, 1, 10)); ;
     }
     return 0;
@@ -287,7 +303,7 @@ MtpNode* mtpType(MtpProg* const prog, MtpKindOfType const kind, PtrAny const typ
             case mtp_type_ptr: specd_type.of.ptr = *((MtpTypePtr*)type_spec); break;
             case mtp_type_arr: specd_type.of.arr = *((MtpTypeArr*)type_spec); break;
             case mtp_type_int: specd_type.of.num_int = *((MtpTypeInt*)type_spec); break;
-            case mtp_type_lam:
+            case mtp_type_fn:
             case mtp_type_tup: specd_type.of.tup = *((MtpTypeTup*)type_spec); break;
             default: ·fail(uIntToStr(kind, 1, 10));
         }
@@ -303,8 +319,23 @@ MtpNode* mtpTypeArr(MtpProg* const prog, MtpTypeArr type_spec) {
 MtpNode* mtpTypeTup(MtpProg* const prog, MtpTypeTup type_spec) {
     return mtpType(prog, mtp_type_tup, &type_spec);
 }
-MtpNode* mtpTypeLam(MtpProg* const prog, MtpTypeTup type_spec) {
-    return mtpType(prog, mtp_type_lam, &type_spec);
+MtpNode* mtpTypeFn(MtpProg* const prog, MtpTypeTup type_spec) {
+    return mtpType(prog, mtp_type_fn, &type_spec);
+}
+MtpNode* mtpTypeFn0(MtpProg* const prog) {
+    MtpPtrsOfNode params_type_nodes = ·sliceOfPtrs(MtpNode, 0, 0);
+    return mtpTypeFn(prog, (MtpTypeTup) {.types = params_type_nodes});
+}
+MtpNode* mtpTypeFn1(MtpProg* const prog, MtpNode* const param0_type) {
+    MtpPtrsOfNode params_type_nodes = ·sliceOfPtrs(MtpNode, 1, 1);
+    params_type_nodes.at[0] = param0_type;
+    return mtpTypeFn(prog, (MtpTypeTup) {.types = params_type_nodes});
+}
+MtpNode* mtpTypeFn2(MtpProg* const prog, MtpNode* const param0_type, MtpNode* const param1_type) {
+    MtpPtrsOfNode params_type_nodes = ·sliceOfPtrs(MtpNode, 2, 2);
+    params_type_nodes.at[0] = param0_type;
+    params_type_nodes.at[1] = param1_type;
+    return mtpTypeFn(prog, (MtpTypeTup) {.types = params_type_nodes});
 }
 MtpNode* mtpTypeInt(MtpProg* const prog, MtpTypeInt type_spec) {
     return mtpType(prog, mtp_type_int, &type_spec);
@@ -319,7 +350,7 @@ MtpNode* mtpTypeBool(MtpProg* const prog) {
     return mtpTypeInt(prog, (MtpTypeInt) {.bit_width = 1, .unsign = true});
 }
 MtpNode* mtpTypeLabel(MtpProg* const prog) {
-    return mtpTypeLam(prog, (MtpTypeTup) {.types = ·sliceOfPtrs(MtpNode, 0, 0)});
+    return mtpTypeFn(prog, (MtpTypeTup) {.types = ·sliceOfPtrs(MtpNode, 0, 0)});
 }
 MtpNode* mtpTypeType(MtpProg* const prog) {
     return mtpType(prog, mtp_type_type, NULL);
@@ -473,14 +504,19 @@ MtpNode* mtpNodePrimValBool(MtpProg* const prog, Bool const spec) {
     return prog->all.prims.at[spec ? 2 : 1];
 }
 
-MtpNode* mtpNodeLam(MtpProg* const prog, MtpPtrsOfNode const params_type_nodes) {
+MtpNode* mtpNodeFn(MtpProg* const prog, MtpNode* const fn_type_node) {
+    if ((!mtpNodeIsPrimVal(fn_type_node, mtp_type_type)) || fn_type_node->of.prim.of.val.of.type.kind != mtp_type_fn)
+        ·fail(str("mtpNodeFn must be called with a fn_type_node that was produced by mtpTypeFn, mtpTypeFn0, mtpTypeFn1, etc."));
+    MtpPtrsOfNode params_type_nodes = fn_type_node->of.prim.of.val.of.type.of.tup.types;
+
     MtpNode* ret_node = ·new(MtpNode);
-    *ret_node =
-        (MtpNode) {.kind = mtp_node_lam,
-                   .of = {.lam = (MtpNodeLam) {.body = NULL, .params = ·sliceOf(MtpNode, params_type_nodes.len, params_type_nodes.len)}},
-                   .anns = {.preduced = NULL, .type = mtpTypeLam(prog, (MtpTypeTup) {.types = params_type_nodes})}};
+    *ret_node = (MtpNode) {
+        .kind = mtp_node_fn,
+        .of = {.fn = (MtpNodeFn) {.body = NULL, .params = ·sliceOf(MtpNode, params_type_nodes.len, params_type_nodes.len)}},
+        .anns = {.preduced = NULL, .type = fn_type_node},
+    };
     for (UInt i = 0; i < params_type_nodes.len; i += 1)
-        ret_node->of.lam.params.at[i] = (MtpNode) {
+        ret_node->of.fn.params.at[i] = (MtpNode) {
             .kind = mtp_node_param,
             .anns = {.preduced = NULL, .type = params_type_nodes.at[i]},
             .of = {.param = (MtpNodeParam) {.param_idx = i}},
@@ -512,11 +548,11 @@ MtpProg mtpProg(UInt bit_width_ptrs, UInt const prims_capacity, UInt const choic
 
 
 
-void mtpLamJump(MtpProg* const prog, MtpNodeLam* const lam, MtpNodeJump const jump) {
-    lam->body = mtpNodeJump(prog, jump);
+void mtpFnJump(MtpProg* const prog, MtpNode* const fn_node, MtpNodeJump const jump) {
+    fn_node->of.fn.body = mtpNodeJump(prog, jump);
 }
-void mtpLamChoice(MtpProg* const prog, MtpNodeLam* const lam, MtpNodeChoice const choice) {
-    lam->body = mtpNodeChoice(prog, choice);
+void mtpFnChoice(MtpProg* const prog, MtpNode* const fn_node, MtpNodeChoice const choice) {
+    fn_node->of.fn.body = mtpNodeChoice(prog, choice);
 }
 
 MtpNode* mtpUpdNodeChoice(MtpProg* const prog, MtpNode* const node, MtpNodeChoice upd) {
@@ -625,6 +661,7 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
     MtpNode* ret_node = NULL;
     if (node == NULL)
         ·fail(str("BUG: mtpPreduceNode called with NULL MtpNode"));
+    printf("Pa\t%d\n", node->kind);
     if (node->anns.preduced != NULL) {
         if (node->anns.preduced == node)
             return NULL; // dependant can keep their reference to `node`,
@@ -634,22 +671,25 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
 
     switch (node->kind) {
 
-        case mtp_node_lam: {
-            node->anns.preduced = node; // unlike other node kinds, for mtp_node_lam set this early
-            MtpNode* body = mtpPreduceNode(ctx, node->of.lam.body);
-            if (body != NULL)
-                node->of.lam.body = body;
-            // unlike other node kinds, for mtp_node_lam our `ret_node` remains NULL
+        case mtp_node_fn: {
+            node->anns.preduced = node; // unlike other node kinds, for mtp_node_fn set this early
+            if (node->of.fn.body == NULL) {
+                // nothing to do, aka termination
+            } else {
+                MtpNode* body = mtpPreduceNode(ctx, node->of.fn.body);
+                if (body != NULL)
+                    node->of.fn.body = body;
+                // unlike other node kinds, for mtp_node_fn our `ret_node` remains NULL
+            }
         } break;
 
         case mtp_node_choice: {
             MtpNodeChoice new_choice = (MtpNodeChoice) {.if0 = NULL, .if1 = NULL, .cond = mtpPreduceNode(ctx, node->of.choice.cond)};
-            if (!mtpNodesEql(new_choice.cond->anns.type, mtpTypeBool(ctx->prog)))
+            MtpNode* cond = (new_choice.cond == NULL) ? node->of.choice.cond : new_choice.cond;
+            if (!mtpNodesEql(cond->anns.type, mtpTypeBool(ctx->prog)))
                 ·fail(str("choice condition isn't boolish"));
-            Bool const is_cond_true =
-                mtpNodesEql((new_choice.cond != NULL) ? new_choice.cond : node->of.choice.cond, mtpNodePrimValBool(ctx->prog, true));
-            Bool const is_cond_false =
-                mtpNodesEql((new_choice.cond != NULL) ? new_choice.cond : node->of.choice.cond, mtpNodePrimValBool(ctx->prog, false));
+            Bool const is_cond_true = mtpNodesEql(cond, mtpNodePrimValBool(ctx->prog, true));
+            Bool const is_cond_false = mtpNodesEql(cond, mtpNodePrimValBool(ctx->prog, false));
             Bool const is_cond_static = is_cond_true || is_cond_false;
             if (is_cond_false || !is_cond_static)
                 new_choice.if0 = mtpPreduceNode(ctx, node->of.choice.if0);
@@ -659,7 +699,7 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                 ret_node = mtpUpdNodeChoice(ctx->prog, node, new_choice);
 
             MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
-            if (!(mtpNodeIsBasicBlockishLam(chk_node->of.choice.if0) && mtpNodeIsBasicBlockishLam(chk_node->of.choice.if1)))
+            if (!(mtpNodeIsBasicBlockishFn(chk_node->of.choice.if0) && mtpNodeIsBasicBlockishFn(chk_node->of.choice.if1)))
                 ·fail(str("choice results must both preduce to basic blocks"));
             chk_node->anns.type = chk_node->of.choice.if0->anns.type;
             if (is_cond_true)
@@ -684,15 +724,15 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
 
             MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
             MtpType* fn_type = mtpNodeType(chk_node->of.jump.callee, true);
-            if (fn_type->kind != mtp_type_lam
-                || !(chk_node->of.jump.callee->kind == mtp_node_lam || chk_node->of.jump.callee->kind == mtp_node_param))
+            if (fn_type->kind != mtp_type_fn
+                || !(chk_node->of.jump.callee->kind == mtp_node_fn || chk_node->of.jump.callee->kind == mtp_node_param))
                 ·fail(str("not callable"));
             if (fn_type->of.tup.types.len != chk_node->of.jump.args.len)
-                ·fail(str4(str("callee expected "), uIntToStr(chk_node->of.jump.callee->of.lam.params.len, 1, 10),
+                ·fail(str4(str("callee expected "), uIntToStr(chk_node->of.jump.callee->of.fn.params.len, 1, 10),
                            str(" arg(s) but caller gave "), uIntToStr(chk_node->of.jump.args.len, 1, 10)));
             for (UInt i = 0; i < chk_node->of.jump.args.len; i += 1) {
                 MtpNode* arg = chk_node->of.jump.args.at[i];
-                MtpNode* param = &chk_node->of.jump.callee->of.lam.params.at[i];
+                MtpNode* param = &chk_node->of.jump.callee->of.fn.params.at[i];
                 if (!mtpNodesEql(arg->anns.type, param->anns.type))
                     ·fail(str2(str("type mismatch for arg "), uIntToStr(i, 1, 10)));
             }
@@ -819,5 +859,6 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
     node->anns.preduced = the_non_null_node;
     the_non_null_node->anns.preduced = the_non_null_node;
 
+    printf("Pz\t%d\n", node->kind);
     return ret_node;
 }
