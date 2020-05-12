@@ -31,7 +31,7 @@ int main_IrMl(int const argc, CStr const argv[]) {
     _ fn_if_else = irmlNodeFn(&p, irmlTypeFn0(&p));
     _ fn_next = irmlNodeFn(&p, irmlTypeFn1(&p, irmlTypeIntStatic(&p)));
     _ cmp_p0_eq_123 = irmlNodePrimCmpI(&p, (IrMlPrimCmpI) {
-                                               .kind = irml_cmp_i_eq,
+                                               .kind = irml_cmpi_eq,
                                                .lhs = &fn_main->of.fn.params.at[0],
                                                .rhs = irmlNodePrimValInt(&p, 123),
                                            });

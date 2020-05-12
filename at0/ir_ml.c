@@ -21,8 +21,8 @@ typedef enum IrMlKindOfNode {
 } IrMlKindOfNode;
 
 typedef enum IrMlKindOfPrim {
-    irml_prim_cmp_i,
-    irml_prim_bin_i,
+    irml_prim_cmpi,
+    irml_prim_bini,
     irml_prim_cast,
     irml_prim_item,
     irml_prim_extcall,
@@ -30,16 +30,20 @@ typedef enum IrMlKindOfPrim {
 } IrMlKindOfPrim;
 
 typedef enum IrMlKindOfCmpI {
-    irml_cmp_i_eq,
-    irml_cmp_i_neq,
+    irml_cmpi_eq,
+    irml_cmpi_neq,
+    irml_cmpi_leq,
+    irml_cmpi_geq,
+    irml_cmpi_lt,
+    irml_cmpi_gt,
 } IrMlKindOfCmpI;
 
 typedef enum IrMlKindOfBinI {
-    irml_bin_i_add,
-    irml_bin_i_sub,
-    irml_bin_i_mul,
-    irml_bin_i_div,
-    irml_bin_i_rem,
+    irml_bini_add,
+    irml_bini_sub,
+    irml_bini_mul,
+    irml_bini_div,
+    irml_bini_rem,
 } IrMlKindOfBinI;
 
 typedef enum IrMlKindOfCast {
@@ -152,8 +156,8 @@ typedef struct IrMlPrimExtCall {
 typedef struct IrMlNodePrim {
     union {
         IrMlPrimVal val;
-        IrMlPrimCmpI cmp_i;
-        IrMlPrimBinI bin_i;
+        IrMlPrimCmpI cmpi;
+        IrMlPrimBinI bini;
         IrMlPrimCast cast;
         IrMlPrimItem item;
         IrMlPrimExtCall ext_call;
@@ -200,18 +204,18 @@ IrMlType* irmlNodeType(IrMlNode const* const node, Bool const must) {
 
 // a ° b  ==  b ° a
 Bool irmlPrimIsCommutative(IrMlKindOfPrim const prim_kind, int const op_kind) {
-    return (prim_kind == irml_prim_bin_i && (op_kind == irml_bin_i_add || op_kind == irml_bin_i_mul))
-           || (prim_kind == irml_prim_cmp_i && (op_kind == irml_cmp_i_eq || op_kind == irml_cmp_i_neq));
+    return (prim_kind == irml_prim_bini && (op_kind == irml_bini_add || op_kind == irml_bini_mul))
+           || (prim_kind == irml_prim_cmpi && (op_kind == irml_cmpi_eq || op_kind == irml_cmpi_neq));
 }
 
 // (a ° b) ° c  ==  a ° (b ° c)
 Bool irmlPrimIsAssociative(IrMlKindOfPrim const prim_kind, int const op_kind) {
-    return prim_kind == irml_prim_bin_i && (op_kind == irml_bin_i_add || op_kind == irml_bin_i_mul);
+    return prim_kind == irml_prim_bini && (op_kind == irml_bini_add || op_kind == irml_bini_mul);
 }
 
 // a °¹ (b °² c)  ==  (a °¹ b)  °²  (a °¹ c)
 Bool irmlPrimIsDistributive(IrMlKindOfPrim const prim_kind, int const op_kind1, int const op_kind2) {
-    return prim_kind == irml_prim_bin_i && op_kind1 == irml_bin_i_mul && op_kind2 == irml_bin_i_add;
+    return prim_kind == irml_prim_bini && op_kind1 == irml_bini_mul && op_kind2 == irml_bini_add;
 }
 
 Bool irmlNodeIsPrimVal(IrMlNode const* const node, IrMlKindOfType const kind) {
@@ -406,14 +410,14 @@ Bool irmlNodesEql(IrMlNode const* const n1, IrMlNode const* const n2) {
                             return n1->of.prim.of.cast.kind == n2->of.prim.of.cast.kind
                                    && irmlNodesEql(n1->of.prim.of.cast.dst_type, n2->of.prim.of.cast.dst_type)
                                    && irmlNodesEql(n1->of.prim.of.cast.subj, n2->of.prim.of.cast.subj);
-                        case irml_prim_bin_i:
-                            return n1->of.prim.of.bin_i.kind == n2->of.prim.of.bin_i.kind
-                                   && (irmlNodesEql(n1->of.prim.of.bin_i.lhs, n2->of.prim.of.bin_i.lhs)
-                                       && irmlNodesEql(n1->of.prim.of.bin_i.rhs, n2->of.prim.of.bin_i.rhs));
-                        case irml_prim_cmp_i:
-                            return n1->of.prim.of.cmp_i.kind == n2->of.prim.of.cmp_i.kind
-                                   && (irmlNodesEql(n1->of.prim.of.cmp_i.lhs, n2->of.prim.of.cmp_i.lhs)
-                                       && irmlNodesEql(n1->of.prim.of.cmp_i.rhs, n2->of.prim.of.cmp_i.rhs));
+                        case irml_prim_bini:
+                            return n1->of.prim.of.bini.kind == n2->of.prim.of.bini.kind
+                                   && (irmlNodesEql(n1->of.prim.of.bini.lhs, n2->of.prim.of.bini.lhs)
+                                       && irmlNodesEql(n1->of.prim.of.bini.rhs, n2->of.prim.of.bini.rhs));
+                        case irml_prim_cmpi:
+                            return n1->of.prim.of.cmpi.kind == n2->of.prim.of.cmpi.kind
+                                   && (irmlNodesEql(n1->of.prim.of.cmpi.lhs, n2->of.prim.of.cmpi.lhs)
+                                       && irmlNodesEql(n1->of.prim.of.cmpi.rhs, n2->of.prim.of.cmpi.rhs));
                         case irml_prim_extcall:
                             return irmlNodesEql(n1->of.prim.of.ext_call.args_list_val, n2->of.prim.of.ext_call.args_list_val)
                                    && strEql(n1->of.prim.of.ext_call.name, n2->of.prim.of.ext_call.name);
@@ -480,10 +484,10 @@ IrMlNode* irmlNodePrimItem(IrMlProg* const prog, IrMlPrimItem spec) {
     return irmlNodePrim(prog, (IrMlNodePrim) {.kind = irml_prim_item, .of = {.item = spec}}, NULL);
 }
 IrMlNode* irmlNodePrimCmpI(IrMlProg* const prog, IrMlPrimCmpI spec) {
-    return irmlNodePrim(prog, (IrMlNodePrim) {.kind = irml_prim_cmp_i, .of = {.cmp_i = spec}}, irmlTypeBool(prog));
+    return irmlNodePrim(prog, (IrMlNodePrim) {.kind = irml_prim_cmpi, .of = {.cmpi = spec}}, irmlTypeBool(prog));
 }
 IrMlNode* irmlNodePrimBinI(IrMlProg* const prog, IrMlPrimBinI spec) {
-    return irmlNodePrim(prog, (IrMlNodePrim) {.kind = irml_prim_bin_i, .of = {.bin_i = spec}}, NULL);
+    return irmlNodePrim(prog, (IrMlNodePrim) {.kind = irml_prim_bini, .of = {.bini = spec}}, NULL);
 }
 IrMlNode* irmlNodePrimValArr(IrMlProg* const prog, IrMlPtrsOfNode const spec) {
     return irmlNodePrim(prog, (IrMlNodePrim) {.kind = irml_prim_val, .of = {.val = {.kind = irml_type_arr, .of = {.list_val = spec}}}}, NULL);
@@ -641,20 +645,20 @@ IrMlNode* irmlUpdNodePrimExtCall(IrMlProg* const prog, IrMlNode* const node, IrM
 
 IrMlNode* irmlUpdNodePrimBinI(IrMlProg* const prog, IrMlNode* const node, IrMlPrimBinI upd) {
     if (upd.lhs == NULL)
-        upd.lhs = node->of.prim.of.bin_i.lhs;
+        upd.lhs = node->of.prim.of.bini.lhs;
     if (upd.rhs == NULL)
-        upd.rhs = node->of.prim.of.bin_i.rhs;
-    if (upd.lhs == node->of.prim.of.bin_i.lhs && upd.rhs == node->of.prim.of.bin_i.rhs)
+        upd.rhs = node->of.prim.of.bini.rhs;
+    if (upd.lhs == node->of.prim.of.bini.lhs && upd.rhs == node->of.prim.of.bini.rhs)
         return node;
     return irmlNodePrimBinI(prog, upd);
 }
 
 IrMlNode* irmlUpdNodePrimCmpI(IrMlProg* const prog, IrMlNode* const node, IrMlPrimCmpI upd) {
     if (upd.lhs == NULL)
-        upd.lhs = node->of.prim.of.cmp_i.lhs;
+        upd.lhs = node->of.prim.of.cmpi.lhs;
     if (upd.rhs == NULL)
-        upd.rhs = node->of.prim.of.cmp_i.rhs;
-    if (upd.lhs == node->of.prim.of.cmp_i.lhs && upd.rhs == node->of.prim.of.cmp_i.rhs)
+        upd.rhs = node->of.prim.of.cmpi.rhs;
+    if (upd.lhs == node->of.prim.of.cmpi.lhs && upd.rhs == node->of.prim.of.cmpi.rhs)
         return node;
     return irmlNodePrimCmpI(prog, upd);
 }
@@ -839,18 +843,37 @@ IrMlNode* irmlPreduceNodeOfPrimItem(IrMlCtxPreduce* const ctx, IrMlNode* const n
 IrMlNode* irmlPreduceNodeOfPrimCmpI(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
     IrMlNode* ret_node = NULL;
 
-    IrMlPrimCmpI new_cmpi = (IrMlPrimCmpI) {.kind = node->of.prim.of.cmp_i.kind,
-                                            .lhs = irmlPreduceNode(ctx, node->of.prim.of.cmp_i.lhs),
-                                            .rhs = irmlPreduceNode(ctx, node->of.prim.of.cmp_i.rhs)};
+    IrMlPrimCmpI new_cmpi = (IrMlPrimCmpI) {.kind = node->of.prim.of.cmpi.kind,
+                                            .lhs = irmlPreduceNode(ctx, node->of.prim.of.cmpi.lhs),
+                                            .rhs = irmlPreduceNode(ctx, node->of.prim.of.cmpi.rhs)};
     if (new_cmpi.lhs != NULL || new_cmpi.rhs != NULL)
         ret_node = irmlUpdNodePrimCmpI(ctx->prog, node, new_cmpi);
 
     IrMlNode* chk_node = (ret_node == NULL) ? node : ret_node;
-    IrMlType* lhs_type = irmlNodeType(chk_node->of.prim.of.cmp_i.lhs, true);
-    IrMlType* rhs_type = irmlNodeType(chk_node->of.prim.of.cmp_i.lhs, true);
+    IrMlType* lhs_type = irmlNodeType(chk_node->of.prim.of.cmpi.lhs, true);
+    IrMlType* rhs_type = irmlNodeType(chk_node->of.prim.of.cmpi.lhs, true);
     if (lhs_type != rhs_type || lhs_type->kind != irml_type_int)
         ·fail(str("invalid operand type(s) for int comparison operation"));
     chk_node->anns.type = irmlTypeBool(ctx->prog);
+
+    if (chk_node->of.prim.of.cmpi.lhs == chk_node->of.prim.of.cmpi.rhs)
+        ret_node = irmlNodePrimValBool(ctx->prog, true);
+    else if (irmlNodeIsPrimVal(chk_node->of.prim.of.cmpi.lhs, irml_type_int)
+             && irmlNodeIsPrimVal(chk_node->of.prim.of.cmpi.rhs, irml_type_int)) {
+        I64 const lhs = chk_node->of.prim.of.cmpi.lhs->of.prim.of.val.of.int_val;
+        I64 const rhs = chk_node->of.prim.of.cmpi.rhs->of.prim.of.val.of.int_val;
+        Bool result;
+        switch (chk_node->of.prim.of.cmpi.kind) {
+            case irml_cmpi_eq: result = (lhs == rhs); break;
+            case irml_cmpi_neq: result = (lhs != rhs); break;
+            case irml_cmpi_geq: result = (lhs >= rhs); break;
+            case irml_cmpi_leq: result = (lhs <= rhs); break;
+            case irml_cmpi_gt: result = (lhs > rhs); break;
+            case irml_cmpi_lt: result = (lhs < rhs); break;
+            default: ·fail(str("TODO: how come we got a new int-cmp op?!"));
+        }
+        ret_node = irmlNodePrimValBool(ctx->prog, result);
+    }
 
     return ret_node;
 }
@@ -858,64 +881,64 @@ IrMlNode* irmlPreduceNodeOfPrimCmpI(IrMlCtxPreduce* const ctx, IrMlNode* const n
 IrMlNode* irmlPreduceNodeOfPrimBinI(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
     IrMlNode* ret_node = NULL;
 
-    IrMlPrimBinI new_bini = (IrMlPrimBinI) {.kind = node->of.prim.of.bin_i.kind,
-                                            .lhs = irmlPreduceNode(ctx, node->of.prim.of.bin_i.lhs),
-                                            .rhs = irmlPreduceNode(ctx, node->of.prim.of.bin_i.rhs)};
+    IrMlPrimBinI new_bini = (IrMlPrimBinI) {.kind = node->of.prim.of.bini.kind,
+                                            .lhs = irmlPreduceNode(ctx, node->of.prim.of.bini.lhs),
+                                            .rhs = irmlPreduceNode(ctx, node->of.prim.of.bini.rhs)};
     if (new_bini.lhs != NULL || new_bini.rhs != NULL)
         ret_node = irmlUpdNodePrimBinI(ctx->prog, node, new_bini);
 
     IrMlNode* chk_node = (ret_node == NULL) ? node : ret_node;
-    IrMlType* lhs_type = irmlNodeType(chk_node->of.prim.of.bin_i.lhs, true);
-    IrMlType* rhs_type = irmlNodeType(chk_node->of.prim.of.bin_i.lhs, true);
+    IrMlType* lhs_type = irmlNodeType(chk_node->of.prim.of.bini.lhs, true);
+    IrMlType* rhs_type = irmlNodeType(chk_node->of.prim.of.bini.lhs, true);
     if (lhs_type != rhs_type || lhs_type->kind != irml_type_int)
         ·fail(str("invalid operand type(s) for int binary operation"));
-    chk_node->anns.type = chk_node->of.prim.of.bin_i.lhs->anns.type;
+    chk_node->anns.type = chk_node->of.prim.of.bini.lhs->anns.type;
 
-    if (chk_node->of.prim.of.bin_i.kind == irml_bin_i_rem && (chk_node->of.prim.of.bin_i.lhs == chk_node->of.prim.of.bin_i.rhs))
+    if (chk_node->of.prim.of.bini.kind == irml_bini_rem && (chk_node->of.prim.of.bini.lhs == chk_node->of.prim.of.bini.rhs))
         ret_node = irmlNodePrimValInt(ctx->prog, 0); // x%x=0
     else {
-        IrMlNode* const lhs_static = irmlNodeIsPrimVal(chk_node->of.prim.of.bin_i.lhs, irml_type_int) ? chk_node->of.prim.of.bin_i.lhs : NULL;
-        IrMlNode* const rhs_static = irmlNodeIsPrimVal(chk_node->of.prim.of.bin_i.rhs, irml_type_int) ? chk_node->of.prim.of.bin_i.rhs : NULL;
+        IrMlNode* const lhs_static = irmlNodeIsPrimVal(chk_node->of.prim.of.bini.lhs, irml_type_int) ? chk_node->of.prim.of.bini.lhs : NULL;
+        IrMlNode* const rhs_static = irmlNodeIsPrimVal(chk_node->of.prim.of.bini.rhs, irml_type_int) ? chk_node->of.prim.of.bini.rhs : NULL;
         Bool const l = (lhs_static != NULL);
         Bool const r = (rhs_static != NULL);
         if (l || r) {
             Bool const both = l && r;
             I64 const lhs = l ? lhs_static->of.prim.of.val.of.int_val : 0;
             I64 const rhs = r ? rhs_static->of.prim.of.val.of.int_val : 0;
-            switch (chk_node->of.prim.of.bin_i.kind) {
-                case irml_bin_i_add: { // x+0=x, 0+x=x
+            switch (chk_node->of.prim.of.bini.kind) {
+                case irml_bini_add: { // x+0=x, 0+x=x
                     if (r && rhs == 0)
-                        ret_node = chk_node->of.prim.of.bin_i.lhs;
+                        ret_node = chk_node->of.prim.of.bini.lhs;
                     else if (l && lhs == 0)
-                        ret_node = chk_node->of.prim.of.bin_i.rhs;
+                        ret_node = chk_node->of.prim.of.bini.rhs;
                     else if (both)
                         ret_node = irmlNodePrimValInt(ctx->prog, lhs + rhs);
                 } break;
-                case irml_bin_i_sub: { // x-0=x
+                case irml_bini_sub: { // x-0=x
                     if (r && rhs == 0)
-                        ret_node = chk_node->of.prim.of.bin_i.lhs;
+                        ret_node = chk_node->of.prim.of.bini.lhs;
                     else if (both)
                         ret_node = irmlNodePrimValInt(ctx->prog, lhs - rhs);
                 } break;
-                case irml_bin_i_mul: { // x*1=x, 1*x=x
+                case irml_bini_mul: { // x*1=x, 1*x=x
                     if (r && rhs == 1)
-                        ret_node = chk_node->of.prim.of.bin_i.lhs;
+                        ret_node = chk_node->of.prim.of.bini.lhs;
                     else if (l && lhs == 1)
-                        ret_node = chk_node->of.prim.of.bin_i.rhs;
+                        ret_node = chk_node->of.prim.of.bini.rhs;
                     else if (both)
                         ret_node = irmlNodePrimValInt(ctx->prog, lhs * rhs);
                 } break;
-                case irml_bin_i_div: { // x/0=!, x/1=x, 0/x=0
+                case irml_bini_div: { // x/0=!, x/1=x, 0/x=0
                     if (r && rhs == 0)
                         ·fail(str("div by zero"));
                     else if (r && rhs == 1)
-                        ret_node = chk_node->of.prim.of.bin_i.lhs;
+                        ret_node = chk_node->of.prim.of.bini.lhs;
                     else if (l && lhs == 0)
                         ret_node = irmlNodePrimValInt(ctx->prog, 0);
                     else if (both)
                         ret_node = irmlNodePrimValInt(ctx->prog, lhs / rhs);
                 } break;
-                case irml_bin_i_rem: { // x%0=!, x%1=0
+                case irml_bini_rem: { // x%0=!, x%1=0
                     if (r && rhs == 0)
                         ·fail(str("rem by zero"));
                     else if (r && rhs == 1)
@@ -923,7 +946,6 @@ IrMlNode* irmlPreduceNodeOfPrimBinI(IrMlCtxPreduce* const ctx, IrMlNode* const n
                     else if (both)
                         ret_node = irmlNodePrimValInt(ctx->prog, lhs % rhs);
                 } break;
-                default: break;
             }
         }
     }
@@ -950,8 +972,8 @@ IrMlNode* irmlPreduceNode(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
                 case irml_prim_item: ret_node = irmlPreduceNodeOfPrimItem(ctx, node); break;
                 case irml_prim_extcall: ret_node = irmlPreduceNodeOfPrimExtCall(ctx, node); break;
                 case irml_prim_cast: ret_node = irmlPreduceNodeOfPrimCast(ctx, node); break;
-                case irml_prim_cmp_i: ret_node = irmlPreduceNodeOfPrimCmpI(ctx, node); break;
-                case irml_prim_bin_i: ret_node = irmlPreduceNodeOfPrimBinI(ctx, node); break;
+                case irml_prim_cmpi: ret_node = irmlPreduceNodeOfPrimCmpI(ctx, node); break;
+                case irml_prim_bini: ret_node = irmlPreduceNodeOfPrimBinI(ctx, node); break;
                 case irml_prim_val: ret_node = irmlPreduceNodeOfPrimVal(ctx, node); break;
                 default: break;
             }
