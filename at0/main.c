@@ -10,7 +10,7 @@
 #include "ir_hl.c"
 #include "ir_ll.c"
 
-#include "mtp.c"
+#include "ir_ml.c"
 
 
 int main_MiniThorinProto(int const argc, CStr const argv[]);
@@ -24,17 +24,17 @@ int main(int const argc, CStr const argv[]) {
 int main_MiniThorinProto(int const argc, CStr const argv[]) {
     MtpProg p = mtpProg(64, 32, 32, 32);
 
-#define def MtpNode*
+#define _ MtpNode*
     // main x := (x == 123) ?- 22 |- 44
-    def fn_main = mtpNodeFn(&p, mtpTypeFn2(&p, mtpTypeIntStatic(&p), mtpTypeFn1(&p, mtpTypeIntStatic(&p))));
-    def fn_if_then = mtpNodeFn(&p, mtpTypeFn0(&p));
-    def fn_if_else = mtpNodeFn(&p, mtpTypeFn0(&p));
-    def fn_next = mtpNodeFn(&p, mtpTypeFn1(&p, mtpTypeIntStatic(&p)));
-    def cmp_p0_eq_123 = mtpNodePrimCmpI(&p, (MtpPrimCmpI) {
-                                                .kind = mtp_cmp_i_eq,
-                                                .lhs = &fn_main->of.fn.params.at[0],
-                                                .rhs = mtpNodePrimValInt(&p, 123),
-                                            });
+    _ fn_main = mtpNodeFn(&p, mtpTypeFn2(&p, mtpTypeIntStatic(&p), mtpTypeFn1(&p, mtpTypeIntStatic(&p))));
+    _ fn_if_then = mtpNodeFn(&p, mtpTypeFn0(&p));
+    _ fn_if_else = mtpNodeFn(&p, mtpTypeFn0(&p));
+    _ fn_next = mtpNodeFn(&p, mtpTypeFn1(&p, mtpTypeIntStatic(&p)));
+    _ cmp_p0_eq_123 = mtpNodePrimCmpI(&p, (MtpPrimCmpI) {
+                                              .kind = mtp_cmp_i_eq,
+                                              .lhs = &fn_main->of.fn.params.at[0],
+                                              .rhs = mtpNodePrimValInt(&p, 123),
+                                          });
     mtpFnChoice(&p, fn_main, (MtpNodeChoice) {.cond = cmp_p0_eq_123, .if1 = fn_if_then, .if0 = fn_if_else});
     mtpFnJump(&p, fn_if_then, (MtpNodeJump) {.callee = fn_next, .args = mtpNodes1(mtpNodePrimValInt(&p, 22))});
     mtpFnJump(&p, fn_if_else, (MtpNodeJump) {.callee = fn_next, .args = mtpNodes1(mtpNodePrimValInt(&p, 44))});

@@ -698,8 +698,9 @@ MtpNode* mtpPreduceNode(MtpCtxPreduce* const ctx, MtpNode* const node) {
                 ret_node = mtpUpdNodeChoice(ctx->prog, node, new_choice);
 
             MtpNode* chk_node = (ret_node == NULL) ? node : ret_node;
-            if (!(mtpNodeIsBasicBlockishFn(chk_node->of.choice.if0) && mtpNodeIsBasicBlockishFn(chk_node->of.choice.if1)))
-                ·fail(str("choice results must both preduce to basic blocks"));
+            if (chk_node->of.choice.if0->kind == mtp_node_param || chk_node->of.choice.if1->kind == mtp_node_param
+                || !(mtpNodeIsBasicBlockishFn(chk_node->of.choice.if0) && mtpNodeIsBasicBlockishFn(chk_node->of.choice.if1)))
+                ·fail(str("both non-param choices must preduce to basic blocks"));
             chk_node->anns.type = chk_node->of.choice.if0->anns.type;
             if (is_cond_true)
                 ret_node = chk_node->of.choice.if1;
