@@ -47,12 +47,13 @@ int main_IrMl(int const argc, CStr const argv[]) {
                });
 
     irmlPrint(fn_main);
+    printf("\n\n———————————\n\n");
 
-    // IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p};
-    // _ fn_main_pred = irmlPreduceNode(&ctx, fn_main);
+    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p};
+    irmlPreduceNode(&ctx, fn_main);
 
-    // printf("\n\n———————————\n\n");
-    // irmlPrint(fn_main_pred);
+    printf("\n\n———————————\n\n");
+    irmlPrint(fn_main);
 
     return 0;
 }

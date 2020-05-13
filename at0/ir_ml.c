@@ -1036,6 +1036,7 @@ typedef struct IrMlCtxPrint {
 } IrMlCtxPrint;
 
 void irmlPrintNode(IrMlCtxPrint* ctx, IrMlNode* const node) {
+    ·assert(node != NULL);
     switch (node->kind) {
         case irml_node_fn: {
             Bool have_already = false;
@@ -1195,6 +1196,7 @@ void irmlPrintNode(IrMlCtxPrint* ctx, IrMlNode* const node) {
 }
 
 void irmlPrint(IrMlNode* const root_fn_node) {
+    ·assert(root_fn_node != NULL);
     IrMlCtxPrint ctx = (IrMlCtxPrint) {.cur_fn = root_fn_node, .fn_nodes_stack = ·listOfPtrs(IrMlNode, 1, 8)};
     ctx.fn_nodes_stack.at[0] = root_fn_node;
     UInt idx = 0;
