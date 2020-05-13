@@ -25,11 +25,13 @@ int main_IrMl(int const argc, CStr const argv[]) {
     IrMlProg p = irmlProg(64, 32, 32, 32);
 
 #define _ IrMlNode*
+    // fn (int, fn(int) -> _) -> _
+    _ fn_main_type = irmlTypeFn2(&p, irmlTypeIntStatic(&p), irmlTypeFn1(&p, irmlTypeIntStatic(&p)));
     // main x := (x == 123) ?- 22 |- 44
-    _ fn_main = irmlNodeFn(&p, irmlTypeFn2(&p, irmlTypeIntStatic(&p), irmlTypeFn1(&p, irmlTypeIntStatic(&p))));
-    _ fn_if_then = irmlNodeFn(&p, irmlTypeFn0(&p));
-    _ fn_if_else = irmlNodeFn(&p, irmlTypeFn0(&p));
-    _ fn_next = irmlNodeFn(&p, irmlTypeFn1(&p, irmlTypeIntStatic(&p)));
+    _ fn_main = irmlNodeFn(&p, fn_main_type, "main");
+    _ fn_if_then = irmlNodeFn(&p, irmlTypeFn0(&p), "main_if_then");
+    _ fn_if_else = irmlNodeFn(&p, irmlTypeFn0(&p), "main_if_else");
+    _ fn_next = irmlNodeFn(&p, irmlTypeFn1(&p, irmlTypeIntStatic(&p)), "main_next");
     _ cmp_p0_eq_123 = irmlNodePrimCmpI(&p, (IrMlPrimCmpI) {
                                                .kind = irml_cmpi_eq,
                                                .lhs = &fn_main->of.fn.params.at[0],
@@ -44,8 +46,13 @@ int main_IrMl(int const argc, CStr const argv[]) {
                    .args = irmlNodes1(&fn_next->of.fn.params.at[0]),
                });
 
-    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p};
-    irmlPreduceNode(&ctx, fn_main);
+    irmlPrint(fn_main);
+
+    // IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p};
+    // _ fn_main_pred = irmlPreduceNode(&ctx, fn_main);
+
+    // printf("\n\n———————————\n\n");
+    // irmlPrint(fn_main_pred);
 
     return 0;
 }
