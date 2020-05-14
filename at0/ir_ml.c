@@ -715,11 +715,118 @@ IrMlNode* irmlUpdNodePrimCmpI(IrMlProg* const prog, IrMlNode* const node, IrMlPr
 
 
 
-IrMlNode* irmlNodeWithParamsRewritten(IrMlNode* const fn, IrMlNode* const node, IrMlPtrsOfNode const args) {
-    switch (node->kind) {
-        default: ·fail(uIntToStr(node->kind, 1, 10));
-    }
-    return node;
+IrMlNode* irmlNodeWithParamsRewritten(IrMlProg* const prog, IrMlNode* const fn, IrMlNode* const node, IrMlPtrsOfNode const args) {
+    if (node != NULL)
+        switch (node->kind) {
+            case irml_node_fn: break;
+
+            case irml_node_param: {
+                if (node->of.param.fn_node == fn)
+                    return args.at[node->of.param.param_idx];
+            } break;
+
+            case irml_node_jump: {
+                UInt const args_count = node->of.jump.args.len;
+                Bool args_change = false;
+                IrMlNodeJump new_jump = (IrMlNodeJump) {
+                    .callee = irmlNodeWithParamsRewritten(prog, fn, node->of.jump.callee, args),
+                    .args = ·sliceOfPtrs(IrMlNode, args_count, args_count),
+                };
+                for (UInt i = 0; i < new_jump.args.len; i += 1) {
+                    new_jump.args.at[i] = irmlNodeWithParamsRewritten(prog, fn, node->of.jump.args.at[i], args);
+                    args_change |= (new_jump.args.at[i] != NULL);
+                }
+                if (new_jump.callee != NULL || args_change)
+                    return irmlUpdNodeJump(prog, node, new_jump);
+            } break;
+
+            case irml_node_choice: {
+                UInt const cases_count = node->of.choice.values.len;
+                Bool values_change = false;
+                Bool funcs_change = false;
+                IrMlNodeChoice new_choice = (IrMlNodeChoice) {
+                    .values = ·sliceOfPtrs(IrMlNode, cases_count, cases_count),
+                    .funcs = ·sliceOfPtrs(IrMlNode, cases_count, cases_count),
+                    .scrutinee = irmlNodeWithParamsRewritten(prog, fn, node->of.choice.scrutinee, args),
+                    .default_func = irmlNodeWithParamsRewritten(prog, fn, node->of.choice.default_func, args),
+                };
+                for (UInt i = 0; i < cases_count; i += 1) {
+                    new_choice.values.at[i] = irmlNodeWithParamsRewritten(prog, fn, node->of.choice.values.at[i], args);
+                    new_choice.funcs.at[i] = irmlNodeWithParamsRewritten(prog, fn, node->of.choice.funcs.at[i], args);
+                    values_change |= (new_choice.values.at[i] != NULL);
+                    funcs_change |= (new_choice.funcs.at[i] != NULL);
+                }
+                if (new_choice.scrutinee != NULL || new_choice.default_func != NULL || values_change || funcs_change)
+                    return irmlUpdNodeChoice(prog, node, new_choice);
+            } break;
+
+            case irml_node_prim: {
+                switch (node->of.prim.kind) {
+                    case irml_prim_bini: {
+                        IrMlPrimBinI const new_bini = (IrMlPrimBinI) {
+                            .kind = node->of.prim.of.bini.kind,
+                            .lhs = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.bini.lhs, args),
+                            .rhs = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.bini.rhs, args),
+                        };
+                        if (new_bini.lhs != NULL || new_bini.rhs != NULL)
+                            return irmlUpdNodePrimBinI(prog, node, new_bini);
+                    } break;
+                    case irml_prim_cmpi: {
+                        IrMlPrimCmpI const new_cmpi = (IrMlPrimCmpI) {
+                            .kind = node->of.prim.of.cmpi.kind,
+                            .lhs = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.cmpi.lhs, args),
+                            .rhs = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.cmpi.rhs, args),
+                        };
+                        if (new_cmpi.lhs != NULL || new_cmpi.rhs != NULL)
+                            return irmlUpdNodePrimCmpI(prog, node, new_cmpi);
+                    } break;
+                    case irml_prim_cast: {
+                        IrMlPrimCast const new_cast = (IrMlPrimCast) {
+                            .kind = node->of.prim.of.cast.kind,
+                            .subj = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.cast.subj, args),
+                            .dst_type = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.cast.dst_type, args),
+                        };
+                        if (new_cast.dst_type != NULL | new_cast.subj != NULL)
+                            return irmlUpdNodePrimCast(prog, node, new_cast);
+                    } break;
+                    case irml_prim_item: {
+                        IrMlPrimItem const new_item = (IrMlPrimItem) {
+                            .subj = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.item.subj, args),
+                            .index = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.item.index, args),
+                            .set_to = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.item.set_to, args),
+                        };
+                        if (new_item.index != NULL || new_item.subj != NULL || new_item.set_to != NULL)
+                            return irmlUpdNodePrimItem(prog, node, new_item);
+                    } break;
+                    case irml_prim_extcall: {
+                        IrMlPrimExtCall const new_call = (IrMlPrimExtCall) {
+                            .name = node->of.prim.of.ext_call.name,
+                            .args_list_val = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.ext_call.args_list_val, args),
+                        };
+                        IrMlNode* const new_type = irmlNodeWithParamsRewritten(prog, fn, node->anns.type, args);
+                        if (new_call.args_list_val != NULL || new_type != NULL)
+                            return irmlUpdNodePrimExtCall(prog, node, new_call.args_list_val, new_type);
+                    } break;
+                    case irml_prim_val: {
+                        if (node->of.prim.of.val.kind == irml_type_arr || node->of.prim.of.val.kind == irml_type_tup) {
+                            UInt const len = node->of.prim.of.val.of.list_val.len;
+                            IrMlPtrsOfNode new_list = ·sliceOfPtrs(IrMlNode, len, len);
+                            Bool list_change = false;
+                            for (UInt i = 0; i < len; i += 1) {
+                                new_list.at[i] = irmlNodeWithParamsRewritten(prog, fn, node->of.prim.of.val.of.list_val.at[i], args);
+                                list_change |= (new_list.at[i] != NULL);
+                            }
+                            if (list_change)
+                                return irmlUpdNodePrimValList(prog, node, new_list);
+                        }
+                    } break;
+                    default: ·fail(uIntToStr(node->of.prim.kind, 1, 10));
+                }
+            } break;
+
+            default: ·fail(uIntToStr(node->kind, 1, 10));
+        }
+    return NULL;
 }
 
 
@@ -764,22 +871,24 @@ IrMlNode* irmlPreduceNodeOfJump(IrMlCtxPreduce* const ctx, IrMlNode* const node)
     for (UInt i = 0; (!chk_node->anns.side_effects) && i < chk_node->of.jump.args.len; i += 1)
         chk_node->anns.side_effects = (chk_node->of.jump.args.at[i]->anns.side_effects);
 
-    // while (chk_node->of.jump.callee->kind == irml_node_fn) {
-    //     Bool can_inline = true;
-    //     for (UInt i = 0; can_inline && i < chk_node->of.jump.args.len; i += 1)
-    //         if (chk_node->of.jump.args.at[i]->kind == irml_node_prim
-    //             && !(irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_int)
-    //                  || irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_type)
-    //                  || irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_bottom)))
-    //             can_inline = false;
-    //     if (!can_inline)
-    //         break;
-    //     ret_node = irmlNodeWithParamsRewritten(chk_node->of.jump.callee, chk_node->of.jump.callee->of.fn.body, chk_node->of.jump.args);
-    //     IrMlNode* const pred_node = irmlPreduceNode(ctx, ret_node);
-    //     if (pred_node != NULL)
-    //         ret_node = pred_node;
-    //     chk_node = ret_node;
-    // }
+    while (chk_node->kind == irml_node_jump && chk_node->of.jump.callee->kind == irml_node_fn) {
+        Bool can_inline = true;
+        for (UInt i = 0; can_inline && i < chk_node->of.jump.args.len; i += 1)
+            if (chk_node->of.jump.args.at[i]->kind == irml_node_prim
+                && !(irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_int)
+                     || irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_type)
+                     || irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_bottom)))
+                can_inline = false;
+        if (!can_inline)
+            break;
+        IrMlNode* inl_node =
+            irmlNodeWithParamsRewritten(ctx->prog, chk_node->of.jump.callee, chk_node->of.jump.callee->of.fn.body, chk_node->of.jump.args);
+        if (inl_node == NULL)
+            break;
+        IrMlNode* const pred_node = irmlPreduceNode(ctx, inl_node);
+        ret_node = (pred_node == NULL) ? inl_node : pred_node;
+        chk_node = ret_node;
+    }
 
     return ret_node;
 }
