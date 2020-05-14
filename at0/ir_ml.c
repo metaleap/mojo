@@ -604,10 +604,10 @@ IrMlNodeChoice irmlChoiceBoolish(IrMlProg* const prog, IrMlNode* const scrutinee
                                               .scrutinee = scrutinee,
                                               .values = (IrMlPtrsOfNode)·sliceOfPtrs(IrMlNode, 2, 2),
                                               .funcs = (IrMlPtrsOfNode)·sliceOfPtrs(IrMlNode, 2, 2)};
-    choice.values.at[0] = irmlNodePrimValBool(prog, false);
-    choice.values.at[1] = irmlNodePrimValBool(prog, true);
-    choice.values.at[0] = if0;
-    choice.values.at[1] = if1;
+    choice.values.at[0] = irmlNodePrimValBool(prog, true);
+    choice.values.at[1] = irmlNodePrimValBool(prog, false);
+    choice.funcs.at[0] = if1;
+    choice.funcs.at[1] = if0;
     return choice;
 }
 
@@ -798,7 +798,7 @@ IrMlNode* irmlPreduceNodeOfChoice(IrMlCtxPreduce* const ctx, IrMlNode* const nod
                                                   .funcs = ·sliceOfPtrs(IrMlNode, cases_count, cases_count),
                                                   .values = ·sliceOfPtrs(IrMlNode, cases_count, cases_count)};
     IrMlNode* scrutinee = (new_choice.scrutinee == NULL) ? node->of.choice.scrutinee : new_choice.scrutinee;
-    if (scrutinee->anns.type->kind != irml_type_int)
+    if (irmlNodeType(scrutinee, true)->kind != irml_type_int)
         ·fail(str("choice scrutinee isn't integer"));
     Bool const is_scrut_static = irmlNodeIsPrimVal(scrutinee, irml_type_int);
 
