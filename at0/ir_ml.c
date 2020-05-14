@@ -750,10 +750,13 @@ IrMlNode* irmlPreduceNodeOfChoice(IrMlCtxPreduce* const ctx, IrMlNode* const nod
     chk_node->anns.side_effects = chk_node->of.choice.cond->anns.side_effects || chk_node->of.choice.if0->anns.side_effects
                                   || chk_node->of.choice.if1->anns.side_effects;
 
-    if (is_cond_true)
-        ret_node = chk_node->of.choice.if1;
-    else if (is_cond_false)
-        ret_node = chk_node->of.choice.if0;
+    if (is_cond_static) {
+        ret_node = is_cond_true ? chk_node->of.choice.if1 : chk_node->of.choice.if0;
+        ret_node = irmlNodeJump(ctx->prog, (IrMlNodeJump) {.callee = ret_node, .args = ·sliceOfPtrs(IrMlNode, 0, 0)});
+        IrMlNode* const pred_node = irmlPreduceNodeOfJump(ctx, ret_node);
+        if (pred_node != NULL)
+            ret_node = pred_node;
+    }
     return ret_node;
 }
 
@@ -889,23 +892,25 @@ IrMlNode* irmlPreduceNodeOfPrimCmpI(IrMlCtxPreduce* const ctx, IrMlNode* const n
     chk_node->anns.type = irmlTypeBool(ctx->prog);
     chk_node->anns.side_effects = chk_node->of.prim.of.cmpi.lhs->anns.side_effects || chk_node->of.prim.of.cmpi.rhs->anns.side_effects;
 
-    if (chk_node->of.prim.of.cmpi.lhs == chk_node->of.prim.of.cmpi.rhs && !chk_node->anns.side_effects)
-        ret_node = irmlNodePrimValBool(ctx->prog, true);
-    else if (irmlNodeIsPrimVal(chk_node->of.prim.of.cmpi.lhs, irml_type_int)
-             && irmlNodeIsPrimVal(chk_node->of.prim.of.cmpi.rhs, irml_type_int)) {
-        I64 const lhs = chk_node->of.prim.of.cmpi.lhs->of.prim.of.val.of.int_val;
-        I64 const rhs = chk_node->of.prim.of.cmpi.rhs->of.prim.of.val.of.int_val;
-        Bool result;
-        switch (chk_node->of.prim.of.cmpi.kind) {
-            case irml_cmpi_eq: result = (lhs == rhs); break;
-            case irml_cmpi_neq: result = (lhs != rhs); break;
-            case irml_cmpi_geq: result = (lhs >= rhs); break;
-            case irml_cmpi_leq: result = (lhs <= rhs); break;
-            case irml_cmpi_gt: result = (lhs > rhs); break;
-            case irml_cmpi_lt: result = (lhs < rhs); break;
-            default: ·fail(str("TODO: how come we got a new int-cmp op?!"));
+    if (!chk_node->anns.side_effects) {
+        if (chk_node->of.prim.of.cmpi.kind == irml_cmpi_eq && chk_node->of.prim.of.cmpi.lhs == chk_node->of.prim.of.cmpi.rhs)
+            ret_node = irmlNodePrimValBool(ctx->prog, true);
+        else if (irmlNodeIsPrimVal(chk_node->of.prim.of.cmpi.lhs, irml_type_int)
+                 && irmlNodeIsPrimVal(chk_node->of.prim.of.cmpi.rhs, irml_type_int)) {
+            I64 const lhs = chk_node->of.prim.of.cmpi.lhs->of.prim.of.val.of.int_val;
+            I64 const rhs = chk_node->of.prim.of.cmpi.rhs->of.prim.of.val.of.int_val;
+            Bool result;
+            switch (chk_node->of.prim.of.cmpi.kind) {
+                case irml_cmpi_eq: result = (lhs == rhs); break;
+                case irml_cmpi_neq: result = (lhs != rhs); break;
+                case irml_cmpi_geq: result = (lhs >= rhs); break;
+                case irml_cmpi_leq: result = (lhs <= rhs); break;
+                case irml_cmpi_gt: result = (lhs > rhs); break;
+                case irml_cmpi_lt: result = (lhs < rhs); break;
+                default: ·fail(str("TODO: how come we got a new int-cmp op?!"));
+            }
+            ret_node = irmlNodePrimValBool(ctx->prog, result);
         }
-        ret_node = irmlNodePrimValBool(ctx->prog, result);
     }
 
     return ret_node;
