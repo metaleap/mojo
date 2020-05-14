@@ -37,7 +37,7 @@ int main_IrMl(int const argc, CStr const argv[]) {
                                                .lhs = irmlNodePrimValInt(&p, 123), // &fn_main->of.fn.params.at[0],
                                                .rhs = irmlNodePrimValInt(&p, 123),
                                            });
-    irmlFnChoice(&p, fn_main, (IrMlNodeChoice) {.cond = cmp_p0_eq_123, .if1 = fn_if_then, .if0 = fn_if_else});
+    irmlFnChoice(&p, fn_main, irmlChoiceBoolish(&p, cmp_p0_eq_123, fn_if_then, fn_if_else, NULL));
     irmlFnJump(&p, fn_if_then, (IrMlNodeJump) {.callee = fn_next, .args = irmlNodes1(irmlNodePrimValInt(&p, 22))});
     irmlFnJump(&p, fn_if_else, (IrMlNodeJump) {.callee = fn_next, .args = irmlNodes1(irmlNodePrimValInt(&p, 44))});
     irmlFnJump(&p, fn_next,
@@ -49,11 +49,11 @@ int main_IrMl(int const argc, CStr const argv[]) {
     irmlPrint(fn_main);
     printf("\n\n———————————\n\n");
 
-    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p};
-    irmlPreduceNode(&ctx, fn_main);
+    // IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p};
+    // irmlPreduceNode(&ctx, fn_main);
 
-    printf("\n\n———————————\n\n");
-    irmlPrint(fn_main);
+    // printf("\n\n———————————\n\n");
+    // irmlPrint(fn_main);
 
     return 0;
 }

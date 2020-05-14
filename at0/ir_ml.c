@@ -96,6 +96,9 @@ struct IrMlType {
 typedef struct IrMlNodeParam {
     IrMlNode* fn_node;
     UInt param_idx;
+    struct {
+        UInt ref_count;
+    } anns;
 } IrMlNodeParam;
 
 typedef struct IrMlNodeFn {
@@ -104,9 +107,10 @@ typedef struct IrMlNodeFn {
 } IrMlNodeFn;
 
 typedef struct IrMlNodeChoice {
-    IrMlNode* cond;
-    IrMlNode* if1;
-    IrMlNode* if0;
+    IrMlNode* scrutinee;
+    IrMlNode* default_func;
+    IrMlPtrsOfNode values;
+    IrMlPtrsOfNode funcs;
 } IrMlNodeChoice;
 
 typedef struct IrMlNodeJump {
@@ -376,8 +380,18 @@ Bool irmlNodesEql(IrMlNode const* const n1, IrMlNode const* const n2) {
     if (n1 != NULL && n2 != NULL && n1->kind == n2->kind && irmlTypesEql(irmlNodeType(n1, false), irmlNodeType(n2, false)))
         switch (n1->kind) {
             case irml_node_choice: {
-                return irmlNodesEql(n1->of.choice.if0, n2->of.choice.if0) && irmlNodesEql(n1->of.choice.if1, n2->of.choice.if1)
-                       && irmlNodesEql(n1->of.choice.cond, n2->of.choice.cond);
+                if (irmlNodesEql(n1->of.choice.scrutinee, n2->of.choice.scrutinee)
+                    && irmlNodesEql(n1->of.choice.default_func, n2->of.choice.default_func)
+                    && n1->of.choice.funcs.len == n2->of.choice.funcs.len && n1->of.choice.values.len == n2->of.choice.values.len) {
+                    for (UInt i = 0; i < n1->of.choice.values.len; i += 1)
+                        if (!irmlNodesEql(n1->of.choice.values.at[i], n2->of.choice.values.at[i]))
+                            return false;
+                    for (UInt i = 0; i < n1->of.choice.funcs.len; i += 1)
+                        if (!irmlNodesEql(n1->of.choice.funcs.at[i], n2->of.choice.funcs.at[i]))
+                            return false;
+                    return true;
+                }
+                return false;
             }
             case irml_node_jump: {
                 if (n1->of.jump.args.len == n2->of.jump.args.len && irmlNodesEql(n1->of.jump.callee, n2->of.jump.callee)) {
@@ -437,7 +451,7 @@ IrMlNode* irmlNodeChoice(IrMlProg* const prog, IrMlNodeChoice const spec) {
     IrMlNode spec_node = (IrMlNode) {
         .kind = irml_node_choice,
         .of = {.choice = spec},
-        .anns = {.preduced = NULL, .type = NULL, .side_effects = false},
+        .anns = {.preduced = NULL, .type = irmlTypeBottom(prog), .side_effects = false},
     };
     for (UInt i = 0; i < prog->all.choices.len; i += 1) {
         IrMlNode* node = prog->all.choices.at[i];
@@ -548,7 +562,7 @@ IrMlNode* irmlNodeFn(IrMlProg* const prog, IrMlNode* const fn_type_node, CStr co
         ret_node->of.fn.params.at[i] = (IrMlNode) {
             .kind = irml_node_param,
             .anns = {.preduced = NULL, .type = params_type_nodes.at[i], .side_effects = false},
-            .of = {.param = (IrMlNodeParam) {.fn_node = ret_node, .param_idx = i}},
+            .of = {.param = (IrMlNodeParam) {.fn_node = ret_node, .param_idx = i, .anns = {.ref_count = 0}}},
         };
     return ret_node;
 }
@@ -584,18 +598,21 @@ void irmlFnJump(IrMlProg* const prog, IrMlNode* const fn_node, IrMlNodeJump cons
 void irmlFnChoice(IrMlProg* const prog, IrMlNode* const fn_node, IrMlNodeChoice const choice) {
     fn_node->of.fn.body = irmlNodeChoice(prog, choice);
 }
-
-IrMlNode* irmlUpdNodeChoice(IrMlProg* const prog, IrMlNode* const node, IrMlNodeChoice upd) {
-    if (upd.cond == NULL)
-        upd.cond = node->of.choice.cond;
-    if (upd.if0 == NULL)
-        upd.if0 = node->of.choice.if0;
-    if (upd.if1 == NULL)
-        upd.if1 = node->of.choice.if1;
-    if (upd.if0 == node->of.choice.if0 && upd.if1 == node->of.choice.if1 && upd.cond == node->of.choice.cond)
-        return node;
-    return irmlNodeChoice(prog, upd);
+IrMlNodeChoice irmlChoiceBoolish(IrMlProg* const prog, IrMlNode* const scrutinee, IrMlNode* const if1, IrMlNode* const if0,
+                                 IrMlNode* const default_func) {
+    IrMlNodeChoice choice = (IrMlNodeChoice) {.default_func = default_func,
+                                              .scrutinee = scrutinee,
+                                              .values = (IrMlPtrsOfNode)·sliceOfPtrs(IrMlNode, 2, 2),
+                                              .funcs = (IrMlPtrsOfNode)·sliceOfPtrs(IrMlNode, 2, 2)};
+    choice.values.at[0] = irmlNodePrimValBool(prog, false);
+    choice.values.at[1] = irmlNodePrimValBool(prog, true);
+    choice.values.at[0] = if0;
+    choice.values.at[1] = if1;
+    return choice;
 }
+
+
+
 
 IrMlPtrsOfNode irmlUpdPtrsOfNodeSlice(IrMlProg* const prog, IrMlPtrsOfNode const nodes, IrMlPtrsOfNode upd) {
     if (upd.at != NULL && (upd.at != nodes.at || upd.len != nodes.len)) {
@@ -611,6 +628,20 @@ IrMlPtrsOfNode irmlUpdPtrsOfNodeSlice(IrMlProg* const prog, IrMlPtrsOfNode const
             upd.at = nodes.at;
     }
     return (upd.at == NULL || (upd.at == nodes.at && upd.len == nodes.len)) ? nodes : upd;
+}
+
+IrMlNode* irmlUpdNodeChoice(IrMlProg* const prog, IrMlNode* const node, IrMlNodeChoice upd) {
+    if (upd.scrutinee == NULL)
+        upd.scrutinee = node->of.choice.scrutinee;
+    if (upd.default_func == NULL)
+        upd.default_func = node->of.choice.default_func;
+    upd.values = irmlUpdPtrsOfNodeSlice(prog, node->of.choice.values, upd.values);
+    upd.funcs = irmlUpdPtrsOfNodeSlice(prog, node->of.choice.funcs, upd.funcs);
+    if (upd.values.len == node->of.choice.values.len && upd.values.at == node->of.choice.values.at
+        && upd.funcs.len == node->of.choice.funcs.len && upd.funcs.at == node->of.choice.funcs.at
+        && upd.default_func == node->of.choice.default_func && upd.scrutinee == node->of.choice.scrutinee)
+        return node;
+    return irmlNodeChoice(prog, upd);
 }
 
 IrMlNode* irmlUpdNodeJump(IrMlProg* const prog, IrMlNode* const node, IrMlNodeJump upd) {
@@ -683,6 +714,17 @@ IrMlNode* irmlUpdNodePrimCmpI(IrMlProg* const prog, IrMlNode* const node, IrMlPr
 
 
 
+
+IrMlNode* irmlNodeWithParamsRewritten(IrMlNode* const fn, IrMlNode* const node, IrMlPtrsOfNode const args) {
+    switch (node->kind) {
+        default: ·fail(uIntToStr(node->kind, 1, 10));
+    }
+    return node;
+}
+
+
+
+
 typedef struct IrMlCtxPreduce {
     IrMlProg* prog;
 } IrMlCtxPreduce;
@@ -706,7 +748,7 @@ IrMlNode* irmlPreduceNodeOfJump(IrMlCtxPreduce* const ctx, IrMlNode* const node)
         ret_node = irmlUpdNodeJump(ctx->prog, node, new_jump);
 
     IrMlNode* chk_node = (ret_node == NULL) ? node : ret_node;
-    IrMlType* fn_type = irmlNodeType(chk_node->of.jump.callee, true);
+    IrMlType* const fn_type = irmlNodeType(chk_node->of.jump.callee, true);
     if (fn_type->kind != irml_type_fn
         || !(chk_node->of.jump.callee->kind == irml_node_fn || chk_node->of.jump.callee->kind == irml_node_param))
         ·fail(str("not callable"));
@@ -722,41 +764,91 @@ IrMlNode* irmlPreduceNodeOfJump(IrMlCtxPreduce* const ctx, IrMlNode* const node)
     for (UInt i = 0; (!chk_node->anns.side_effects) && i < chk_node->of.jump.args.len; i += 1)
         chk_node->anns.side_effects = (chk_node->of.jump.args.at[i]->anns.side_effects);
 
+    // while (chk_node->of.jump.callee->kind == irml_node_fn) {
+    //     Bool can_inline = true;
+    //     for (UInt i = 0; can_inline && i < chk_node->of.jump.args.len; i += 1)
+    //         if (chk_node->of.jump.args.at[i]->kind == irml_node_prim
+    //             && !(irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_int)
+    //                  || irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_type)
+    //                  || irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_bottom)))
+    //             can_inline = false;
+    //     if (!can_inline)
+    //         break;
+    //     ret_node = irmlNodeWithParamsRewritten(chk_node->of.jump.callee, chk_node->of.jump.callee->of.fn.body, chk_node->of.jump.args);
+    //     IrMlNode* const pred_node = irmlPreduceNode(ctx, ret_node);
+    //     if (pred_node != NULL)
+    //         ret_node = pred_node;
+    //     chk_node = ret_node;
+    // }
+
     return ret_node;
 }
 
 IrMlNode* irmlPreduceNodeOfChoice(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
     IrMlNode* ret_node = NULL;
 
-    IrMlNodeChoice new_choice = (IrMlNodeChoice) {.if0 = NULL, .if1 = NULL, .cond = irmlPreduceNode(ctx, node->of.choice.cond)};
-    IrMlNode* cond = (new_choice.cond == NULL) ? node->of.choice.cond : new_choice.cond;
-    if (cond->anns.type != irmlTypeBool(ctx->prog))
-        ·fail(str("choice condition isn't boolish"));
-    Bool const is_cond_true = (cond == irmlNodePrimValBool(ctx->prog, true));
-    Bool const is_cond_false = (cond == irmlNodePrimValBool(ctx->prog, false));
-    Bool const is_cond_static = is_cond_true || is_cond_false;
-    if (is_cond_false || !is_cond_static)
-        new_choice.if0 = irmlPreduceNode(ctx, node->of.choice.if0);
-    if (is_cond_true || !is_cond_static)
-        new_choice.if1 = irmlPreduceNode(ctx, node->of.choice.if1);
-    if (new_choice.cond != NULL || new_choice.if0 != NULL || new_choice.if1 != NULL)
+    if (node->of.choice.funcs.len != node->of.choice.values.len)
+        ·fail(str("code-gen BUG: choice with differing funcs/values lengths"));
+    if (node->of.choice.values.len == 0 && node->of.choice.default_func == NULL)
+        ·fail(str("code-gen BUG: choice with no funcs to jump to"));
+
+    UInt const cases_count = node->of.choice.funcs.len;
+    IrMlNodeChoice new_choice = (IrMlNodeChoice) {.scrutinee = irmlPreduceNode(ctx, node->of.choice.scrutinee),
+                                                  .default_func = NULL,
+                                                  .funcs = ·sliceOfPtrs(IrMlNode, cases_count, cases_count),
+                                                  .values = ·sliceOfPtrs(IrMlNode, cases_count, cases_count)};
+    IrMlNode* scrutinee = (new_choice.scrutinee == NULL) ? node->of.choice.scrutinee : new_choice.scrutinee;
+    if (scrutinee->anns.type->kind != irml_type_int)
+        ·fail(str("choice scrutinee isn't integer"));
+    Bool const is_scrut_static = irmlNodeIsPrimVal(scrutinee, irml_type_int);
+
+    Bool funcs_change = false;
+    Bool values_change = false;
+    ºUInt found_case_if_static = ·none(UInt);
+    for (UInt i = 0; i < new_choice.values.len; i += 1) {
+        new_choice.values.at[i] = irmlPreduceNode(ctx, node->of.choice.values.at[i]);
+        values_change |= (new_choice.values.at[i] != NULL);
+        IrMlNode* chk_node = (new_choice.values.at[i] != NULL) ? new_choice.values.at[i] : node->of.choice.values.at[i];
+        if (!irmlNodeIsPrimVal(chk_node, irml_type_int))
+            ·fail(str("choice case comparee did not preduce to statically known int"));
+
+        if ((!is_scrut_static) || chk_node->of.prim.of.val.of.int_val == scrutinee->of.prim.of.val.of.int_val) {
+            new_choice.funcs.at[i] = irmlPreduceNode(ctx, node->of.choice.funcs.at[i]);
+            funcs_change |= (new_choice.funcs.at[i] != NULL);
+            if (is_scrut_static)
+                found_case_if_static = ·ok(UInt, i);
+            chk_node = (new_choice.funcs.at[i] != NULL) ? new_choice.funcs.at[i] : node->of.choice.funcs.at[i];
+            if (chk_node->kind == irml_node_param || !irmlNodeIsBasicBlockishFn(chk_node))
+                ·fail(str("choice case targets must preduce to basic-block-ish funcs"));
+        } else
+            new_choice.funcs.at[i] = NULL;
+    }
+    if (node->of.choice.default_func != NULL && ((!is_scrut_static) || !found_case_if_static.ok))
+        new_choice.default_func = irmlPreduceNode(ctx, node->of.choice.default_func);
+
+    if (new_choice.scrutinee != NULL || new_choice.default_func != NULL || funcs_change || values_change)
         ret_node = irmlUpdNodeChoice(ctx->prog, node, new_choice);
 
     IrMlNode* chk_node = (ret_node == NULL) ? node : ret_node;
-    if (chk_node->of.choice.if0->kind == irml_node_param || chk_node->of.choice.if1->kind == irml_node_param
-        || !(irmlNodeIsBasicBlockishFn(chk_node->of.choice.if0) && irmlNodeIsBasicBlockishFn(chk_node->of.choice.if1)))
-        ·fail(str("both non-param choices must preduce to basic blocks"));
-    chk_node->anns.type = chk_node->of.choice.if0->anns.type;
-    chk_node->anns.side_effects = chk_node->of.choice.cond->anns.side_effects || chk_node->of.choice.if0->anns.side_effects
-                                  || chk_node->of.choice.if1->anns.side_effects;
+    chk_node->anns.side_effects = chk_node->of.choice.scrutinee->anns.side_effects;
+    if (chk_node->of.choice.default_func != NULL
+        && (chk_node->of.choice.default_func->kind == irml_node_param || !irmlNodeIsBasicBlockishFn(chk_node->of.choice.default_func)))
+        ·fail(str("choice case targets must preduce to basic-block-ish funcs"));
 
-    if (is_cond_static) {
-        ret_node = is_cond_true ? chk_node->of.choice.if1 : chk_node->of.choice.if0;
+    if (is_scrut_static) {
+        if (found_case_if_static.ok)
+            ret_node = chk_node->of.choice.funcs.at[found_case_if_static.it];
+        else if (chk_node->of.choice.default_func == NULL)
+            ·fail(str("code-gen BUG: statically preducable choice with no matching func"));
+        else
+            ret_node = chk_node->of.choice.default_func;
+
         ret_node = irmlNodeJump(ctx->prog, (IrMlNodeJump) {.callee = ret_node, .args = ·sliceOfPtrs(IrMlNode, 0, 0)});
-        IrMlNode* const pred_node = irmlPreduceNodeOfJump(ctx, ret_node);
+        IrMlNode* const pred_node = irmlPreduceNode(ctx, ret_node);
         if (pred_node != NULL)
             ret_node = pred_node;
     }
+
     return ret_node;
 }
 
@@ -1004,6 +1096,7 @@ IrMlNode* irmlPreduceNode(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
     }
 
     switch (node->kind) {
+        case irml_node_param: node->of.param.anns.ref_count += 1; break;
         case irml_node_fn: ret_node = irmlPreduceNodeOfFn(ctx, node); break;
         case irml_node_choice: ret_node = irmlPreduceNodeOfChoice(ctx, node); break;
         case irml_node_jump: ret_node = irmlPreduceNodeOfJump(ctx, node); break;
@@ -1059,11 +1152,20 @@ void irmlPrintNode(IrMlCtxPrint* ctx, IrMlNode* const node) {
         } break;
         case irml_node_choice: {
             printChr('(');
-            irmlPrintNode(ctx, node->of.choice.cond);
-            printStr(str(" ? "));
-            irmlPrintNode(ctx, node->of.choice.if1);
-            printStr(str(" : "));
-            irmlPrintNode(ctx, node->of.choice.if0);
+            irmlPrintNode(ctx, node->of.choice.scrutinee);
+            for (UInt i = 0; i < node->of.choice.values.len; i += 1) {
+                if (i == 0)
+                    printStr(str(" ?- "));
+                else
+                    printStr(str(" |- "));
+                irmlPrintNode(ctx, node->of.choice.values.at[i]);
+                printStr(str(" => "));
+                irmlPrintNode(ctx, node->of.choice.funcs.at[i]);
+            }
+            if (node->of.choice.default_func != NULL) {
+                printStr(str(" |- _ => "));
+                irmlPrintNode(ctx, node->of.choice.default_func);
+            }
             printChr(')');
         } break;
         case irml_node_jump: {
