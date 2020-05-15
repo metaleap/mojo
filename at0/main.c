@@ -22,7 +22,7 @@ int main(int const argc, CStr const argv[]) {
 }
 
 int main_IrMl(int const argc, CStr const argv[]) {
-    IrMlProg p = irmlProg(64, 32, 32, 32);
+    IrMlProg p = irmlProg(64, 32, 32);
 
 #define _ IrMlNode*
     // fn (int, fn(int) -> _) -> _
@@ -33,12 +33,16 @@ int main_IrMl(int const argc, CStr const argv[]) {
     _ fn_if_else = irmlNodeFn(&p, irmlTypeFn0(&p), "main_if_else");
     _ fn_next = irmlNodeFn(&p, irmlTypeFn1(&p, irmlTypeIntStatic(&p)), "main_next");
     _ cmp_p0_eq_123 = irmlNodePrimCmpI(&p, (IrMlPrimCmpI) {
-                                               .kind = irml_cmpi_eq,
-                                               //    .lhs = irmlNodePrimValInt(&p, 123),
-                                               .lhs = &fn_main->of.fn.params.at[0],
+                                               .kind = irml_cmpi_neq,
+                                               .lhs = irmlNodePrimValInt(&p, 123),
+                                               //    .lhs = &fn_main->of.fn.params.at[0],
                                                .rhs = irmlNodePrimValInt(&p, 123),
                                            });
-    irmlFnChoice(&p, fn_main, irmlChoiceBoolish(&p, cmp_p0_eq_123, fn_if_then, fn_if_else, NULL));
+    irmlFnJump(&p, fn_main,
+               (IrMlNodeJump) {
+                   .args = irmlNodes0(),
+                   .target = irmlNodePrimCond(&p, irmlCondBoolish(&p, cmp_p0_eq_123, fn_if_then, fn_if_else, NULL)),
+               });
     irmlFnJump(&p, fn_if_then, (IrMlNodeJump) {.target = fn_next, .args = irmlNodes1(irmlNodePrimValInt(&p, 22))});
     irmlFnJump(&p, fn_if_else, (IrMlNodeJump) {.target = fn_next, .args = irmlNodes1(irmlNodePrimValInt(&p, 44))});
     irmlFnJump(&p, fn_next,
