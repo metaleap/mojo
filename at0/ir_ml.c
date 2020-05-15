@@ -1282,6 +1282,8 @@ IrMlNode* irmlPreduceNodeOfPrimItem(IrMlCtxPreduce* const ctx, IrMlNode* const n
     chk_node->anns.type = (chk_node->of.prim.of.item.set_to == NULL) ? chk_node->of.prim.of.item.subj->anns.type : node_type;
     chk_node->anns.side_effects = chk_node->of.prim.of.item.subj->anns.side_effects || chk_node->of.prim.of.item.index->anns.side_effects
                                   || (chk_node->of.prim.of.item.set_to != NULL && chk_node->of.prim.of.item.set_to->anns.side_effects);
+    if (chk_node->of.prim.of.item.set_to != NULL)
+        ·fail(str("TODO: item setter"));
 
     return ret_node;
 }
@@ -1455,8 +1457,13 @@ IrMlNode* irmlEvalNode(IrMlProg* const prog, IrMlNode* const node) {
             case irml_node_prim: {
                 switch (node->of.prim.kind) {
                     case irml_prim_val: {
-                        if (node->of.prim.of.val.kind == irml_type_tup || node->of.prim.of.val.kind == irml_type_arr) {
-                            // TODO..
+                        Bool const is_tup = (node->of.prim.of.val.kind == irml_type_tup);
+                        if (is_tup || node->of.prim.of.val.kind == irml_type_arr) {
+                            UInt const count = node->of.prim.of.val.of.list_val.len;
+                            IrMlPtrsOfNode list = ·sliceOfPtrs(IrMlNode, count, count);
+                            for (UInt i = 0; i < count; i += 1)
+                                list.at[i] = irmlEvalNode(prog, node->of.prim.of.val.of.list_val.at[i]);
+                            return is_tup ? irmlNodePrimValTup(prog, list) : irmlNodePrimValArr(prog, list);
                         }
                     } break;
                     case irml_prim_cond: {
@@ -1485,6 +1492,34 @@ IrMlNode* irmlEvalNode(IrMlProg* const prog, IrMlNode* const node) {
                             default: ·fail(uIntToStr(node->of.prim.of.cmpi.kind, 1, 10));
                         }
                     } break;
+                    case irml_prim_bini: {
+                        IrMlNode* const lhs = irmlEvalNode(prog, node->of.prim.of.bini.lhs);
+                        IrMlNode* const rhs = irmlEvalNode(prog, node->of.prim.of.bini.rhs);
+                        switch (node->of.prim.of.bini.kind) {
+                            case irml_bini_add:
+                                return irmlNodePrimValInt(prog, lhs->of.prim.of.val.of.int_val + rhs->of.prim.of.val.of.int_val);
+                            case irml_bini_sub:
+                                return irmlNodePrimValInt(prog, lhs->of.prim.of.val.of.int_val - rhs->of.prim.of.val.of.int_val);
+                            case irml_bini_mul:
+                                return irmlNodePrimValInt(prog, lhs->of.prim.of.val.of.int_val * rhs->of.prim.of.val.of.int_val);
+                            case irml_bini_div:
+                                return irmlNodePrimValInt(prog, lhs->of.prim.of.val.of.int_val / rhs->of.prim.of.val.of.int_val);
+                            case irml_bini_rem:
+                                return irmlNodePrimValInt(prog, lhs->of.prim.of.val.of.int_val % rhs->of.prim.of.val.of.int_val);
+                            default: ·fail(uIntToStr(node->of.prim.of.bini.kind, 1, 10));
+                        }
+                    } break;
+                    case irml_prim_cast: { // not currently supported in interpreter
+                        return irmlEvalNode(prog, node->of.prim.of.cast.subj);
+                    } break;
+                    case irml_prim_extcall: {
+                        ·fail(node->of.prim.of.ext_call.name);
+                    } break;
+                    case irml_prim_item: {
+                        IrMlNode* const subj = irmlEvalNode(prog, node->of.prim.of.item.subj);
+                        IrMlNode* const index = irmlEvalNode(prog, node->of.prim.of.item.index);
+                        return irmlEvalNode(prog, subj->of.prim.of.val.of.list_val.at[index->of.prim.of.val.of.int_val]);
+                    } break;
                     default: ·fail(uIntToStr(node->of.prim.kind, 1, 10));
                 }
             } break;
@@ -1494,7 +1529,9 @@ IrMlNode* irmlEvalNode(IrMlProg* const prog, IrMlNode* const node) {
 }
 
 IrMlNode* irmlEval(IrMlProg* const prog, IrMlNode* target, IrMlPtrsOfNode args) {
+    UInt num_steps = 0;
     while (target != NULL) {
+        num_steps += 1;
         IrMlNodeFn* const fn = &target->of.fn;
         for (UInt i = 0; i < fn->params.len; i += 1)
             fn->params.at[i].of.param.anns.cur_evald = irmlEvalNode(prog, args.at[i]);
@@ -1502,5 +1539,6 @@ IrMlNode* irmlEval(IrMlProg* const prog, IrMlNode* target, IrMlPtrsOfNode args) 
         args = fn->jump->of.jump.args;
     }
 
+    printf("\n(Jumps: %zu)\n", num_steps);
     return irmlEvalNode(prog, args.at[0]);
 }
