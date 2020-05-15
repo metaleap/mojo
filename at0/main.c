@@ -33,9 +33,9 @@ int main_IrMl(int const argc, CStr const argv[]) {
     _ fn_if_else = irmlNodeFn(&p, irmlTypeFn0(&p), "main_if_else");
     _ fn_next = irmlNodeFn(&p, irmlTypeFn1(&p, irmlTypeIntStatic(&p)), "main_next");
     _ cmp_p0_eq_123 = irmlNodePrimCmpI(&p, (IrMlPrimCmpI) {
-                                               .kind = irml_cmpi_neq,
-                                               .lhs = irmlNodePrimValInt(&p, 123),
-                                               //    .lhs = &fn_main->of.fn.params.at[0],
+                                               .kind = irml_cmpi_eq,
+                                               //    .lhs = irmlNodePrimValInt(&p, 123),
+                                               .lhs = &fn_main->of.fn.params.at[0],
                                                .rhs = irmlNodePrimValInt(&p, 123),
                                            });
     irmlFnJump(&p, fn_main,
@@ -54,11 +54,16 @@ int main_IrMl(int const argc, CStr const argv[]) {
     irmlPrint(fn_main);
     printf("\n\n———————————\n\n");
 
-    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p, .cur_fn = NULL};
-    irmlPreduceNode(&ctx, fn_main);
+    // IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p, .cur_fn = NULL};
+    // irmlPreduceNode(&ctx, fn_main);
+
+    // printf("\n\n———————————\n\n");
+    // irmlPrint(fn_main);
 
     printf("\n\n———————————\n\n");
-    irmlPrint(fn_main);
+    IrMlNode* result = irmlEval(&p, fn_main, irmlNodes2(irmlNodePrimValInt(&p, 123), NULL));
+    irmlPrint(result);
+    printf("\n\n———————————\n\n");
 
     return 0;
 }
