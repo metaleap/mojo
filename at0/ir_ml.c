@@ -229,9 +229,17 @@ Bool irmlNodeIsPrimVal(IrMlNode const* const node, IrMlKindOfType const kind) {
     return node->kind == irml_node_prim && node->of.prim.kind == irml_prim_val && node->of.prim.of.val.kind == kind;
 }
 
-Bool irmlNodeIsBasicBlockishFn(IrMlNode* const node) {
+Bool irmlNodeIsBasicBlockishFn(IrMlNode* const node, Bool const can_have_first_order_params) {
     IrMlType* ty = irmlNodeType(node, true);
-    return (ty->kind == irml_type_fn) && (ty->of.tup.types.len == 0);
+    if (ty->kind == irml_type_fn) {
+        if (!can_have_first_order_params)
+            return (ty->of.tup.types.len == 0);
+        for (UInt i = 0; i < ty->of.tup.types.len; i += 1)
+            if (ty->of.tup.types.at[i]->of.prim.of.val.of.type.kind == irml_node_fn)
+                return false;
+        return true;
+    }
+    return false;
 }
 
 IrMlPtrsOfNode irmlNodes0() {
