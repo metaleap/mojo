@@ -103,7 +103,7 @@ typedef struct IrMlNodeParam {
 
 typedef struct IrMlNodeFn {
     IrMlNodes params;
-    IrMlNode* body;
+    IrMlNode* jump;
 } IrMlNodeFn;
 
 typedef struct IrMlNodeJump {
@@ -454,7 +454,7 @@ void irmlPrint(IrMlNode* const root_fn_node) {
             }
             printStr(str(")\n\t"));
             ctx.cur_fn = fn_node;
-            irmlPrintNode(&ctx, fn->body);
+            irmlPrintNode(&ctx, fn->jump);
             printStr(str("\n\n"));
         }
         idx = max;
@@ -751,7 +751,7 @@ IrMlNode* irmlNodeFn(IrMlProg* const prog, IrMlNode* const fn_type_node, CStr co
     IrMlNode* ret_node = ·new(IrMlNode);
     *ret_node = (IrMlNode) {
         .kind = irml_node_fn,
-        .of = {.fn = (IrMlNodeFn) {.body = NULL, .params = ·sliceOf(IrMlNode, params_type_nodes.len, params_type_nodes.len)}},
+        .of = {.fn = (IrMlNodeFn) {.jump = NULL, .params = ·sliceOf(IrMlNode, params_type_nodes.len, params_type_nodes.len)}},
         .anns = {.preduced = NULL, .type = fn_type_node, .side_effects = false, .name = (maybe_name == NULL) ? ·len0(U8) : str(maybe_name)},
     };
     for (UInt i = 0; i < params_type_nodes.len; i += 1)
@@ -788,7 +788,7 @@ IrMlProg irmlProg(UInt bit_width_ptrs, UInt const prims_capacity, UInt const jum
 
 
 void irmlFnJump(IrMlProg* const prog, IrMlNode* const fn_node, IrMlNodeJump const jump) {
-    fn_node->of.fn.body = irmlNodeJump(prog, jump);
+    fn_node->of.fn.jump = irmlNodeJump(prog, jump);
 }
 IrMlPrimCond irmlCondBoolish(IrMlProg* const prog, IrMlNode* const scrutinee, IrMlNode* const if1, IrMlNode* const if0,
                              IrMlNode* const default_result) {
@@ -1077,9 +1077,9 @@ IrMlNode* irmlPreduceNodeOfJump(IrMlCtxPreduce* const ctx, IrMlNode* const node)
             break;
 
         IrMlNode* inl_node =
-            irmlNodeWithParamsRewritten(ctx->prog, chk_node->of.jump.target, chk_node->of.jump.target->of.fn.body, chk_node->of.jump.args);
+            irmlNodeWithParamsRewritten(ctx->prog, chk_node->of.jump.target, chk_node->of.jump.target->of.fn.jump, chk_node->of.jump.args);
         if (inl_node == NULL)
-            inl_node = chk_node->of.jump.target->of.fn.body;
+            inl_node = chk_node->of.jump.target->of.fn.jump;
         IrMlNode* const pred_node = irmlPreduceNode(ctx, inl_node);
         ret_node = (pred_node == NULL) ? inl_node : pred_node;
         chk_node = ret_node;
@@ -1090,18 +1090,17 @@ IrMlNode* irmlPreduceNodeOfJump(IrMlCtxPreduce* const ctx, IrMlNode* const node)
 
 IrMlNode* irmlPreduceNodeOfFn(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
     node->anns.preduced = node; // unlike all other node kinds, for irml_node_fn set this early
-    ·assert(node->of.fn.body != NULL);
+    ·assert(node->of.fn.jump != NULL);
 
     IrMlNode* const cur_fn = ctx->cur_fn;
     ctx->cur_fn = node;
-    IrMlNode* body = irmlPreduceNode(ctx, node->of.fn.body);
+    IrMlNode* jump = irmlPreduceNode(ctx, node->of.fn.jump);
     ctx->cur_fn = cur_fn;
-    if (body != NULL)
-        node->of.fn.body = body;
-    node->anns.side_effects = node->of.fn.body->anns.side_effects;
+    if (jump != NULL)
+        node->of.fn.jump = jump;
 
-    if (node->of.fn.body->kind != irml_node_jump)
-        ·fail(uIntToStr(node->of.fn.body->kind, 1, 10));
+    if (node->of.fn.jump->kind != irml_node_jump)
+        ·fail(uIntToStr(node->of.fn.jump->kind, 1, 10));
 
     return NULL; // unlike all other node kinds, always NULL for irml_node_fn
 }
