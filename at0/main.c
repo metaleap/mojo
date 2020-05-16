@@ -26,35 +26,35 @@ int main_IrMl(int const argc, CStr const argv[]) {
 
 #define _ IrMlNode*
     // fn (int, fn(int) -> _) -> _
-    _ fn_main_type = irmlTypeFn2(&p, irmlTypeIntStatic(&p), irmlTypeFn1(&p, irmlTypeIntStatic(&p)));
+    _ fn_main_type = irmlTypeCont2(&p, irmlTypeIntStatic(&p), irmlTypeCont1(&p, irmlTypeIntStatic(&p)));
     // main x := (x == 123) ?- 22 |- 44
-    _ fn_main = irmlNodeFn(&p, fn_main_type, "main");
-    _ fn_if_then = irmlNodeFn(&p, irmlTypeFn0(&p), "main_if_then");
-    _ fn_if_else = irmlNodeFn(&p, irmlTypeFn0(&p), "main_if_else");
-    _ fn_next = irmlNodeFn(&p, irmlTypeFn1(&p, irmlTypeIntStatic(&p)), "main_next");
+    _ fn_main = irmlNodeCont(&p, fn_main_type, "main");
+    _ fn_if_then = irmlNodeCont(&p, irmlTypeCont0(&p), "main_if_then");
+    _ fn_if_else = irmlNodeCont(&p, irmlTypeCont0(&p), "main_if_else");
+    _ fn_next = irmlNodeCont(&p, irmlTypeCont1(&p, irmlTypeIntStatic(&p)), "main_next");
     _ cmp_p0_eq_123 = irmlNodePrimCmpI(&p, (IrMlPrimCmpI) {
                                                .kind = irml_cmpi_eq,
                                                //    .lhs = irmlNodePrimValInt(&p, 123),
-                                               .lhs = &fn_main->of.fn.params.at[0],
+                                               .lhs = &fn_main->of.cont.params.at[0],
                                                .rhs = irmlNodePrimValInt(&p, 123),
                                            });
-    irmlFnJump(&p, fn_main,
-               (IrMlNodeJump) {
-                   .args = irmlNodes0(),
-                   .target = irmlNodePrimCond(&p, irmlCondBoolish(&p, cmp_p0_eq_123, fn_if_then, fn_if_else, NULL)),
-               });
-    irmlFnJump(&p, fn_if_then, (IrMlNodeJump) {.target = fn_next, .args = irmlNodes1(irmlNodePrimValInt(&p, 22))});
-    irmlFnJump(&p, fn_if_else, (IrMlNodeJump) {.target = fn_next, .args = irmlNodes1(irmlNodePrimValInt(&p, 44))});
-    irmlFnJump(&p, fn_next,
-               (IrMlNodeJump) {
-                   .target = &fn_main->of.fn.params.at[1],
-                   .args = irmlNodes1(&fn_next->of.fn.params.at[0]),
-               });
+    irmlContJump(&p, fn_main,
+                 (IrMlNodeJump) {
+                     .args = irmlNodes0(),
+                     .target = irmlNodePrimCond(&p, irmlCondBoolish(&p, cmp_p0_eq_123, fn_if_then, fn_if_else, NULL)),
+                 });
+    irmlContJump(&p, fn_if_then, (IrMlNodeJump) {.target = fn_next, .args = irmlNodes1(irmlNodePrimValInt(&p, 22))});
+    irmlContJump(&p, fn_if_else, (IrMlNodeJump) {.target = fn_next, .args = irmlNodes1(irmlNodePrimValInt(&p, 44))});
+    irmlContJump(&p, fn_next,
+                 (IrMlNodeJump) {
+                     .target = &fn_main->of.cont.params.at[1],
+                     .args = irmlNodes1(&fn_next->of.cont.params.at[0]),
+                 });
 
     irmlPrint(fn_main);
     printf("\n\n———————————\n\n");
 
-    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p, .cur_fn = NULL, .reduce = true};
+    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p, .cur_cont = NULL, .reduce = false};
     irmlPreduceNode(&ctx, fn_main);
 
     printf("\n\n———————————\n\n");
