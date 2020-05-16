@@ -1107,19 +1107,6 @@ IrMlNode* irmlPreduceNodeOfFn(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
     return NULL; // unlike all other node kinds, always NULL for irml_node_fn
 }
 
-IrMlNode* irmlPreduceNodeOfPrimValOfType(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
-    IrMlNode* ret_node = NULL;
-    // TODO:
-    switch (node->of.prim.of.val.of.type.kind) {
-        case irml_type_ptr: break;
-        case irml_type_arr:
-        case irml_type_tup: break;
-        default: break;
-    }
-
-    return ret_node;
-}
-
 IrMlNode* irmlPreduceNodeOfPrimValOfArrOrTup(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
     IrMlNode* ret_node = NULL;
 
@@ -1148,6 +1135,46 @@ IrMlNode* irmlPreduceNodeOfPrimValOfArrOrTup(IrMlCtxPreduce* const ctx, IrMlNode
         chk_node->anns.type = irmlTypeTup(ctx->prog, (IrMlTypeTup) {.types = elem_types});
     for (UInt i = 0; (!chk_node->anns.side_effects) && i < chk_node->of.prim.of.val.of.list_val.len; i += 1)
         chk_node->anns.side_effects = chk_node->of.prim.of.val.of.list_val.at[i]->anns.side_effects;
+
+    return ret_node;
+}
+
+IrMlNode* irmlPreduceNodeOfPrimValOfType(IrMlCtxPreduce* const ctx, IrMlNode* const node) {
+    IrMlNode* ret_node = NULL;
+
+    IrMlType const ty = node->of.prim.of.val.of.type;
+    switch (ty.kind) {
+        case irml_type_ptr: {
+            IrMlTypePtr new_ty_ptr = (IrMlTypePtr) {
+                .type = irmlPreduceNode(ctx, ty.of.ptr.type),
+            };
+            if (new_ty_ptr.type != NULL)
+                ret_node = irmlTypePtr(ctx->prog, new_ty_ptr);
+
+            IrMlNode* chk_node = (ret_node == NULL) ? node : ret_node;
+            if (!irmlNodeIsPrimVal(chk_node->of.prim.of.val.of.type.of.ptr.type, irml_type_type))
+                ·fail(str("payload type for ptr type must preduce to a type"));
+        } break;
+
+        case irml_type_arr: {
+            IrMlTypeArr new_ty_arr = (IrMlTypeArr) {
+                .type = irmlPreduceNode(ctx, ty.of.arr.type),
+                .length = irmlPreduceNode(ctx, ty.of.arr.length),
+            };
+            if (new_ty_arr.type != NULL || new_ty_arr.length != NULL)
+                ret_node = irmlTypeArr(ctx->prog, new_ty_arr);
+
+            IrMlNode* chk_node = (ret_node == NULL) ? node : ret_node;
+            if (!irmlNodeIsPrimVal(chk_node->of.prim.of.val.of.type.of.arr.type, irml_type_type))
+                ·fail(str("payload type for arr type must preduce to a type"));
+            if (!irmlNodeIsPrimVal(chk_node->of.prim.of.val.of.type.of.arr.length, irml_type_int))
+                ·fail(str("length for arr type must preduce to a statically-known int"));
+        } break;
+
+        case irml_type_tup: {
+        } break;
+        default: break;
+    }
 
     return ret_node;
 }
