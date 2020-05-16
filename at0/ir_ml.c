@@ -1378,7 +1378,7 @@ IrMlNode* irmlPreduceNodeOfPrimCmpI(IrMlCtxPreduce* const ctx, IrMlNode* const n
     chk_node->anns.type = irmlTypeBool(ctx->prog);
     chk_node->anns.side_effects = chk_node->of.prim.of.cmpi.lhs->anns.side_effects || chk_node->of.prim.of.cmpi.rhs->anns.side_effects;
 
-    if (!chk_node->anns.side_effects) {
+    if (ctx->reduce && !chk_node->anns.side_effects) {
         if (chk_node->of.prim.of.cmpi.kind == irml_cmpi_eq && chk_node->of.prim.of.cmpi.lhs == chk_node->of.prim.of.cmpi.rhs)
             ret_node = irmlNodePrimValBool(ctx->prog, true);
         else if (irmlNodeIsPrimVal(chk_node->of.prim.of.cmpi.lhs, irml_type_int)
@@ -1393,7 +1393,7 @@ IrMlNode* irmlPreduceNodeOfPrimCmpI(IrMlCtxPreduce* const ctx, IrMlNode* const n
                 case irml_cmpi_leq: result = (lhs <= rhs); break;
                 case irml_cmpi_gt: result = (lhs > rhs); break;
                 case irml_cmpi_lt: result = (lhs < rhs); break;
-                default: ·fail(str("TODO: how come we got a new int-cmp op?!"));
+                default: ·fail(uIntToStr(chk_node->of.prim.of.cmpi.kind, 1, 10));
             }
             ret_node = irmlNodePrimValBool(ctx->prog, result);
         }
@@ -1419,59 +1419,63 @@ IrMlNode* irmlPreduceNodeOfPrimBinI(IrMlCtxPreduce* const ctx, IrMlNode* const n
     chk_node->anns.type = chk_node->of.prim.of.bini.lhs->anns.type;
     chk_node->anns.side_effects = chk_node->of.prim.of.bini.lhs->anns.side_effects || chk_node->of.prim.of.bini.rhs->anns.side_effects;
 
-    if (chk_node->of.prim.of.bini.kind == irml_bini_rem && (chk_node->of.prim.of.bini.lhs == chk_node->of.prim.of.bini.rhs)
-        && !chk_node->anns.side_effects)
-        ret_node = irmlNodePrimValInt(ctx->prog, 0); // x%x=0
-    else {
-        IrMlNode* const lhs_static = irmlNodeIsPrimVal(chk_node->of.prim.of.bini.lhs, irml_type_int) ? chk_node->of.prim.of.bini.lhs : NULL;
-        IrMlNode* const rhs_static = irmlNodeIsPrimVal(chk_node->of.prim.of.bini.rhs, irml_type_int) ? chk_node->of.prim.of.bini.rhs : NULL;
-        Bool const l = (lhs_static != NULL);
-        Bool const r = (rhs_static != NULL);
-        if (l || r) {
-            Bool const both = l && r;
-            I64 const lhs = l ? lhs_static->of.prim.of.val.of.int_val : 0;
-            I64 const rhs = r ? rhs_static->of.prim.of.val.of.int_val : 0;
-            switch (chk_node->of.prim.of.bini.kind) {
-                case irml_bini_add: {
-                    if (r && rhs == 0) // x+0=x
-                        ret_node = chk_node->of.prim.of.bini.lhs;
-                    else if (l && lhs == 0) // 0+x=x
-                        ret_node = chk_node->of.prim.of.bini.rhs;
-                    else if (both)
-                        ret_node = irmlNodePrimValInt(ctx->prog, lhs + rhs);
-                } break;
-                case irml_bini_sub: {
-                    if (r && rhs == 0) // x-0=x
-                        ret_node = chk_node->of.prim.of.bini.lhs;
-                    else if (both)
-                        ret_node = irmlNodePrimValInt(ctx->prog, lhs - rhs);
-                } break;
-                case irml_bini_mul: {
-                    if (r && rhs == 1) // x*1=x
-                        ret_node = chk_node->of.prim.of.bini.lhs;
-                    else if (l && lhs == 1) // 1*x=x
-                        ret_node = chk_node->of.prim.of.bini.rhs;
-                    else if (both)
-                        ret_node = irmlNodePrimValInt(ctx->prog, lhs * rhs);
-                } break;
-                case irml_bini_div: {
-                    if (r && rhs == 0) // x/0=!
-                        ·fail(str("div by zero"));
-                    else if (r && rhs == 1) // x/1=x
-                        ret_node = chk_node->of.prim.of.bini.lhs;
-                    else if (l && lhs == 0 && !chk_node->anns.side_effects) // 0/x=0
-                        ret_node = irmlNodePrimValInt(ctx->prog, 0);
-                    else if (both)
-                        ret_node = irmlNodePrimValInt(ctx->prog, lhs / rhs);
-                } break;
-                case irml_bini_rem: {
-                    if (r && rhs == 0) // x%0=!
-                        ·fail(str("rem by zero"));
-                    else if (r && rhs == 1 && !chk_node->anns.side_effects) // x%1=0
-                        ret_node = irmlNodePrimValInt(ctx->prog, 0);
-                    else if (both)
-                        ret_node = irmlNodePrimValInt(ctx->prog, lhs % rhs);
-                } break;
+    if (ctx->reduce) {
+        if (chk_node->of.prim.of.bini.kind == irml_bini_rem && (chk_node->of.prim.of.bini.lhs == chk_node->of.prim.of.bini.rhs)
+            && !chk_node->anns.side_effects)
+            ret_node = irmlNodePrimValInt(ctx->prog, 0); // x%x=0
+        else {
+            IrMlNode* const lhs_static =
+                irmlNodeIsPrimVal(chk_node->of.prim.of.bini.lhs, irml_type_int) ? chk_node->of.prim.of.bini.lhs : NULL;
+            IrMlNode* const rhs_static =
+                irmlNodeIsPrimVal(chk_node->of.prim.of.bini.rhs, irml_type_int) ? chk_node->of.prim.of.bini.rhs : NULL;
+            Bool const l = (lhs_static != NULL);
+            Bool const r = (rhs_static != NULL);
+            if (l || r) {
+                Bool const both = l && r;
+                I64 const lhs = l ? lhs_static->of.prim.of.val.of.int_val : 0;
+                I64 const rhs = r ? rhs_static->of.prim.of.val.of.int_val : 0;
+                switch (chk_node->of.prim.of.bini.kind) {
+                    case irml_bini_add: {
+                        if (r && rhs == 0) // x+0=x
+                            ret_node = chk_node->of.prim.of.bini.lhs;
+                        else if (l && lhs == 0) // 0+x=x
+                            ret_node = chk_node->of.prim.of.bini.rhs;
+                        else if (both)
+                            ret_node = irmlNodePrimValInt(ctx->prog, lhs + rhs);
+                    } break;
+                    case irml_bini_sub: {
+                        if (r && rhs == 0) // x-0=x
+                            ret_node = chk_node->of.prim.of.bini.lhs;
+                        else if (both)
+                            ret_node = irmlNodePrimValInt(ctx->prog, lhs - rhs);
+                    } break;
+                    case irml_bini_mul: {
+                        if (r && rhs == 1) // x*1=x
+                            ret_node = chk_node->of.prim.of.bini.lhs;
+                        else if (l && lhs == 1) // 1*x=x
+                            ret_node = chk_node->of.prim.of.bini.rhs;
+                        else if (both)
+                            ret_node = irmlNodePrimValInt(ctx->prog, lhs * rhs);
+                    } break;
+                    case irml_bini_div: {
+                        if (r && rhs == 0) // x/0=!
+                            ·fail(str("div by zero"));
+                        else if (r && rhs == 1) // x/1=x
+                            ret_node = chk_node->of.prim.of.bini.lhs;
+                        else if (l && lhs == 0 && !chk_node->anns.side_effects) // 0/x=0
+                            ret_node = irmlNodePrimValInt(ctx->prog, 0);
+                        else if (both)
+                            ret_node = irmlNodePrimValInt(ctx->prog, lhs / rhs);
+                    } break;
+                    case irml_bini_rem: {
+                        if (r && rhs == 0) // x%0=!
+                            ·fail(str("rem by zero"));
+                        else if (r && rhs == 1 && !chk_node->anns.side_effects) // x%1=0
+                            ret_node = irmlNodePrimValInt(ctx->prog, 0);
+                        else if (both)
+                            ret_node = irmlNodePrimValInt(ctx->prog, lhs % rhs);
+                    } break;
+                }
             }
         }
     }
