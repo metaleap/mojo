@@ -54,21 +54,21 @@ int main_IrMl(int const argc, CStr const argv[]) {
     irmlPrint(fn_main);
     printf("\n\n———————————\n\n");
 
-    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p, .cur_fn = NULL};
+    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p, .cur_fn = NULL, .reduce = true};
     irmlPreduceNode(&ctx, fn_main);
 
     printf("\n\n———————————\n\n");
     irmlPrint(fn_main);
 
     printf("\n\n———————————\n\n");
-    IrMlNode* result = irmlEval(&p, fn_main,
-                                irmlNodes2(irmlNodePrimBinI(&p,
-                                                            (IrMlPrimBinI) {
-                                                                .kind = irml_bini_add,
-                                                                .lhs = irmlNodePrimValInt(&p, 100),
-                                                                .rhs = irmlNodePrimValInt(&p, 23),
-                                                            }),
-                                           NULL));
+    IrMlNode* result = irmlRun(&p, fn_main,
+                               irmlNodes2(irmlNodePrimBinI(&p,
+                                                           (IrMlPrimBinI) {
+                                                               .kind = irml_bini_add,
+                                                               .lhs = irmlNodePrimValInt(&p, 100),
+                                                               .rhs = irmlNodePrimValInt(&p, 23),
+                                                           }),
+                                          NULL));
     irmlPrint(result);
     printf("\n\n———————————\n\n");
 
