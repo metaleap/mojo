@@ -1068,7 +1068,9 @@ IrMlNode* irmlPreduceNodeOfJump(IrMlCtxPreduce* const ctx, IrMlNode* const node)
         chk_node->anns.side_effects = (chk_node->of.jump.args.at[i]->anns.side_effects);
 
     while (ctx->reduce) {
-        Bool can_inline = chk_node->of.jump.target->kind == irml_node_cont && chk_node->of.jump.target != ctx->cur_cont;
+        Bool can_inline = chk_node->of.jump.target->kind == irml_node_cont && chk_node->of.jump.target != ctx->cur_cont
+                          && chk_node->of.jump.target != chk_node->of.jump.target->of.cont.jump->of.jump.target
+                          && chk_node->of.jump.target->of.cont.jump->of.jump.target != ctx->cur_cont;
         for (UInt i = 0; can_inline && i < chk_node->of.jump.args.len; i += 1)
             if (chk_node->of.jump.args.at[i]->kind == irml_node_prim
                 && !(irmlNodeIsPrimVal(chk_node->of.jump.args.at[i], irml_type_int)

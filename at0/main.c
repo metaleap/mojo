@@ -54,7 +54,7 @@ int main_IrMl(int const argc, CStr const argv[]) {
     irmlPrint(fn_main);
     printf("\n\n———————————\n\n");
 
-    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p, .cur_cont = NULL, .reduce = false};
+    IrMlCtxPreduce ctx = (IrMlCtxPreduce) {.prog = &p, .cur_cont = NULL, .reduce = true};
     irmlPreduceNode(&ctx, fn_main);
 
     printf("\n\n———————————\n\n");
