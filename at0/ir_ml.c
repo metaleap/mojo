@@ -1171,7 +1171,26 @@ IrMlNode* irmlPreduceNodeOfPrimValOfType(IrMlCtxPreduce* const ctx, IrMlNode* co
                 ·fail(str("length for arr type must preduce to a statically-known int"));
         } break;
 
+        case irml_type_fn:
         case irml_type_tup: {
+            IrMlPtrsOfNode new_types = ·sliceOfPtrs(IrMlNode, ty.of.tup.types.len, 0);
+            Bool all_null = true;
+            for (UInt i = 0; i < new_types.len; i += 1) {
+                new_types.at[i] = irmlPreduceNode(ctx, ty.of.tup.types.at[i]);
+                if (new_types.at[i] != NULL)
+                    all_null = false;
+                IrMlNode* chk_node = (new_types.at[i] != NULL) ? new_types.at[i] : ty.of.tup.types.at[i];
+                if (!irmlNodeIsPrimVal(chk_node, irml_type_type))
+                    ·fail(str("member type for tuple type must preduce to a type"));
+            }
+            if (!all_null) {
+                IrMlPtrsOfNode const orig_list = ty.of.tup.types;
+                new_types = irmlUpdPtrsOfNodeSlice(ctx->prog, orig_list, new_types);
+                if (new_types.at != orig_list.at || new_types.len != orig_list.len)
+                    ret_node = (ty.kind == irml_type_fn) ? irmlTypeFn(ctx->prog, (IrMlTypeTup) {.types = new_types})
+                                                         : irmlTypeTup(ctx->prog, (IrMlTypeTup) {.types = new_types});
+            }
+
         } break;
         default: break;
     }
@@ -1185,8 +1204,7 @@ IrMlNode* irmlPreduceNodeOfPrimCond(IrMlCtxPreduce* const ctx, IrMlNode* const n
     if (node->of.prim.of.cond.match_results.len != node->of.prim.of.cond.comparee_ints.len)
         ·fail(str("code-gen BUG: cond with unequal comparee_ints/match_results lengths"));
     if (node->of.prim.of.cond.comparee_ints.len == 0 && node->of.prim.of.cond.default_result == NULL)
-        ·fail(str("code-gen BUG: cond with no match_results"));
-    IrMlNode* ty_node = (node->of.prim.of.cond.default_result == NULL) ? NULL : node->of.prim.of.cond.default_result->anns.type;
+        ·fail(str("code-gen BUG: cond with no match_results and no default_result"));
 
     UInt const cases_count = node->of.prim.of.cond.match_results.len;
     IrMlPrimCond new_cond = (IrMlPrimCond) {.scrutinee = irmlPreduceNode(ctx, node->of.prim.of.cond.scrutinee),
@@ -1196,18 +1214,19 @@ IrMlNode* irmlPreduceNodeOfPrimCond(IrMlCtxPreduce* const ctx, IrMlNode* const n
     IrMlNode* scrutinee = (new_cond.scrutinee == NULL) ? node->of.prim.of.cond.scrutinee : new_cond.scrutinee;
     if (irmlNodeType(scrutinee, true)->kind != irml_type_int)
         ·fail(str("cond scrutinee isn't integer"));
-    Bool const is_scrut_static = irmlNodeIsPrimVal(scrutinee, irml_type_int);
+    Bool const is_scrut_static = ctx->reduce && irmlNodeIsPrimVal(scrutinee, irml_type_int);
 
     Bool comparees_change = false;
     Bool results_change = false;
     ºUInt found_case_if_static = ·none(UInt);
+    IrMlNode* ty_node = (node->of.prim.of.cond.default_result == NULL) ? NULL : node->of.prim.of.cond.default_result->anns.type;
     for (UInt i = 0; i < new_cond.comparee_ints.len; i += 1) {
         new_cond.comparee_ints.at[i] = irmlPreduceNode(ctx, node->of.prim.of.cond.comparee_ints.at[i]);
         comparees_change |= (new_cond.comparee_ints.at[i] != NULL);
         IrMlNode* chk_node =
             (new_cond.comparee_ints.at[i] != NULL) ? new_cond.comparee_ints.at[i] : node->of.prim.of.cond.comparee_ints.at[i];
         if (!irmlNodeIsPrimVal(chk_node, irml_type_int))
-            ·fail(str("cond case comparee did not preduce to statically-known int"));
+            ·fail(str("cond case comparee must preduce to statically-known int"));
         for (UInt j = 0; j < i; j += 1) {
             IrMlNode* const cmp_node =
                 (new_cond.comparee_ints.at[j] != NULL) ? new_cond.comparee_ints.at[j] : node->of.prim.of.cond.comparee_ints.at[j];
@@ -1230,6 +1249,8 @@ IrMlNode* irmlPreduceNodeOfPrimCond(IrMlCtxPreduce* const ctx, IrMlNode* const n
         } else
             new_cond.match_results.at[i] = NULL;
     }
+    if (ty_node == NULL)
+        ·fail(str("code-gen BUG: untyped cond"));
     if (node->of.prim.of.cond.default_result != NULL && ((!is_scrut_static) || !found_case_if_static.ok))
         new_cond.default_result = irmlPreduceNode(ctx, node->of.prim.of.cond.default_result);
 
