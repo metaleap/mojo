@@ -1,5 +1,5 @@
 #pragma once
-#include "utils_and_libc_deps.c"
+#include "utils_std_mem.c"
 
 
 const CStr tok_op_chars = "!#$&*+-;:./<=>?@\\^~|\x25";
@@ -34,6 +34,41 @@ typedef ·SliceOf(Token) Tokens;
 typedef ·SliceOf(Tokens) Tokenss;
 
 
+typedef enum SrcFileIssueKind {
+    issue_tok,
+    issue_parse,
+    issue_irhl,
+    issue_irml,
+    issue_irml_cps,
+    issue_irml_sema,
+    issue_irll,
+} SrcFileIssueKind;
+
+typedef struct SrcFileIssue {
+    struct {
+        UInt line_nr;
+        UInt char_pos_line_start;
+        UInt char_pos;
+    } src_pos;
+    Bool error;
+    Str msg;
+    SrcFileIssueKind kind;
+} SrcFileIssue;
+typedef ·ListOf(SrcFileIssue) SrcFileIssues;
+typedef ·Maybe(SrcFileIssue) ºSrcFileIssue;
+
+ºSrcFileIssue srcFileIssue(SrcFileIssueKind kind, Bool const error, Str const msg, Token const src_pos) {
+    return ·got(SrcFileIssue,
+                ((SrcFileIssue) {
+                    .error = error,
+                    .src_pos = {.line_nr = src_pos.line_nr, .char_pos_line_start = src_pos.char_pos_line_start, .char_pos = src_pos.char_pos},
+                    .msg = msg}));
+}
+ºSrcFileIssue srcFileErr(SrcFileIssueKind kind, Str const msg, Token const src_pos) {
+    return srcFileIssue(kind, true, msg, src_pos);
+}
+
+
 Bool tokIsOpeningBracket(TokenKind const tok_kind) {
     return tok_kind == tok_kind_sep_bcurly_open || tok_kind == tok_kind_sep_bparen_open || tok_kind == tok_kind_sep_bsquare_open;
 }
@@ -50,9 +85,9 @@ UInt tokPosCol(Token const* const tok) {
     return tok->char_pos - tok->char_pos_line_start;
 }
 
-Str tokPosStr(Token const* const tok) {
-    Str const line_nr = uIntToStr(1 + tok->line_nr, 1, 10);
-    return str3(tok->file_name, strL(":", 1), line_nr);
+Str tokPosStr(MemHeap* mem_heap, Token const* const tok) {
+    Str const line_nr = uIntToStr(mem_heap, 1 + tok->line_nr, 1, 10);
+    return str3(mem_heap, tok->file_name, strL(":", 1), line_nr);
 }
 
 Str tokSrc(Token const* const tok, Str const full_src) {
@@ -79,9 +114,14 @@ UInt toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
     return ret_num;
 }
 
-void toksVerifyBrackets(Tokens const toks) {
+Bool toksHavePos(Tokens const toks, UInt const pos_line, UInt const pos_col) {
+    return (pos_line >= toks.at[0].line_nr && pos_line <= ·last(toks)->line_nr);
+}
+
+ºSrcFileIssue toksVerifyBrackets(Tokens const toks, Str const file_name) {
     Int level_bparen = 0, level_bsquare = 0, level_bcurly = 0;
     Int line_bparen = -1, line_bsquare = -1, line_bcurly = -1;
+
     ·forEach(Token, tok, toks, {
         switch (tok->kind) {
             case tok_kind_sep_bcurly_open:
@@ -117,22 +157,27 @@ void toksVerifyBrackets(Tokens const toks) {
             default: break;
         }
         if (level_bparen < 0)
-            ·fail(str2(str("unmatched closing parenthesis in line "), uIntToStr(1 + tok->line_nr, 1, 10)));
+            return srcFileErr(issue_tok, str("unmatched closing parenthesis"), *tok);
         else if (level_bcurly < 0)
-            ·fail(str2(str("unmatched closing curly brace in line "), uIntToStr(1 + tok->line_nr, 1, 10)));
+            return srcFileErr(issue_tok, str("unmatched closing curly brace"), *tok);
         else if (level_bsquare < 0)
-            ·fail(str2(str("unmatched closing square bracket in line "), uIntToStr(1 + tok->line_nr, 1, 10)));
+            return srcFileErr(issue_tok, str("unmatched closing square bracket"), *tok);
     });
     if (level_bparen > 0)
-        ·fail(str2(str("unmatched opening parenthesis in line "), uIntToStr(1 + line_bparen, 1, 10)));
+        return srcFileErr(issue_tok, str("unmatched opening parenthesis"),
+                          (Token) {.file_name = file_name, .line_nr = line_bparen, .kind = tok_kind_nope});
     else if (level_bcurly > 0)
-        ·fail(str2(str("unmatched opening curly brace in line "), uIntToStr(1 + line_bcurly, 1, 10)));
+        return srcFileErr(issue_tok, str("unmatched opening curly brace"),
+                          (Token) {.file_name = file_name, .line_nr = line_bcurly, .kind = tok_kind_nope});
     else if (level_bsquare > 0)
-        ·fail(str2(str("unmatched opening square bracket in line "), uIntToStr(1 + line_bsquare, 1, 10)));
+        return srcFileErr(issue_tok, str("unmatched opening square bracket"),
+                          (Token) {.file_name = file_name, .line_nr = line_bsquare, .kind = tok_kind_nope});
+    return ·none(SrcFileIssue);
 }
 
-Tokenss toksIndentBasedChunks(Tokens const toks) {
-    ·assert(toks.len > 0);
+Tokenss toksIndentBasedChunks(MemHeap* mem_heap, Tokens const toks) {
+    if (toks.len == 0)
+        return ·sliceOf(Tokens, mem_heap, 0, 0);
     UInt cmp_pos_col = tokPosCol(&toks.at[0]);
     Int level = 0;
     ·forEach(Token, tok, toks, {
@@ -161,7 +206,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
     });
     ·assert(level == 0);
 
-    Tokenss ret_chunks = ·sliceOf(Tokens, 0, num_chunks);
+    Tokenss ret_chunks = ·sliceOf(Tokens, mem_heap, 0, num_chunks);
     {
         Int start_from = -1;
         ·forEach(Token, tok, toks, {
@@ -185,7 +230,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
 ºUInt toksIndexOfIdent(Tokens const toks, Str const ident, Str const full_src) {
     ·forEach(Token, tok, toks, {
         if (tok->kind == tok_kind_ident && strEql(ident, tokSrc(tok, full_src)))
-            return ·ok(UInt, iˇtok);
+            return ·got(UInt, iˇtok);
     });
     return ·none(UInt);
 }
@@ -207,7 +252,7 @@ Tokenss toksIndentBasedChunks(Tokens const toks) {
         else if (tok->kind == tok_close_kind) {
             level -= 1;
             if (level == 0)
-                return ·ok(UInt, iˇtok);
+                return ·got(UInt, iˇtok);
         }
     });
     return ·none(UInt);
@@ -223,7 +268,7 @@ UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
 
     if (tokIsOpeningBracket(toks.at[tok_idx].kind)) {
         ºUInt idx_close = toksIndexOfMatchingBracket(·slice(Token, toks, tok_idx, toks.len));
-        ·assert(idx_close.ok);
+        ·assert(idx_close.got);
         idx_close.it += tok_idx;
         UInt idx_next = idx_close.it + 1;
         if (idx_next < toks.len && toks.at[idx_next].char_pos == toks.at[idx_close.it].char_pos + 1
@@ -240,7 +285,7 @@ UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
                 ok = tokCanThrong(tok, full_src);
                 if (!ok && tokIsOpeningBracket(tok->kind)) {
                     ºUInt idx_closing_bracket = toksIndexOfMatchingBracket(·slice(Token, toks, i, toks.len));
-                    ·assert(idx_closing_bracket.ok);
+                    ·assert(idx_closing_bracket.got);
                     i += idx_closing_bracket.it;
                     ok = true;
                 }
@@ -252,12 +297,12 @@ UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
     return ret_idx;
 }
 
-Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
+Tokenss toksSplit(MemHeap* mem_heap, Tokens const toks, TokenKind const tok_kind) {
     ·assert(!tokIsBracket(tok_kind));
     if (toks.len == 0)
         return ·len0(Tokens);
     UInt capacity = 1 + toksCountUnnested(toks, tok_kind);
-    Tokenss ret_sub_toks = ·sliceOf(Tokens, 0, capacity);
+    Tokenss ret_sub_toks = ·sliceOf(Tokens, mem_heap, 0, capacity);
     {
         Int level = 0;
         UInt start_from = 0;
@@ -275,8 +320,12 @@ Tokenss toksSplit(Tokens const toks, TokenKind const tok_kind) {
     return ret_sub_toks;
 }
 
-Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file_name) {
-    Tokens toks = ·sliceOf(Token, 0, full_src.len);
+Tokens tokenize(MemHeap* mem_heap, Str const full_src, Bool const keep_comment_toks, Str const file_name,
+                SrcFileIssues* const gather_issues) {
+    SrcFileIssues issues;
+    if (gather_issues != NULL)
+        issues = *gather_issues;
+    Tokens toks = ·sliceOf(Token, mem_heap, 0, full_src.len);
 
     TokenKind state = tok_kind_nope;
     UInt cur_line_nr = 0;
@@ -295,9 +344,19 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file
     for (; i < full_src.len; i += 1) {
         U8 const c = full_src.at[i];
         if (c == '\n') {
-            if (state == tok_kind_lit_str_qdouble || state == tok_kind_lit_str_qsingle)
-                ·fail(str4(str("line-break in literal in line "), uIntToStr(1 + cur_line_nr, 1, 10), str(":\n"),
-                           strSub(full_src, tok_idx_start, i)));
+            if (state == tok_kind_lit_str_qdouble || state == tok_kind_lit_str_qsingle) {
+                if (gather_issues != NULL)
+                    ·append(issues, srcFileErr(issue_tok, str("line-break in literal"),
+                                               (Token) {.file_name = file_name,
+                                                        .kind = state,
+                                                        .str_len = i - tok_idx_start,
+                                                        .line_nr = cur_line_nr,
+                                                        .char_pos_line_start = cur_line_idx,
+                                                        .char_pos = tok_idx_start})
+                                        .it);
+                toks.len = 0;
+                break;
+            }
             if (tok_idx_start != -1 && tok_idx_last == -1)
                 tok_idx_last = i - 1;
         } else {
@@ -312,11 +371,11 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file
                     }
                     break;
                 case tok_kind_lit_str_qdouble:
-                    if (c == '\"')
+                    if (c == '\"' && full_src.at[i - 1] != '\\')
                         tok_idx_last = i;
                     break;
                 case tok_kind_lit_str_qsingle:
-                    if (c == '\'')
+                    if (c == '\'' && full_src.at[i - 1] != '\\')
                         tok_idx_last = i;
                     break;
                 case tok_kind_comment: break;
@@ -412,7 +471,7 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file
             cur_line_idx = i + 1;
         }
     }
-    if (tok_idx_start != -1) {
+    if (toks.at != NULL && tok_idx_start != -1) {
         ·assert(state != tok_kind_nope);
         if (state != tok_kind_comment || keep_comment_toks)
             ·push(toks, ((Token) {
@@ -424,5 +483,13 @@ Tokens tokenize(Str const full_src, Bool const keep_comment_toks, Str const file
                             .file_name = file_name,
                         }));
     }
+    ºSrcFileIssue mismatch = toksVerifyBrackets(toks, file_name);
+    if (mismatch.got) {
+        toks.len = 0;
+        if (gather_issues != NULL)
+            ·append(issues, mismatch.it);
+    }
+    if (gather_issues != NULL)
+        *gather_issues = issues;
     return toks;
 }

@@ -1,0 +1,57 @@
+isWeekend1 day1 :=
+  day1  ? #sun  =>  #true   // no sugar yet for multiple ..
+        | #sat  =>  #true   //  .. comparees in single case
+        | _     =>  #false
+
+isWeekend2 day2 :=         // no ternary-sugar yet
+  (day2 == #sun)  ? #true   =>  #true // no `||` yet
+                  | #false  =>  (day2 == #sat)
+
+isWeekend3 day3 :=         // sour, but sugar comes later
+  day3  ? #sun  =>  #true
+        | #sat  =>  #true
+        | #mon  =>  #false
+        | #tue  =>  #false
+        | #sat  =>  #true   // marked unreachable
+        | #wed  =>  #false
+        | #thu  =>  #false
+        | #fri  =>  #false
+
+isWeekday0 dayW0 :=
+  not (isWeekend3 dayW0)
+
+isWeekday1 dayW1 :=
+  isWeekend3 foo // error: 'isWeekend3' undefined for 'day' values of 'foo'
+  foo := isWeekend2 dayW1
+
+notEq tag1 tag2 :=    // no `/=` sugar yet
+  not (tag1 == tag2)  // asserts set-overlap between operands
+
+not2 b2 :=
+  b2  ? not #false  => not #true
+      | #true       => #false    // marked unreachable
+      | #true       => #true     // error: contradictory to line 31
+
+rndDay1 weekend1 :=
+  isWeekend3 rnd_day  ? weekend1 => rnd_day
+                      | _       => rndDay1 weekend1
+  rnd_day := @tmpRndSym ()
+
+rndDay2 weekend2 :=
+  not (@tmpRndSym ()) // error: 'not' undefined for 'b' values of '@tmpRndSym ()'
+
+rndDay3 weekend3 :=
+  #false == (@tmpRndSym ()) // error: no set-overlap of operands
+    ? #true => rndDay2 weekend3
+    | _     => rndDay1 weekend3
+
+rndDay4 weekend4 :=
+  notEq (isWeekend3 (rndDay1 weekend4)) (@tmpRndSym ()) // error: no overlap between '(isWeekend3 (rndDay1 weekend))' values and '@tmpRndSym ()' values
+
+rndDay5 weekend5 := // offer: simplify to `rndDay1 weekend`
+  #false
+    ? #true  => rndDay2 weekend5 // marked unreachable
+    | _      => rndDay1 weekend5
+
+not b1 :=
+  b1 ? #true => #false | #false => #true // no ternary-sugar yet

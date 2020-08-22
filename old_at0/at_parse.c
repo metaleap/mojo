@@ -1,76 +1,60 @@
 #pragma once
-#include "utils_std_mem.c"
-#include "utils_toks.c"
+#include "utils_and_libc_deps.c"
 #include "fs_io.c"
+#include "at_toks.c"
 #include "at_ast.c"
 
 
 #define asts_capacity 4
+typedef struct CtxParseAsts {
+    Asts asts;
+    Strs src_file_paths;
+} CtxParseAsts;
 
 
-Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path, SrcFileIssues* const gather_issues);
-AstExpr astParseExpr(Tokens const, UInt const, Ast* const, Bool const, ºSrcFileIssue* const);
-ºSrcFileIssue astParseDef(AstDef* const dst_def, Ast* const ast);
+Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path);
+AstExpr astParseExpr(Tokens const toks, UInt const all_toks_idx, Ast* const ast, Bool);
+void astParseDef(AstDef* const dst_def, Ast* const ast);
 
-CtxAsts loadAndParseRootSourceFileAndImports(Str const root_src_file_path) {
-    CtxAsts ctx = (CtxAsts) {
-        .src_file_paths = ·sliceOf(Str, NULL, 0, asts_capacity),
-        .asts = ·listOf(Ast, NULL, 0, asts_capacity),
-        .issues = false,
-    };
-    ·push(ctx.src_file_paths, root_src_file_path);
-    while (ctx.src_file_paths.len > ctx.asts.len) {
-        SrcFileIssues issues = ·listOf(SrcFileIssue, NULL, 0, 16);
-
-        Str const next_src_file_path = ctx.src_file_paths.at[ctx.asts.len];
+void loadAndParseRootSourceFileAndImports(CtxParseAsts* const ctx) {
+    while (ctx->src_file_paths.len > ctx->asts.len) {
+        Str const next_src_file_path = ctx->src_file_paths.at[ctx->asts.len];
         Str const full_src = readFile(next_src_file_path);
-        if (full_src.at == NULL)
-            ·append(issues, srcFileErr(issue_parse, str("error reading file"),
-                                       (Token) {
-                                           .kind = tok_kind_nope,
-                                           .file_name = next_src_file_path,
-                                       })
-                                .it);
 
-        Tokens const toks = tokenize(NULL, full_src, false, next_src_file_path, &issues);
+        Tokens const toks = tokenize(full_src, false, next_src_file_path);
+        toksVerifyBrackets(toks);
 
-        Ast ast = astParse(toks, full_src, next_src_file_path, &issues);
-        ·append(ctx.asts, ast);
-        ctx.issues |= (ast.issues.len > 0);
+        Ast ast = astParse(toks, full_src, next_src_file_path);
+        ·append(ctx->asts, ast);
 
         for (UInt i = 0; i < ast.anns.incl_file_paths.len; i += 1) {
             Str const incl_file_path = relPathFromRelPath(next_src_file_path, ast.anns.incl_file_paths.at[i]);
-            if (!strIn(incl_file_path, ctx.src_file_paths)) {
-                if (ctx.src_file_paths.len == ctx.asts.cap)
+            if (!strIn(incl_file_path, ctx->src_file_paths)) {
+                if (ctx->src_file_paths.len == ctx->asts.cap)
                     ·fail(str("TODO: increase asts_capacity"));
-                ·push(ctx.src_file_paths, incl_file_path);
+                ·push(ctx->src_file_paths, incl_file_path);
             }
         }
     }
-    return ctx;
 }
 
-Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path, SrcFileIssues* const issues) {
-    Tokenss const chunks = toksIndentBasedChunks(NULL, all_toks);
+Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path) {
+    Tokenss const chunks = toksIndentBasedChunks(all_toks);
 
     Ast ret_ast = (Ast) {.src = full_src,
-                         .issues = *issues,
                          .toks = all_toks,
-                         .top_defs = ·sliceOf(AstDef, NULL, 0, chunks.len),
+                         .top_defs = ·sliceOf(AstDef, 0, chunks.len),
                          .anns = {.total_nr_of_def_toks = 0,
-                                  .total_nr_of_tag_toks = 0,
-                                  .incl_file_paths = ·sliceOf(Str, NULL, 0, asts_capacity),
+                                  .incl_file_paths = ·sliceOf(Str, 0, asts_capacity),
                                   .src_file_path = src_file_path,
-                                  .path_based_ident_prefix = ident(NULL, src_file_path)}};
+                                  .path_based_ident_prefix = ident(src_file_path)}};
 
-    // guesstimate `total_nr_of_def_toks` and `total_nr_of_tag_toks`
+    // guesstimate `total_nr_of_def_toks` by counting `:=` and `->` and `@->`
     ·forEach(Token, tok, all_toks, {
         if (tok->kind == tok_kind_ident) {
             Str const tok_src = tokSrc(tok, full_src);
             if (strEql(tok_src, strL(":=", 2)) || strEql(tok_src, strL("->", 2)) || strEql(tok_src, strL("@->", 3)))
                 ret_ast.anns.total_nr_of_def_toks += 1;
-            else if (strEql(tok_src, strL("#", 1)))
-                ret_ast.anns.total_nr_of_tag_toks += 1;
         }
     });
 
@@ -78,41 +62,34 @@ Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path,
     ·forEach(Tokens, chunk_toks, chunks, {
         AstDef* const dst_def = &ret_ast.top_defs.at[ret_ast.top_defs.len];
         *dst_def = astDef(NULL, toks_idx, chunk_toks->len);
-        ºSrcFileIssue issue = astParseDef(dst_def, &ret_ast);
-        if (issue.got)
-            ·push(ret_ast.issues, issue.it);
-        else
-            ret_ast.top_defs.len += 1;
+        astParseDef(dst_def, &ret_ast);
+        ret_ast.top_defs.len += 1;
         toks_idx += chunk_toks->len;
     });
 
-    ·forEach(AstDef, top_def, ret_ast.top_defs, { astDefRewriteGlyphsIntoInstrs(top_def, &ret_ast); });
+    ·forEach(AstDef, top_def, ret_ast.top_defs, {
+        astDefRewriteGlyphsIntoInstrs(top_def, &ret_ast);
+        astSubDefsReorder(top_def->sub_defs);
+    });
 
-    ret_ast.anns.all_top_def_names = ·sliceOf(Str, NULL, ret_ast.top_defs.len, 0);
+    ret_ast.anns.all_top_def_names = ·sliceOf(Str, ret_ast.top_defs.len, 0);
     ·forEach(AstDef, top_def, ret_ast.top_defs, { ret_ast.anns.all_top_def_names.at[iˇtop_def] = top_def->name; });
 
-    *issues = ret_ast.issues;
     return ret_ast;
 }
 
-ºSrcFileIssue astParseDef(AstDef* const dst_def, Ast* const ast) {
-    ºSrcFileIssue issue = ·none(SrcFileIssue);
-
+void astParseDef(AstDef* const dst_def, Ast* const ast) {
     Tokens const toks = astNodeToks(&dst_def->node_base, ast);
     ºUInt const idx_tok_def = toksIndexOfIdent(toks, str(":="), ast->src);
     if ((!idx_tok_def.got) || idx_tok_def.it == 0 || idx_tok_def.it == toks.len - 1)
-        return srcFileErr(issue_parse, str("expected '<head_expr> := <body_expr>'"), ast->toks.at[dst_def->node_base.toks_idx]);
+        ·fail(astNodeMsg(str("expected '<head_expr> := <body_expr>'"), &dst_def->node_base, ast));
 
-    Tokenss const def_body_chunks = toksIndentBasedChunks(NULL, ·slice(Token, toks, idx_tok_def.it + 1, toks.len));
-    dst_def->sub_defs = ·sliceOf(AstDef, NULL, 0, def_body_chunks.len - 1);
+    Tokenss const def_body_chunks = toksIndentBasedChunks(·slice(Token, toks, idx_tok_def.it + 1, toks.len));
+    dst_def->sub_defs = ·sliceOf(AstDef, 0, def_body_chunks.len - 1);
     UInt all_toks_idx = dst_def->node_base.toks_idx + idx_tok_def.it + 1;
-    dst_def->body = astParseExpr(def_body_chunks.at[0], all_toks_idx, ast, false, &issue);
-    if (issue.got)
-        return issue;
+    dst_def->body = astParseExpr(def_body_chunks.at[0], all_toks_idx, ast, false);
 
-    AstExpr head = astParseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast, false, &issue);
-    if (issue.got)
-        return issue;
+    AstExpr head = astParseExpr(·slice(Token, toks, 0, idx_tok_def.it), dst_def->node_base.toks_idx, ast, false);
     dst_def->anns.head_node_base = head.node_base;
     switch (head.kind) {
         case ast_expr_ident: {
@@ -120,7 +97,7 @@ Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path,
         } break;
         case ast_expr_form: {
             if (head.of_exprs.at[0].kind != ast_expr_ident)
-                return srcFileErr(issue_parse, str("unsupported def header form"), ast->toks.at[head.node_base.toks_idx]);
+                ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
             dst_def->name = head.of_exprs.at[0].of_ident;
 
             AstExpr fn = astExpr(dst_def->node_base.toks_idx, dst_def->node_base.toks_len, ast_expr_form, 3);
@@ -128,10 +105,10 @@ Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path,
             fn.of_exprs.at[2] = dst_def->body;
             fn.of_exprs.at[1] =
                 astExpr(head.of_exprs.at[1].node_base.toks_idx, head.node_base.toks_len - 1, ast_expr_lit_bracket, head.of_exprs.len - 1);
-            dst_def->anns.param_names = ·sliceOf(Str, NULL, fn.of_exprs.at[1].of_exprs.len, 0);
+            dst_def->anns.param_names = ·sliceOf(Str, fn.of_exprs.at[1].of_exprs.len, 0);
             for (UInt i = 1; i < head.of_exprs.len; i += 1)
                 if (head.of_exprs.at[i].kind != ast_expr_ident)
-                    return srcFileErr(issue_parse, str("unsupported def header form"), ast->toks.at[head.node_base.toks_idx]);
+                    ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
                 else {
                     dst_def->anns.param_names.at[i - 1] = head.of_exprs.at[i].of_ident;
                     fn.of_exprs.at[1].of_exprs.at[i - 1] =
@@ -139,78 +116,91 @@ Ast astParse(Tokens const all_toks, Str const full_src, Str const src_file_path,
                 }
             dst_def->body = fn;
         } break;
-        default: return srcFileErr(issue_parse, str("unsupported def header form"), ast->toks.at[head.node_base.toks_idx]);
+        default: {
+            ·fail(astNodeMsg(str("unsupported def header form"), &head.node_base, ast));
+        } break;
     }
     dst_def->anns.qname =
-        (dst_def->anns.parent_def != NULL) ? str3(NULL, dst_def->anns.parent_def->anns.qname, strL("-", 1), dst_def->name) : dst_def->name;
+        (dst_def->anns.parent_def != NULL) ? str3(dst_def->anns.parent_def->anns.qname, strL("-", 1), dst_def->name) : dst_def->name;
 
     ·forEach(Tokens, chunk_toks, def_body_chunks, {
         if (iˇchunk_toks != 0) {
             AstDef* const sub_def = &dst_def->sub_defs.at[dst_def->sub_defs.len];
             dst_def->sub_defs.len += 1;
             *sub_def = astDef(dst_def, all_toks_idx, chunk_toks->len);
-            issue = astParseDef(sub_def, ast);
-            if (issue.got)
-                return issue;
+            astParseDef(sub_def, ast);
         }
         all_toks_idx += chunk_toks->len;
     });
-    return issue;
 }
 
-AstExpr astParseExprLitInt(UInt const all_toks_idx, Ast const* const ast, Token const* const tok, ºSrcFileIssue* const issue) {
+AstExpr astParseExprLitInt(UInt const all_toks_idx, Ast const* const ast, Token const* const tok) {
     AstExpr ret_expr = astExpr(all_toks_idx, 1, ast_expr_lit_int, 0);
     ºU64 const maybe = uInt64Parse(tokSrc(tok, ast->src));
     if (!maybe.got)
-        *issue = srcFileErr(issue_parse, str("malformed or not-yet-supported integer literal"), *tok);
-    else
-        ret_expr.of_lit_int = maybe.it;
+        ·fail(astNodeMsg(str("malformed or not-yet-supported integer literal"), &ret_expr.node_base, ast));
+    ret_expr.of_lit_int = maybe.it;
     return ret_expr;
 }
 
-AstExpr astParseExprLitStr(UInt const all_toks_idx, Ast const* const ast, Token const* const tok, U8 const quote_char,
-                           ºSrcFileIssue* const issue) {
+AstExpr astParseExprLitStr(UInt const all_toks_idx, Ast const* const ast, Token const* const tok, U8 const quote_char) {
     AstExpr ret_expr = astExpr(all_toks_idx + 1, 1, ast_expr_lit_str, 0);
     Str const lit_src = tokSrc(tok, ast->src);
-    ret_expr.of_lit_str = strParse(NULL, lit_src);
-    if (ret_expr.of_lit_str.at == NULL)
-        *issue = srcFileErr(issue_parse, str("malformed or not-yet-supported string literal"), *tok);
+
+    ·assert(lit_src.len >= 2 && lit_src.at[0] == quote_char && lit_src.at[lit_src.len - 1] == quote_char);
+    Str ret_str = newStr(0, lit_src.len - 1);
+    for (UInt i = 1; i < lit_src.len - 1; i += 1) {
+        if (lit_src.at[i] != '\\')
+            ret_str.at[ret_str.len] = lit_src.at[i];
+        else {
+            UInt const idx_end = i + 4;
+            Bool bad_esc = idx_end > lit_src.len - 1;
+            if (!bad_esc) {
+                Str const base10digits = ·slice(U8, lit_src, i + 1, idx_end);
+                i += 3;
+                ºU64 const maybe = uInt64Parse(base10digits);
+                bad_esc = (!maybe.got) || maybe.it >= 256;
+                ret_str.at[ret_str.len] = (U8)maybe.it;
+            }
+            if (bad_esc)
+                ·fail(
+                    astNodeMsg(str("expected 3-digit base-10 integer decimal 000-255 following backslash escape"), &ret_expr.node_base, ast));
+        }
+        ret_str.len += 1;
+    }
+    ret_str.at[ret_str.len] = 0; // we ensured the extra capacity up in `newStr` call
+
+    ret_expr.of_lit_str = ret_str;
     return ret_expr;
 }
 
-AstExprs astParseExprsDelimited(Tokens const toks, UInt const all_toks_idx, TokenKind const tok_kind_sep, Ast* const ast,
-                                ºSrcFileIssue* const issue) {
+AstExprs astParseExprsDelimited(Tokens const toks, UInt const all_toks_idx, TokenKind const tok_kind_sep, Ast* const ast) {
     if (toks.len == 0)
         return ·len0(AstExpr);
-    Tokenss const per_elem_toks = toksSplit(NULL, toks, tok_kind_sep);
-    AstExprs ret_exprs = ·sliceOf(AstExpr, NULL, 0, per_elem_toks.len);
+    Tokenss const per_elem_toks = toksSplit(toks, tok_kind_sep);
+    AstExprs ret_exprs = ·sliceOf(AstExpr, 0, per_elem_toks.len);
     UInt toks_idx = all_toks_idx;
     ·forEach(Tokens, this_elem_toks, per_elem_toks, {
         if (this_elem_toks->len == 0)
             toks_idx += 1; // 1 for eaten delimiter
         else {
-            ·push(ret_exprs, astParseExpr(*this_elem_toks, toks_idx, ast, false, issue));
-            if (issue->got)
-                break;
+            ·push(ret_exprs, astParseExpr(*this_elem_toks, toks_idx, ast, false));
             toks_idx += (1 + this_elem_toks->len); // 1 for eaten delimiter
         }
     });
     return ret_exprs;
 }
 
-AstExpr astParseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast* const ast, Bool const known_whole_form_throng,
-                     ºSrcFileIssue* const issue) {
+AstExpr astParseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast* const ast, Bool const known_whole_form_throng) {
     ·assert(expr_toks.len != 0);
-    AstExprs ret_acc = ·sliceOf(AstExpr, NULL, 0, expr_toks.len);
+    AstExprs ret_acc = ·sliceOf(AstExpr, 0, expr_toks.len);
     Bool const whole_form_throng =
         known_whole_form_throng || ((expr_toks.len > 1) && (tokThrong(expr_toks, 0, ast->src) == expr_toks.len - 1));
 
-    for (UInt i = 0; i < expr_toks.len && !issue->got; i += 1) {
+    for (UInt i = 0; i < expr_toks.len; i += 1) {
         UInt const idx_throng_end = whole_form_throng ? i : tokThrong(expr_toks, i, ast->src);
         if (idx_throng_end > i) {
-            ·push(ret_acc, astParseExpr(·slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast, true, issue));
-            if (issue->got)
-                break;
+            ·push(ret_acc, astParseExpr(·slice(Token, expr_toks, i, idx_throng_end + 1), all_toks_idx + i, ast, true));
             i = idx_throng_end; // loop header will increment
             continue;
         }
@@ -221,19 +211,18 @@ AstExpr astParseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast* const
             } break;
 
             case tok_kind_lit_num_prefixed: {
-                ·push(ret_acc, astParseExprLitInt(all_toks_idx + 1, ast, &expr_toks.at[i], issue));
+                ·push(ret_acc, astParseExprLitInt(all_toks_idx + 1, ast, &expr_toks.at[i]));
             } break;
 
             case tok_kind_lit_str_qdouble: {
-                ·push(ret_acc, astParseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"', issue));
+                ·push(ret_acc, astParseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"'));
             } break;
 
             case tok_kind_lit_str_qsingle: {
-                AstExpr expr_lit = astParseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"', issue);
-                if ((!issue->got) && expr_lit.of_lit_str.len != 1)
-                    *issue = srcFileErr(issue_parse, str("currently only supporting single-byte char literals"), expr_toks.at[i]);
-                if (issue->got)
-                    break;
+                AstExpr expr_lit = astParseExprLitStr(all_toks_idx + 1, ast, &expr_toks.at[i], '\"');
+                if (expr_lit.of_lit_str.len != 1)
+                    ·fail(astNodeMsg(str("currently only supporting single-byte char literals"), &expr_lit.node_base, ast));
+
                 expr_lit.kind = ast_expr_lit_int;
                 expr_lit.of_lit_int = expr_lit.of_lit_str.at[0];
                 ·push(ret_acc, expr_lit);
@@ -252,9 +241,7 @@ AstExpr astParseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast* const
                         AstExpr const expr_ident = astExprIdent(all_toks_idx + i, 2, strL("()", 2));
                         ·push(ret_acc, expr_ident);
                     } else {
-                        AstExpr expr_inside_parens = astParseExpr(toks_inside_parens, all_toks_idx + i + 1, ast, false, issue);
-                        if (issue->got)
-                            break;
+                        AstExpr expr_inside_parens = astParseExpr(toks_inside_parens, all_toks_idx + i + 1, ast, false);
                         expr_inside_parens.anns.parensed += (expr_inside_parens.anns.parensed < 255) ? 1 : 0;
                         // still want the parens toks captured in node base:
                         expr_inside_parens.node_base.toks_idx = all_toks_idx + i;
@@ -263,9 +250,7 @@ AstExpr astParseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast* const
                     }
                 } else { // no parens: either square brackets or curly braces
                     AstExprs const exprs_inside = astParseExprsDelimited(·slice(Token, expr_toks, i + 1, idx_closing.it),
-                                                                         all_toks_idx + i + 1, tok_kind_sep_comma, ast, issue);
-                    if (issue->got)
-                        break;
+                                                                         all_toks_idx + i + 1, tok_kind_sep_comma, ast);
                     Bool const is_braces = (tok_kind == tok_kind_sep_bcurly_open);
                     Bool const is_bracket = (tok_kind == tok_kind_sep_bsquare_open);
                     ·assert(is_braces || is_bracket); // always true right now obviously, but for future overpaced refactorers..
@@ -283,18 +268,17 @@ AstExpr astParseExpr(Tokens const expr_toks, UInt const all_toks_idx, Ast* const
             } break;
 
             default: {
-                *issue = srcFileErr(issue_parse, str("unrecognized token"), expr_toks.at[i]);
+                ·fail(str4(str("unrecognized token in line "), uIntToStr(expr_toks.at[i].line_nr + 1, 1, 10), str(": "),
+                           tokSrc(&expr_toks.at[i], ast->src)));
             } break;
         }
     }
 
-    if (ret_acc.len == 1 && !issue->got)
+    ·assert(ret_acc.len != 0);
+    if (ret_acc.len == 1)
         return ret_acc.at[0];
 
     AstExpr ret_expr = astExpr(all_toks_idx, expr_toks.len, ast_expr_form, 0);
-    if (issue->got)
-        return ret_expr;
-    ·assert(ret_acc.len != 0);
     ret_expr.of_exprs = ret_acc;
     ret_expr.anns.toks_throng = whole_form_throng;
 
