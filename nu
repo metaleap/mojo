@@ -17,5 +17,5 @@ myProg := (user)
 	| .strEq("root")
 		.never
 
-	.print (.env("GOPATH").len == 0) ? "Hello, " | "Hello, Gopher ",
+	.print (.env("GOPATH").len == 0) ? "Hello, " | "Hello, Gopher "
 	.print user, "!\n"
