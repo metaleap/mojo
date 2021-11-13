@@ -49,6 +49,43 @@ const (
 	lround
 	llround
 	lrint
+	bitreverse
+	bswap
+	ctpop
+	ctlz
+	cttz
+	fshl
+	fshr
+	overflow_sadd
+	overflow_uadd
+	overflow_ssub
+	overflow_usub
+	overflow_smul
+	overflow_umul
+	sat_sadd
+	sat_uadd
+	sat_ssub
+	sat_usub
+	sat_sshl
+	sat_ushl
+	fix_smul
+	fix_umul
+	fix_sat_smul
+	fix_sat_umul
+	fix_sdiv
+	fix_udiv
+	fix_sat_sdiv
+	fix_sat_udiv
+	canonicalize
+	fmuladd
+	converttofp16
+	convertfromfp16
+	sat_fptoui
+	sat_fptosi
+	trap
+	trap_debug
+	trap_ubsan
+	donothing
 )
 
 type LlModule struct {
