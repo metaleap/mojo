@@ -9,6 +9,48 @@ const (
 	llPoison   = "poison"
 )
 
+type LlIntrinsic int
+
+const (
+	_ LlIntrinsic = iota
+	abs
+	smax
+	smin
+	umax
+	umin
+	memcpy
+	memcpy_inline
+	memmove
+	memset
+	sqrt
+	powi
+	sin
+	cos
+	pow
+	exp
+	exp2
+	log
+	log10
+	log2
+	fma
+	fabs
+	minnum
+	maxnum
+	minimum
+	maximum
+	copysign
+	floor
+	ceil
+	trunc
+	rint
+	nearbyint
+	round
+	roundeven
+	lround
+	llround
+	lrint
+)
+
 type LlModule struct {
 	source_filename string
 
@@ -36,7 +78,8 @@ type LlFuncDef struct {
 
 type LlExtDecl struct {
 	LlNamed
-	ty LlTypeFunc
+	ty        LlTypeFunc
+	intrinsic LlIntrinsic
 }
 
 type LlParam struct {
@@ -94,7 +137,7 @@ type LlInstrSwitch struct {
 	def   *LlBlock
 	cases []struct {
 		intConst LlExpr
-		dest     *LlBlock
+		dst      *LlBlock
 	}
 }
 
@@ -169,6 +212,73 @@ type LlInstrGetElementPtr struct {
 	ptrSrc   LlExpr
 	inbounds bool
 	idxs     []LlExpr
+	inrange  *int
+}
+
+type LlInstrConv struct {
+	src   LlExpr
+	dstTy LlType
+}
+
+type LlInstrConvTrunc LlInstrConv
+type LlInstrConvZext LlInstrConv
+type LlInstrConvSext LlInstrConv
+type LlInstrConvFptrunc LlInstrConv
+type LlInstrConvFpext LlInstrConv
+type LlInstrConvFptoui LlInstrConv
+type LlInstrConvFptosi LlInstrConv
+type LlInstrConvUitofp LlInstrConv
+type LlInstrConvSitofp LlInstrConv
+type LlInstrConvPtrtoint LlInstrConv
+type LlInstrConvInttoptr LlInstrConv
+type LlInstrConvBitcast LlInstrConv
+
+type LlInstrIcmpEq LlInstrOp2
+type LlInstrIcmpNe LlInstrOp2
+type LlInstrIcmpUgt LlInstrOp2
+type LlInstrIcmpUge LlInstrOp2
+type LlInstrIcmpUlt LlInstrOp2
+type LlInstrIcmpUle LlInstrOp2
+type LlInstrIcmpSgt LlInstrOp2
+type LlInstrIcmpSge LlInstrOp2
+type LlInstrIcmpSlt LlInstrOp2
+type LlInstrIcmpSle LlInstrOp2
+type LlInstrFcmpFalse LlInstrOp2
+type LlInstrFcmpOeq LlInstrOp2
+type LlInstrFcmpOgt LlInstrOp2
+type LlInstrFcmpOge LlInstrOp2
+type LlInstrFcmpOlt LlInstrOp2
+type LlInstrFcmpOle LlInstrOp2
+type LlInstrFcmpOne LlInstrOp2
+type LlInstrFcmpOrd LlInstrOp2
+type LlInstrFcmpUeq LlInstrOp2
+type LlInstrFcmpUgt LlInstrOp2
+type LlInstrFcmpUge LlInstrOp2
+type LlInstrFcmpUlt LlInstrOp2
+type LlInstrFcmpUle LlInstrOp2
+type LlInstrFcmpUne LlInstrOp2
+type LlInstrFcmpUno LlInstrOp2
+type LlInstrFcmpTrue LlInstrOp2
+
+type LlInstrPhi struct {
+	ty    LlType
+	pairs []struct {
+		val LlExpr
+		dst *LlBlock
+	}
+}
+
+type LlInstrSelect struct {
+	cond    LlExpr
+	ifTrue  LlExpr
+	ifFalse LlExpr
+}
+
+type LlInstrCall struct {
+	ty       LlType
+	fnTy     LlTypeFunc
+	fnPtrVal LlExpr
+	args     []LlExpr
 }
 
 type LlExpr interface {
