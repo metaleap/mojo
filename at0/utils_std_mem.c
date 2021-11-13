@@ -76,15 +76,16 @@ void memHeapFree(MemHeap* mem_heap) {
 Any memHeapAlloc(MemHeap* mem_heap, UInt const size) {
     if (size == 0)
         return NULL;
-    MemHeap bss;
+
     Bool const is_bss = (mem_heap == NULL);
     if (is_bss) {
-        bss = (MemHeap) {.ptr = &mem_bss.buf[0],
-                         .cap = mem_bss_max,
-                         .len = mem_bss.pos,
-                         .kind = mem_heap_fixed_size};
+        MemHeap bss = (MemHeap) {.ptr = &mem_bss.buf[0],
+                                 .cap = mem_bss_max,
+                                 .len = mem_bss.pos,
+                                 .kind = mem_heap_fixed_size};
         mem_heap = &bss;
     }
+
     UInt idx = mem_heap->len;
     UInt new_len = mem_heap->len + size;
 
@@ -145,8 +146,6 @@ UInt memHeapCopy(MemHeap* src, U8* dst) {
 }
 
 
-
-// macro names prefixed with '·' instead of all upper-case (avoids SCREAM_CODE)
 
 #define ·new(T, ¹mem_heap__) ((T*)memHeapAlloc((¹mem_heap__), sizeof(T)))
 

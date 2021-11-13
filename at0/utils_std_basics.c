@@ -6,9 +6,6 @@
 #include <stdlib.h>
 
 
-// macro names prefixed with '·' instead of all upper-case
-
-
 // #pragma clang diagnostic ignored "-Wlanguage-extension-token"
 // #define ·dbgBrk() asm volatile("int3"); // gdb myprog -ex run
 

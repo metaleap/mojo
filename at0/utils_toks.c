@@ -7,9 +7,10 @@ const CStr tok_sep_chars = "[]{}(),:";
 
 
 typedef enum TokenKind {
-    tok_kind_nope,              // used for state machine inside `tokenize`, never produced to consumers
-    tok_kind_comment,           // double-slash comments, until EOL
-    tok_kind_ident,             // fallback for all otherwise-unmatched tokens
+    tok_kind_nope,    // used for state machine inside `tokenize`, never produced to
+                      // consumers
+    tok_kind_comment, // double-slash comments, until EOL
+    tok_kind_ident,   // fallback for all otherwise-unmatched tokens
     tok_kind_lit_num_prefixed,  // any tokens starting with '0'-'9'
     tok_kind_lit_str_qdouble,   // "string-ish quote marks"
     tok_kind_lit_str_qsingle,   // 'char-ish quote marks'
@@ -57,12 +58,15 @@ typedef struct SrcFileIssue {
 typedef ·ListOf(SrcFileIssue) SrcFileIssues;
 typedef ·Maybe(SrcFileIssue) ºSrcFileIssue;
 
-ºSrcFileIssue srcFileIssue(SrcFileIssueKind kind, Bool const error, Str const msg, Token const src_pos) {
-    return ·got(SrcFileIssue,
-                ((SrcFileIssue) {
-                    .error = error,
-                    .src_pos = {.line_nr = src_pos.line_nr, .char_pos_line_start = src_pos.char_pos_line_start, .char_pos = src_pos.char_pos},
-                    .msg = msg}));
+ºSrcFileIssue srcFileIssue(SrcFileIssueKind kind, Bool const error, Str const msg,
+                           Token const src_pos) {
+    return ·got(
+        SrcFileIssue,
+        ((SrcFileIssue) {.error = error,
+                         .src_pos = {.line_nr = src_pos.line_nr,
+                                     .char_pos_line_start = src_pos.char_pos_line_start,
+                                     .char_pos = src_pos.char_pos},
+                         .msg = msg}));
 }
 ºSrcFileIssue srcFileErr(SrcFileIssueKind kind, Str const msg, Token const src_pos) {
     return srcFileIssue(kind, true, msg, src_pos);
@@ -70,11 +74,14 @@ typedef ·Maybe(SrcFileIssue) ºSrcFileIssue;
 
 
 Bool tokIsOpeningBracket(TokenKind const tok_kind) {
-    return tok_kind == tok_kind_sep_bcurly_open || tok_kind == tok_kind_sep_bparen_open || tok_kind == tok_kind_sep_bsquare_open;
+    return tok_kind == tok_kind_sep_bcurly_open || tok_kind == tok_kind_sep_bparen_open
+           || tok_kind == tok_kind_sep_bsquare_open;
 }
 
 Bool tokIsClosingBracket(TokenKind const tok_kind) {
-    return tok_kind == tok_kind_sep_bcurly_close || tok_kind == tok_kind_sep_bparen_close || tok_kind == tok_kind_sep_bsquare_close;
+    return tok_kind == tok_kind_sep_bcurly_close
+           || tok_kind == tok_kind_sep_bparen_close
+           || tok_kind == tok_kind_sep_bsquare_close;
 }
 
 Bool tokIsBracket(TokenKind const tok_kind) {
@@ -96,7 +103,8 @@ Str tokSrc(Token const* const tok, Str const full_src) {
 
 Str toksSrc(Tokens const toks, Str const full_src) {
     Token* const tok_last = ·last(toks);
-    return strSub(full_src, toks.at[0].char_pos, tok_last->char_pos + tok_last->str_len);
+    return strSub(full_src, toks.at[0].char_pos,
+                  tok_last->char_pos + tok_last->str_len);
 }
 
 UInt toksCountUnnested(Tokens const toks, TokenKind const tok_kind) {
@@ -165,13 +173,19 @@ Bool toksHavePos(Tokens const toks, UInt const pos_line, UInt const pos_col) {
     });
     if (level_bparen > 0)
         return srcFileErr(issue_tok, str("unmatched opening parenthesis"),
-                          (Token) {.file_name = file_name, .line_nr = line_bparen, .kind = tok_kind_nope});
+                          (Token) {.file_name = file_name,
+                                   .line_nr = line_bparen,
+                                   .kind = tok_kind_nope});
     else if (level_bcurly > 0)
         return srcFileErr(issue_tok, str("unmatched opening curly brace"),
-                          (Token) {.file_name = file_name, .line_nr = line_bcurly, .kind = tok_kind_nope});
+                          (Token) {.file_name = file_name,
+                                   .line_nr = line_bcurly,
+                                   .kind = tok_kind_nope});
     else if (level_bsquare > 0)
         return srcFileErr(issue_tok, str("unmatched opening square bracket"),
-                          (Token) {.file_name = file_name, .line_nr = line_bsquare, .kind = tok_kind_nope});
+                          (Token) {.file_name = file_name,
+                                   .line_nr = line_bsquare,
+                                   .kind = tok_kind_nope});
     return ·none(SrcFileIssue);
 }
 
@@ -239,9 +253,15 @@ Tokenss toksIndentBasedChunks(MemHeap* mem_heap, Tokens const toks) {
     TokenKind const tok_open_kind = toks.at[0].kind;
     TokenKind tok_close_kind;
     switch (tok_open_kind) {
-        case tok_kind_sep_bcurly_open: tok_close_kind = tok_kind_sep_bcurly_close; break;
-        case tok_kind_sep_bsquare_open: tok_close_kind = tok_kind_sep_bsquare_close; break;
-        case tok_kind_sep_bparen_open: tok_close_kind = tok_kind_sep_bparen_close; break;
+        case tok_kind_sep_bcurly_open:
+            tok_close_kind = tok_kind_sep_bcurly_close;
+            break;
+        case tok_kind_sep_bsquare_open:
+            tok_close_kind = tok_kind_sep_bsquare_close;
+            break;
+        case tok_kind_sep_bparen_open:
+            tok_close_kind = tok_kind_sep_bparen_close;
+            break;
         default: ·fail(str("toksIndexOfMatchingBracket: caller mistake")); break;
     }
 
@@ -259,20 +279,26 @@ Tokenss toksIndentBasedChunks(MemHeap* mem_heap, Tokens const toks) {
 }
 
 Bool tokCanThrong(Token const* const tok, Str const full_src) {
-    return tok->kind == tok_kind_lit_num_prefixed || tok->kind == tok_kind_lit_str_qdouble || tok->kind == tok_kind_lit_str_qsingle
-           || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':' && (full_src.at[tok->char_pos] != '=' || tok->str_len > 1));
+    return tok->kind == tok_kind_lit_num_prefixed
+           || tok->kind == tok_kind_lit_str_qdouble
+           || tok->kind == tok_kind_lit_str_qsingle
+           || (tok->kind == tok_kind_ident && full_src.at[tok->char_pos] != ':'
+               && (full_src.at[tok->char_pos] != '=' || tok->str_len > 1));
 }
 
 UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
     UInt ret_idx = tok_idx;
 
     if (tokIsOpeningBracket(toks.at[tok_idx].kind)) {
-        ºUInt idx_close = toksIndexOfMatchingBracket(·slice(Token, toks, tok_idx, toks.len));
+        ºUInt idx_close =
+            toksIndexOfMatchingBracket(·slice(Token, toks, tok_idx, toks.len));
         ·assert(idx_close.got);
         idx_close.it += tok_idx;
         UInt idx_next = idx_close.it + 1;
-        if (idx_next < toks.len && toks.at[idx_next].char_pos == toks.at[idx_close.it].char_pos + 1
-            && (tokCanThrong(&toks.at[idx_next], full_src) || tokIsOpeningBracket(toks.at[idx_next].kind))) {
+        if (idx_next < toks.len
+            && toks.at[idx_next].char_pos == toks.at[idx_close.it].char_pos + 1
+            && (tokCanThrong(&toks.at[idx_next], full_src)
+                || tokIsOpeningBracket(toks.at[idx_next].kind))) {
             UInt const idx_throng = tokThrong(toks, idx_next, full_src);
             return idx_throng;
         }
@@ -284,7 +310,8 @@ UInt tokThrong(Tokens const toks, UInt const tok_idx, Str const full_src) {
             if (ok) {
                 ok = tokCanThrong(tok, full_src);
                 if (!ok && tokIsOpeningBracket(tok->kind)) {
-                    ºUInt idx_closing_bracket = toksIndexOfMatchingBracket(·slice(Token, toks, i, toks.len));
+                    ºUInt idx_closing_bracket =
+                        toksIndexOfMatchingBracket(·slice(Token, toks, i, toks.len));
                     ·assert(idx_closing_bracket.got);
                     i += idx_closing_bracket.it;
                     ok = true;
@@ -320,8 +347,8 @@ Tokenss toksSplit(MemHeap* mem_heap, Tokens const toks, TokenKind const tok_kind
     return ret_sub_toks;
 }
 
-Tokens tokenize(MemHeap* mem_heap, Str const full_src, Bool const keep_comment_toks, Str const file_name,
-                SrcFileIssues* const gather_issues) {
+Tokens tokenize(MemHeap* mem_heap, Str const full_src, Bool const keep_comment_toks,
+                Str const file_name, SrcFileIssues* const gather_issues) {
     SrcFileIssues issues;
     if (gather_issues != NULL)
         issues = *gather_issues;
@@ -344,16 +371,18 @@ Tokens tokenize(MemHeap* mem_heap, Str const full_src, Bool const keep_comment_t
     for (; i < full_src.len; i += 1) {
         U8 const c = full_src.at[i];
         if (c == '\n') {
-            if (state == tok_kind_lit_str_qdouble || state == tok_kind_lit_str_qsingle) {
+            if (state == tok_kind_lit_str_qdouble
+                || state == tok_kind_lit_str_qsingle) {
                 if (gather_issues != NULL)
-                    ·append(issues, srcFileErr(issue_tok, str("line-break in literal"),
-                                               (Token) {.file_name = file_name,
-                                                        .kind = state,
-                                                        .str_len = i - tok_idx_start,
-                                                        .line_nr = cur_line_nr,
-                                                        .char_pos_line_start = cur_line_idx,
-                                                        .char_pos = tok_idx_start})
-                                        .it);
+                    ·append(issues,
+                            srcFileErr(issue_tok, str("line-break in literal"),
+                                       (Token) {.file_name = file_name,
+                                                .kind = state,
+                                                .str_len = i - tok_idx_start,
+                                                .line_nr = cur_line_nr,
+                                                .char_pos_line_start = cur_line_idx,
+                                                .char_pos = tok_idx_start})
+                                .it);
                 toks.len = 0;
                 break;
             }
@@ -363,9 +392,12 @@ Tokens tokenize(MemHeap* mem_heap, Str const full_src, Bool const keep_comment_t
             switch (state) {
                 case tok_kind_lit_num_prefixed:
                 case tok_kind_ident:
-                    if (c == ' ' || c == '\t' || c == '\"' || c == '\'' || cStrHasChar(tok_sep_chars, c)
-                        || (cStrHasChar(tok_op_chars, c) && !cStrHasChar(tok_op_chars, full_src.at[i - 1]))
-                        || (cStrHasChar(tok_op_chars, full_src.at[i - 1]) && !cStrHasChar(tok_op_chars, c))) {
+                    if (c == ' ' || c == '\t' || c == '\"' || c == '\''
+                        || cStrHasChar(tok_sep_chars, c)
+                        || (cStrHasChar(tok_op_chars, c)
+                            && !cStrHasChar(tok_op_chars, full_src.at[i - 1]))
+                        || (cStrHasChar(tok_op_chars, full_src.at[i - 1])
+                            && !cStrHasChar(tok_op_chars, c))) {
                         i -= 1;
                         tok_idx_last = i;
                     }
@@ -425,7 +457,8 @@ Tokens tokenize(MemHeap* mem_heap, Str const full_src, Bool const keep_comment_t
                             state = tok_kind_sep_comma;
                             break;
                         default:
-                            if (c == '/' && i < full_src.len - 1 && full_src.at[i + 1] == '/') {
+                            if (c == '/' && i < full_src.len - 1
+                                && full_src.at[i + 1] == '/') {
                                 // begin comment tok
                                 tok_idx_start = i;
                                 state = tok_kind_comment;
