@@ -2,6 +2,6 @@ str: ^ = "hello\nworld"
 
 c_puts: (^)·I32 = ·extern("puts")
 
-main: ()·I32 = ()
+main: ()·I32 = () // noice
     c_puts(str)
     ·ret(0)
