@@ -8,7 +8,7 @@ import (
 var tokenizer = Tokenizer{
 	strLitDelimChars:  "'\"`",
 	sepChars:          ",:;.(){}[]",
-	opChars:           "^!$%&/=\\?*+~-<>|",
+	opChars:           "^!$%&/=\\?*+~-<>|@",
 	lineCommentPrefix: "//",
 }
 
@@ -76,8 +76,10 @@ func (me *Tokenizer) tokenize(src string) (toks []Token) {
 			tokdone(idx - 1)
 			cur.idx, cur.idxLn, cur.lnNr, cur.kind = idx, idxln, lnnr, tokKindComment
 		case c >= '0' && c <= '9': // start of number?
-			tokdone(idx - 1)
-			cur.idx, cur.idxLn, cur.lnNr, cur.kind = idx, idxln, lnnr, tokKindNumLit
+			if cur.kind != tokKindIdentName {
+				tokdone(idx - 1)
+				cur.idx, cur.idxLn, cur.lnNr, cur.kind = idx, idxln, lnnr, tokKindNumLit
+			}
 		case strings.IndexByte(me.strLitDelimChars, c) >= 0: // start of string?
 			tokdone(idx - 1)
 			cur.idx, cur.idxLn, cur.lnNr, cur.kind = idx, idxln, lnnr, tokKindStrLit
