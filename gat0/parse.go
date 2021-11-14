@@ -33,11 +33,13 @@ L7 C11 'NumLit'>>>>0<<<<
 
 func parse(toks Tokens, origSrc string, srcFilePath string) (ret AstProg) {
 	ret.toks, ret.srcFilePath = toks, srcFilePath
-	toplevel := toks.indentLevelChunks(toks, 0)
-	for _, tlc := range toplevel {
-		print("\n>>>>>>>>>>")
-		print(tlc.String(origSrc))
-		println("<<<<<<<<<<\n")
+	toplevel := toks.indentLevelChunks(0)
+	for _, tlchunk := range toplevel {
+		ret.parseTopLevel(tlchunk)
 	}
 	return
+}
+
+func (me *AstProg) parseTopLevel(tl Tokens) {
+
 }
