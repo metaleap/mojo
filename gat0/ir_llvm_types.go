@@ -88,34 +88,36 @@ const (
 	donothing
 )
 
-type LlEmitter interface{}
-
-type LlModule struct {
-	source_filename string
-
-	ExtDecls   []LlExtDecl
-	FuncDefs   []LlFuncDef
-	GlobalVars []LlGlobalVar
-}
-
 type LlNamed struct {
 	name string
 }
 
-type LlGlobalVar struct {
+type LlCommented struct {
+	comment string
+}
+
+type LlTopLevel struct {
+	source_filename string
+
+	ExtDecls   []LlTopLevelExtDecl
+	FuncDefs   []LlTopLevelFuncDef
+	GlobalVars []LlTopLevelGlobalVar
+}
+
+type LlTopLevelGlobalVar struct {
 	LlNamed
 	constant bool
 	init     LlExpr
 	ty       LlType
 }
 
-type LlFuncDef struct {
+type LlTopLevelFuncDef struct {
 	LlNamed
 	ty     LlTypeFunc
 	blocks []LlBlock
 }
 
-type LlExtDecl struct {
+type LlTopLevelExtDecl struct {
 	LlNamed
 	intrinsic LlIntrinsic
 	ty        LlType // unless intrinsic, must be *LlTypeFunc
@@ -131,8 +133,8 @@ type LlType interface{}
 type LlTypeVoid struct{}
 
 type LlTypeFunc struct {
-	ret  LlParam
-	args []LlParam
+	ret    LlParam
+	params []LlParam
 }
 
 type LlTypeInt struct {
@@ -144,12 +146,12 @@ type LlTypeFloat struct {
 }
 
 type LlTypePtr struct {
-	ty LlType
+	elemTy LlType
 }
 
 type LlTypeArr struct {
 	numElems int
-	ty       LlType
+	elemTy   LlType
 }
 
 type LlTypeStruct struct {
@@ -162,6 +164,11 @@ type LlBlock struct {
 }
 
 type LlInstr interface{}
+
+type LlInstrSsa struct {
+	name  string
+	value LlInstr
+}
 
 type LlInstrRet struct {
 	expr LlExpr

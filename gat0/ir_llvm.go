@@ -19,7 +19,54 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 	}
 	switch it := llvmIr.(type) {
 
-	case *LlModule:
+	case *LlTypeVoid:
+		push("void")
+
+	case *LlTypeInt:
+		push("i", itoa(it.bitWidth))
+
+	case *LlTypeFloat:
+		switch it.bitWidth {
+		case 16:
+			push("half")
+		case 32:
+			push("float")
+		case 64:
+			push("double")
+		case 128:
+			push("fp128")
+		default:
+			panic(it.bitWidth)
+		}
+
+	case *LlTypePtr:
+		llIrSrc(buf, it.elemTy)
+		push("*")
+
+	case *LlTypeArr:
+		push("[", itoa(it.numElems), " x ")
+		llIrSrc(buf, it.elemTy)
+		push("]")
+
+	case LlTypeStruct:
+		for i, fieldtype := range it.fields {
+			push(ifStr(i == 0, "{ ", ", "))
+			llIrSrc(buf, fieldtype)
+		}
+		push(" }")
+
+	case LlTypeFunc:
+		llIrSrc(buf, it.ret.ty)
+		push("(")
+		for i, param := range it.params {
+			if i > 0 {
+				push(", ")
+			}
+			llIrSrc(buf, param.ty)
+		}
+		push(")")
+
+	case *LlTopLevel:
 		if it.source_filename != "" {
 			push("source_filename=\"", it.source_filename, "\"\n")
 		}
@@ -36,7 +83,7 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 			push("\n")
 		}
 
-	case *LlGlobalVar:
+	case *LlTopLevelGlobalVar:
 		push("@", it.name, " = ", ifStr(it.constant, "constant ", "global "))
 		llIrSrc(buf, it.ty)
 		if it.init != nil {
@@ -45,7 +92,7 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 		}
 		push("\n")
 
-	case *LlExtDecl:
+	case *LlTopLevelExtDecl:
 		push("declare ")
 		if it.intrinsic != 0 {
 			// var decl LlExtDecl
@@ -59,28 +106,37 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 		fnty := it.ty.(*LlTypeFunc)
 		llIrSrc(buf, fnty.ret.ty)
 		push(" @", it.name, "(")
-		for i := range fnty.args {
+		for i := range fnty.params {
 			if i > 0 {
 				push(", ")
 			}
-			llIrSrc(buf, fnty.args[i].ty)
+			llIrSrc(buf, fnty.params[i].ty)
 		}
 		push(")\n")
 
-	case *LlFuncDef:
+	case *LlTopLevelFuncDef:
 		push("define ")
 		fnty := &it.ty
 		llIrSrc(buf, fnty.ret.ty)
 		push(" @", it.name, "(")
-		for i := range fnty.args {
+		for i := range fnty.params {
 			if i > 0 {
 				push(", ")
 			}
-			llIrSrc(buf, fnty.args[i].ty)
-			push(" %", fnty.args[i].name)
+			llIrSrc(buf, fnty.params[i].ty)
+			push(" %", fnty.params[i].name)
 		}
 		push(") {\n")
-
+		for _, block := range it.blocks {
+			if name := block.name; name != "" {
+				push("  ", name, ":\n")
+			}
+			for i := range block.instrs {
+				push("    ")
+				llIrSrc(buf, &block.instrs[i])
+				push("\n")
+			}
+		}
 		push("}\n")
 
 	default:
