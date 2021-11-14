@@ -88,14 +88,14 @@ const (
 	donothing
 )
 
-type LlEmitter interface{ toLlIr() string }
+type LlEmitter interface{}
 
 type LlModule struct {
 	source_filename string
 
-	Decls []LlExtDecl
-	Funcs []LlFuncDef
-	Vars  []LlGlobalVar
+	ExtDecls   []LlExtDecl
+	FuncDefs   []LlFuncDef
+	GlobalVars []LlGlobalVar
 }
 
 type LlNamed struct {
@@ -126,7 +126,7 @@ type LlParam struct {
 	ty LlType
 }
 
-type LlType interface{ LlEmitter }
+type LlType interface{}
 
 type LlTypeFunc struct {
 	ret  LlParam
@@ -159,7 +159,7 @@ type LlBlock struct {
 	instrs []LlInstr
 }
 
-type LlInstr interface{ LlEmitter }
+type LlInstr interface{}
 
 type LlInstrRet struct {
 	expr LlExpr
@@ -320,7 +320,7 @@ type LlInstrCall struct {
 	args     []LlExpr
 }
 
-type LlExpr interface{ LlEmitter }
+type LlExpr interface{ expr() (LlType, interface{}) }
 
 type LlExprLitInt struct {
 	ty    LlType
