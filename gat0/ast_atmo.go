@@ -7,24 +7,25 @@ type AstFile struct {
 	topLevel    []AstNode
 }
 
-type AstNode interface{}
+type AstNode interface{ base() AstNodeBase }
 
 type AstNodeBase struct {
 	toks Tokens
 }
 
-func (me *AstNodeBase) base() *AstNodeBase { return me }
+func (me AstNodeBase) base() AstNodeBase { return me }
 
-type AstNodeCommaSeparated struct {
-	AstNodeBase
-	nodes []AstNode
-}
-
-type AstNodeBraces struct {
+type AstNodeBraced struct {
 	AstNodeBase
 	square bool
 	curly  bool
-	list   AstNodeCommaSeparated
+	list   AstNodeList
+}
+
+type AstNodeList struct {
+	AstNodeBase
+	sep   string
+	nodes []AstNode
 }
 
 func (me *AstFile) buildIr() (ret IrModule) {

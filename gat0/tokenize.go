@@ -5,17 +5,17 @@ import (
 	"strings"
 )
 
+const tokenizerBraceChars = "(){}[]"
+
 var tokenizer = Tokenizer{
 	strLitDelimChars:  "'\"`",
 	sepChars:          ",:;.",
-	braceChars:        "(){}[]",
 	opChars:           "^!$%&/=\\?*+~-<>|@",
 	lineCommentPrefix: "//",
 }
 
 type Tokenizer struct {
 	strLitDelimChars  string
-	braceChars        string
 	sepChars          string
 	opChars           string
 	lineCommentPrefix string
@@ -91,7 +91,7 @@ func (me *Tokenizer) tokenize(src string) (toks Tokens) {
 			tokdone(idx - 1)
 			cur.idx, cur.idxLnStart, cur.ln0, cur.kind = idx, idxln, lnnr, tokKindSep
 			tokdone(idx)
-		case strings.IndexByte(me.braceChars, c) >= 0: // a brace?
+		case strings.IndexByte(tokenizerBraceChars, c) >= 0: // a brace?
 			tokdone(idx - 1)
 			cur.idx, cur.idxLnStart, cur.ln0, cur.kind = idx, idxln, lnnr, tokKindBrace
 			tokdone(idx)
@@ -113,9 +113,12 @@ func (me *Tokenizer) tokenize(src string) (toks Tokens) {
 	return
 }
 
-func (me *Tokenizer) braceMatch(brace byte) string {
-	idx := strings.IndexByte(me.braceChars)
-	return me.braceChars[ifInt((idx%2) == 0, idx+1, idx-1):]
+func (me *Token) braceMatch() byte {
+	idx := strings.IndexByte(tokenizerBraceChars, me.src[0])
+	if idx < 0 {
+		return 0
+	}
+	return tokenizerBraceChars[ifInt((idx%2) == 0, idx+1, idx-1)]
 }
 
 func (me TokenKind) String() string {
@@ -126,7 +129,7 @@ func (me TokenKind) String() string {
 		return "IdentOp"
 	case tokKindSep:
 		return "Sep"
-	case tokKindSep:
+	case tokKindBrace:
 		return "Brace"
 	case tokKindStrLit:
 		return "StrLit"
@@ -170,12 +173,42 @@ func (me Tokens) indentLevelChunks(col0 int) (ret []Tokens) {
 	return
 }
 
-// func (me Tokens)idxClosingBrace () {
-// 	var level int
-// 	for i := range me {
-// 		if
-// 	}
-// }
+func (me Tokens) idxOfClosingBrace() int {
+	if bracematch := me[0].braceMatch(); bracematch != 0 {
+		var level int
+		for i := range me {
+			if idx := strings.IndexByte(tokenizerBraceChars, me[i].src[0]); idx < 0 || len(me[i].src) > 1 {
+				continue
+			} else if (idx % 2) == 0 {
+				level++
+			} else if (idx % 2) == 1 {
+				if level--; level == 0 && me[i].src[0] == bracematch {
+					return i
+				}
+			}
+		}
+	}
+	return -1
+}
+
+func (me Tokens) split(src string) (ret []Tokens) {
+	var idxlast int
+	var level int
+	for i := range me {
+		if idx := strings.IndexByte(tokenizerBraceChars, me[i].src[0]); idx >= 0 && (idx%2) == 0 {
+			level++
+		} else if idx >= 0 && (idx%2) == 1 {
+			level--
+		} else if level == 0 && me[i].src == src {
+			ret = append(ret, me[idxlast:i])
+			idxlast = i + 1
+		}
+	}
+	if tail := me[idxlast:]; len(tail) > 0 {
+		ret = append(ret, tail)
+	}
+	return
+}
 
 func (me Tokens) lines(joinChar byte) (ret []Tokens) {
 	var idxlast int

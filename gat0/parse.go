@@ -4,33 +4,47 @@ func parse(toks Tokens, origSrc string, srcFilePath string) (ret AstFile) {
 	ret.toks, ret.srcFilePath, ret.origSrc = toks, srcFilePath, origSrc
 	toplevel := toks.indentLevelChunks(0)
 	for _, tlchunk := range toplevel {
-		nodes := ret.parseNodes(tlchunk)
-		if len(nodes) != 0 {
-			panic(tlchunk.String(origSrc, "unexpected"))
-		}
-		ret.topLevel = append(ret.topLevel, nodes[0])
+		ret.topLevel = append(ret.topLevel, ret.parseNode(tlchunk))
 	}
 	return
+}
+
+func (me *AstFile) parseNode(toks Tokens) AstNode {
+	nodes := me.parseNodes(toks)
+	if len(nodes) > 1 {
+		panic(nodes[1].base().toks.String(me.origSrc, "unexpected"))
+	}
+	return nodes[0]
 }
 
 func (me *AstFile) parseNodes(toks Tokens) (ret []AstNode) {
 	for len(toks) > 0 {
 		var node AstNode
 		if toks[0].src == "[" || toks[0].src == "(" || toks[0].src == "{" {
-			node, toks = me.parseNodeGrouped(toks)
+			node, toks = me.parseNodeBraced(toks)
 		}
 		if node == nil {
 			panic(toks.String(me.origSrc, "unexpected"))
 		}
+		ret = append(ret, node)
 	}
 	return
 }
 
-func (me *AstFile) parseNodeGrouped(toks Tokens) (ret AstNodeBraces, tail Tokens) {
-	ret.square = (toks[0].src == "[") && (toks[len(toks)-1].src == "]")
-	ret.curly = (toks[0].src == "{") && (toks[len(toks)-1].src == "}")
-	if (toks[0].src == "(") && (toks[len(toks)-1].src != ")") && !ret.square && !ret.curly {
+func (me *AstFile) parseNodeBraced(toks Tokens) (ret AstNodeBraced, tail Tokens) {
+	ret.toks, ret.square, ret.curly = toks, (toks[0].src == "["), (toks[0].src == "{")
+	idx := toks.idxOfClosingBrace()
+	if idx <= 0 {
 		panic(toks.String(me.origSrc, "unmatched brace"))
+	}
+	ret.list, tail = me.parseNodeList(toks[1:idx], ","), toks[idx+1:]
+	return
+}
+
+func (me *AstFile) parseNodeList(toks Tokens, sep string) (ret AstNodeList) {
+	ret.toks = toks
+	for _, nodetoks := range toks.split(sep) {
+		ret.nodes = append(ret.nodes, me.parseNode(nodetoks))
 	}
 	return
 }
