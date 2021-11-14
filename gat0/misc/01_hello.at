@@ -1,6 +1,6 @@
-str: @ = "hello\nworld"
+str: ^ = "hello\nworld"
 
-c_puts: (@)·I32 = ·extern "puts"
+c_puts: (^)·I32 = ·extern "puts"
 
 main: ()·I32 = ()
     c_puts(str)

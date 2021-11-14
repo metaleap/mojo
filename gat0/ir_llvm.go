@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"io"
 )
 
 func (me *LlExprLitInt) expr() (LlType, interface{})     { return me.ty, me.value }
@@ -11,21 +11,21 @@ func (me *LlExprLitBuiltin) expr() (LlType, interface{}) { return me.ty, me.name
 func (me *LlExprRefLocal) expr() (LlType, interface{})   { return me.ty, me.name }
 func (me *LlExprRefGlobal) expr() (LlType, interface{})  { return me.ty, me.name }
 
-func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
+func llIrSrc(buf io.StringWriter, llvmIr interface{}) {
 	push := func(strs ...string) {
 		for _, s := range strs {
-			buf.WriteString(s)
+			_, _ = buf.WriteString(s)
 		}
 	}
 	switch it := llvmIr.(type) {
 
-	case *LlTypeVoid:
+	case LlTypeVoid:
 		push("void")
 
-	case *LlTypeInt:
+	case LlTypeInt:
 		push("i", itoa(it.bitWidth))
 
-	case *LlTypeFloat:
+	case LlTypeFloat:
 		switch it.bitWidth {
 		case 16:
 			push("half")
@@ -39,11 +39,11 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 			panic(it.bitWidth)
 		}
 
-	case *LlTypePtr:
+	case LlTypePtr:
 		llIrSrc(buf, it.elemTy)
 		push("*")
 
-	case *LlTypeArr:
+	case LlTypeArr:
 		push("[", itoa(it.numElems), " x ")
 		llIrSrc(buf, it.elemTy)
 		push("]")
@@ -98,7 +98,7 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 	case *LlTopLevelExtDecl:
 		push("declare ")
 		if it.intrinsic != 0 {
-			// var decl LlExtDecl
+			// var decl LlTopLevelExtDecl
 			switch it.intrinsic {
 			default:
 				panic(it.intrinsic)
@@ -159,15 +159,15 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 		}
 		push("}\n")
 
-	case *LlExprLitInt:
+	case LlExprLitInt:
 		push(itoa(it.value))
-	case *LlExprLitCStr:
+	case LlExprLitCStr:
 		push("c", strQuote(it.value))
-	case *LlExprLitBuiltin:
+	case LlExprLitBuiltin:
 		push(it.name)
-	case *LlExprRefLocal:
+	case LlExprRefLocal:
 		push("%", it.name)
-	case *LlExprRefGlobal:
+	case LlExprRefGlobal:
 		push("@", it.name)
 
 	default:

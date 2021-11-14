@@ -126,7 +126,7 @@ type LlTopLevelFuncDef struct {
 	blocks []LlBlock
 }
 
-type LlParam struct {
+type LlFuncParam struct {
 	LlNamed
 	ty LlType
 }
@@ -136,8 +136,8 @@ type LlType interface{}
 type LlTypeVoid struct{}
 
 type LlTypeFunc struct {
-	ret    LlParam
-	params []LlParam
+	ret    LlFuncParam
+	params []LlFuncParam
 }
 
 type LlTypeInt struct {

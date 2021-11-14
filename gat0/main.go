@@ -6,8 +6,10 @@ import (
 
 func main() {
 	data, _ := os.ReadFile(os.Args[1])
-	toks := tokenizer.tokenize(string(data))
-	for _, tok := range toks {
-		println(tok.String())
-	}
+	origsrc := string(data)
+	toks := tokenizer.tokenize(origsrc)
+	ast := parse(toks, origsrc, os.Args[1])
+	llvmir := ast.buildLLvmIr()
+
+	llIrSrc(os.Stdout, &llvmir)
 }
