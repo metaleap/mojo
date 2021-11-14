@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -9,8 +10,8 @@ func main() {
 	origsrc := string(data)
 	toks := tokenizer.tokenize(origsrc)
 	ast := parse(toks, origsrc, os.Args[1])
-	ir := ast.buildIr()
-	llvmir := ir.buildLLvmIr()
-
-	llIrSrc(os.Stdout, &llvmir)
+	fmt.Printf("%#v\n", ast.topLevel)
+	// ir := ast.buildIr()
+	// llvmir := ir.buildLLvmIr()
+	// llIrSrc(os.Stdout, &llvmir)
 }

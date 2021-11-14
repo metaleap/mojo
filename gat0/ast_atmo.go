@@ -28,6 +28,17 @@ type AstNodeList struct {
 	nodes []AstNode
 }
 
+type AstNodePair struct {
+	AstNodeBase
+	sep string
+	lhs AstNode
+	rhs AstNode
+}
+
+type AstNodeAtom struct {
+	AstNodeBase
+}
+
 func (me *AstFile) buildIr() (ret IrModule) {
 	ret.ast = me
 	return

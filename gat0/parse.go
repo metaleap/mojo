@@ -11,7 +11,9 @@ func parse(toks Tokens, origSrc string, srcFilePath string) (ret AstFile) {
 
 func (me *AstFile) parseNode(toks Tokens) AstNode {
 	nodes := me.parseNodes(toks)
-	if len(nodes) > 1 {
+	if len(nodes) == 0 {
+		return nil
+	} else if len(nodes) > 1 {
 		panic(nodes[1].base().toks.String(me.origSrc, "unexpected"))
 	}
 	return nodes[0]
@@ -20,8 +22,16 @@ func (me *AstFile) parseNode(toks Tokens) AstNode {
 func (me *AstFile) parseNodes(toks Tokens) (ret []AstNode) {
 	for len(toks) > 0 {
 		var node AstNode
-		if toks[0].src == "[" || toks[0].src == "(" || toks[0].src == "{" {
+		if t := &toks[0]; t.src == "[" || t.src == "(" || t.src == "{" {
 			node, toks = me.parseNodeBraced(toks)
+		} else if toks.idxAtLevel0(",") >= 0 {
+			node, toks = me.parseNodeList(toks, ","), nil
+		} else if idx := toks.idxAtLevel0("="); idx > 0 {
+			node, toks = me.parseNodePair(toks, idx), nil
+		} else if idx = toks.idxAtLevel0(":"); idx > 0 {
+			node, toks = me.parseNodePair(toks, idx), nil
+		} else if t.kind == tokKindIdentName || t.kind == tokKindNumLit || t.kind == tokKindStrLit {
+			node, toks = AstNodeAtom{AstNodeBase: AstNodeBase{toks: toks}}, toks[1:]
 		}
 		if node == nil {
 			panic(toks.String(me.origSrc, "unexpected"))
@@ -42,10 +52,17 @@ func (me *AstFile) parseNodeBraced(toks Tokens) (ret AstNodeBraced, tail Tokens)
 }
 
 func (me *AstFile) parseNodeList(toks Tokens, sep string) (ret AstNodeList) {
-	ret.toks = toks
+	ret.sep, ret.toks = sep, toks
 	for _, nodetoks := range toks.split(sep) {
 		ret.nodes = append(ret.nodes, me.parseNode(nodetoks))
 	}
+	return
+}
+
+func (me *AstFile) parseNodePair(toks Tokens, idx int) (ret AstNodePair) {
+	ret.toks = toks
+	ret.lhs = me.parseNode(toks[:idx])
+	ret.rhs = me.parseNode(toks[idx+1:])
 	return
 }
 

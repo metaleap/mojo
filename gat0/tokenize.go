@@ -9,8 +9,8 @@ const tokenizerBraceChars = "(){}[]"
 
 var tokenizer = Tokenizer{
 	strLitDelimChars:  "'\"`",
-	sepChars:          ",:;.",
-	opChars:           "^!$%&/=\\?*+~-<>|@",
+	sepChars:          ",;",
+	opChars:           ".:^!$%&/=\\?*+~-<>|@",
 	lineCommentPrefix: "//",
 }
 
@@ -153,8 +153,10 @@ func (me Tokens) String(origSrc string, maybeErrMsg string) (ret string) {
 	last := &me[len(me)-1]
 	ret = origSrc[me[0].idx : last.idx+len(last.src)]
 	if maybeErrMsg != "" {
-		ret = "L" + itoa(me[0].ln0+1) + "C" + itoa(me[0].col0()+1) + " " +
-			maybeErrMsg + ": " + ifStr(len(ret) < 44, ret, ret[:44])
+		if max := 44; len(ret) > max {
+			ret = ret[:max]
+		}
+		ret = "L" + itoa(me[0].ln0+1) + "C" + itoa(me[0].col0()+1) + " " + maybeErrMsg + ": " + ret
 	}
 	return
 }
@@ -186,6 +188,20 @@ func (me Tokens) idxOfClosingBrace() int {
 					return i
 				}
 			}
+		}
+	}
+	return -1
+}
+
+func (me Tokens) idxAtLevel0(src string) int {
+	var level int
+	for i := range me {
+		if idx := strings.IndexByte(tokenizerBraceChars, me[i].src[0]); idx >= 0 && (idx%2) == 0 {
+			level++
+		} else if idx >= 0 && (idx%2) == 1 {
+			level--
+		} else if level == 0 && me[i].src == src {
+			return i
 		}
 	}
 	return -1
