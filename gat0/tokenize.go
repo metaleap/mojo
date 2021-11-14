@@ -6,16 +6,18 @@ import (
 )
 
 var tokenizer = Tokenizer{
-	strLitDelimChars: "'\"`",
-	sepChars:         ",:;.(){}[]",
-	opChars:          "^!$%&/=\\?*+~-<>|",
+	strLitDelimChars:  "'\"`",
+	sepChars:          ",:;.(){}[]",
+	opChars:           "^!$%&/=\\?*+~-<>|",
+	lineCommentPrefix: "//",
 }
 
 type Tokenizer struct {
-	strLitDelimChars string
-	braceChars       string
-	sepChars         string
-	opChars          string
+	strLitDelimChars  string
+	braceChars        string
+	sepChars          string
+	opChars           string
+	lineCommentPrefix string
 }
 
 type Token struct {
@@ -70,6 +72,9 @@ func (me *Tokenizer) tokenize(src string) (toks []Token) {
 				idx-- // revisit cur char
 				continue
 			}
+		case strings.HasPrefix(src[idx:], me.lineCommentPrefix): // start of comment?
+			tokdone(idx - 1)
+			cur.idx, cur.idxLn, cur.lnNr, cur.kind = idx, idxln, lnnr, tokKindComment
 		case c >= '0' && c <= '9': // start of number?
 			tokdone(idx - 1)
 			cur.idx, cur.idxLn, cur.lnNr, cur.kind = idx, idxln, lnnr, tokKindNumLit
