@@ -318,6 +318,29 @@ type LlInstrCall struct {
 	args     []LlExpr
 }
 
-type LlExpr interface {
-	ty() LlType
+type LlExpr interface{}
+
+type LlExprLitInt struct {
+	ty    LlType
+	value int
+}
+
+type LlExprLitFloat struct {
+	ty    LlType
+	value float64
+}
+
+type LlExprLitCStr struct {
+	ty    LlType
+	value string
+}
+
+type LlExprRefGlobal struct {
+	ty   LlType
+	name string
+}
+
+type LlExprRefLocal struct {
+	ty   LlType
+	name string
 }
