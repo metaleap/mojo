@@ -128,6 +128,8 @@ type LlParam struct {
 
 type LlType interface{}
 
+type LlTypeVoid struct{}
+
 type LlTypeFunc struct {
 	ret  LlParam
 	args []LlParam

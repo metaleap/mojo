@@ -68,6 +68,20 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 		push(")\n")
 
 	case *LlFuncDef:
+		push("define ")
+		fnty := &it.ty
+		llIrSrc(buf, fnty.ret.ty)
+		push(" @", it.name, "(")
+		for i := range fnty.args {
+			if i > 0 {
+				push(", ")
+			}
+			llIrSrc(buf, fnty.args[i].ty)
+			push(" %", fnty.args[i].name)
+		}
+		push(") {\n")
+
+		push("}\n")
 
 	default:
 		panic(it)
