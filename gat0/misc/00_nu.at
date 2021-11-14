@@ -3,7 +3,7 @@ userName := .env("USER")
 
 
 main :=
-	\ i := 0, i < 10
+	\ i < 10, i := 0
 		myProg userName
 		i = i+1
 	<- 0

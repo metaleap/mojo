@@ -90,6 +90,9 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 			push(" ")
 			llIrSrc(buf, it.init)
 		}
+		if it.comment != "" {
+			push("\t\t; ", it.comment)
+		}
 		push("\n")
 
 	case *LlTopLevelExtDecl:
@@ -112,7 +115,11 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 			}
 			llIrSrc(buf, fnty.params[i].ty)
 		}
-		push(")\n")
+		push(")")
+		if it.comment != "" {
+			push("\t\t; ", it.comment)
+		}
+		push("\n")
 
 	case *LlTopLevelFuncDef:
 		push("define ")
@@ -126,18 +133,42 @@ func llIrSrc(buf *bytes.Buffer, llvmIr interface{}) {
 			llIrSrc(buf, fnty.params[i].ty)
 			push(" %", fnty.params[i].name)
 		}
-		push(") {\n")
+		push(") {")
+		if it.comment != "" {
+			push("\t\t; ", it.comment)
+		}
+		push("\n")
 		for _, block := range it.blocks {
 			if name := block.name; name != "" {
-				push("  ", name, ":\n")
+				push("  ", name, ":")
+				if block.comment != "" {
+					push("\t\t; ", block.comment)
+				}
+				push("\n")
 			}
 			for i := range block.instrs {
 				push("    ")
-				llIrSrc(buf, &block.instrs[i])
+				llIrSrc(buf, block.instrs[i])
+				if commented, ok := block.instrs[i].(interface{ commented() string }); ok && commented != nil {
+					if comment := commented.commented(); comment != "" {
+						push("\t\t; ", comment)
+					}
+				}
 				push("\n")
 			}
 		}
 		push("}\n")
+
+	case *LlExprLitInt:
+		push(itoa(it.value))
+	case *LlExprLitCStr:
+		push("c", strQuote(it.value))
+	case *LlExprLitBuiltin:
+		push(it.name)
+	case *LlExprRefLocal:
+		push("%", it.name)
+	case *LlExprRefGlobal:
+		push("@", it.name)
 
 	default:
 		panic(it)

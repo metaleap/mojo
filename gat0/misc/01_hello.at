@@ -2,5 +2,6 @@ str: @ = "hello\nworld"
 
 c_puts: (@)·I32 = ·extern "puts"
 
-main: ()·I32 =
-    ·ret c_puts(str)
+main: ()·I32 = ()
+    c_puts(str)
+    ·ret 0

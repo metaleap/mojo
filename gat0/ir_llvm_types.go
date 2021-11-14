@@ -106,21 +106,24 @@ type LlTopLevel struct {
 
 type LlTopLevelGlobalVar struct {
 	LlNamed
+	LlCommented
 	constant bool
 	init     LlExpr
 	ty       LlType
 }
 
-type LlTopLevelFuncDef struct {
-	LlNamed
-	ty     LlTypeFunc
-	blocks []LlBlock
-}
-
 type LlTopLevelExtDecl struct {
 	LlNamed
+	LlCommented
 	intrinsic LlIntrinsic
 	ty        LlType // unless intrinsic, must be *LlTypeFunc
+}
+
+type LlTopLevelFuncDef struct {
+	LlNamed
+	LlCommented
+	ty     LlTypeFunc
+	blocks []LlBlock
 }
 
 type LlParam struct {
@@ -160,6 +163,7 @@ type LlTypeStruct struct {
 
 type LlBlock struct {
 	LlNamed
+	LlCommented
 	instrs []LlInstr
 }
 

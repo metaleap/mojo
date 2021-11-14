@@ -5,6 +5,7 @@ import (
 )
 
 var itoa = strconv.Itoa
+var strQuote = strconv.Quote
 
 func ifStr(cond bool, ifTrue string, ifFalse string) string {
 	if cond {
