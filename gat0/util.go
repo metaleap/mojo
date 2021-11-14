@@ -13,3 +13,10 @@ func ifStr(cond bool, ifTrue string, ifFalse string) string {
 	}
 	return ifFalse
 }
+
+func ifInt(cond bool, ifTrue int, ifFalse int) int {
+	if cond {
+		return ifTrue
+	}
+	return ifFalse
+}

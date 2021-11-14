@@ -9,7 +9,8 @@ func main() {
 	origsrc := string(data)
 	toks := tokenizer.tokenize(origsrc)
 	ast := parse(toks, origsrc, os.Args[1])
-	llvmir := ast.buildLLvmIr()
+	ir := ast.buildIr()
+	llvmir := ir.buildLLvmIr()
 
 	llIrSrc(os.Stdout, &llvmir)
 }

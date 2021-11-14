@@ -1,11 +1,33 @@
 package main
 
-type AstProg struct {
+type AstFile struct {
 	srcFilePath string
+	origSrc     string
 	toks        Tokens
+	topLevel    []AstNode
 }
 
-func (me *AstProg) buildLLvmIr() (ret LlTopLevel) {
-	ret.source_filename = me.srcFilePath
+type AstNode interface{}
+
+type AstNodeBase struct {
+	toks Tokens
+}
+
+func (me *AstNodeBase) base() *AstNodeBase { return me }
+
+type AstNodeCommaSeparated struct {
+	AstNodeBase
+	nodes []AstNode
+}
+
+type AstNodeBraces struct {
+	AstNodeBase
+	square bool
+	curly  bool
+	list   AstNodeCommaSeparated
+}
+
+func (me *AstFile) buildIr() (ret IrModule) {
+	ret.ast = me
 	return
 }

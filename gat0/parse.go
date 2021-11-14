@@ -1,5 +1,40 @@
 package main
 
+func parse(toks Tokens, origSrc string, srcFilePath string) (ret AstFile) {
+	ret.toks, ret.srcFilePath, ret.origSrc = toks, srcFilePath, origSrc
+	toplevel := toks.indentLevelChunks(0)
+	for _, tlchunk := range toplevel {
+		nodes := ret.parseNodes(tlchunk)
+		if len(nodes) != 0 {
+			panic(tlchunk.String(origSrc, "unexpected"))
+		}
+		ret.topLevel = append(ret.topLevel, nodes[0])
+	}
+	return
+}
+
+func (me *AstFile) parseNodes(toks Tokens) (ret []AstNode) {
+	for len(toks) > 0 {
+		var node AstNode
+		if toks[0].src == "[" || toks[0].src == "(" || toks[0].src == "{" {
+			node, toks = me.parseNodeGrouped(toks)
+		}
+		if node == nil {
+			panic(toks.String(me.origSrc, "unexpected"))
+		}
+	}
+	return
+}
+
+func (me *AstFile) parseNodeGrouped(toks Tokens) (ret AstNodeBraces, tail Tokens) {
+	ret.square = (toks[0].src == "[") && (toks[len(toks)-1].src == "]")
+	ret.curly = (toks[0].src == "{") && (toks[len(toks)-1].src == "}")
+	if (toks[0].src == "(") && (toks[len(toks)-1].src != ")") && !ret.square && !ret.curly {
+		panic(toks.String(me.origSrc, "unmatched brace"))
+	}
+	return
+}
+
 /*
 L1 C1 'IdentName'>>>>str<<<<
 L1 C4 'Sep'>>>>:<<<<
@@ -30,16 +65,3 @@ L6 C15 'Sep'>>>>)<<<<
 L7 C5 'IdentName'>>>>·ret<<<<
 L7 C11 'NumLit'>>>>0<<<<
 */
-
-func parse(toks Tokens, origSrc string, srcFilePath string) (ret AstProg) {
-	ret.toks, ret.srcFilePath = toks, srcFilePath
-	toplevel := toks.indentLevelChunks(0)
-	for _, tlchunk := range toplevel {
-		ret.parseTopLevel(tlchunk)
-	}
-	return
-}
-
-func (me *AstProg) parseTopLevel(tl Tokens) {
-
-}

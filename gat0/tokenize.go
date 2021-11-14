@@ -7,7 +7,8 @@ import (
 
 var tokenizer = Tokenizer{
 	strLitDelimChars:  "'\"`",
-	sepChars:          ",:;.(){}[]",
+	sepChars:          ",:;.",
+	braceChars:        "(){}[]",
 	opChars:           "^!$%&/=\\?*+~-<>|@",
 	lineCommentPrefix: "//",
 }
@@ -36,6 +37,7 @@ const (
 	tokKindIdentName
 	tokKindIdentOp
 	tokKindSep
+	tokKindBrace
 	tokKindStrLit
 	tokKindNumLit
 	tokKindComment
@@ -89,6 +91,10 @@ func (me *Tokenizer) tokenize(src string) (toks Tokens) {
 			tokdone(idx - 1)
 			cur.idx, cur.idxLnStart, cur.ln0, cur.kind = idx, idxln, lnnr, tokKindSep
 			tokdone(idx)
+		case strings.IndexByte(me.braceChars, c) >= 0: // a brace?
+			tokdone(idx - 1)
+			cur.idx, cur.idxLnStart, cur.ln0, cur.kind = idx, idxln, lnnr, tokKindBrace
+			tokdone(idx)
 		case strings.IndexByte(me.opChars, c) >= 0: // start of opish ident?
 			tokdone(idx - 1)
 			cur.idx, cur.idxLnStart, cur.ln0, cur.kind = idx, idxln, lnnr, tokKindIdentOp
@@ -107,6 +113,11 @@ func (me *Tokenizer) tokenize(src string) (toks Tokens) {
 	return
 }
 
+func (me *Tokenizer) braceMatch(brace byte) string {
+	idx := strings.IndexByte(me.braceChars)
+	return me.braceChars[ifInt((idx%2) == 0, idx+1, idx-1):]
+}
+
 func (me TokenKind) String() string {
 	switch me {
 	case tokKindIdentName:
@@ -115,6 +126,8 @@ func (me TokenKind) String() string {
 		return "IdentOp"
 	case tokKindSep:
 		return "Sep"
+	case tokKindSep:
+		return "Brace"
 	case tokKindStrLit:
 		return "StrLit"
 	case tokKindNumLit:
@@ -133,9 +146,14 @@ func (me *Token) String() string {
 	return fmt.Sprintf("L%d C%d '%s'>>>>%s<<<<", me.ln0+1, me.col0()+1, me.kind.String(), me.src)
 }
 
-func (me Tokens) String(origSrc string) string {
+func (me Tokens) String(origSrc string, maybeErrMsg string) (ret string) {
 	last := &me[len(me)-1]
-	return origSrc[me[0].idx : last.idx+len(last.src)]
+	ret = origSrc[me[0].idx : last.idx+len(last.src)]
+	if maybeErrMsg != "" {
+		ret = "L" + itoa(me[0].ln0+1) + "C" + itoa(me[0].col0()+1) + " " +
+			maybeErrMsg + ": " + ifStr(len(ret) < 44, ret, ret[:44])
+	}
+	return
 }
 
 func (me Tokens) indentLevelChunks(col0 int) (ret []Tokens) {
@@ -151,6 +169,13 @@ func (me Tokens) indentLevelChunks(col0 int) (ret []Tokens) {
 	}
 	return
 }
+
+// func (me Tokens)idxClosingBrace () {
+// 	var level int
+// 	for i := range me {
+// 		if
+// 	}
+// }
 
 func (me Tokens) lines(joinChar byte) (ret []Tokens) {
 	var idxlast int
