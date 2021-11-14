@@ -117,8 +117,8 @@ type LlFuncDef struct {
 
 type LlExtDecl struct {
 	LlNamed
-	ty        LlTypeFunc
 	intrinsic LlIntrinsic
+	ty        LlType // unless intrinsic, must be *LlTypeFunc
 }
 
 type LlParam struct {
