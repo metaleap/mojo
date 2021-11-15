@@ -23,7 +23,9 @@ func (me *AstFile) parseNode(toks Tokens) AstNode {
 	if len(nodes) == 0 {
 		return nil
 	} else if len(nodes) > 1 {
-		return AstNodeList{AstNodeBase: AstNodeBase{toks: toks}, nodes: nodes}
+		node := AstNodeList{AstNodeBase: AstNodeBase{toks: toks}, nodes: nodes}
+		node.treeifyByIndents(me)
+		return node
 	}
 	return nodes[0]
 }
@@ -50,7 +52,7 @@ func (me *AstFile) parseNodes(toks Tokens) (ret []AstNode) {
 		} else if toks.anyAtLevel0(parsingOpsBitwise...) {
 			node, toks = me.parseNodeList(toks, parsingOpsBitwise...), nil
 		} else {
-			node, toks = AstNodeAtom{AstNodeBase: AstNodeBase{toks: toks}}, toks[1:]
+			node, toks = AstNodeAtom{AstNodeBase: AstNodeBase{toks: toks[:1]}}, toks[1:]
 		}
 		if node != nil {
 			ret = append(ret, node)

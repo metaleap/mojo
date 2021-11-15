@@ -230,6 +230,15 @@ func (me Tokens) anyAtLevel0(strs ...string) bool {
 	return false
 }
 
+func (me Tokens) firstInLn0(ln0 int) *Token {
+	for i := range me {
+		if t := &me[i]; t.ln0 == ln0 {
+			return t
+		}
+	}
+	return nil
+}
+
 func (me Tokens) idxAtLevel0(src string) int {
 	var level int
 	for i := range me {

@@ -1,9 +1,7 @@
 // str: @ = "hello\nworld"
 
-// foo is bar
-// baz is foo
-c_puts: (@)·I32 = ·extern("puts")
+// c_puts: (@)·I32 = ·extern("puts")
 
-// main: ()·I32 = () // noice
-//     c_puts(str)
-//     ·ret(0)
+main: ()·I32 = () // noice
+    c_puts(str)
+    ·ret(0)
