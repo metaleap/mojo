@@ -160,6 +160,7 @@ func (me Tokens) String(origSrc string, maybeErrMsg string) (ret string) {
 			}
 			ret += me[i].src + " "
 		}
+		ret = strings.TrimSpace(ret)
 	}
 	if maybeErrMsg != "" {
 		if max := 44; len(ret) > max {
@@ -173,13 +174,22 @@ func (me Tokens) String(origSrc string, maybeErrMsg string) (ret string) {
 func (me Tokens) indentLevelChunks(col0 int) (ret []Tokens) {
 	var idxchunk int
 	for i := range me {
-		if i > 0 && me[i].col0() == col0 && me[i].kind != tokKindComment {
+		if i > 0 && me[i].col0() == col0 {
 			ret = append(ret, me[idxchunk:i])
 			idxchunk = i
 		}
 	}
 	if tail := me[idxchunk:]; len(tail) > 0 {
 		ret = append(ret, tail)
+	}
+	// stitch full-line comment lines together, and prefix them to where they should be
+	for i := 0; i < len(ret)-1; i++ {
+		if ret[i][len(ret[i])-1].kind == tokKindComment &&
+			ret[i+1][0].ln0 == ret[i][len(ret[i])-1].ln0+1 {
+			ret[i+1] = append(ret[i], ret[i+1]...)
+			ret = append(ret[:i], ret[i+1:]...)
+			i--
+		}
 	}
 	return
 }

@@ -9,9 +9,11 @@ var (
 
 func parse(toks Tokens, origSrc string, srcFilePath string) (ret AstFile) {
 	ret.toks, ret.srcFilePath, ret.origSrc = toks, srcFilePath, origSrc
-	toplevel := toks.indentLevelChunks(0)
-	for _, tlchunk := range toplevel {
-		ret.topLevel = append(ret.topLevel, ret.parseNode(tlchunk))
+	toplevelchunks := toks.indentLevelChunks(0)
+	for _, tlc := range toplevelchunks {
+		if node := ret.parseNode(tlc); node != nil {
+			ret.topLevel = append(ret.topLevel, node)
+		}
 	}
 	return
 }
@@ -29,7 +31,9 @@ func (me *AstFile) parseNode(toks Tokens) AstNode {
 func (me *AstFile) parseNodes(toks Tokens) (ret []AstNode) {
 	for len(toks) > 0 {
 		var node AstNode
-		if t := &toks[0]; t.src == "[" || t.src == "(" || t.src == "{" {
+		if t := &toks[0]; t.kind == tokKindComment {
+			toks = toks[1:]
+		} else if t.src == "[" || t.src == "(" || t.src == "{" {
 			node, toks = me.parseNodeBraced(toks)
 		} else if toks.idxAtLevel0(",") >= 0 {
 			node, toks = me.parseNodeList(toks, ","), nil
@@ -48,7 +52,9 @@ func (me *AstFile) parseNodes(toks Tokens) (ret []AstNode) {
 		} else {
 			node, toks = AstNodeAtom{AstNodeBase: AstNodeBase{toks: toks}}, toks[1:]
 		}
-		ret = append(ret, node)
+		if node != nil {
+			ret = append(ret, node)
+		}
 	}
 	return
 }
@@ -73,7 +79,7 @@ func (me *AstFile) parseNodeList(toks Tokens, seps ...string) (ret AstNodeList) 
 }
 
 func (me *AstFile) parseNodePair(toks Tokens, idx int) (ret AstNodePair) {
-	ret.toks = toks
+	ret.toks, ret.sep = toks, toks[idx].src
 	ret.lhs = me.parseNode(toks[:idx])
 	ret.rhs = me.parseNode(toks[idx+1:])
 	return
