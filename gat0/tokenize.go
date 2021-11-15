@@ -10,7 +10,7 @@ const tokenizerBraceChars = "(){}[]"
 var tokenizer = Tokenizer{
 	strLitDelimChars:  "'\"`",
 	sepChars:          ",;",
-	opChars:           ".:^!$%&/=\\?*+~-<>|@",
+	opChars:           ".:$\\?@=<>!&|~^+-*/%",
 	lineCommentPrefix: "//",
 }
 
@@ -151,7 +151,16 @@ func (me *Token) String() string {
 
 func (me Tokens) String(origSrc string, maybeErrMsg string) (ret string) {
 	last := &me[len(me)-1]
-	ret = origSrc[me[0].idx : last.idx+len(last.src)]
+	if len(origSrc) > 0 {
+		ret = origSrc[me[0].idx : last.idx+len(last.src)]
+	} else {
+		for i := range me {
+			if i > 0 && me[i].ln0 != me[i-1].ln0 {
+				ret += "\n"
+			}
+			ret += me[i].src + " "
+		}
+	}
 	if maybeErrMsg != "" {
 		if max := 44; len(ret) > max {
 			ret = ret[:max]
@@ -193,6 +202,24 @@ func (me Tokens) idxOfClosingBrace() int {
 	return -1
 }
 
+func (me Tokens) anyAtLevel0(strs ...string) bool {
+	var level int
+	for i := range me {
+		if idx := strings.IndexByte(tokenizerBraceChars, me[i].src[0]); idx >= 0 && (idx%2) == 0 {
+			level++
+		} else if idx >= 0 && (idx%2) == 1 {
+			level--
+		} else if level == 0 {
+			for _, s := range strs {
+				if me[i].src == s {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (me Tokens) idxAtLevel0(src string) int {
 	var level int
 	for i := range me {
@@ -207,7 +234,7 @@ func (me Tokens) idxAtLevel0(src string) int {
 	return -1
 }
 
-func (me Tokens) split(src string) (ret []Tokens) {
+func (me Tokens) split(seps ...string) (ret []Tokens, sep string) {
 	var idxlast int
 	var level int
 	for i := range me {
@@ -215,9 +242,22 @@ func (me Tokens) split(src string) (ret []Tokens) {
 			level++
 		} else if idx >= 0 && (idx%2) == 1 {
 			level--
-		} else if level == 0 && me[i].src == src {
-			ret = append(ret, me[idxlast:i])
-			idxlast = i + 1
+		} else if level == 0 {
+			var is bool
+			for _, s := range seps {
+				if is := (me[i].src == s); is {
+					if sep == "" {
+						sep = s
+					} else if sep != s {
+						panic(me.String("", "parenthesize to disambiguate precedence of '"+sep+"' vs. '"+s+"'"))
+					}
+					break
+				}
+			}
+			if is {
+				ret = append(ret, me[idxlast:i])
+				idxlast = i + 1
+			}
 		}
 	}
 	if tail := me[idxlast:]; len(tail) > 0 {

@@ -1,5 +1,12 @@
 package main
 
+var (
+	parsingOpsNumeric         = []string{"+", "-", "*", "/", "%"}
+	parsingOpsShortcircuiting = []string{"&&", "||"}
+	parsingOpsBitwise         = []string{"!", "&", "|", "~", "^", "<<", ">>"}
+	parsingOpsCmp             = []string{"<", ">", "==", "!=", ">=", "<="}
+)
+
 func parse(toks Tokens, origSrc string, srcFilePath string) (ret AstFile) {
 	ret.toks, ret.srcFilePath, ret.origSrc = toks, srcFilePath, origSrc
 	toplevel := toks.indentLevelChunks(0)
@@ -14,7 +21,7 @@ func (me *AstFile) parseNode(toks Tokens) AstNode {
 	if len(nodes) == 0 {
 		return nil
 	} else if len(nodes) > 1 {
-		panic(nodes[1].base().toks.String(me.origSrc, "unexpected"))
+		return AstNodeList{AstNodeBase: AstNodeBase{toks: toks}, nodes: nodes}
 	}
 	return nodes[0]
 }
@@ -30,11 +37,16 @@ func (me *AstFile) parseNodes(toks Tokens) (ret []AstNode) {
 			node, toks = me.parseNodePair(toks, idx), nil
 		} else if idx = toks.idxAtLevel0(":"); idx > 0 {
 			node, toks = me.parseNodePair(toks, idx), nil
-		} else if t.kind == tokKindIdentName || t.kind == tokKindNumLit || t.kind == tokKindStrLit {
+		} else if toks.anyAtLevel0(parsingOpsShortcircuiting...) {
+			node, toks = me.parseNodeList(toks, parsingOpsShortcircuiting...), nil
+		} else if toks.anyAtLevel0(parsingOpsCmp...) {
+			node, toks = me.parseNodeList(toks, parsingOpsCmp...), nil
+		} else if toks.anyAtLevel0(parsingOpsNumeric...) {
+			node, toks = me.parseNodeList(toks, parsingOpsNumeric...), nil
+		} else if toks.anyAtLevel0(parsingOpsBitwise...) {
+			node, toks = me.parseNodeList(toks, parsingOpsBitwise...), nil
+		} else {
 			node, toks = AstNodeAtom{AstNodeBase: AstNodeBase{toks: toks}}, toks[1:]
-		}
-		if node == nil {
-			panic(toks.String(me.origSrc, "unexpected"))
 		}
 		ret = append(ret, node)
 	}
@@ -51,9 +63,10 @@ func (me *AstFile) parseNodeBraced(toks Tokens) (ret AstNodeBraced, tail Tokens)
 	return
 }
 
-func (me *AstFile) parseNodeList(toks Tokens, sep string) (ret AstNodeList) {
+func (me *AstFile) parseNodeList(toks Tokens, seps ...string) (ret AstNodeList) {
+	tokss, sep := toks.split(seps...)
 	ret.sep, ret.toks = sep, toks
-	for _, nodetoks := range toks.split(sep) {
+	for _, nodetoks := range tokss {
 		ret.nodes = append(ret.nodes, me.parseNode(nodetoks))
 	}
 	return
