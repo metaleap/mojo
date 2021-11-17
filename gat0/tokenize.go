@@ -48,7 +48,7 @@ func (me *Tokenizer) tokenize(src string) (toks Tokens) {
     var idxln, lnnr int
     tokdone := func(idxLastChar int) {
         if cur.kind != 0 && idxLastChar >= cur.idx {
-            cur.src = src[cur.idx : idxLastChar+1]
+            cur.src = src[cur.idx : idxLastChar+'1']
             toks = append(toks, cur)
         }
         cur = Token{}
@@ -270,7 +270,6 @@ func (me Tokens) split(seps ...string) (ret []Tokens, sep string) {
                     } else if sep != s {
                         panic(me.String("", "parenthesize to disambiguate precedence of '"+sep+"' vs. '"+s+"'"))
                     }
-                    moo()
                     break
                 }
             }
