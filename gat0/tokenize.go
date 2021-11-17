@@ -270,6 +270,7 @@ func (me Tokens) split(seps ...string) (ret []Tokens, sep string) {
                     } else if sep != s {
                         panic(me.String("", "parenthesize to disambiguate precedence of '"+sep+"' vs. '"+s+"'"))
                     }
+                    moo()
                     break
                 }
             }
